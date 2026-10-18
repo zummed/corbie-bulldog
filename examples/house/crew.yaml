@@ -1,0 +1,13 @@
+# The steward's colleagues: workers of the house, each used as a tool.
+fixer:
+  does: Mend something in the house. Say what is wrong and where
+  args: { job: string }
+  job: { machine: ./fixer.yaml, input: { said: "${args.job}" } }
+clerk:
+  does: Money and orders. What was spent, what is owed and what is on its way
+  args: { question: string }
+  job: { machine: ./clerk.yaml, input: { said: "${args.question}" } }
+builder:
+  does: Change how the house is run, its workers, rules and routines. Say what is wanted and why
+  args: { wanted: string }
+  job: { machine: ./builder.yaml, input: { said: "${args.wanted}" } }

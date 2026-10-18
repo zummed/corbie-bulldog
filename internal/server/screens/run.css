@@ -1,0 +1,32 @@
+/* Run: a run's events, its colleagues' runs indented beneath it. */
+.run-view .run-title { display: inline-flex; align-items: center; gap: 0 8px; flex-wrap: wrap; }
+.run-view .run-machine { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; }
+.run-view .run-machine .ic { width: 26px; height: 26px; font-size: 11px; }
+.run-view .run-name { word-break: break-all; }
+
+.run-view .events .row { flex-wrap: nowrap; gap: 0 12px; }
+.run-view .events .ev { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; flex: 1 1 auto; min-width: 0; }
+.run-view .events .ev.d2 { padding-left: 48px; }
+.run-view .events .ev.d3 { padding-left: 72px; }
+.run-view .events .ev.d4 { padding-left: 96px; }
+.run-view .events .m { width: 112px; overflow: hidden; }
+.run-view .events .m .who, .run-view .events .n .who { max-width: 100%; }
+.run-view .events .m .who > span:last-child, .run-view .events .n .who > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run-view .events .to { width: 12px; flex: none; color: var(--ink3); text-align: center; }
+.run-view .events .n { width: 140px; flex: none; min-width: 0; overflow-wrap: anywhere; }
+.run-view .events .ask .n { width: auto; flex: 0 1 auto; }
+.run-view .events .x details > summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run-view .events .x details > pre { margin: 6px 0 4px; padding: 8px 10px; background: var(--sheet); border: 1px solid var(--line); overflow-x: auto; white-space: pre; word-break: normal; }
+.run-view .events .x .why { margin-top: 6px; color: var(--bad); }
+.run-view .events .x .why dd { overflow-wrap: anywhere; }
+.run-view .events .ended .x { color: var(--ink2); }
+.run-view .events .ended.failed .k, .run-view .events .ended.failed .x { color: var(--bad); }
+.run-view .events .failed .x { color: var(--bad); }
+
+@media (max-width: 640px) {
+  .run-view .events .t { width: 44px; }
+  .run-view .events .m, .run-view .events .n { width: auto; }
+  .run-view .events .ev.nest { padding-left: 12px; }
+  .run-view .events .ev.d2 { padding-left: 24px; }
+  .run-view .events .ev.d3, .run-view .events .ev.d4 { padding-left: 36px; }
+}

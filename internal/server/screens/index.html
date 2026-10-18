@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bulldog</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/desk.css">
+<link rel="stylesheet" href="/static/requests.css">
+<link rel="stylesheet" href="/static/request.css">
+<link rel="stylesheet" href="/static/run.css">
+<link rel="stylesheet" href="/static/teams.css">
+<link rel="stylesheet" href="/static/team.css">
+<link rel="stylesheet" href="/static/worker.css">
+<link rel="stylesheet" href="/static/changes.css">
+<header class="top">
+  <a class="brand" id="office" href="#/">Bulldog</a>
+  <nav class="nav" aria-label="Screens">
+    <a href="#/" data-nav="desk">Desk</a>
+    <a href="#/requests" data-nav="requests">Requests</a>
+    <a href="#/teams" data-nav="teams">Teams</a>
+    <a href="#/changes" data-nav="changes" id="changes-link" hidden>Changes</a>
+  </nav>
+  <a class="whoami" id="me" href="#/me"></a>
+</header>
+<div class="notice">
+  <div id="said" role="status"></div>
+  <div id="trouble" role="alert"></div>
+  <div class="stale" id="stale" hidden><span>This has changed.</span><button class="btn sm ghost" id="stale-show">Show it</button></div>
+</div>
+<main id="main"></main>
+<script src="/static/core.js"></script>
+<script src="/static/desk.js"></script>
+<script src="/static/requests.js"></script>
+<script src="/static/request.js"></script>
+<script src="/static/run.js"></script>
+<script src="/static/teams.js"></script>
+<script src="/static/team.js"></script>
+<script src="/static/worker.js"></script>
+<script src="/static/changes.js"></script>
+<script src="/static/me.js"></script>
+<script src="/static/app.js"></script>
+</html>

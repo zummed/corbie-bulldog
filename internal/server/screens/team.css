@@ -1,0 +1,49 @@
+/* team: one team, its walls around who is in it and how it is written. */
+
+/* The head: the name, its Requests, and what it is about beneath */
+.te .head { row-gap: 4px; }
+.te .head h1 { flex: 0 1 auto; }
+.te-reqs { font-size: 14px; font-weight: 500; }
+.te-about { flex: 1 1 100%; order: 3; font: var(--data)/1.5 var(--mono); color: var(--ink2); }
+
+/* The team's room: its rows, then its workers and authorisation */
+.te-room { display: flex; flex-direction: column; gap: var(--space); }
+.te-room > .kv { row-gap: 10px; }
+.te-room .sect > .label { margin-bottom: 8px; }
+.te-people, .te-inside { gap: 6px 14px; }
+.te-more { gap: 6px; }
+
+/* Workers: one line each */
+.te-workers td { vertical-align: middle; white-space: nowrap; }
+.te-wname { gap: 4px 10px; flex-wrap: nowrap; }
+.te-clip { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.te-file { max-width: 160px; }
+.te-model { max-width: 200px; }
+.te-from { display: block; font-size: var(--small); }
+.te-tools { white-space: nowrap; }
+.te-tool { white-space: nowrap; }
+.te-lock { width: 14px; height: 14px; vertical-align: -2px; margin-left: 2px; color: var(--ink2); }
+.te-lock svg { width: 12px; height: 12px; }
+.te-plus { font-family: var(--mono); color: var(--ink2); }
+.te-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.te-search { margin-bottom: 10px; }
+.te-found { display: flex; flex-direction: column; gap: 8px; }
+
+/* Authorisation and models: a key, then what it names */
+.te-key { flex: none; min-width: 120px; color: var(--ink); }
+.row.te-mrow { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); gap: 4px 14px; }
+.te-mrow .te-key { min-width: 64px; }
+
+/* The side's lists */
+.row.te-rt { display: grid; grid-template-columns: 82px minmax(0, 1fr) auto; gap: 2px 12px; padding: 6px 0; }
+.row.te-rt .te-say { grid-column: 1 / -1; color: var(--ink2); }
+.te-at { color: var(--ink2); }
+.te-to { display: flex; min-width: 0; }
+.te-say { font: var(--data) var(--mono); min-width: 0; }
+.row.te-run { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 12px; }
+.te-problem { color: var(--bad); font: var(--data)/1.5 var(--mono); align-items: baseline; }
+.te-problem::before { content: ""; width: 7px; height: 7px; border-radius: 1px; background: var(--bad); flex: none; align-self: center; }
+.te-note > details { width: 100%; }
+.te-note summary { padding: 2px 0; }
+.te-note pre { margin: 8px 0 10px 14px; padding: 10px 12px; background: var(--sheet); border: 1px solid var(--line); color: var(--ink); }
+

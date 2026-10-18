@@ -1,0 +1,20 @@
+# The ask Bulldog ships. Corbie starts it when it holds a job for a yes,
+# telling it which machine asks and the jobs it holds. It only waits:
+# Bulldog asks the deciders, and answers its ticket with what they decided,
+# as { approve: [the jobs that may run], note }.
+#
+# A worker Bulldog starts at the top names it as its ask when anything it
+# runs can be held:
+#   ask: { machine: ./.bulldog/ask.yaml }
+statechart: ask
+input: [asking, jobs]
+initial: asking
+states:
+  asking:
+    ticket: decided
+    timers: { unanswered: 7d }
+    on: { decided: decided, unanswered: unanswered }
+  decided: { end: done, output: "${event.data}" }
+  unanswered:
+    end: done
+    output: { approve: [], note: "Nobody decided within 7 days, so it was not done. Ask again if it is still wanted." }

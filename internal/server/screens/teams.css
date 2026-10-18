@@ -1,0 +1,37 @@
+/* teams: the tree of teams in the top team's room, and the people. */
+.tm { display: flex; flex-direction: column; gap: var(--space); }
+.tm .head { margin-bottom: 0; }
+.tm .sect > .search { margin-bottom: 10px; }
+
+/* The top team's room: its own people and taker, then its teams */
+.tm-room > .kv { margin-bottom: var(--gap); }
+.tm-room .plate .tag { color: var(--paper); border-color: var(--ink3); }
+
+/* One team on one line */
+.row.tm-team { display: grid; grid-template-columns: 22px fit-content(36%) minmax(0, 1fr) 118px minmax(0, 170px) 52px; gap: 4px 14px; align-items: center; }
+.row.tm-team.tm-flat { grid-template-columns: fit-content(46%) minmax(0, 1fr) 118px minmax(0, 170px) 52px; }
+.tm-mine { text-align: right; }
+
+/* A name too long for its column ends in an ellipsis */
+.tm-cut { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.tm-cut .who { min-width: 0; flex: 0 1 auto; }
+.tm-cut .who > span:last-child, .tm-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-path { flex: 0 3 auto; }
+
+/* Faces: up to four people, overlapping, their names read aloud only */
+.tm-ppl { display: inline-flex; align-items: center; min-width: 0; }
+.tm-face + .tm-face { margin-left: -5px; }
+.tm-face > span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.tm-more { margin-left: 6px; }
+
+/* People: name, title, teams, bridges */
+.row.tm-person { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 160px); gap: 4px 14px; }
+
+.tm-page { gap: 6px; }
+
+@media (max-width: 720px) {
+  .row.tm-team, .row.tm-team.tm-flat, .row.tm-person { display: flex; }
+  .tm-team .tm-about { flex: 1 1 100%; order: 9; }
+  .tm-team .tm-mine { margin-left: auto; }
+  .tm-person > span:nth-child(2) { flex: 1 1 100%; order: 9; }
+}

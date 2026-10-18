@@ -1,0 +1,81 @@
+# Bridges
+
+A bridge is where things come in and go out. Bulldog speaks to no outside service: Slack, Telegram, GitLab and Jira are each reached by a bridge, which is a folder of two ordinary Corbie definitions that Corbie runs like any worker. The built-in chat, on the screens, is the one bridge that needs no files. This area is the contract between Bulldog and a bridge, the places a bridge listens in, the bridges Bulldog ships, who a speaker is, and how a thing is delivered once. Most people never sign in: they live in their bridges, where they ask, are answered and decide.
+
+## A bridge is two machines
+
+A bridge folder holds an **in machine**, `in.yaml`, and an **out machine**, `out.yaml`, with the scripts they use. Each is a definition a person can read, sent to Corbie as it is written, but for a model named by one word, which is the office's model of that name, filled in as for a worker of the top team, as Office says. The service's keys are Corbie secrets named in them, bound to the service's host, or, for one only signed or checked with, to anywhere, as Corbie asks of a key; so Bulldog never holds a key and a bridge reaches nothing its definitions do not name.
+
+The office's team file lists its bridges under `bridges`, each by its name, with settings of its own, which Bulldog hands whole to both machines. A bridge's folder is `bridges/<name>`, found by its name alone. The name is the bridge's name everywhere in the office, and no bridge is called `chat`: a person written with `slack: U0DANA00` is the one the Slack bridge knows by that id.
+
+A broken bridge stops only itself, as a broken worker does: an entry with no folder there, a folder there with no entry, a folder missing either machine, an in machine that takes both of the inputs below or neither, a machine Corbie refuses, settings that are not a mapping, and places that are not right, a team that is not there among them, are each a problem of that bridge, shown on the office with every other problem found. That bridge is not run until it is mended, and the rest of the office reads and runs.
+
+## Places
+
+A bridge's settings list, under `places`, the places it listens in, each by its name in the bridge's own words: a channel, a project, or `direct`, which is anything said to the bridge directly. Each place says which `team` takes what is asked there, the office if it names none, and whether `guests` may ask there, which they may not unless it says so. That is all of the settings Bulldog reads; the rest, and anything else a place holds, is the bridge's, handed on and not read.
+
+```yaml
+bridges:
+  slack:
+    places:
+      "#help": { guests: true }
+  gitlab:
+    places:
+      platform/api: { team: platform }
+```
+
+A listed place is wider than where a thing is said in it: what is said in a thread of #help is heard in #help, and said at that thread. Something asked in a listed place begins a request to the team the place names, whose origin is where it was said, and that team's taker starts on it. A direct message to the bridge is a place like any other, and begins a request only when `direct` is listed. What is said in a place not listed begins nothing, is said in no request, and has nothing sent back for it; the one thing taken from anywhere is an answer to what Bulldog sent its sender directly, a choice included, so a person decides by a direct message on a bridge whose `direct` is not listed. Each team a place names is a team of the office, which Office checks.
+
+## In
+
+The in machine is started by Bulldog in one of two ways, and its inputs say which.
+
+- **It listens.** It takes a `cursor`. Bulldog keeps one listening run going for the bridge: the run asks the service what is new since the cursor, waiting a while if the service lets it, and ends with what it heard and the cursor to go on from. Bulldog keeps the cursor and starts the next. The first run has no cursor and hears only what comes after it. A run that fails is started again after a pause that grows, up to a minute, and the office's people see the failure on the screens until a run ends well.
+- **It hears.** It takes a `delivery`. The service calls the server at the bridge's address, and Bulldog starts the in machine with what arrived, unread. The in machine checks that the delivery is the service's, with the secret it holds, and says what to answer the service; if it has not ended within two seconds, the service is told the delivery was received. The address takes no sign-in. It is open to anyone, so it takes nothing too large and nothing for a bridge that does not hear, and what arrives there is never logged. Being called there is not Bulldog speaking to a service: the service speaks, and only the in machine answers it.
+
+Either way it ends with a list of things heard. Each thing has the service's own id for it, and is one of three kinds: something **said** (with its text and files), a **choice** on a question or decision that was sent (yes or no), or a **status** of a thing at the source, such as an issue being closed. Each says who it is from, as the service vouches for them; which listed place it was heard in, if any; where it was said, as narrow as the service allows, a thread rather than its channel, and whether that place is **threadless**, as a chat is, holding no threads, only replies; who can read that place, where the service can tell; the source thing it is about, with a link to it; and which thing the out machine sent, or which thing heard, it answers, if any.
+
+A thing without its id, its kind or who it is from is not taken, and the bridge's failure says which was missing. Bulldog takes each thing once, by its id. What is said becomes an entry in the request whose sent thing it answers, when its sender may still answer it: for a thing sent to a person directly, while it would still be sent to them, and otherwise when they may say more in that request. A reply to something heard earlier at its place, the sender's own words among them, becomes an entry in that thing's request, when they may say more in it. Failing that, at a place that holds threads, it becomes an entry in the latest request whose origin is the place it was said, open or answered, when its sender may say more in it, and an answered request is then working again. A threadless place holds every conversation its people have there, so what is said there replying to nothing is the answer to the latest question carried there, when that still waits on its sender, and otherwise a new request. Who may say more is Requests' to say, as the office is read now. Otherwise, heard in a listed place, it begins a new request to the team the place names, whose origin is where it was said. A choice is given to the decision it was on.
+
+## Out
+
+The out machine is started once for each thing to be carried. It is given the bridge's settings; where to say it, which is a request's origin or a person's direct place on the bridge, and which of the two; the text and files, each a blob of the run's input; the thing it answers, if any; and for a question or a decision, its choices and a reference of Bulldog's that the in machine hands back with the choice. It ends with a reference to what it sent, or one for each message it sent, so that a reply to any of them is matched, or with the service's refusal of it in words a person can read.
+
+A thing goes to the place it is for: an answer, and what is said to the asker, to the origin; anything else for a person, such as a question or a decision, to their direct place on each bridge that knows them, and on the screens. A sub-request has no place, only the request that asked it, so what it says to its asker goes to the run that asked and never over a bridge; only what in it is for a person is carried, to them directly. A bridge whose service has no direct place carries only what goes to an origin; its out machine says so by not taking `direct`.
+
+A one-time sign-in link is no entry of any request. The server has it carried to a person's direct place on one bridge at a time, the first of the person's bridges, in the order their entry names them, that sends it; which is tried, and when, is the server's to say. Its out run is started once, and how it ended goes back to the server: it is not tried again here, and is shown on no request. What it carries is kept here only until that run is given it. It never goes to an origin, so a bridge with no direct place carries none.
+
+## Who is speaking
+
+A bridge gives the identity of the sender, never of the place: a message and a press of a button are matched the same way. Bulldog matches it to the one person the office writes down with that identity on that bridge. Someone it matches to nobody is a **guest**. A guest may ask only in a listed place whose settings say `guests: true`, `direct` among them, and is answered there; what a guest says anywhere else is not taken, and nothing is sent back; a choice a guest makes anywhere else is given to no decision, and is only answered. A guest's request shows the bridge and the identity it gave, so that a person can be written down for them and the team's taker knows who is asking.
+
+Who a person is on each bridge is their entry in the files, so changing it, their own entry included, is a change to the office decided like any other, as Changes says, since changing who someone is on a bridge is just what a person taking over their account would do.
+
+A choice is given to Decisions with the checked identity of whoever made it, and the sentence Decisions gives for it is carried back to them where they chose. No choice goes unanswered.
+
+## Delivered once
+
+A thing is delivered when its out run ends with what it sent. One the service refused is given up at once; one whose run failed is tried again, each time a little later, and given up after five runs. A thing given up is shown on its request as not delivered, with why, and the things after it go on, so one bad thing never blocks a person's feed. Things to one place go in order, one at a time, and a slow or failing place holds up no other place and nothing heard. A thing may be sent twice, if its run sent it and failed before saying so, rather than be lost. How a run ended is taken once, however often it is handed back.
+
+Nothing is echoed back to whoever said it. A newly added bridge, a bridge newly mended, or a person newly given an identity on one, starts from now: what was said before is not sent, and what waits for them now is.
+
+## Status at the source
+
+A thing that lives in an outside service, such as a GitLab issue or a Jira issue, keeps its status there. The in machine hears a change of it as a status, in the source's own words, with whether the thing is now closed and who changed it. That is handed to Requests for the request whose origin the thing is, with when and a link, in place of the one heard before; how it is shown, and what a close does, are Requests'. A status for a thing that began no request makes nothing. Bulldog keeps nothing of the thing's state but the last status heard, and never sets it: an out run says things in an issue, and changes nothing of its state.
+
+## The built-in chat
+
+The chat on the screens is a bridge with no folder and no runs. Its sender is the signed-in person, so it has no guests. Its place is the chat, read by the asker. What is for a person reaches them on the screens at once, and is delivered when it is there.
+
+## The bridges Bulldog ships
+
+A new office has only the built-in chat; the house's first change is Sam adding the shipped Telegram bridge, which writes `telegram: { places: { direct: {} } }` under `bridges`: the settings Bulldog ships it with hear people's direct messages to the bot. Bulldog ships four bridges as folders written in plain Corbie: Telegram and GitLab, which listen; Slack, which hears, since a press of a button reaches nothing else; and Jira, which listens. A person who decides changes adds one by a change of their own that names it, as Changes says who that is: adding the shipped bridge copies its folder to `bridges/<name>` and its entry under `bridges`, with the settings Bulldog ships it with, into the draft, and the change is decided as any change to the office is. A worker cannot add one, since an in machine is a person's to write. From then on the folder is the office's own, to read and to change. Each gives the service's lasting id for a sender, never a name that can be changed; splits text the service would refuse as too long, so nothing is lost; and tells the service's errors apart by their codes. The Slack bridge takes only a delivery that Slack signed in the last five minutes. Telegram's chats hold no threads, only replies, so the Telegram bridge gives everything said as threadless, and names every message it sent, so a reply to any part of an answer goes on from it. Telegram and Slack carry questions and decisions to a person directly; GitLab and Jira answer in the issue or merge request they were asked in.
+
+## Interfaces
+
+- **Office** reads the `bridges` listing, the teams its places name, which it checks are the office's, and each person's identity on each bridge, and says which model a word names in a bridge's machines; it checks both machines of every bridge with Corbie, and shows a broken bridge as a problem of that bridge, which stops only it.
+- **Requests** takes each entry, guest and status Bulldog makes of what was heard, a new request going to the team its listed place names, whose taker starts on it, shows a status at the source and stops a request's work when its source thing is closed, says who may say more in a request and who may still answer what was sent, makes an answered request working again when more is said in it, keeps that a sub-request has no place, keeps a request's origin and its readers, keeps the files copied out of an in run, and says what each person may see, which is all a bridge carries.
+- **Decisions** says who decides, is given each choice with the checked identity of who made it, and gives the sentence carried back for it; a bridge accepts nothing on that identity's behalf.
+- **Work** starts every in and out run with its labels, from the definitions as Office filled them, and finds them again after a restart.
+- **Server** serves the built-in chat, and the address at which a bridge that hears is called, and has a one-time sign-in link carried to a person's direct place, choosing the bridge and being told how its out run ended.
+- **Changes** writes a shipped bridge's folder, and its entry with the settings it is shipped with, into the office when a person's change names it, and any change to a bridge, its places or a person's identity on it, their own included, as a change decided like any other; an in machine is a person's to write.

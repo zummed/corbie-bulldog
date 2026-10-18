@@ -1,0 +1,15 @@
+# The call every tool Bulldog ships runs: it only waits on its ticket,
+# which Bulldog answers with the tool's result, having done what the tool
+# asked. Each tools file names it, and gives it the tool's name, what the
+# model gave it as args, and what the tool says when no answer comes:
+#   job: { machine: ./call.yaml, input: { tool: tell, args: "${args}", unanswered: … } }
+statechart: call
+input: [tool, args, unanswered]
+initial: waiting
+states:
+  waiting:
+    ticket: answer
+    timers: { too_long: 7d }
+    on: { answer: answered, too_long: unanswered }
+  answered: { end: done, output: "${event.data}" }
+  unanswered: { end: done, output: "${input.unanswered}" }

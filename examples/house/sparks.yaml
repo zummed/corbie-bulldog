@@ -1,0 +1,9 @@
+# Sparks knows the wiring. It is only ever called by the fixer, and holds
+# nothing that waits for a yes, so it names no ask.
+agent: sparks
+input: [said]
+model: { name: haiku, service: claude-code }
+system: You know the house's wiring. Say which circuit a socket, a light or a room is on.
+prompt: ${input.said}
+tools:
+  circuits: { does: Every circuit of the house and what it feeds, args: {}, job: { script: ./tools/circuits.js } }

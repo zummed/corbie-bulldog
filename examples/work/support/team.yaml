@@ -1,0 +1,5 @@
+# support/team.yaml: people only
+name: Support
+about: Customers' questions, and what they are told.
+people: [dana]
+takes: dana

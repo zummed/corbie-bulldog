@@ -1,0 +1,16 @@
+# The GitLab bridge's out machine. It answers in the issue or merge
+# request it is given, as project#iid or project!iid, with a comment, and
+# changes nothing of its state. GitLab has no place to say anything to a
+# person directly, so this takes no direct, and carries only what goes to
+# an issue or a merge request. It ends with { sent } or, when GitLab
+# refuses it for good, { refused }. Bulldog gives the text, and each
+# file's data, as a blob of the run's input.
+flow: gitlab-out
+input: [settings, to, text, files]
+stages:
+  say:
+    job:
+      script: ./gitlab.js
+      input: { do: say, to: "${input.to}", text: "${input.text}", files: "${input.files}" }
+      allow: [net:gitlab.com, "secret:GITLAB_TOKEN@net:gitlab.com"]
+output: ${stages.say.output}

@@ -1,0 +1,9 @@
+# The server's own run, which says the office is being served. The server
+# sends it renew every twenty seconds; a minute without one, and it ends.
+statechart: live
+initial: serving
+states:
+  serving:
+    timers: { quiet: 1m }
+    on: { renew: serving, quiet: gone }
+  gone: { end: done }

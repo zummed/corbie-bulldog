@@ -1,0 +1,315 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/zummed/corbie/client"
+	"github.com/zummed/corbie/machine"
+
+	"github.com/zummed/corbie-bulldog/internal/testkit"
+	"github.com/zummed/corbie-bulldog/internal/work"
+	"github.com/zummed/corbie-bulldog/shipped"
+)
+
+// changed gives the change event that names a request.
+func changed(n int64) func(event) bool {
+	return func(e event) bool { return e.name == "change" && e.data == fmt.Sprintf("request:%d", n) }
+}
+
+func TestServerEventsStream(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	s := b.serve()
+	kit, sam := s.as("kit").stream("/api/events"), s.as("sam").stream("/api/events")
+	for _, st := range []*stream{kit, sam} {
+		if e := st.next(); e.name != Hello {
+			t.Fatalf("a stream begins %+v", e)
+		}
+	}
+	n := numbered(s.as("kit").post("/api/requests", map[string]string{"text": "is the kettle on?"}))
+	kit.until("Kit's request is named", changed(n))
+	s.answered(n)
+	// The office read again is told to every stream.
+	b.write(map[string]string{"notes/rooms.md": "# rooms\n\nThe kitchen has a new socket.\n"})
+	b.clock.Move(0)
+	for _, st := range []*stream{kit, sam} {
+		st.until("the office read again", func(e event) bool { return e.name == "change" && e.data == Office })
+	}
+	// A comment once 25 seconds have gone with nothing to send.
+	b.clock.Move(StreamQuiet)
+	kit.until("a comment", func(e event) bool { return e.comment })
+}
+
+func TestServerEventsFilteredBySight(t *testing.T) {
+	t.Parallel()
+	d := refundDay(t, refundOffice(t))
+	dana, al := d.s.as("dana").stream("/api/events"), d.s.as("al").stream("/api/events")
+	dana.next()
+	al.next()
+	raj := numbered(d.s.as("raj").post("/api/requests", map[string]string{"team": "platform", "text": "is the pipeline green?"}))
+	al.until("Raj's request to platform is named to Al", changed(raj))
+	own := numbered(d.s.as("dana").post("/api/requests", map[string]string{"team": "support", "text": "a note to myself"}))
+	dana.until("Dana's own request", func(e event) bool {
+		if changed(raj)(e) {
+			t.Errorf("Dana's stream names Raj's request to platform")
+		}
+		return changed(own)(e)
+	})
+	// What waits on someone is named to them.
+	lee := d.s.as("lee").stream("/api/events")
+	lee.next()
+	d.s.as("lee").post("/api/requests/"+itoa(d.payments)+"/decisions/"+itoa(d.refund), map[string]string{"says": "yes"}).is(http.StatusOK)
+	lee.until("what waits on Lee changed", func(e event) bool { return e.name == "change" && e.data == Waiting })
+}
+
+func TestServerEventsBeginWithHello(t *testing.T) {
+	t.Parallel()
+	s := newBench(t, house(t)).serve()
+	for range 2 {
+		st := s.as("kit").stream("/api/events")
+		if e := st.next(); e.name != Hello {
+			t.Errorf("a stream begins %+v", e)
+		}
+		st.stop()
+	}
+}
+
+// A stalled is a browser's end of a stream that takes the first write and
+// then takes nothing until it is let go, as a slow browser behind a full
+// connection does.
+type stalled struct {
+	// wrote is told of each write once it is taken.
+	wrote   func()
+	header  http.Header
+	gate    chan struct{}
+	waiting chan struct{}
+	once    sync.Once
+
+	mu     sync.Mutex
+	writes int
+	out    strings.Builder
+}
+
+func newStalled(wrote func()) *stalled {
+	return &stalled{wrote: wrote, header: http.Header{}, gate: make(chan struct{}), waiting: make(chan struct{})}
+}
+
+func (w *stalled) Header() http.Header { return w.header }
+func (w *stalled) WriteHeader(int)     {}
+func (w *stalled) Flush()              {}
+
+func (w *stalled) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	w.writes++
+	first := w.writes == 1
+	w.mu.Unlock()
+	if !first {
+		w.once.Do(func() { close(w.waiting) })
+		<-w.gate
+	}
+	w.mu.Lock()
+	defer w.wrote()
+	defer w.mu.Unlock()
+	return w.out.Write(p)
+}
+
+func (w *stalled) String() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.out.String()
+}
+
+func TestServerSlowScreenNeverBlocks(t *testing.T) {
+	t.Parallel()
+	sc := newScreen()
+	for i := range 10 * Behind {
+		sc.put(fmt.Sprintf("request:%d", i))
+	}
+	got := sc.take()
+	if len(got) == 0 || got[0] != Hello || len(got) > Behind {
+		t.Errorf("a screen that fell behind is sent %v", got)
+	}
+
+	// A screen whose browser takes nothing keeps nobody who changes
+	// anything waiting, and once it takes again it is sent hello.
+	b := newBench(t, house(t))
+	held, let := b.hold()
+	defer let()
+	s := b.serve()
+	a := s.areasOf()
+	st := &site{Areas: *a, clock: b.clock, say: func(string, ...any) {}, screens: &screens{}}
+	w := newStalled(b.poke)
+	watching, stop := context.WithCancel(ctx)
+	defer stop()
+	ended := make(chan struct{})
+	go func() {
+		defer close(ended)
+		st.events("kit", w, httptest.NewRequestWithContext(watching, http.MethodGet, "/api/events", nil))
+	}()
+	b.until("the screen is sent hello", func() bool { return strings.Contains(w.String(), "event: hello") })
+	s.chat("kit", "", "the first question")
+	<-w.waiting
+	// Every request asked now is told to the stalled screen, and asking
+	// never waits on it.
+	for i := range 2 * Behind {
+		if _, err := a.Requests.AskInChat("kit", "", fmt.Sprintf("question %d", i), nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b.until("the steward has a turn", func() bool { return held() > 0 })
+	close(w.gate)
+	b.until("the screen is sent hello once it takes again", func() bool { return strings.Count(w.String(), "event: hello") == 2 })
+	after := strings.SplitN(w.String(), "event: hello", 3)[2]
+	if strings.Count(after, "event: change") > Behind {
+		t.Errorf("once it fell behind, the screen is sent:%s", after)
+	}
+	stop()
+	<-ended
+}
+
+func TestServerStreamsNotBuffered(t *testing.T) {
+	t.Parallel()
+	d := refundDay(t, refundOffice(t))
+	for _, st := range []*stream{d.s.as("lee").stream("/api/events"), d.s.as("lee").stream(watching(d.s.runOf("lee", d.payments, "ledger")))} {
+		h := st.res.Header
+		if st.res.StatusCode != http.StatusOK || h.Get("Cache-Control") != "no-store" || h.Get("X-Accel-Buffering") != "no" || h.Get("Content-Type") != "text/event-stream" {
+			t.Errorf("a stream is answered %d with %v", st.res.StatusCode, h)
+		}
+	}
+}
+
+// seen reads a run's stream to its end.
+func (st *stream) seen() []event {
+	st.t.Helper()
+	var all []event
+	for {
+		e := st.next()
+		all = append(all, e)
+		if e.name == work.SeenEnded {
+			return all
+		}
+	}
+}
+
+func TestServerRunWatch(t *testing.T) {
+	t.Parallel()
+	d := refundDay(t, refundOffice(t))
+	ledger := d.s.runOf("lee", d.payments, "ledger")
+	st := d.s.as("lee").stream(watching(ledger))
+	// While the refund waits, Lee sees it asked for, with its input.
+	st.until("the refund held", func(e event) bool { return e.name == work.SeenCall && strings.Contains(e.data, `\"refund\"`) })
+	d.decided()
+	var words strings.Builder
+	kinds := map[string]bool{}
+	for _, e := range st.seen() {
+		kinds[e.name] = true
+		if e.name == work.SeenWords {
+			var seen work.Seen
+			if err := json.Unmarshal([]byte(e.data), &seen); err != nil {
+				t.Fatal(err)
+			}
+			words.WriteString(seen.Text)
+		}
+		if e.name == work.SeenCall && strings.Contains(e.data, `"name":"refund"`) && !strings.Contains(e.data, "ch_2") {
+			t.Errorf("the refund is called without its input: %s", e.data)
+		}
+	}
+	if !kinds[work.SeenWords] || !kinds[work.SeenCall] || !kinds[work.SeenResult] || !kinds[work.SeenEnded] {
+		t.Errorf("Lee sees the run's events of the kinds %v", kinds)
+	}
+	if !strings.Contains(words.String(), "Duplicate confirmed") {
+		t.Errorf("Lee sees the ledger's words as %s", words.String())
+	}
+}
+
+func TestServerRunWatchShowsLogsAndRefusals(t *testing.T) {
+	t.Parallel()
+	files := house(t)
+	files["steward.yaml"] += "tools:\n" +
+		"  meter: { does: Read the meter, args: {}, job: { script: ./tools/meter.js } }\n" +
+		"  peek: { does: Look at what it may not, args: {}, job: { script: ./tools/peek.js } }\n"
+	files["tools/meter.js"] = "log(\"the meter reads 42\")\nreturn 42\n"
+	files["tools/peek.js"] = "return env.get(\"HOME\")\n"
+	b := newBench(t, files)
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		switch turn.Number {
+		case 1:
+			return testkit.Use("meter", map[string]any{})
+		case 2:
+			return testkit.Use("peek", map[string]any{})
+		}
+		return testkit.Say("The meter reads 42.")
+	})
+	s := b.serve()
+	n := s.chat("kit", "", "what does the meter read?")
+	s.answered(n)
+	var logged, refused []map[string]any
+	for _, e := range s.as("kit").stream(watching(s.runOf("kit", n, "steward"))).seen() {
+		var seen map[string]any
+		if err := json.Unmarshal([]byte(e.data), &seen); err != nil {
+			t.Fatalf("an event of the run is %q: %v", e.data, err)
+		}
+		switch e.name {
+		case work.SeenLog:
+			logged = append(logged, seen)
+		case work.SeenRefused:
+			refused = append(refused, seen)
+		}
+	}
+	if len(logged) != 1 || logged[0]["name"] != "meter" || logged[0]["text"] != "the meter reads 42" {
+		t.Errorf("the meter's log is watched as %v", logged)
+	}
+	if len(refused) != 1 || refused[0]["name"] != "peek" || refused[0]["refused"] != "env:HOME" || refused[0]["layer"] == nil || refused[0]["fix"] == nil {
+		t.Errorf("the refusal is watched as %v", refused)
+	}
+}
+
+func TestServerRunWatchResumes(t *testing.T) {
+	t.Parallel()
+	d := refundDay(t, refundOffice(t))
+	d.decided()
+	ledger := d.s.runOf("lee", d.payments, "ledger")
+	whole := d.s.as("lee").stream(watching(ledger)).seen()
+	for i, e := range whole {
+		if e.id != fmt.Sprint(i+1) {
+			t.Fatalf("the event %d of the run is at %q", i, e.id)
+		}
+	}
+	lee := d.s.as("lee")
+	lee.header.Set("Last-Event-ID", "3")
+	again := lee.stream(watching(ledger)).seen()
+	if len(again) != len(whole)-3 {
+		t.Fatalf("connected again after 3, it is sent %d of %d", len(again), len(whole))
+	}
+	for i, e := range again {
+		if e != whole[i+3] {
+			t.Errorf("connected again, it is sent %+v in place of %+v", e, whole[i+3])
+		}
+	}
+}
+
+func TestServerWatchOnlyThisOfficesRuns(t *testing.T) {
+	t.Parallel()
+	d := refundDay(t, refundOffice(t))
+	contents, _ := shipped.File(shipped.Live)
+	draft, err := machine.Parse(contents, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	labels := map[string]string{work.LabelBulldog: "another office", work.LabelKind: work.KindWork, "team": "payments", "request": itoa(d.payments)}
+	other, err := d.b.corbie.Start(ctx, draft, client.Start{Labels: labels})
+	if err != nil {
+		t.Fatal(err)
+	}
+	watched(t, d.s.as("lee"), other, http.StatusNotFound)
+	// Nor is the server's own run.
+	live := d.b.listed(d.b.identity(), map[string]string{work.LabelKind: work.KindLive})
+	watched(t, d.s.as("al"), live[0].ID, http.StatusNotFound)
+}

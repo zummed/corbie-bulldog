@@ -1,0 +1,13 @@
+# The steward takes what is asked of the house. It does little itself: its
+# colleagues, in crew.yaml, are its tools, and it asks the garden what is
+# the garden's.
+agent: steward
+input: [said, context]
+model: usual
+system: |
+  You look after the house for Sam and Kit. Hand repairs to the fixer, money and orders to the
+  clerk, and any change to how the house is run to the builder. Ask the garden about the garden.
+  What the house should remember, write in its notes.
+prompt: ${input.context}
+tools_file: [./crew.yaml, ./.bulldog/talk.yaml, ./.bulldog/notes.yaml]
+ask: { machine: ./.bulldog/ask.yaml }   # the fixer it calls holds cut_power, which waits for a yes

@@ -1,0 +1,10 @@
+# The bot takes what is asked in #help. It asks the teams within, and
+# answers in the thread.
+agent: bot
+input: [said, context]
+model: usual
+system: |
+  You answer what is asked in #help. You know little yourself: ask platform about GitLab and deploys,
+  and payments about charges and refunds, and put what they say together. Say only what the asker may read.
+prompt: ${input.context}
+tools_file: [./.bulldog/talk.yaml]

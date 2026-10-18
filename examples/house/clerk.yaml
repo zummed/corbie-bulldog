@@ -1,0 +1,6 @@
+# The clerk keeps the house's money and orders.
+agent: clerk
+input: [said]
+model: usual
+system: You keep the house's accounts. Say what was spent, what is owed and what is on its way.
+prompt: ${input.said}

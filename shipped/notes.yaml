@@ -1,0 +1,12 @@
+# The notes tool Bulldog ships: for writing one of the team's notes. A
+# worker has it only by naming this file:
+#   tools_file: [./.bulldog/talk.yaml, ./.bulldog/notes.yaml]
+write_notes:
+  does: Write one of your team's notes, whole. name is a plain name, such as fuses, and text is all of the note in Markdown, in place of what it held; why says why, in a line. Every run of your team is given its notes. Notes are not private; the builder reads them, and so does whoever decides a change to the office. Never put a secret, or what you read in your work, in a note
+  args: { name: string, text: string, why: string }
+  job:
+    machine: ./call.yaml
+    input:
+      tool: write_notes
+      args: "${args}"
+      unanswered: The note was not written within 7 days. Write it again if it is still wanted.

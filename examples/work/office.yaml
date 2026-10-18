@@ -1,0 +1,22 @@
+# office.yaml
+name: Platform support
+about: "Help with the platform and with payments, asked in #help."
+zone: Europe/London
+everyone:
+  al:    { name: Al, title: Runs the office., slack: U0AL0000, gitlab: "1041" }
+  dana:  { name: Dana, title: Support., slack: U0DANA00 }
+  lee:   { name: Lee, title: Payments., slack: U0LEE000 }
+  priya: { name: Priya, title: Payments., slack: U0PRI000 }
+  raj:   { name: Raj, title: Backend., slack: U0RAJ000, gitlab: "1187" }
+bridges:
+  slack:
+    places:
+      "#help": { guests: true }
+  gitlab:
+    places:
+      platform/api: { team: platform }
+models:
+  usual: { name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }
+people: [al]
+takes: bot
+decide: { everything: [al] }

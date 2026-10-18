@@ -1,0 +1,21 @@
+# office.yaml
+name: The house
+about: The house and everything in it, but the garden.
+zone: Europe/London
+everyone:
+  sam: { name: Sam, title: Owner. Decides money and the building., telegram: "4471" }
+  kit: { name: Kit, title: Lives here., telegram: "4472" }
+bridges:
+  telegram:
+    places:
+      direct: {}                   # as Bulldog ships it: Sam and Kit may ask the house in a direct message
+models:
+  usual: { name: sonnet, service: claude-code }
+people: [sam, kit]
+takes: steward
+decide:
+  everything: [sam]
+  order_part: [./small-orders.js, sam]
+routines:
+  - { at: "mon 09:00", to: steward, say: "Walk round: what is still open?" }
+  - { at: "18:00", to: bins, say: "Which bin goes out tonight?" }

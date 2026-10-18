@@ -1,0 +1,7 @@
+# Bins needs no model. Each evening its routine asks which bin goes out,
+# and it says nothing on a night with none.
+flow: bins
+input: [request]
+stages:
+  which: { job: { script: ./tools/bins.js, input: { request: "${input.request}" } } }
+output: ${stages.which.output}

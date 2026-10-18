@@ -1,0 +1,15 @@
+# The Jira bridge's out machine. It answers in the issue it is given, by
+# its key, with a comment, and changes nothing of its state. Jira has no
+# place to say anything to a person directly, so this takes no direct, and
+# carries only what goes to an issue. It ends with { sent } or, when Jira
+# refuses it for good, { refused }. Bulldog gives the text, and each
+# file's data, as a blob of the run's input.
+flow: jira-out
+input: [settings, to, text, files]
+stages:
+  say:
+    job:
+      script: ./jira.js
+      input: { do: say, settings: "${input.settings}", to: "${input.to}", text: "${input.text}", files: "${input.files}" }
+      allow: [net:example.atlassian.net, "secret:JIRA_TOKEN@net:example.atlassian.net"]
+output: ${stages.say.output}

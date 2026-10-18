@@ -1,0 +1,15 @@
+# The Telegram bridge's in machine. It listens: it asks Telegram for what
+# is new since the cursor, waiting up to fifty seconds while nothing is,
+# and ends with what it heard and the cursor to go on from. Its first run,
+# given no cursor, hears nothing, and ends with the cursor past all that
+# came before it. The bot's token is the Corbie secret TELEGRAM_TOKEN.
+flow: telegram-in
+input: [settings, cursor]
+stages:
+  hear:
+    job:
+      script: ./telegram.js
+      input: { do: hear, settings: "${input.settings}", cursor: "${input.cursor}" }
+      allow: [net:api.telegram.org, "secret:TELEGRAM_TOKEN@net:api.telegram.org"]
+      timeout: 2m
+output: ${stages.hear.output}

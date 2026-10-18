@@ -1,0 +1,10 @@
+# garden/team.yaml
+name: The garden
+about: The beds, the lawn and the shed.
+people: [sam]
+takes: gardener
+decide: { everything: [sam] }
+models:
+  usual: { name: opus, service: claude-code }   # the garden's own
+routines:
+  - { at: "fri 16:00", to: gardener, say: "What needs doing before the weekend?" }

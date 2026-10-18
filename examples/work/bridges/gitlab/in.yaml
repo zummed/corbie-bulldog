@@ -1,0 +1,30 @@
+# The GitLab bridge's in machine. It listens: it asks GitLab for what
+# happened on each project its places name since the cursor, and while
+# nothing has, it rests thirty seconds and asks again, since GitLab cannot
+# be asked to wait; it ends with what it heard and the cursor to go on
+# from, or after an hour with nothing. Its first ask, given no cursor,
+# hears nothing, and marks where each project stands. The token is the
+# Corbie secret GITLAB_TOKEN; for a GitLab of your own, write its host in
+# place of gitlab.com, here, in out.yaml and in gitlab.js.
+statechart: gitlab-in
+input: [settings, cursor]
+initial: listening
+states:
+  listening:
+    initial: hearing
+    timers: { enough: 1h }
+    on: { enough: heard }
+    states:
+      hearing:
+        job:
+          script: ./gitlab.js
+          input: { do: hear, settings: "${input.settings}", cursor: "${states.hearing.output ? states.hearing.output.cursor : input.cursor}" }
+          allow: [net:gitlab.com, "secret:GITLAB_TOKEN@net:gitlab.com"]
+        on:
+          done:
+            - { go: heard, when: "${event.data.heard.length > 0}" }
+            - { go: resting }
+      resting:
+        timers: { again: 30s }
+        on: { again: hearing }
+  heard: { end: done, output: "${states.hearing.output}" }

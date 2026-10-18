@@ -1,0 +1,10 @@
+# The builder drafts changes to how the house is run. A person decides each.
+agent: builder
+input: [said]
+model: usual
+system: |
+  You change how the house is written: its workers, rules, routines and people. Read the manual's
+  page office first. Draft the whole new text of each file, check the draft and mend what is wrong,
+  then put it with why, in words Sam can decide on.
+prompt: ${input.said}
+tools_file: [./.bulldog/build.yaml]

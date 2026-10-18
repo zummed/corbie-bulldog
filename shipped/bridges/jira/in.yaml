@@ -1,0 +1,31 @@
+# The Jira bridge's in machine. It listens: it asks Jira for the issues of
+# the projects its places name that changed since the cursor, and hears
+# each new issue, comment and change of status; while nothing is new, it
+# rests thirty seconds and asks again, since Jira cannot be asked to wait.
+# It ends with what it heard and the cursor to go on from, or after an
+# hour with nothing. Its first ask, given no cursor, hears nothing. It
+# signs in as the settings' email with the API token that is the Corbie
+# secret JIRA_TOKEN; write your own site in place of example.atlassian.net,
+# here, in out.yaml and in jira.js.
+statechart: jira-in
+input: [settings, cursor]
+initial: listening
+states:
+  listening:
+    initial: hearing
+    timers: { enough: 1h }
+    on: { enough: heard }
+    states:
+      hearing:
+        job:
+          script: ./jira.js
+          input: { do: hear, settings: "${input.settings}", cursor: "${states.hearing.output ? states.hearing.output.cursor : input.cursor}" }
+          allow: [net:example.atlassian.net, "secret:JIRA_TOKEN@net:example.atlassian.net"]
+        on:
+          done:
+            - { go: heard, when: "${event.data.heard.length > 0}" }
+            - { go: resting }
+      resting:
+        timers: { again: 30s }
+        on: { again: hearing }
+  heard: { end: done, output: "${states.hearing.output}" }

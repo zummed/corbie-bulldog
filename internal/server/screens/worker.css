@@ -1,0 +1,45 @@
+/* worker: one worker, its meta and the drawing of what it reaches. */
+.wk { display: flex; flex-direction: column; gap: var(--space); }
+.wk > div > .head { margin-bottom: 0; }
+.wk-title { gap: 12px; }
+.wk-title > .ic.worker.lg { font: 600 13px/1 var(--mono); }
+
+/* Meta: two lists side by side, one under the other on a phone */
+.wk-meta { display: flex; flex-wrap: wrap; gap: var(--gap) calc(var(--space) * 2); }
+.wk-meta > .kv { flex: 1 1 320px; min-width: 0; }
+.wk-meta .kv > dd { font-size: var(--data); }
+.wk-model { gap: 4px 12px; }
+
+/* The worker, drawn with a line, not a fill, so it is not the loudest
+   thing on the page */
+.reach .me.wk-me { background: transparent; padding: 12px 14px; gap: 4px; }
+.reach .me.wk-me .name { font-size: var(--h2); }
+.reach .me.wk-me .ic.worker { font: 600 10px/1 var(--mono); }
+
+/* One tool on one line: its name, what it reaches, its file */
+.row.wk-tool { display: grid; grid-template-columns: minmax(120px, max-content) minmax(0, 1fr) auto; gap: 4px 16px; }
+.row.wk-tool > .wk-c1 { grid-column: 1; min-width: 0; }
+.row.wk-tool > .wk-c2 { grid-column: 2; min-width: 0; }
+.row.wk-tool > .wk-file { grid-column: 3; justify-self: end; }
+.wk-c1.line, .wk-c2.line { gap: 4px 8px; }
+@media (max-width: 640px) {
+  .row.wk-tool { grid-template-columns: 1fr; }
+  .row.wk-tool > .wk-c1, .row.wk-tool > .wk-c2, .row.wk-tool > .wk-file { grid-column: 1; justify-self: start; }
+}
+
+/* A tool's name: a button that shows what it does */
+.wk-name { font: var(--data) var(--mono); color: var(--ink); }
+button.wk-name { padding: 2px 6px; margin-left: -6px; border: 1px solid transparent; border-radius: 2px; background: none; cursor: pointer; text-decoration: underline dotted var(--ink3); text-underline-offset: 3px; }
+button.wk-name:hover { border-color: var(--line); background: var(--faint); }
+.wk-c1.line > button.wk-name + .pop + button.wk-name { margin-left: 0; }
+button.wk-name > .who { text-decoration: inherit; }
+.pop > .wk-does { margin-top: 6px; }
+
+/* Faces: a few people, overlapping, their names read aloud only */
+.wk-faces { display: inline-flex; align-items: center; }
+.wk-face { position: relative; }
+.wk-face + .wk-face { margin-left: -5px; }
+.wk-face > span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.wk-more { margin-left: 6px; }
+
+.wk-tags { gap: 6px 8px; padding-top: 2px; }

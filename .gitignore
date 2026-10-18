@@ -1,0 +1,9 @@
+bin/
+dist/
+.dev/
+.bulldog/
+*.db
+*.db-*
+demo.pid
+go.work
+go.work.sum

@@ -1,0 +1,14 @@
+# fixer.yaml
+agent: fixer
+model: usual
+input: [said]
+prompt: ${input.said}
+system: You do the repairs. Before anything electrical, ask sparks which circuit, and cut it.
+tools_file: [./.bulldog/talk.yaml]
+tools:
+  sparks:    { does: Which circuit is what, args: { question: string },
+               job: { machine: ./sparks.yaml, input: { said: "${args.question}" } } }
+  cut_power: { does: Turn one circuit off, args: { circuit: string },
+               job: { script: ./tools/cut-power.js, input: { circuit: "${args.circuit}" }, approve: true } }
+  order_part: { does: Order a part, args: { part: string, pounds: number },
+               job: { script: ./tools/order.js, input: { part: "${args.part}", pounds: "${args.pounds}" }, approve: true } }

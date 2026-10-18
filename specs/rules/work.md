@@ -1,0 +1,271 @@
+# Work: rules
+
+The detailed rules behind the [Work overview](../work.md). Requirements are `R-work-nn`, constraints `C-work-nn`. Every test runs a whole Corbie in the test's process with a stand-in model that answers as it is told, and a clock the test moves, and steps the work until it is still. "The house" and "the work office" are the two offices of the README: the house is the top team, Sam and Kit with the steward, the fixer, sparks, the clerk, bins and the builder, the steward taking, with the garden inside it, Sam with the gardener taking; the work office is Al and the bot at the top, the bot taking, with platform (no people), payments (Lee and Priya, the ledger taking, a release check) and support (Dana, taking) inside it. Platform's decisions reach Al, through the office's `everything`.
+
+## What starts a run
+
+**R-work-01** A request opened to a team whose taker is a worker starts that worker on it, in a run of kind `work`; a request asked at a place on a bridge is to the team that place names, the office where it names none.
+*Accept:* in the house, Kit says "the kitchen socket sparked" in the built-in chat. One run of the steward is started; its labels are `bulldog` with the office's identity, `kind=work`, `team=office` and `request` with the new request's number, and its input `said` is Kit's words. In the work office, Dana writes in #help, a place that names no team: a run of the bot starts, with `team=office`. A place of the Slack bridge whose settings name payments: what Priya says there starts a run of the ledger, with `team` naming payments.
+
+**R-work-02** A request to a team whose taker is a person starts no run, and waits on that person.
+*Accept:* in the work office, the bot calls `ask_team` naming support. No run is started for the sub-request, which waits on Dana. Dana answers it on the screens, and her answer is the bot's tool result.
+
+**R-work-03** Something said to the team in a request's thread, a reply, an answer that came after the run that asked for it ended, or a decider's refusal of an answer the team would have given, starts the taker on the request again when no run of the request is going, with what was said as `said`.
+*Accept:* the steward answers Kit, and the request is answered. Kit replies "it sparked again". A second run of the steward starts on the same request; its `said` is Kit's reply and its context holds the whole thread, the steward's first answer included.
+
+**R-work-04** A request has at most one run going at a time; what is said in it while a run goes is given to the next run, which starts as soon as that run ends.
+*Accept:* the stand-in holds the steward's run on a tool. Kit says two more things in the request meanwhile, and no second run starts. When the stand-in lets the first run end, exactly one run starts, and its `said` holds both things, in the order they were said.
+
+**R-work-05** The office has at most `runs:` runs working at once, from the top team's file, 3 if it gives none. They are the runs of workers on requests; a run another area asks for, to decide or for a bridge, does not count. A run with a call waiting on a person, another team or a decision is not working and does not count. A request ready to start waits its turn, oldest first.
+*Accept:* with `runs: 2` and the stand-in holding every run, four requests are opened one after another. Two runs start. The first of them calls `ask_person`, and the third request's run starts. The second run ends, and the fourth starts. With no `runs:` written, a fourth request waits while three runs work, and starts when one ends.
+
+**C-work-01** A worker may have runs going on several requests at once; what is one at a time is the request. A run that waits on a person may wait for days, and a team asked back by a team it asked would otherwise never be served. *Test:* `work_one_run_per_request_not_per_worker`
+
+**C-work-02** A worker the office reports as having a problem is given no run. Asking a team whose taker cannot run is refused where it is asked, saying why (C-requests-01); a request already open when its taker stops is answered, the asker told that the team cannot answer now and the team's people told the problem. A definition Corbie refuses cannot run, and a request must not sit as working with nothing that could answer it. *Test:* `work_broken_taker_answers_with_its_problem`
+
+**C-work-03** No run is given the conversation of an earlier run; each is given the thread. A conversation is what was read, and the thread is the one account of a request every run starts from. *Test:* `work_no_conversation_carried_between_runs`
+
+**C-work-04** A request is given at most 20 runs in a row with nothing said in it by a person between them; a decider's answer, a person's included, is not something said in it. The next is not started: the request is answered as stopped at the limit, or, where the last run was started by a refused answer, the asker is told that the team did not release its answer, and who refused it (R-work-46); a person saying something in it starts it again and begins the count again. Workers can start each other for ever, a check can refuse for ever, and a limit that only a person resets never leaves a request that nobody can start. *Test:* `work_runs_in_a_row_reset_by_a_person`
+
+**C-work-53** A request is never left working with nothing going, nothing waiting to start and nothing it waits on: whatever ends the last of these either starts its next run or answers it. A request shown as working with nothing to move it waits for ever, and nobody is told. *Test:* `work_no_request_working_with_nothing_to_move_it`
+
+## What a run is given
+
+**R-work-06** A run is started with its worker's definition as it is written, with one thing filled in: a model named by one word is replaced by the model of that name Office gives, from the worker's own team or else the nearest team around it; a model written out in full is sent as it is, and nothing else is filled in. The run has three inputs: `said`, what is new for this run as text; `context`, as text a model reads well; and `request`, the request as data.
+*Accept:* the house's team file names `usual` among its `models:`, and the steward writes `model: usual`. The stored definition Corbie shows for the steward's run is the steward's file as written, with the house's `usual` written out in full in place of the word, and its tools file and its ask as the file gives them. Sparks writes its model out in full, and its run's model is as written. The run's input holds `said`, `context` and `request`, and a definition that names only `said` among its inputs runs.
+
+**R-work-07** `context` holds the date and time in the office's zone; the team's name, its people with their titles and the workers who sit with the worker; the team's notes (R-work-24); the teams of the office it may ask, each with its `about`, the one line its team file gives for what it looks after; who asked, as a person of the office with the teams they are in, or as a guest with the identity the bridge vouched for; where, and who will read the answer; the thread so far; and that the run's last reply is its answer. Who sits with it and the teams it may ask are read from the files when the run starts.
+*Accept:* the stand-in records the prompt of the steward's first turn: it holds the date and time with the office's zone, "The house", Sam and Kit with their titles, the fixer, sparks, the clerk, bins and the builder, the garden with its `about`, Kit as the asker, in the house, in the built-in chat, the readers of the answer, Kit's words, and the line saying its last reply is said to Kit. It names no worker of the garden. Someone the Slack bridge vouches for as `U0GUEST1`, who matches no person, asks in #help, a place whose settings let guests ask: the bot's context names a guest with that identity. The garden's `about` is changed to name the pond too, and the steward's next run names the pond.
+
+**R-work-08** `request` holds the request's number, its asker as a person with their teams or as a guest with the identity the bridge vouched for, its origin, who reads its answer, its entries, each with who it is by and to and when, its sub-requests, each with its team and where it stands, and its team's notes, each under its name.
+*Accept:* a taker that is a flow whose output is its input `request` is run on a request with two entries and one sub-request. Its answer, written out as text, holds the number, the asker, the origin, the readers, both entries with their by, to and time, the sub-request with its team and state, and its team's notes.
+
+**R-work-09** The thread given to a run is its newest entries, up to 20,000 characters, with the opening entry always kept and a line saying how many entries are not shown.
+*Accept:* a request whose thread holds 40 entries of 1,000 characters each is given the opening entry, the newest entries that fit, and a line saying how many are left out; the opening entry is there and the total is under 21,000 characters.
+
+**C-work-06** A sub-request's run is given its own thread and nothing of the request above it, and is told who asked it and the origin of the request at the top as who will read the answer. What was said in the asking team was said inside that team, and the team asked must still know where its answer may end up. *Test:* `work_sub_request_given_its_own_thread_only`
+
+**C-work-07** What a run is told about where its answer goes is true for that run: the origin for a request, the asking worker for a sub-request, the team's people for a routine. A worker told the wrong thing about what its ending does acts on it. *Test:* `work_run_told_truly_where_its_answer_goes`
+
+**C-work-08** Every time given to a run, in `context`, in `request` and in a tool's result, is in the office's zone and names it. Two clocks in one account of a request mislead a model about what came first. *Test:* `work_times_in_the_office_zone`
+
+**C-work-09** A worker that is no model gets everything it is given as data in `request` as well as in text. A flow or a statechart cannot read words written for a model. *Test:* `work_worker_that_is_no_model_given_data`
+
+**C-work-10** Text is never cut inside a character. A cut in the middle of one puts text that is not valid into the thread and into a model's input. *Test:* `work_text_never_cut_inside_a_character`
+
+## How a run ends
+
+**R-work-10** A run's answer is its output: text as it is, the text of `answer` when the output is data that has one, and other data written out as text.
+*Accept:* three takers end with the text "done", with `{ answer: "done", spare: 1 }`, and with `{ n: 3 }`. The three answers are "done", "done", and the data `{ n: 3 }` written out.
+
+**R-work-11** The answer is an entry in the thread, by the worker, to the asker, and the request is answered. It goes to the origin for a request, to the asking tool for a sub-request, and to the team's people for a routine.
+*Accept:* Kit's request ends with an entry by the steward to Kit, its text the steward's answer, and the request answered; Bridges is handed it for the built-in chat. Payments' answer to the bot's sub-request is the bot's tool result. The house's Monday routine's answer is an entry to Sam and Kit.
+
+**R-work-12** An empty answer to a routine says nothing, and the routine's request is answered; an empty answer to any other request is said to the asker as the team having given no answer, save from a run started by a refused answer, where it is the taker giving up (R-work-46).
+*Accept:* the bins flow ends with an empty output on its routine: no entry goes to Sam or Kit, and the request is answered. The steward ends with an empty reply to Kit: Kit is told the house gave no answer.
+
+**R-work-13** An answer leaving a team that set a release check is handed to Decisions, and is said only once it is released.
+*Accept:* in the work office, the ledger ends its sub-request with an answer. Until the release rule lets it go, the bot's tool still waits and no entry from payments is seen outside payments. Once it is released, it is the bot's tool result.
+
+**R-work-46** A refused answer comes back as an entry by the decider to the team's taker, with the decider's note, and starts the taker again on the same request with it as `said`; the restarts count among the runs in a row (C-work-04). The asker is told nothing of the refusal while the taker tries again, only what it next says that is released. When the taker gives up, ending with no answer, or the refused answers use up the runs in a row, the asker is told the one line Decisions gives (R-decisions-40): that the team did not release its answer, and who refused it, with nothing of the answer or the note. The request is stopped by Bulldog with that line in place of its name (R-requests-21), so the asker is told nothing else.
+*Accept:* the ledger's answer to the bot names an account number; the release rule passes it, and Lee refuses with the note "the last four digits only". An entry by Lee to the ledger, payments' taker, with the note is in the sub-request's thread, seen only in payments, and a new run of the ledger starts on the sub-request with it as `said`; the bot's tool still waits and its result never holds the refusal. The ledger answers without the number, the rule lets it go, and it is the bot's tool result. Lee refuses again, and the ledger's next run ends with an empty reply: the bot's tool result is "payments did not release its answer (Lee)". With a rule `refuse-all.js` that refuses every answer, the ledger is started 20 times in a row, and the bot's tool result is "payments did not release its answer (refuse-all.js)", holding none of the ledger's answers and no note.
+
+**R-work-14** A run that fails, runs out of time or of turns, or is refused a permission writes two entries by Bulldog: one to the team's people (R-requests-36), which is what was read of the team, holding what Corbie said and the line that would fix a refusal; and one to the asker, sent to the origin, saying that the team's work failed and it could not answer. With nothing else open in the request, that answers it; saying more in it makes it working again.
+*Accept:* the house's taker is a flow whose one script reads a file it may not. Kit asks it something, and the run fails, denied. An entry by Bulldog to Sam and Kit, seen only in the house, holds what was refused, the layer that refused it and the fix line. The entry by Bulldog to Kit says the house's work failed and it could not answer, holds none of the error, and the request is answered. Kit replies, and the request is working again. Platform's worker fails on the bot's sub-request: Al has an entry by Bulldog holding what Corbie said, and the bot's tool result says platform could not answer. A taker whose run fails while a sub-request it made is still open leaves its request open, waiting on that sub-request.
+
+**C-work-11** The asker of a run that failed is told that the team could not answer, and never the error. An error can hold what was read, such as a card number in a script's message, and what was read is seen only inside the team. *Test:* `work_asker_not_told_the_error`
+
+**C-work-12** Nothing is tried again by itself after a run fails; a reply starts the request again. A run that failed once usually fails again, spending as it goes, and whether to try is a person's choice. *Test:* `work_failed_run_not_tried_again`
+
+**R-work-15** A person who may stop a run stops it: Bulldog cancels it in Corbie, closes the questions it asked, stops the sub-requests it made, and the request is answered as stopped, saying by whom.
+*Accept:* the bot's run waits on its sub-requests to platform and to payments, and in payments the ledger's refund is held, waiting on Lee. Al stops the bot's run. The bot's run, the platform worker's run, the ledger's run and its ask all end cancelled in Corbie; both sub-requests and the request are answered as stopped by Al; the question to Lee about the refund is closed.
+
+**R-work-43** A request from an issue whose source reports it closed is stopped as a person's stop is, and Bulldog's entry says who closed it; no other change at the source starts or stops anything.
+*Accept:* Dana's request comes from a GitLab issue, and the bot waits on its sub-request to platform. Dana closes the issue at GitLab, and the in machine reports it closed by her. The bot's run and the platform worker's run end cancelled, the sub-request is answered as stopped, and the request has Bulldog's entry saying Dana closed the issue. A label put on the issue instead writes no entry and starts no run.
+
+**C-work-13** A stop is noted in the store as stopping before the cancel is sent to Corbie, the cancel is sent once, and the run is stopping until Corbie reports its end; a stop that cannot be noted is not sent, and the person is told. Without the mark, kept before the cancel goes, every look would send the cancel again. *Test:* `work_stop_sent_once`
+
+**C-work-14** An ending is applied only to the run it is for, and only once: an ending from a run that is no longer its request's run is kept with that run and changes nothing else, and an ending seen by the watch and again by settling is applied once. Late and repeated endings must not answer a request a second time. *Test:* `work_ending_applied_once_to_its_own_run`
+
+**R-work-16** Each run is kept with its request: the worker, when it started and ended, how it ended, and the tokens Corbie counted, for a run that failed as well.
+*Accept:* after the steward answers and a second run fails at its turn limit, the request holds two runs, each with its worker, both times, how it ended and a token count above zero.
+
+**C-work-15** An error in starting or ending a run, from Corbie or from the store, is always in the log and is said to the team's people (R-requests-36), and never dropped. Work that does not start without saying so is lost. *Test:* `work_start_errors_reported`
+
+## Labels
+
+**R-work-17** Every run Bulldog starts carries `bulldog` with the office's identity, which is never its name (C-server-17), and `kind`, `team`, and `request` on a run that has one, and is found by them.
+*Accept:* a listing of the runs labelled with the house's identity holds every run Bulldog started for it: the steward's runs with `kind=work`, the routine's clocks with `kind=clock`, and the runs started for Bridges with the kind Bridges names. Each has `team`; each of the steward's runs has `request`, and no clock has.
+
+**R-work-18** A run below a run Bulldog started carries the same labels, so a call from a colleague used as a tool is found with the taker's run.
+*Accept:* the steward calls the fixer as a tool, and the fixer calls `ask_person`. The call's run is in the listing narrowed to the request's label, below the fixer's, below the steward's.
+
+**C-work-17** Labels hold kinds, numbers and identities, never words of a request or anyone's name. Corbie shows labels to anyone who may read heads. *Test:* `work_labels_hold_no_words`
+
+**R-work-47** A run started to decide belongs to the team it decides for: a rule's run and a worker's run, a worker of another team's included, carry that team's `team`, the `request` of the decision and the `kind` Decisions names, and what each read is seen only by that team's people. A rule is started as it is written, a bare script given the decision as input or a definition in its team's folder, with no permission Bulldog grants and no definition Bulldog writes around it; a rule that is a definition has a model named by one word filled in as a worker's is (R-work-06).
+*Accept:* the garden writes `decide: { open_door: [reviewer, sam] }`, the reviewer being a worker of the house. The reviewer's run on the gardener's held `open_door` carries `team=garden` and the garden's request; Sam, the garden's person, may watch it, and Kit, who is in the house and not in the garden, may not. The house's `small-orders.js` runs as a bare script with no network: a call it makes to a host is refused. A rule written as a definition that allows the screening service's host reaches it, and its run's permissions are those its file holds and nothing more.
+
+**C-work-18** Bulldog chooses a run's name and notes it, with the team and request it is for, before it sends the start, and what a run is for is read from that note and not from its labels. A start sent and then forgotten in a crash leaves a run nothing ends. *Test:* `work_run_noted_before_start`
+
+## The tools Bulldog ships
+
+**R-work-19** `ask_team(team, question)` makes a sub-request to that team, which starts its taker in a run of its own, and the answer is the tool's result, with who gave it.
+*Accept:* the bot asks payments "was 4411 charged twice?". A sub-request to payments is opened, asked by the bot, and a run of the ledger starts with `team` naming payments and `request` the sub-request's number. Once the answer is released, the bot's tool result holds the answer and the ledger as who gave it.
+
+**R-work-20** `ask_team` is refused, with a sentence, for the worker's own team, for a team the office does not have, naming the teams it may ask, and below 8 levels of sub-requests.
+*Accept:* the fixer asks the house: refused, saying to use its colleagues as tools. The bot asks "billing": refused, naming platform, payments and support. A chain of nine teams each asking the next: the ninth `ask_team` is refused, saying how deep the request already is.
+
+**C-work-19** A request has at most 8 levels of sub-requests below it. Teams that ask each other in a ring would otherwise ask for ever. *Test:* `work_sub_requests_at_most_eight_deep`
+
+**R-work-21** `ask_person(question, who)` asks a person of the worker's team, or with nobody named the asker of the request, and the answer is the tool's result; the request waits on that person meanwhile.
+*Accept:* the fixer asks "tell me when the socket arrives" with nobody named, on Kit's request. The request is waiting on Kit. Kit answers in the chat, and the fixer's tool result is her answer, by Kit.
+
+**R-work-22** `ask_person` is refused, with a sentence naming who the worker may ask, for someone not in its team, and with nobody named when the asker is not a person or a guest.
+*Accept:* the ledger asks Dana: refused, naming Lee and Priya. The ledger asks with nobody named on the bot's sub-request: refused, saying the asker is the bot and naming Lee and Priya. A routine's run asks with nobody named: refused, naming the team's people.
+
+**C-work-20** A question to a person whom nothing reaches, on the screens or by a bridge, is refused at once. A question that waits where nobody will ever see it holds its run for ever. *Test:* `work_question_to_unreachable_person_refused`
+
+**C-work-21** A question that cannot go to the one named is refused, and nobody else is asked in their place. Falling back to another person would carry what a team read to someone outside it. *Test:* `work_no_one_asked_in_anothers_place`
+
+**R-work-23** `tell(text, who)` says something to the asker, or to a person of the worker's team, as an entry, and the tool's result says it was told; nothing waits. It is refused, with a sentence naming who the worker may tell, for someone not in its team, and for the asker when the asker is not a person or a guest.
+*Accept:* the fixer tells Sam "the power is off at breaker 4". An entry by the fixer to Sam is in the thread, and the fixer's next turn starts without waiting on anyone. The ledger tells the asker of the bot's sub-request: refused, saying the asker is the bot, which reads only the ledger's answer.
+
+**R-work-24** Every run Bulldog starts of a team's worker, its taker, a routine's worker, or or a worker of any team asked to decide for it, is given that team's notes in `context` and in `request`, each whole under its name, up to 50,000 characters in all, with a line naming what is not shown, whether or not its definition names the notes tool; it is given no other team's notes. There is no tool for reading notes.
+*Accept:* the garden's two notes are in the gardener's `context` as written, each under its name, and none of the house's are. The bins flow, whose definition names no notes tool, is given the house's notes in `request` on its routine. Notes of 60,000 characters in all are given as their first 50,000 and a line saying which notes, and how much of them, are not shown.
+
+**R-work-25** `write_notes(name, text, why)` writes one of the worker's own team's notes, whole under its name, at once, and no decision is asked: it is the one write to the office's files that is not a decided change, and it is still a commit with who and why, which is Changes' (R-changes-34). A name that is not a plain note name of the team's `notes/` is refused (C-work-54). The tool tells the worker that notes are read by the builder and by whoever decides a change, so a secret or what the team read is never put in one.
+*Accept:* the steward writes `fuses`: Changes is handed the write as the house's note `fuses`, with the steward, its why and the request. The gardener writes `fuses`: it is handed as the garden's note, never the house's. The gardener writes `../fuses`, and then `old/fuses`: each is refused, and nothing is handed to Changes. The tool's description, as the steward's model is given it, says who reads notes and that a secret does not go in one.
+
+**C-work-54** `write_notes` writes only a note of the calling worker's own team: one file directly in that team's `notes/`, named by a plain name with no path in it. Any other name is refused, saying why, and nothing is written. It is the one write to the office's files that is not a decided change, so it must reach nothing but what the worker's own team knows. *Test:* `work_a_note_reaches_only_its_own_team`
+
+**R-work-48** A worker has the notes tool, `write_notes`, only when its own definition names its file, `notes.yaml` in `.bulldog/`, in its `tools_file:`, apart from the talk tools; naming the talk tools gives no notes tool. Not naming it takes nothing from a run Bulldog starts of it: that run is given the team's notes all the same (R-work-24).
+*Accept:* the steward names the talk tools and the notes tool, and its model is offered `write_notes` with the talk tools. The fixer names only the talk tools, and its model is offered `ask_team`, `ask_person` and `tell`, and no notes tool. No worker of payments names the notes tool, and a request worked in payments from start to end leaves payments' notes as they were, while the ledger's `context` holds them.
+
+**R-work-26** The worker that called a tool is the nearest run above the call that is a worker of the team, and the entry is in its name.
+*Accept:* the steward calls the fixer as a tool, and the fixer calls `ask_person`. The question's entry is by the fixer, not the steward.
+
+**C-work-22** Bulldog looks at most 16 runs up for the worker that called, and refuses the call past that. A chain of tools that loops must not hold Bulldog. *Test:* `work_caller_found_within_sixteen_runs`
+
+**R-work-27** Everything a team says outside itself leaves as an answer does: what a worker asks or tells the asker, where the asker is outside its team, and each sub-request it makes with `ask_team`. Where the team set a release check, each passes that check before it is said, and a sub-request before it is made. A refusal is the tool's result, with the decider's note, and an entry by the decider to the team's taker, and the worker goes on.
+*Accept:* the ledger asks platform about a charge, and its question holds a card number. The release rule passes it on to Lee and Priya; no sub-request to platform is made, and the ledger's tool waits, until Lee lets it go; and neither the bot nor Dana sees anything of it meanwhile. The ledger asks platform again, naming the card, and Priya refuses it with the note "no card numbers": no sub-request is made, the ledger's tool result holds the refusal and the note, an entry by Priya to the ledger with the note is in payments' sub-request, seen only in payments, and the ledger's next turn starts. The ledger's `ask_person` to Lee goes to no check, since Lee is inside payments.
+
+**R-work-28** A refused call gives the worker the reason in one sentence, as the tool's result.
+*Accept:* each refusal above is a tool result of one sentence that names what was refused and why, and the run goes on.
+
+**R-work-29** Each question, sub-request and tell is an entry in the request's thread, by the worker that called, to whom it was for.
+*Accept:* after the fixer asks Kit and the bot asks payments, the house's thread holds an entry by the fixer to Kit and the work office's request holds an entry by the bot to payments, each with its time.
+
+**C-work-50** Every tool call acts on the request of the run that made it: its thread, its questions and its sub-requests, and no other. A run given its team's open requests could otherwise say into one it was never started on, past that request's one run at a time and its asker's sight. *Test:* `work_tools_act_on_own_request_only`
+
+**C-work-23** Every tool in a tools file Bulldog ships, the talk tools, the notes tool and the builder's, is one Bulldog does, and Bulldog does no tool that is in none of them. A tool in one and not the other would fail only when a model called it. *Test:* `work_every_shipped_tool_is_done`
+
+## A run that waits
+
+**R-work-30** A shipped tool's run waits on its ticket; Bulldog reads the call from the run's record, does it, keeps the answer and answers the ticket, and the answer is the tool's result.
+*Accept:* the fixer's `tell` is a child run of the shipped chart, waiting on its ticket, and found by the labels of the steward's run. Bulldog answers it; the child ends done with the answer as its output, and the fixer's next turn is given that output as the tool's result.
+
+**R-work-31** An action Corbie holds starts the nearest ask at or above the machine that holds it, which waits on its ticket like a tool; Bulldog hands it to Decisions and answers the ticket with what was decided. A worker Bulldog starts at the top, such as a team's taker or a routine's worker, names the ask Bulldog ships as its `ask:` when anything it runs can be held, its colleagues called as tools included. A colleague called as a tool uses the nearest ask above it unless it names the ask Bulldog ships itself, which it may, and must when it can also be started at the top; every ask a worker names is Bulldog's, and naming any other is a problem of that worker (R-office-30).
+*Accept:* in the house, the steward names the ask, and the fixer and sparks name none. The steward calls the fixer as a tool, and the fixer calls `cut_power`, marked for approval: the job is held, and the ask that waits on its ticket is the steward's, the nearest above the fixer, which Corbie starts as a job of the fixer's run; Decisions is handed the held job as the fixer's. When Decisions says yes, Bulldog answers the ticket and the job starts. Sparks, which holds nothing, names no ask and needs none. With the ask named in the fixer's own definition as well, the fixer's held `cut_power` starts the fixer's ask instead, below the fixer's run as before, and Decisions is handed it as the fixer's all the same.
+
+**C-work-24** The answer to a call is kept before the ticket is answered, and a call found waiting again is given the kept answer and nothing is done again. After a restart Corbie shows every waiting call again, and a call done twice would write things twice. *Test:* `work_call_seen_again_gets_kept_answer`
+
+**C-work-25** What a call does in the store and the answer kept for it are written together. A crash between the two would still do the call twice. *Test:* `work_call_and_its_answer_written_together`
+
+**C-work-26** A call is done only when the run at its top is one Bulldog noted for this office and that run has not ended; any other is refused with a sentence. Runs left over from an office that is gone, or from another office, must not act in this one. *Test:* `work_call_from_unknown_run_refused`
+
+**C-work-27** A call whose input cannot be read yet is looked at again. A call skipped once would wait until Bulldog restarted. *Test:* `work_unreadable_call_looked_at_again`
+
+**R-work-32** A question or a sub-request stays open when the run that asked ends, with an answer or without (R-requests-28, C-requests-29), unless that run was stopped; its answer goes to the tool while the tool waits, and otherwise is an entry in the thread that starts the taker again.
+*Accept:* the ledger's question to Lee waits; the ledger's tool reaches its time limit and the ledger ends. Lee answers. His answer is an entry to the ledger in the sub-request's thread, and a new run of the ledger starts with it as `said`.
+
+**C-work-28** An answer goes to the waiting tool or into the thread, never both, and it starts no run while the run that asked still goes. A worker woken on its own question while still running on it does the work twice. *Test:* `work_answer_goes_to_one_place`
+
+**R-work-33** A shipped tool waits at most 7 days; the worker is then told the question is still open, and a later answer starts the taker again.
+*Accept:* the fixer asks Kit and the test's clock moves 7 days on. The fixer's tool result says the question is still open, and the fixer ends. Kit answers on day 8: a run of the steward starts on the request with her answer as `said`.
+
+**C-work-30** A kept answer is removed once its call's run has ended. Nothing can be seen waiting again after its run ends, and answers kept for ever would only grow. *Test:* `work_kept_answer_removed_when_call_ends`
+
+## Routines
+
+**R-work-34** Each routine has one clock: the clock Bulldog ships, `.bulldog/clock.yaml`, given the routine's `at` as `due`, a time written without a zone being in the office's zone (C-office-12). Its timer is that time, and it waits on a ticket when its time comes. Bulldog writes no definition.
+*Accept:* the house's routine `{ at: "mon 09:00", to: steward, say: … }` has one running clock, labelled `kind=clock`, of the machine `clock`, whose input is `{ due: "mon 09:00 Europe/London" }`. Every other run Bulldog started has as its definition a file of the office as written, with a model named by one word filled in, or a file Bulldog ships.
+
+**R-work-35** When a clock waits on its ticket, Bulldog opens the routine's request, asked by the team with the routine as its origin, starts the worker the routine names with its `say`, and answers the ticket.
+*Accept:* the test's clock reaches Monday 09:00. A request of the house's own opens, and a run of the steward starts with `said` "Walk round: what is still open?". The clock is waiting on its timer again.
+
+**R-work-36** A routine's answer goes to the team's people.
+*Accept:* the steward answers the Monday routine; Sam and Kit each have an entry by the steward with the answer.
+
+**R-work-45** A routine's run is given, in `context` and in `request`, its team's open requests, those working or waiting on someone, each with its number, its asker, its state and the first line of what was asked: the newest 50, and a line saying how many more there are.
+*Accept:* on the Monday routine the steward's `context` names Kit's request, by its number, Kit, waiting on Kit, and "the kitchen socket sparked", and `request` holds the same as data; nothing of the garden's requests is given. With 53 open requests, the newest 50 are given and a line says 3 more are open.
+
+**C-work-31** Each coming round of a routine is acted on once: Bulldog notes it with the request it opens before it answers the clock's ticket, and a clock found waiting on a coming round already noted is only answered. A restart between opening and answering would open a second request. *Test:* `work_routine_acted_on_once`
+
+**C-work-32** A time that came while Bulldog was away is acted on once when it is back, however many came. The clock waits on its ticket, so what came while nobody answered is one coming round. *Test:* `work_routine_while_away_acted_on_once`
+
+**C-work-33** A time that comes while the routine's last request is still open, working or waiting on someone, or for a worker that cannot run, is let go by: its ticket is answered and nothing is opened. Nothing piles up behind a slow or broken worker, nor behind a person who has not answered. *Test:* `work_routine_let_go_while_last_works`
+
+**C-work-34** A clock never comes round twice for one time. A timer entered again in the instant it came due would fire again for the same time. *Test:* `work_clock_never_twice_for_one_time`
+
+**C-work-36** A routine's request is the team's own, and whatever comes of it waits on the team's people and deciders, never on anyone outside the team. A routine that belonged to someone else would leave what came of it waiting on someone who cannot see it. *Test:* `work_routine_request_is_the_teams`
+
+**R-work-37** When the office is read, a routine with no clock gets one, a clock for a routine no longer written is cancelled, and a clock that has ended is started again; a routine is known by what is written of it, so a changed routine is a new one.
+*Accept:* the Monday routine's `say` is changed by an approved change: its clock is cancelled and a new one runs. A routine is removed: its clock ends cancelled. A clock is cancelled from the command line: when the office is next read, a new one runs.
+
+**C-work-37** Clocks are looked for only when the office is read and when a clock ends. A sweep on a timer would cost two listings every half minute and find nothing new. *Test:* `work_clocks_synced_on_read_only`
+
+## When Bulldog was away
+
+**R-work-38** Bulldog watches every run with its office's label, and when the first listing ends it settles: each run it noted as going that is not running is read for how it ended, each waiting call is answered from what was kept or done now, each waiting clock is acted on, and what waits to start is started.
+*Accept:* Bulldog is stopped while the ledger runs, the fixer's question to Kit waits, the Monday clock comes due and a request waits to start. The ledger ends meanwhile. When Bulldog starts again, the ledger's ending is applied, the fixer's call waits until Kit answers, the Monday request opens once, and the waiting request starts.
+
+**C-work-38** A run is never taken to have ended from a record that could not be read; it is looked at again 30 seconds later, and until it is read. A run taken to have ended with nothing, when its record was out of reach for a moment, would lose its answer. *Test:* `work_unread_record_not_taken_as_ended`
+
+**C-work-39** A run at the top with the office's label that Bulldog has no note of is cancelled, once the store has been read. Nothing else would ever end a run left over from an office that no longer has it. *Test:* `work_unknown_run_cancelled`
+
+**C-work-40** A noted run Corbie has no record of is left while Corbie says it is waiting to start, and ended as lost on its request once Corbie says it was never taken up or has no record of it at all. A run is not failed on a guess at how long a start takes, and is not left open for ever. *Test:* `work_noted_run_without_record_ended_as_lost`
+
+**C-work-41** If watching cannot begin, Bulldog says so and tries again a second later. Corbie's watch fails only on its first listing, and an office must not stop because the store was out of reach when it started. *Test:* `work_watch_begins_again`
+
+**C-work-42** What waits to start, every open question and every open sub-request is kept in the store, never only in memory. Work in flight when the server stops would otherwise stay open for ever. *Test:* `work_waiting_work_kept_in_store`
+
+**C-work-43** Bulldog looks for runs to start when a request is opened, something is said, a run ends, a call is answered or the office is read; the one timer of this area's own looks again, after 30 seconds, at what it could not read or reach. Corbie's interval for watching is Corbie's, and a run another area asks for at a time of its choosing is that area's. A sweep on a timer hides what was never triggered, and costs whatever happens. *Test:* `work_looks_on_events_only`
+
+**C-work-44** A start that cannot be sent because Corbie or the store cannot be reached is said to the team's people, is tried again after 30 seconds, and holds up no other request's start. One failure must not stop everything behind it, nor be lost. *Test:* `work_unsent_start_tried_again_alone`
+
+**C-work-45** No lock is held across a call to Corbie, and nothing a person does on the screens waits on Corbie. A slow Corbie would stall the watch, the starts and the screens together. *Test:* `work_no_lock_across_corbie`
+
+**R-work-39** A run goes on as it was started when the files change, and its worker's next run reads them again.
+*Accept:* the steward's prompt is changed by an approved change while it runs; the running run's definition is unchanged, and its next run's definition is the new one.
+
+**C-work-46** When the office is read and a worker or team with runs going is no longer in it, those runs are stopped and their requests answered saying so. A worker taken out by a hand edit would run on, with nobody able to see it. *Test:* `work_removed_worker_runs_stopped`
+
+**C-work-48** Each request's start, each call's answer and each coming round of a routine is handled on its own: an error in one is reported for that one, and never marks another as done or failed, nor stops the rest from being handled. An error carried from one item into the next would fail or skip work that had nothing wrong with it. *Test:* `work_one_items_error_kept_to_it`
+
+## Watching a run
+
+**R-work-40** A run can be watched as it happens: the model's words as they arrive, each tool call and its result, each log line, and each refusal, read from Corbie's record of the run as it is written.
+*Accept:* a watcher of the fixer's run receives the stand-in's reply in pieces before the run ends, the `ask_person` call and its result, a log line from a script tool, and the refusal of a script that reads outside what it may.
+
+**C-work-47** A refusal is shown with what was tried, which layer refused it and the line that would fix it. Without the fix line, the person who reads a refused run cannot mend it. *Test:* `work_refusal_shown_with_fix`
+
+## The builder's tools
+
+**R-work-41** A call to one of the builder's tools waits on its ticket like any other, and is handed to Changes, whose answer Bulldog keeps and gives as the tool's result.
+*Accept:* the builder calls `office_files()`; the call's run waits on its ticket, Changes is handed it as the builder's, and the builder's next turn is given what Changes answered.
+
+## Tests
+
+**C-work-51** Every test of this area moves a clock the test holds and steps the work until it is still, and never waits a fixed time. A test that waits passes on a fast computer and fails on a slow one, and hides work that nothing triggered. *Test:* `work_steps_until_still`, which holds that a step returns only once no start, call, ending or coming round is left to handle
+
+**C-work-52** `mise run check` runs every test with the race detector on. The watch, the starts and the calls run at once, and a race between them shows only under the detector. *Test:* none: kept by the check itself.
+
+## Interfaces
+
+- **Office** gives the teams, their takers, workers, people, notes, routines, zone and `runs:`, and each team's `about`, read from the files each time they are needed; looks up the model a one-word name stands for, in the worker's own team and then each team around it, which work fills into the definition it sends (R-work-06); reports a worker with a problem (C-work-02), a worker whose model's name is found nowhere, one that must name the ask and does not, and one that names an ask other than Bulldog's among them (R-office-30, R-work-31); and reads a routine's `at` written without a zone in the office's zone (C-office-12).
+- **Requests** keeps the requests, their threads, states and sub-requests; work opens and answers them and adds entries, and holds that no request is left working with nothing to move it (C-work-53) and applies each run's ending once and only to its own run (C-work-14), while requests holds that a sub-request stays when the run that asked it ends and that answering a request leaves its sub-requests going (R-requests-28, C-requests-29); it says who a team with no people has as its people for every purpose of sight and control (R-requests-36), whom work's "the team's people" means for such a team (R-work-14, C-work-02, C-work-15); it gives the asker as a person or a guest (R-work-07), a team's open requests (R-work-45), and the closing of an issue at its source (R-work-43).
+- **Decisions** is handed every held action through the ask Bulldog ships, and everything said outside a team that set a release check (R-work-13, R-work-27), and work answers Corbie, gives the tool its refusal or starts the taker again (R-work-46) with what it decides; it asks work for the runs of its rules and deciding workers, each labelled with the team it decides for (R-work-47), and gives the one line an asker is told when a team does not release its answer (R-decisions-40, R-work-46).
+- **Bridges** carries what work says to an asker or a person, and hands work what people answer; its settings say which team takes what is said at each place it listens in, the office where they name none, and work starts that team's taker (R-work-01); the runs started for it carry the same labels.
+- **Changes** commits what `write_notes` writes, the one write to the office's files that is not a decided change, as one commit with who and why (R-changes-34), while work says what a run may write (R-work-25, C-work-54); it is handed each call to the builder's tools, whose answer work keeps and gives (R-work-41); and every shipped tool, the builder's among them, is one work answers (C-work-23).
+- **Server** holds the office's identity, which work labels every run with (C-server-17), and by which work looks in Corbie alone for another server of the office before anything of the office is opened or read (R-server-17, R-server-53, C-server-50); has work start and renew the server's own run; is told each reading of the office once every area has taken it, before it gives a link (R-server-19); lets a person who may stop a run stop it, and shows a run as it is watched to those who may see what was read; for a team with no people, those are the people R-requests-36 gives it.
+- **Corbie** runs everything.

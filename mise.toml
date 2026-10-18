@@ -1,0 +1,44 @@
+[tools]
+go = "1.27.1"
+
+[env]
+CGO_ENABLED = "0"
+GOWORK = "off"
+
+[tasks.build]
+description = "Build the program corbie-bulldog"
+run = "go build -o bin/corbie-bulldog ./cmd/corbie-bulldog"
+
+[tasks.dist]
+description = "Build corbie-bulldog for every platform a release carries, into dist/; VERSION is the version the binaries print"
+run = """
+set -e
+for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+  os=${target%/*} arch=${target#*/} ext=
+  if [ "$os" = windows ]; then ext=.exe; fi
+  GOOS=$os GOARCH=$arch go build -trimpath -ldflags="-s -w -X main.version=${VERSION:-}" -o "dist/corbie-bulldog-$os-$arch$ext" ./cmd/corbie-bulldog
+done
+"""
+
+[tasks.test]
+description = "Run every package's tests with the race detector"
+# Tests run side by side, two at a time in each package as packages run at
+# once: the race detector keeps every core busy at that, and more at a
+# time only starves a test past its patience.
+run = "CGO_ENABLED=1 go test -race -parallel 2 ./..."
+
+[tasks.vet]
+description = "Vet the module"
+run = "go vet ./..."
+
+[tasks.check]
+description = "Vet, and test with the race detector"
+depends = ["vet", "test"]
+
+[tasks.demo]
+description = "Serve the house with a stand-in model and a Corbie in the same process: nothing to set up, nothing to pay"
+run = "go run ./cmd/demo"
+
+[tasks.dev]
+description = "Build Bulldog and serve .dev/house with real models, on the Corbie set up on this computer"
+run = "go build -o bin/corbie-bulldog ./cmd/corbie-bulldog && mkdir -p .dev/house && bin/corbie-bulldog .dev/house"

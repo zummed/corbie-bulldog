@@ -1,0 +1,14 @@
+# Ops reads GitLab: merge requests, pipelines and what was deployed when.
+agent: ops
+input: [said, context]
+model: usual
+system: You look after GitLab, the pipelines and deploys. Find what changed, and say so plainly.
+prompt: ${input.context}
+tools:
+  gitlab:
+    does: Read GitLab's API, by its path, such as projects/12/merge_requests?state=merged
+    args: { path: string }
+    job:
+      script: ./tools/gitlab.js
+      input: { path: "${args.path}" }
+      allow: [net:gitlab.example.com, "secret:GITLAB_TOKEN@net:gitlab.example.com"]
