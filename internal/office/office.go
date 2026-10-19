@@ -94,7 +94,10 @@ type Team struct {
 	// Disclosure is its disclosure check, and HasDisclosure whether it sets one.
 	Disclosure    []Decider
 	HasDisclosure bool
-	Routines      []Routine
+	// Heed is the rule it names to weigh what is said at a channel place
+	// before its lead starts on it, or nil.
+	Heed     *Heed
+	Routines []Routine
 	// Models are the models it gives by name, in the order written.
 	Models []Model
 	// Workers are the names of its workers, in order.
@@ -127,6 +130,29 @@ type Decider struct {
 	// office.
 	Name string
 }
+
+// A Heed is the one rule a team names, by its path, to weigh what is said
+// at a channel place before its lead starts on it, with the settings handed
+// to the rule. It is no decider: nothing waits on it.
+type Heed struct {
+	// Written is the rule's path as the team file writes it, and Rule its
+	// path in the office, or under .bulldog/ for one Bulldog ships.
+	Written string
+	Rule    string
+	// Settings are every key written beside rule, as written, handed to
+	// the rule whole; a heed written as a bare path has none. Bulldog
+	// reads none of them. Row is them written in a row, as a team file
+	// writes them, { timeout: 5s }, or "" for none.
+	Settings map[string]any
+	Row      string
+	// Line is where in the team file it is written.
+	Line int
+	// Problems are its own and its rule's. A heed with any is not asked.
+	Problems Problems
+}
+
+// Runs says whether the heed may be asked.
+func (h *Heed) Runs() bool { return len(h.Problems) == 0 }
 
 // A Routine is something said to one of a team's workers at a set time.
 type Routine struct {

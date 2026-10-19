@@ -15,6 +15,7 @@ func TestTheKeysATeamFileTakes(t *testing.T) {
 	if o := reads(t, replace(t, house(t), "office.yaml", "lead: steward", "lead: steward\nruns: 2")); o.Runs != 2 {
 		t.Errorf("runs is %d", o.Runs)
 	}
+	reads(t, with(replace(t, house(t), "garden/team.yaml", "lead: gardener", "lead: gardener\nheed: ./for-us.js"), map[string]string{"garden/for-us.js": "return 1"}))
 	if o := reads(t, house(t)); o.Runs != office.DefaultRuns {
 		t.Errorf("runs is %d with none written", o.Runs)
 	}
@@ -235,6 +236,12 @@ func TestOfficeRuleDefinitionIsNotAWorker(t *testing.T) {
 	files = replace(t, files, "office.yaml", "[./small-orders.js, sam]", "[./reviewer.yaml, sam]")
 	if o := reads(t, files); o.Workers["reviewer"] != nil || o.Rules["reviewer.yaml"] == nil {
 		t.Error("a definition named in a list is read as a worker")
+	}
+	// So is one a heed names.
+	files = with(house(t), map[string]string{"reviewer.yaml": "flow: reviewer\nstages: { look: { job: ./small-orders.js } }\n"})
+	files = replace(t, files, "office.yaml", "lead: steward", "lead: steward\nheed: { rule: ./reviewer.yaml }")
+	if o := reads(t, files); o.Workers["reviewer"] != nil || o.Rules["reviewer.yaml"] == nil {
+		t.Error("a definition a heed names is read as a worker")
 	}
 }
 

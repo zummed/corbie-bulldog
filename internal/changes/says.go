@@ -182,6 +182,24 @@ func tellTeam(t *telling, now *office.Office, a, b *office.Team, sawWas, sawNow 
 		tellList(t, files, fmt.Sprintf("%s decides %s by", name, key), fmt.Sprintf("%s %s list", of(name), key), da, db, hadA, hasB, a.File == "")
 	}
 	tellList(t, files, fmt.Sprintf("%s disclosure check is", of(name)), fmt.Sprintf("%s disclosure check", of(name)), a.Disclosure, b.Disclosure, a.HasDisclosure, b.HasDisclosure, a.File == "")
+	heed := func(team *office.Team) string {
+		if team.Heed == nil {
+			return ""
+		}
+		if team.Heed.Row != "" {
+			return team.Heed.Written + ", with " + team.Heed.Row
+		}
+		return team.Heed.Written
+	}
+	switch ha, hb := heed(a), heed(b); {
+	case ha == hb:
+	case hb == "":
+		t.say(false, files, "%s heed is taken away: it was %s.", of(name), ha)
+	case ha == "":
+		t.say(false, files, "%s heed is %s.", of(name), hb)
+	default:
+		t.say(false, files, "%s heed is now %s, where it was %s.", of(name), hb, ha)
+	}
 	routine := func(r office.Routine) string { return r.At + "|" + r.To + "|" + r.Say }
 	for _, r := range b.Routines {
 		if !slices.ContainsFunc(a.Routines, func(x office.Routine) bool { return routine(x) == routine(r) }) {
@@ -662,8 +680,8 @@ func tellRules(t *telling, was, now reading, touched map[string]bool) {
 		}
 		return of(called(o, r.Team)) + " rule " + r.Path
 	}
-	// on gives the lists and disclosure checks a rule is on, of every team
-	// that names it.
+	// on gives the lists, disclosure checks and heeds a rule is on, of every
+	// team that names it.
 	on := func(o *office.Office, r *office.Rule) string {
 		var on []string
 		for _, name := range o.Order {
@@ -678,6 +696,9 @@ func tellRules(t *telling, was, now reading, touched map[string]bool) {
 			}
 			if slices.ContainsFunc(team.Disclosure, func(d office.Decider) bool { return d.Name == r.Path }) {
 				on = append(on, its+"disclosure check")
+			}
+			if team.Heed != nil && team.Heed.Rule == r.Path {
+				on = append(on, its+"heed")
 			}
 		}
 		return strings.Join(on, " and ")

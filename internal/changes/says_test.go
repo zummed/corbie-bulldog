@@ -147,6 +147,13 @@ func TestChangesSayWhatChangesInRulesAndBridges(t *testing.T) {
 	has(t, check.LetsMoreBy, "slack's out machine may connect to files.slack.com")
 	has(t, check.LetsMoreBy, "slack's settings are changed")
 	has(t, check.Says, "slack listens in #deploys, for Platform, where guests may ask")
+	// A heed is said, and so is the rule it names.
+	check = saysOf(t, f, map[string]string{
+		"garden/team.yaml": replaced(t, house(t), "garden/team.yaml", "lead: gardener", "lead: gardener\nheed: { rule: ./for-us.js, timeout: 5s }"),
+		"garden/for-us.js": "return { says: \"act\" }\n",
+	})
+	has(t, check.Says, "the garden's heed is ./for-us.js, with { timeout: 5s }.")
+	has(t, check.Says, "the garden's rule garden/for-us.js is new, on its heed.")
 }
 
 func TestChangesWhatLetsMoreByIsApartEverywhere(t *testing.T) {

@@ -38,6 +38,8 @@ func TestServerCheckListsTheWorkOffice(t *testing.T) {
 	t.Parallel()
 	files := testkit.Files(t, examples.Work())
 	files["payments/team.yaml"] += "models:\n  usual: { name: claude-opus-5-5, secret: PAYMENTS_KEY }\n"
+	files["office.yaml"] += "heed: { rule: ./for-us.js, timeout: 5s }\n"
+	files["for-us.js"] = "return { says: \"act\" }\n"
 	dir := testkit.Folder(t, files)
 	before := stamps(t, dir)
 	var out strings.Builder
@@ -47,7 +49,8 @@ func TestServerCheckListsTheWorkOffice(t *testing.T) {
 	listing := out.String()
 	for _, part := range []string{
 		"Payments (payments), within Platform support: Charges, refunds and the ledger. Holds customer data.\n  people: lee, priya\n  lead: ledger\n",
-		"  disclosure check: ./no-account-numbers.yaml\n",
+		"  disclosure check: ./no-account-numbers.yaml\n  heed: none\n",
+		"  heed: ./for-us.js, with { timeout: 5s }\n",
 		"  ledger, an agent, with the model { name: claude-opus-5-5, secret: PAYMENTS_KEY }, named usual, from Payments\n",
 		"    refund waits for a yes, decided by lee, then priya\n",
 		"  bot, an agent, with the model { name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }, named usual, from Platform support\n",

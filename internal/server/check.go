@@ -89,6 +89,14 @@ func listTeam(out io.Writer, o *office.Office, t *office.Team) []string {
 		disclosure = written(t.Disclosure)
 	}
 	fmt.Fprintf(out, "  disclosure check: %s\n", disclosure)
+	heed := "none"
+	if h := t.Heed; h != nil {
+		heed = h.Written
+		if h.Row != "" {
+			heed += ", with " + h.Row
+		}
+	}
+	fmt.Fprintf(out, "  heed: %s\n", heed)
 	for _, r := range t.Routines {
 		fmt.Fprintf(out, "  routine at %s, to %s: %s\n", r.At, r.To, r.Say)
 	}

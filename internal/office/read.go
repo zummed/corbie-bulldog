@@ -60,6 +60,7 @@ func Parse(dir string, given map[string][]byte) (*Office, Problems) {
 	r.findWorkers()
 	r.readLists()
 	r.readLeads()
+	r.readHeeds()
 	r.readRoutines()
 	r.readBridges()
 	r.checkWorkers()
@@ -218,7 +219,7 @@ func (r *reading) teamAt(dir string) *Team {
 
 // The keys a team file takes, and those only the top team's takes.
 var (
-	teamKeys = []string{"name", "about", "people", "lead", "decide", "disclosure", "routines", "models"}
+	teamKeys = []string{"name", "about", "people", "lead", "heed", "decide", "disclosure", "routines", "models"}
 	topKeys  = []string{"zone", "everyone", "bridges", "runs"}
 )
 
@@ -490,10 +491,14 @@ func (r *reading) teamOfFolder(dir string) *Team {
 	return nil
 }
 
-// ruleEntries gives the entries of a team's lists that are paths.
+// ruleEntries gives the entries of a team's lists that are paths, and the
+// path its heed names.
 func (r *reading) ruleEntries(team string) []string {
 	var entries []string
 	root := r.nodes[team]
+	if heed, ok := text(heedRule(child(root, "heed"))); ok && isPath(heed) {
+		entries = append(entries, heed)
+	}
 	lists := []*yaml.Node{child(root, "disclosure")}
 	for _, v := range pairs(child(root, "decide")) {
 		lists = append(lists, v)
@@ -654,6 +659,63 @@ func (r *reading) readLeads() {
 		default:
 			r.teamFile(t, node, "lead: %s is not a worker or a person of %s", lead, called(t))
 		}
+	}
+}
+
+// heedRule gives the node a heed names its rule by: the heed itself, or its
+// rule: when it is written with settings.
+func heedRule(node *yaml.Node) *yaml.Node {
+	if node != nil && node.Kind == yaml.MappingNode {
+		return child(node, "rule")
+	}
+	return node
+}
+
+// readHeeds reads each team's heed: one rule, named by its path as a list
+// names one, written alone or as the rule: of a mapping whose other keys
+// are settings, handed to the rule whole. A heed is asked only before a
+// lead that is a worker: one before a person is a problem of the heed
+// alone.
+func (r *reading) readHeeds() {
+	for _, name := range r.o.Order {
+		t, node := r.o.Teams[name], child(r.nodes[name], "heed")
+		if node == nil {
+			continue
+		}
+		h := &Heed{Settings: map[string]any{}, Line: node.Line}
+		rule := heedRule(node)
+		if node.Kind == yaml.MappingNode {
+			settings := &yaml.Node{Kind: yaml.MappingNode}
+			for k, v := range pairs(node) {
+				if k.Value != "rule" {
+					settings.Content = append(settings.Content, k, v)
+				}
+			}
+			if err := settings.Decode(&h.Settings); err != nil {
+				r.teamFile(t, node, "heed: its settings cannot be read: %v", err)
+				continue
+			}
+			if len(settings.Content) > 0 {
+				h.Row = inRow(settings)
+			}
+		}
+		written, ok := text(rule)
+		if !ok || !isPath(written) {
+			r.teamFile(t, node, "heed is one rule, by its path, as ./for-us.js, or with settings for it, as { rule: ./for-us.yaml, timeout: 5s }, and its rule is %s", describe(rule))
+			continue
+		}
+		h.Written, h.Rule = written, path.Join(t.Dir, written)
+		if problem := r.rulePath(t, h.Rule); problem != "" {
+			r.teamFile(t, rule, "heed: %s %s", written, problem)
+			continue
+		}
+		if r.o.People[t.Lead] != nil {
+			p := Problem{File: t.File, Line: node.Line, Team: name,
+				Text: fmt.Sprintf("heed: %s is not asked: %s's lead, %s, is a person, and a heed is asked only before a lead that is a worker", written, called(t), t.Lead)}
+			h.Problems = append(h.Problems, p)
+			r.report(p)
+		}
+		t.Heed = h
 	}
 }
 
