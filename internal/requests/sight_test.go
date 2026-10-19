@@ -26,7 +26,7 @@ func (d *desk) decide(n int64, worker, action, shown string, people ...string) *
 func TestRequestsTwoLayers(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
-	al := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.05", slackAl, "is the deploy done?", nil)).Number
+	al := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.05", "", slackAl, "is the deploy done?", nil)).Number
 	if first := d.thread(al)[0]; first.Read != "" {
 		t.Errorf("Al's asking in #help is what was read of %s", first.Read)
 	}
@@ -127,7 +127,7 @@ func TestRequestsRefusedDisclosure(t *testing.T) {
 	files["support/check.js"] = `return { says: "yes" }`
 	w := open(t, files)
 	must(t, w.Readers("slack", thread, []string{slackDana, slackAl}))
-	dana := got[*requests.Request](t)(w.AskAt("slack", "#help", thread, slackDana, "help", nil)).Number
+	dana := got[*requests.Request](t)(w.AskAt("slack", "#help", thread, "", slackDana, "help", nil)).Number
 	support := got[*requests.Request](t)(w.Sub(dana, w.Worker("bot"), "support", "What did we tell 4411?", "t")).Number
 	answer := got[*requests.Entry](t)(w.Say(support, w.Person("dana"), "a refund", []requests.File{{Name: "note.txt", Data: []byte("4411")}}, requests.Screens))
 	if answer.Kind != requests.KindHeld || answer.Read != "support" || w.state(support).Is != requests.Working || holds(w.shows(support, "al"), "a refund") {
@@ -462,7 +462,7 @@ func TestRequestsNoFallbackRecipient(t *testing.T) {
 	// An entry may be to workers and teams, and to a guest who asked.
 	must(t, errOf(d.Write(d.payments, requests.Writing{Kind: "said", By: d.Worker("ledger"), To: []requests.Who{d.Worker("ledger"), d.Team("payments")}, Text: "y", Read: true})))
 	guest := requests.Identity("slack", "U0STRANGE")
-	n := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", guest.ID, "refund me", nil)).Number
+	n := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", "", guest.ID, "refund me", nil)).Number
 	must(t, errOf(d.Write(n, requests.Writing{Kind: "not disclosed", By: requests.Bulldog, To: []requests.Who{guest}, Text: "the office did not disclose its answer"})))
 }
 
@@ -632,7 +632,7 @@ func TestRequestsReusedTeamNameInheritsNothing(t *testing.T) {
 func TestRequestsGuestAsksOnlyWhereGuestsMay(t *testing.T) {
 	t.Parallel()
 	d := open(t, work(t))
-	guest := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", "U0STRANGE", "is the API down?", nil))
+	guest := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", "", "U0STRANGE", "is the API down?", nil))
 	if guest.Team != office.Top || guest.Asker != requests.Identity("slack", "U0STRANGE") {
 		t.Errorf("the guest's request is %+v", guest)
 	}
@@ -641,10 +641,10 @@ func TestRequestsGuestAsksOnlyWhereGuestsMay(t *testing.T) {
 		t.Errorf("the answer to the guest goes to %+v", ds)
 	}
 	var refusal requests.Refusal
-	if _, err := d.AskAt("slack", office.Direct, "D0STRANGE", "U0STRANGE", "hello", nil); !errors.As(err, &refusal) {
+	if _, err := d.AskAt("slack", office.Direct, "D0STRANGE", "", "U0STRANGE", "hello", nil); !errors.As(err, &refusal) {
 		t.Errorf("a direct message is told %v", err)
 	}
-	if _, err := d.AskAt("gitlab", "platform/api", "platform/api#60", "9999", "broken", nil); !errors.As(err, &refusal) {
+	if _, err := d.AskAt("gitlab", "platform/api", "platform/api#60", "", "9999", "broken", nil); !errors.As(err, &refusal) {
 		t.Errorf("a guest's comment on platform/api is told %v", err)
 	}
 	if d.count("requests_requests") != 1 {
@@ -657,7 +657,7 @@ func TestRequestsGuestSaysMoreAtOrigin(t *testing.T) {
 	d := open(t, work(t))
 	place := requests.Where{Bridge: "slack", Place: "#help/1700.07"}
 	guest := requests.Identity("slack", "U0STRANGE")
-	n := got[*requests.Request](t)(d.AskAt("slack", "#help", place.Place, guest.ID, "refund me", nil)).Number
+	n := got[*requests.Request](t)(d.AskAt("slack", "#help", place.Place, "", guest.ID, "refund me", nil)).Number
 	q := got[*requests.Entry](t)(d.Put(n, d.Worker("bot"), requests.KindQuestion, guest, "which customer?", nil))
 	if ds := got[[]requests.Delivery](t)(d.Deliveries(q.ID)); len(ds) != 1 || ds[0].Origin == nil || ds[0].Origin.Place != place.Place {
 		t.Errorf("the question to the guest goes to %+v", ds)
@@ -673,7 +673,7 @@ func TestRequestsGuestSaysMoreAtOrigin(t *testing.T) {
 func TestRequestsGuestLaterAPerson(t *testing.T) {
 	t.Parallel()
 	d := open(t, work(t))
-	n := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", "U0STRANGE", "refund me", nil)).Number
+	n := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", "", "U0STRANGE", "refund me", nil)).Number
 	d.read(replace(t, d.files, "office.yaml", "everyone:\n", "everyone:\n  jo:    { name: Jo, slack: U0STRANGE }\n"))
 	if !d.sees(n, "jo") {
 		t.Error("Jo does not see what she asked as a guest")
@@ -687,7 +687,7 @@ func TestRequestsGuestAsksAndNothingMore(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
 	guest := requests.Identity("slack", "U0STRANGE")
-	n := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", guest.ID, "refund me", nil)).Number
+	n := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", "", guest.ID, "refund me", nil)).Number
 	var refusal requests.Refusal
 	if _, err := d.Write(n, requests.Writing{Kind: "decision", Text: "Refund", To: []requests.Who{guest}, Waits: []requests.Who{guest}}); !errors.As(err, &refusal) {
 		t.Errorf("a decision put to a guest is told %v", err)

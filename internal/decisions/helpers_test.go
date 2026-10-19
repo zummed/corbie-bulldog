@@ -604,7 +604,7 @@ var fixerUp = []string{"fixer", "steward"}
 // payments in it.
 func (b *bench) helpRequest() (top, sub int64) {
 	b.t.Helper()
-	r, err := b.reqs.AskAt("slack", "#help", "C1/100.1", "U0DANA00", "customer 4411 was charged twice after Tuesday's release; refund one and tell me what broke.", nil)
+	r, err := b.reqs.AskAt("slack", "#help", "C1/100.1", "", "U0DANA00", "customer 4411 was charged twice after Tuesday's release; refund one and tell me what broke.", nil)
 	if err != nil {
 		b.t.Fatal(err)
 	}

@@ -6,19 +6,33 @@ Bulldog drives Corbie, and this area is how. It starts runs, watches them, answe
 
 A run is one instance of a worker that Bulldog started, on one request.
 
-- **A request reaching a team** starts the team's lead on it. A request asked at a place on a bridge reaches the team that place names, the office where it names none, and a sub-request reaches the team asked. A team whose lead is a person starts no run: the request waits on that person.
-- **Something said to the team in a request's thread**, a reply, an answer to a question it asked, or a decider's refusal of something it would have said outside the team, starts the lead on the request again, once no run of the request is going.
+- **A request reaching a team** starts the team's lead on it, once the team's heed, where it weighs what was asked, lets it through. A request asked at a place on a bridge reaches the team that place names, the office where it names none, and a sub-request reaches the team asked. A team whose lead is a person starts no run: the request waits on that person.
+- **Something said to the team in a request's thread**, a reply, an answer to a question it asked, or a decider's refusal of something it would have said outside the team, starts the lead on the request again, once no run of the request is going and the team's heed, where it weighs what was said, lets it through.
 - **A routine coming round** opens a request of the team's own and starts the worker the routine names.
 
 Nothing else starts a worker on a request. A worker used as a tool by a colleague is not started by Bulldog: Corbie runs it inside the run that called it, and what it does is in Corbie's record of that run. The other areas ask work for runs of their own, and work starts and labels them like any other: Decisions for a rule or a worker asked to decide, and Bridges for a bridge's machines.
 
-A request has one run going at a time, and a worker may have runs going on several requests. What is said in a request while a run goes cannot reach that run, since an agent acts on nothing sent to it, so it is given to the next run, which starts as soon as that one ends.
+A request has one run going at a time, its lead's or its heed's, and a worker may have runs going on several requests. What is said in a request while a run goes cannot reach that run, since an agent acts on nothing sent to it, so it is given to the next run, which starts as soon as that one ends.
 
-The office has at most `runs:` runs working at once, from the top team's file. They are the runs of its workers on requests: a run another area asks for, to decide or for a bridge, is that area's, and does not count. A run that waits on a person, another team or a decision is not working, and does not count. A request ready to start waits its turn, oldest first. A worker the office reports as having a problem is given no run. Asking a team whose lead cannot run is refused where it is asked, saying why, as the requests page says; a request already open when its lead stops is answered saying the team cannot answer now, and the team's people are told the problem.
+The office has at most `runs:` runs working at once, from the top team's file. They are the runs of its workers on requests: a heed's run does not count, and a run another area asks for, to decide or for a bridge, is that area's, and does not count either. A run that waits on a person, another team or a decision is not working, and does not count. A request ready to start waits its turn, oldest first. A worker the office reports as having a problem is given no run. Asking a team whose lead cannot run is refused where it is asked, saying why, as the requests page says; a request already open when its lead stops is answered saying the team cannot answer now, and the team's people are told the problem.
 
 A request is never left working with nothing going, nothing waiting to start and nothing it waits on.
 
 A run starts with no memory of the last. It is given the thread, never an earlier run's conversation, because a conversation is what was read.
+
+## A team's heed
+
+A team may name a heed, one rule that weighs what is said at a channel place before its lead starts on it, as the office page says. It is asked only when everything new to the lead is a message said at the request's own place, through its bridge, by a person or a guest: what was asked there, or said there more. Anything else new starts the lead on all of it with no heed: a direct message, something said on the screens or in the chat, a routine's request, a sub-request, a reply to what the lead put to someone, a late answer, a decider's refusal, and the opening of a source thing, such as an issue, which is addressed to whoever watches it. A comment in the issue is weighed. What is said while the lead's run goes is weighed once that run ends, and what is said while the heed weighs is weighed next, unless the heed lets through what it weighed, when the lead starts on it all.
+
+The heed is a run of the team's, noted before its start is sent and taken as a lead's run is, never waited on: work starts it and goes on. It is the rule as it is written, a bare script or a definition, in the team's folder or among those Bulldog ships, started with three inputs and no `context`: `said`, each message it weighs on its own line with when it was said and who said it; `request`, the request as its lead would be given it, with those messages as `new`; and `settings`, every setting the team file writes beside the rule, whole, or nothing for a heed written as a path alone. Bulldog reads none of the settings, and keeps no time limit of its own on a heed: its time is the rule's.
+
+The heed answers `{ says: act | note, note }`:
+
+- **note**: each message it weighed has its word on it, as the requests page says, and its lead does not start on them. Nothing runs and nothing is said.
+- **act**: the lead starts on everything new to it.
+- A heed that fails, runs out of time, is cancelled or lost, or answers anything else, counts as act: the lead starts, and the team's people are told what Corbie said and that the lead was started. The asker is told nothing.
+
+A heed's run counts toward neither `runs:` nor the runs in a row, and a heed with a problem is not asked: the lead starts as if there were none. What a heed read is its team's, whichever folder holds its rule.
 
 ## What a run is given
 
@@ -65,7 +79,7 @@ Every run Bulldog starts carries labels, and is found by them:
 | Label | What it holds |
 |---|---|
 | `bulldog` | the office's identity, which is its own and never its name |
-| `kind` | `work` for a worker on a request, `clock` for a routine's clock, or the kind the area that asked for the run names: `bridge-in`, `bridge-out` and `bridge-sign-in` for a bridge's, `decide` for one asked to decide |
+| `kind` | `work` for a worker on a request, `heed` for a team's heed weighing what was said in one, `clock` for a routine's clock, or the kind the area that asked for the run names: `bridge-in`, `bridge-out` and `bridge-sign-in` for a bridge's, `decide` for one asked to decide |
 | `team` | the team the run is for |
 | `request` | the request's number, on a run that has one |
 | `routine` | on a routine's clock, a fingerprint of the routine as its team writes it, its time, worker and words, so a routine changed is a new one, with a clock of its own |
@@ -161,6 +175,7 @@ A run goes on as it was started when the files change, and the worker's next run
 | the notes a run is given | 50,000 characters in all, and a line naming what is not shown |
 | the open requests a routine's run is given | the newest 50, and a line saying how many more there are |
 | levels of sub-requests below a request | 8 |
+| how long a heed weighs | its rule's own: Bulldog keeps no limit |
 | runs of one request in a row with nothing said in it by a person | 20; then the request is answered as stopped at the limit, or, where the last of them was started by a refused answer, the asker is told that the team did not disclose its answer; a person saying more in it starts it again |
 | how long a shipped tool waits | 7 days |
 | how far up Bulldog looks for the worker that called | 16 runs |
@@ -178,8 +193,8 @@ Every test of this area moves a clock the test holds and steps the work until no
 
 ## Interfaces
 
-- **Office** gives the teams, their leads, workers, people, notes, routines, zone and `runs:`, and each team's `about`, each read from the files when it is needed; looks up the model a one-word name stands for, in the worker's own team and then each team around it, which work fills into the definition it sends; says which workers have a problem, a worker whose model's name is found nowhere, one started at the top that can hold an action and names no ask, and one that names an ask other than Bulldog's among them; and tells work when the office has been read again.
-- **Requests** says who a team with no people has as its people. It keeps the requests, their threads, states and sub-requests; work opens and answers them, adds entries, hands it answers that come once nothing waits for them, and reads who asked, with the person or guest that is, the origin, who reads the answer, and a team's open requests for a routine's run. It tells work when an issue a request came from is closed at its source.
+- **Office** gives the teams, their leads, workers, people, notes, routines, zone and `runs:`, each team's `about`, and its heed with its rule and settings, each read from the files when it is needed; looks up the model a one-word name stands for, in the worker's own team and then each team around it, which work fills into the definition it sends; says which workers have a problem, a worker whose model's name is found nowhere, one started at the top that can hold an action and names no ask, and one that names an ask other than Bulldog's among them; and tells work when the office has been read again.
+- **Requests** says who a team with no people has as its people. It keeps the requests, their threads, states and sub-requests, and the source thing a request's asking opened; work opens and answers them, adds entries, writes what a team's heed noted, hands it answers that come once nothing waits for them, and reads who asked, with the person or guest that is, the origin, who reads the answer, and a team's open requests for a routine's run. It tells work when an issue a request came from is closed at its source.
 - **Decisions** is handed every held action, through the ask Bulldog ships, and everything said outside a team that set a disclosure check, and work answers Corbie, gives a tool its refusal or starts the lead again with what it decides; it asks work to start the runs its rules and deciding workers need, each labelled with the team it decides for, and owns the one line an asker is told when a team does not disclose its answer; work calls it each time its clock moves, so a rule or a deciding worker past its time limit passes.
 - **Bridges** carries what work says to an asker or a person, and hands work what people answer; its settings say, for each place it listens in, which team is asked there; it asks work to start its in and out machines, which carry the same labels.
 - **Changes** commits what `write_notes` writes, the one write to the office's files that is not a decided change, as one commit with who and why, and is handed each call to the builder's tools, whose answer work keeps and gives.

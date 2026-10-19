@@ -111,7 +111,7 @@ func TestDecisionsAnswerMatchedByDecisionAndIdentity(t *testing.T) {
 func TestDecisionsGuestNeverDecides(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
-	r, err := b.reqs.AskAt("slack", "#help", "C1/200.1", "U0GUEST0", "please refund me", nil)
+	r, err := b.reqs.AskAt("slack", "#help", "C1/200.1", "", "U0GUEST0", "please refund me", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +233,7 @@ func TestDecisionsOutsideDeciderSeesOnlyTheDecision(t *testing.T) {
 func TestDecisionsDetailsOnlyByDirectMessage(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
-	r, err := b.reqs.AskAt("slack", "#help", "C1/300.1", "U0AL0000", "redeploy the api", nil)
+	r, err := b.reqs.AskAt("slack", "#help", "C1/300.1", "", "U0AL0000", "redeploy the api", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

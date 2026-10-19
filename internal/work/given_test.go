@@ -130,7 +130,7 @@ func TestTheContextSaysWhatTheRunIsToKnow(t *testing.T) {
 func TestAGuestIsNamedByTheIdentityVouchedFor(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
-	if _, err := b.reqs.AskAt("slack", "#help", "#help/1700.3", "U0GUEST1", "is the API down?", nil); err != nil {
+	if _, err := b.reqs.AskAt("slack", "#help", "#help/1700.3", "", "U0GUEST1", "is the API down?", nil); err != nil {
 		t.Fatal(err)
 	}
 	holds(t, "the bot's context", b.prompt("is the API down?"), "Asked by a guest, whom slack vouches for as U0GUEST1")
@@ -260,7 +260,7 @@ func TestWorkRunToldTrulyWhereItsAnswerGoes(t *testing.T) {
 		}
 		return testkit.Say("Duplicate on the card ending 1111.")
 	})
-	refunds := must(b.reqs.AskAt("slack", "#refunds", "#refunds/1700.2", "U0GUEST1", "was 4411 charged twice?", nil)).Number
+	refunds := must(b.reqs.AskAt("slack", "#refunds", "#refunds/1700.2", "", "U0GUEST1", "was 4411 charged twice?", nil)).Number
 	again := b.prompt("never the card ending 1111")
 	holds(t, "a run started again on a refusal", again, "Your last reply is your answer, said to a guest (U0GUEST1 on slack) on slack, in #refunds/1700.2.")
 	holdsNone(t, "a run started again on a refusal", again, "An empty reply says nothing.")

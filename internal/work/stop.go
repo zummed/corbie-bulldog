@@ -47,7 +47,8 @@ type KeptRun struct {
 	Started time.Time
 	Ended   time.Time
 	// Status is going, done, failed, cancelled, lost or unsent, and How
-	// says in words how it ended, for one that did not end done.
+	// says in words how it ended, for one that did not end done; for a
+	// heed's that did, what it said, act or note, and its word.
 	Status string
 	How    string
 	Tokens int

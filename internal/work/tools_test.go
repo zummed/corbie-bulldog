@@ -197,7 +197,7 @@ func TestWorkQuestionToUnreachablePersonRefused(t *testing.T) {
 	// A guest asks in #help; then the Slack bridge stops with a problem,
 	// and nothing reaches the guest, who is reached only there.
 	_, let := b.hold("charged", testkit.Use("ask_person", map[string]any{"question": "which customer are you?"}))
-	r, err := b.reqs.AskAt("slack", "#help", "#help/1700.3", "U0GUEST1", "I was charged twice", nil)
+	r, err := b.reqs.AskAt("slack", "#help", "#help/1700.3", "", "U0GUEST1", "I was charged twice", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

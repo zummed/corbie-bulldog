@@ -46,14 +46,14 @@ func TestARequestAtAPlaceStartsTheTeamItNames(t *testing.T) {
 	files["office.yaml"] = strings.Replace(files["office.yaml"], `"#help": { guests: true }`,
 		`"#help": { guests: true }`+"\n      \"#refunds\": { team: payments }", 1)
 	b := newBench(t, files)
-	help, err := b.reqs.AskAt("slack", "#help", "#help/1700.1", "U0DANA00", "customer 4411 was charged twice", nil)
+	help, err := b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "customer 4411 was charged twice", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if run := b.started(help.Number, 1); run.Worker != "bot" || run.Team != "office" {
 		t.Errorf("the run in #help is %+v", run)
 	}
-	refunds, err := b.reqs.AskAt("slack", "#refunds", "#refunds/1700.2", "U0PRI000", "refund 4411's second charge", nil)
+	refunds, err := b.reqs.AskAt("slack", "#refunds", "#refunds/1700.2", "", "U0PRI000", "refund 4411's second charge", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

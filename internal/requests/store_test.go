@@ -90,7 +90,7 @@ func TestRequestsToldAfterWritten(t *testing.T) {
 		seen = append(seen, len(d.thread(n)))
 	})
 	defer stop()
-	dana := got[*requests.Request](t)(d.AskAt("slack", "#help", thread, slackDana, "help", nil)).Number
+	dana := got[*requests.Request](t)(d.AskAt("slack", "#help", thread, "", slackDana, "help", nil)).Number
 	if !slices.Equal(told, []int64{dana}) || seen[0] != 1 {
 		t.Fatalf("asking told %v, seeing %v", told, seen)
 	}

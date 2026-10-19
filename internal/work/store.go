@@ -15,7 +15,7 @@ import (
 // tables.
 const (
 	Area    = "work"
-	Version = 5
+	Version = 6
 )
 
 // How a run noted in the store stands.
@@ -51,6 +51,7 @@ CREATE TABLE work_requests(
 	seen INTEGER NOT NULL DEFAULT 0,
 	pending INTEGER NOT NULL DEFAULT 0,
 	again INTEGER NOT NULL DEFAULT 0,
+	acted INTEGER NOT NULL DEFAULT 0,
 	told TEXT NOT NULL DEFAULT '');
 CREATE TABLE work_calls(
 	run TEXT PRIMARY KEY,
@@ -184,17 +185,18 @@ func (w *Work) keep(n *note) error {
 	return nil
 }
 
-// sent keeps that a run on a request was started, once its start has
-// gone: the request has nothing waiting to start, and what was given to
-// waiting tools before the run's thread is let go.
+// sent keeps that a lead's run on a request was started, once its start
+// has gone: the request has nothing waiting to start or let through by its
+// heed, and what was given to waiting tools before the run's thread is let
+// go.
 func (w *Work) sent(n *note) error {
 	tx, err := w.db.Begin()
 	if err != nil {
 		return storeFailed(err)
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec(`INSERT INTO work_requests(request, pending, again) VALUES (?, 0, 0)
-		ON CONFLICT(request) DO UPDATE SET pending = 0, again = 0`, n.Request); err != nil {
+	if _, err := tx.Exec(`INSERT INTO work_requests(request, pending, again, acted) VALUES (?, 0, 0, 0)
+		ON CONFLICT(request) DO UPDATE SET pending = 0, again = 0, acted = 0`, n.Request); err != nil {
 		return storeFailed(err)
 	}
 	if _, err := tx.Exec(`DELETE FROM work_given WHERE request = ? AND entry <= ?`, n.Request, n.Seen); err != nil {
@@ -301,8 +303,9 @@ func endIn(db execer, name string, e ending) (bool, error) {
 func (w *Work) end(name string, e ending) (bool, error) { return endIn(w.db, name, e) }
 
 // endWork keeps how a run on a request ended, once, and marks its request
-// to be looked at for its next run, in one write.
-func (w *Work) endWork(n *note, e ending) (bool, error) {
+// to be looked at for its next run, in one write; for a heed that let
+// through what it weighed, acted keeps that the lead starts on what is new.
+func (w *Work) endWork(n *note, e ending, acted bool) (bool, error) {
 	tx, err := w.db.Begin()
 	if err != nil {
 		return false, storeFailed(err)
@@ -311,8 +314,8 @@ func (w *Work) endWork(n *note, e ending) (bool, error) {
 	if first, err := endIn(tx, n.Name, e); err != nil || !first {
 		return false, err
 	}
-	if _, err := tx.Exec(`INSERT INTO work_requests(request, pending) VALUES (?, 1)
-		ON CONFLICT(request) DO UPDATE SET pending = 1`, n.Request); err != nil {
+	if _, err := tx.Exec(`INSERT INTO work_requests(request, pending, acted) VALUES (?, 1, ?)
+		ON CONFLICT(request) DO UPDATE SET pending = 1, acted = max(acted, excluded.acted)`, n.Request, acted); err != nil {
 		return false, storeFailed(err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -364,7 +367,7 @@ func (w *Work) cancelSent(name string) error {
 }
 
 // mark gives the last entry of a request already dealt with: given to a
-// run that was sent, or answered without one.
+// lead's run that was sent, or answered or noted without one.
 func (w *Work) mark(request int64) (int64, error) {
 	var seen int64
 	err := w.db.QueryRow(`SELECT max(coalesce((SELECT max(seen) FROM work_runs WHERE request = ? AND kind = ? AND status != ?), 0),
@@ -378,8 +381,8 @@ func (w *Work) mark(request int64) (int64, error) {
 // dealt keeps a request's thread as dealt with up to an entry, with no
 // run, and clears it from those to look at.
 func (w *Work) dealt(request, seen int64) error {
-	if _, err := w.db.Exec(`INSERT INTO work_requests(request, seen, pending, again) VALUES (?, ?, 0, 0)
-		ON CONFLICT(request) DO UPDATE SET seen = max(seen, excluded.seen), pending = 0, again = 0`, request, seen); err != nil {
+	if _, err := w.db.Exec(`INSERT INTO work_requests(request, seen, pending, again, acted) VALUES (?, ?, 0, 0, 0)
+		ON CONFLICT(request) DO UPDATE SET seen = max(seen, excluded.seen), pending = 0, again = 0, acted = 0`, request, seen); err != nil {
 		return storeFailed(err)
 	}
 	return nil
@@ -404,14 +407,15 @@ func (w *Work) refused(request int64) error {
 	return nil
 }
 
-// isAgain says whether a request's lead is to start again on a refusal.
-func (w *Work) isAgain(request int64) (bool, error) {
-	var again bool
-	err := w.db.QueryRow(`SELECT again FROM work_requests WHERE request = ?`, request).Scan(&again)
+// isAgain says whether a request's lead is to start again on a refusal,
+// and acted whether its heed let through what is new, so its lead starts
+// on it.
+func (w *Work) isAgain(request int64) (again, acted bool, err error) {
+	err = w.db.QueryRow(`SELECT again, acted FROM work_requests WHERE request = ?`, request).Scan(&again, &acted)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return false, storeFailed(err)
+		return false, false, storeFailed(err)
 	}
-	return again, nil
+	return again, acted, nil
 }
 
 // pendingRequests gives the requests whose run ended and which have not

@@ -254,7 +254,7 @@ func TestDisclosureDeciderShownWhatWouldLeave(t *testing.T) {
 	files := work(t)
 	files["office.yaml"] = strings.Replace(files["office.yaml"], `"#help": { guests: true }`, `"#help": { team: payments, guests: true }`, 1)
 	w := newBench(t, files)
-	dana, err := w.reqs.AskAt("slack", "#help", "C1/400.1", "U0DANA00", "is 4411 refunded?", nil)
+	dana, err := w.reqs.AskAt("slack", "#help", "C1/400.1", "", "U0DANA00", "is 4411 refunded?", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

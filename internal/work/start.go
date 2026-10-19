@@ -109,9 +109,11 @@ func (w *Work) working() int {
 }
 
 // consider says whether a request is ready for its lead to start on it:
-// it has no run going, its lead is a worker, and something new was said
-// to its team. A request whose lead cannot run is answered saying so,
-// and one at the limit of runs in a row is stopped. A request that was
+// it has no run going, of its lead or of its team's heed, its lead is a
+// worker, and something new was said to its team. What is new that the
+// team's heed weighs is weighed first, and the lead starts only once the
+// heed lets it through. A request whose lead cannot run is answered saying
+// so, and one at the limit of runs in a row is stopped. A request that was
 // stopped has its run noted as stopping, should its stop not have been.
 // What cannot be read is looked at again later.
 func (w *Work) consider(ctx context.Context, n int64) *ready {
@@ -132,9 +134,14 @@ func (w *Work) consider(ctx context.Context, n int64) *ready {
 	if err != nil {
 		return unread("its runs", err)
 	}
-	if i := slices.IndexFunc(notes, func(n *note) bool { return n.Status == going }); i >= 0 {
-		if r.Stopped && notes[i].Stop == "" {
-			w.stopRequestRun(r, notes[i])
+	heeds, err := w.notesOf(n, KindHeed)
+	if err != nil {
+		return unread("its heed's runs", err)
+	}
+	runs := append(slices.Clone(notes), heeds...)
+	if i := slices.IndexFunc(runs, func(n *note) bool { return n.Status == going }); i >= 0 {
+		if r.Stopped && runs[i].Stop == "" {
+			w.stopRequestRun(r, runs[i])
 		}
 		// It is looked at again when that run ends.
 		return nil
@@ -151,7 +158,7 @@ func (w *Work) consider(ctx context.Context, n int64) *ready {
 	if err != nil {
 		return unread("what its last run was given", err)
 	}
-	again, err := w.isAgain(n)
+	again, acted, err := w.isAgain(n)
 	if err != nil {
 		return unread("whether it starts on a refusal", err)
 	}
@@ -184,7 +191,12 @@ func (w *Work) consider(ctx context.Context, n int64) *ready {
 		w.atLimit(ctx, r, last, again)
 		return nil
 	}
-	return &ready{r: r, worker: worker, fresh: said, thread: thread, again: again}
+	rd := ready{r: r, worker: worker, fresh: said, thread: thread, again: again}
+	if heed, rule := heedOf(w.office, rd); heed != nil && !acted {
+		w.weigh(ctx, rd, heed, rule)
+		return nil
+	}
+	return &rd
 }
 
 // stopRequestRun notes as stopping the run of a request that was stopped,
@@ -286,12 +298,12 @@ func (w *Work) notDisclosed(ctx context.Context, r *requests.Request, line strin
 // fresh gives what was said to a request's team since its last run, or
 // since it was last dealt with: what was asked, what was said more, what
 // people answered, answers that came late, and, when what it would have
-// said was refused, the decider's word. What was given to a waiting tool
-// is not among it.
+// said was refused, the decider's word. What was given to a waiting tool,
+// and a message the team's heed noted, are not among it.
 func fresh(r *requests.Request, thread []requests.Entry, mark int64, again bool, given map[int64]bool) []requests.Entry {
 	var new []requests.Entry
 	for _, e := range thread {
-		if e.ID <= mark || given[e.ID] {
+		if e.ID <= mark || given[e.ID] || e.Noted {
 			continue
 		}
 		switch e.Kind {

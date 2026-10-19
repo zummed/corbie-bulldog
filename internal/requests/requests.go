@@ -83,6 +83,9 @@ type Origin struct {
 	Bridge string `json:"bridge,omitempty"`
 	Heard  string `json:"heard,omitempty"`
 	Place  string `json:"place,omitempty"`
+	// About is the link of the source thing, such as an issue, that its
+	// asking opened at the place, if the bridge named one.
+	About string `json:"about,omitempty"`
 	// Team, At, To and Say are the routine that asked it, of the team
 	// known as Known, and By the person who ran it now, rather than at its
 	// time.

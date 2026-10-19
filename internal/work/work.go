@@ -35,12 +35,15 @@ import (
 )
 
 // The labels every run Bulldog starts carries, beside its team and its
-// request, and the kinds of run this area starts of its own.
+// request, and the kinds of run this area starts of its own: a worker on
+// a request, a team's heed weighing what was said in one, and a
+// routine's clock.
 const (
 	LabelBulldog = "bulldog"
 	LabelKind    = "kind"
 
 	KindWork  = "work"
+	KindHeed  = "heed"
 	KindClock = "clock"
 )
 

@@ -18,6 +18,16 @@ import (
 // to it, as text; everything it is to know, as text a model reads well,
 // with what is new last; and the same as data.
 func (w *Work) given(o *office.Office, rd ready) (map[string]any, error) {
+	g, err := w.giving(o, rd)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"said": g.said(), "context": g.context(), "request": g.data()}, nil
+}
+
+// giving reads everything a lead's run on a request is given, as it is
+// when the run starts.
+func (w *Work) giving(o *office.Office, rd ready) (*giving, error) {
 	r := rd.r
 	team := o.Teams[r.Team]
 	if team == nil {
@@ -55,9 +65,8 @@ func (w *Work) given(o *office.Office, rd ready) (map[string]any, error) {
 			}
 		}
 	}
-	g := &giving{o: o, now: w.clock.Now().In(o.Zone), r: r, team: team, worker: rd.worker.Name, asker: asker, top: top, readers: readers,
-		subs: subs, notes: notes, open: open, thread: rd.thread, fresh: rd.fresh, again: rd.again}
-	return map[string]any{"said": g.said(), "context": g.context(), "request": g.data()}, nil
+	return &giving{o: o, now: w.clock.Now().In(o.Zone), r: r, team: team, worker: rd.worker.Name, asker: asker, top: top, readers: readers,
+		subs: subs, notes: notes, open: open, thread: rd.thread, fresh: rd.fresh, again: rd.again}, nil
 }
 
 // A giving is everything a run is given, read once at its start.

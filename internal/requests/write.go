@@ -35,9 +35,10 @@ func (s *Store) AskInChat(person, team, text string, files []File) (*Request, er
 
 // AskAt makes a request of what a bridge heard said in a place it listens
 // in, from the identity it checked: to the team the listed place names,
-// with where it was said as its origin. From a place not listed, or from
-// a guest where guests may not ask, it makes nothing.
-func (s *Store) AskAt(bridge, heard, place, from, text string, files []File) (*Request, error) {
+// with where it was said, and the link of the source thing it is about if
+// any, as its origin. From a place not listed, or from a guest where
+// guests may not ask, it makes nothing.
+func (s *Store) AskAt(bridge, heard, place, about, from, text string, files []File) (*Request, error) {
 	var r *Request
 	err := s.write(func(c *change) error {
 		p, ok := c.o.Place(bridge, heard)
@@ -52,7 +53,7 @@ func (s *Store) AskAt(bridge, heard, place, from, text string, files []File) (*R
 			place = heard
 		}
 		var err error
-		r, err = c.ask(p.Team, asker, Origin{Kind: AtPlace, Bridge: bridge, Heard: heard, Place: place}, "", text, files,
+		r, err = c.ask(p.Team, asker, Origin{Kind: AtPlace, Bridge: bridge, Heard: heard, Place: place, About: about}, "", text, files,
 			Where{Bridge: bridge, Place: place})
 		return err
 	})

@@ -264,7 +264,7 @@ func TestRequestsEmptyAnswerAtARoutineOrChannelSaysNothing(t *testing.T) {
 		t.Errorf("Sam is shown %q", shown)
 	}
 	// At a channel place, too.
-	garden := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "4472", "thanks", nil)).Number
+	garden := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "thanks", nil)).Number
 	if e := got[*requests.Entry](t)(h.Answer(garden, h.Worker("gardener"), "", nil)); e != nil || h.state(garden).Is != requests.Answered || len(h.thread(garden)) != 1 {
 		t.Errorf("the garden chat's request is answered with %+v, its thread %+v", e, h.thread(garden))
 	}
@@ -274,7 +274,7 @@ func TestRequestsEmptyAnswerAtARoutineOrChannelSaysNothing(t *testing.T) {
 	if e := got[*requests.Entry](t)(h.Answer(kit, h.Worker("steward"), "", nil)); e == nil || e.Kind != requests.KindAnswer || h.state(kit).Is != requests.Answered {
 		t.Errorf("Kit's request is answered with %+v", e)
 	}
-	direct := got[*requests.Request](t)(h.AskAt("telegram", office.Direct, "4472", "4472", "the socket", nil)).Number
+	direct := got[*requests.Request](t)(h.AskAt("telegram", office.Direct, "4472", "", "4472", "the socket", nil)).Number
 	if e := got[*requests.Entry](t)(h.Answer(direct, h.Worker("steward"), "", nil)); e == nil || e.Kind != requests.KindAnswer || h.state(direct).Is != requests.Answered {
 		t.Errorf("Kit's direct message is answered with %+v", e)
 	}
@@ -426,7 +426,7 @@ func TestRequestsSourceStatusShown(t *testing.T) {
 	t.Parallel()
 	d := open(t, work(t))
 	issue := "platform/api#51"
-	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, gitlabAl, "the retry is broken", nil))
+	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "the retry is broken", nil))
 	al := requests.Identity("gitlab", gitlabAl)
 	must(t, errOf(d.Source("gitlab", issue, requests.Status{Status: "opened", By: al, At: d.clock.Now(), Link: "https://gitlab/51"})))
 	d.clock.Move(time.Hour)
@@ -444,7 +444,7 @@ func TestRequestsSourceStatusShown(t *testing.T) {
 	if told != 1 {
 		t.Errorf("the watchers are told %d times", told)
 	}
-	later := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, gitlabAl, "and the deploy", nil)).Number
+	later := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "and the deploy", nil)).Number
 	if n, ok, err := d.LatestAt("gitlab", issue); err != nil || !ok || n != later {
 		t.Errorf("the latest request at the issue is %d", n)
 	}
@@ -460,7 +460,7 @@ func TestRequestsClosedAtSourceStops(t *testing.T) {
 	t.Parallel()
 	d := open(t, work(t))
 	issue := "platform/api#51"
-	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, gitlabAl, "the retry is broken", nil)).Number
+	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "the retry is broken", nil)).Number
 	sub := got[*requests.Request](t)(d.Sub(r, d.Worker("ops"), "payments", "were charges doubled?", "t")).Number
 	al := requests.Identity("gitlab", gitlabAl)
 	stopped := got[[]int64](t)(d.Source("gitlab", issue, requests.Status{Status: "closed", Closed: true, By: al, At: d.clock.Now()}))
@@ -483,7 +483,7 @@ func TestRequestsSourceStatusNeverSet(t *testing.T) {
 	t.Parallel()
 	d := open(t, work(t))
 	issue := "platform/api#51"
-	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, gitlabAl, "the retry is broken", nil)).Number
+	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "the retry is broken", nil)).Number
 	st := requests.Status{Status: "opened", By: requests.Identity("gitlab", gitlabAl), At: d.clock.Now()}
 	must(t, errOf(d.Source("gitlab", issue, st)))
 	must(t, errOf(d.Answer(r, d.Worker("ops"), "Fixed in 813.", nil)))
@@ -505,7 +505,7 @@ func TestRequestsHeldAnswerNotHandedWaitsOnTheLeadAgain(t *testing.T) {
 		return errors.New("the decisions cannot be read")
 	}
 	must(t, d.Readers("slack", "#help/1", []string{"U0DANA00"}))
-	asked := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1", "U0DANA00", "help", nil)).Number
+	asked := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1", "", "U0DANA00", "help", nil)).Number
 	support := got[*requests.Request](t)(d.Sub(asked, d.Worker("bot"), "support", "What did we tell 4411?", "t")).Number
 	e, err := d.Say(support, d.Person("dana"), "a refund", nil, requests.Screens)
 	if e == nil || e.Kind != requests.KindHeld || err == nil || !strings.Contains(err.Error(), "the decisions cannot be read") || !slices.Equal(handed, []int64{e.ID}) {
@@ -523,7 +523,7 @@ func TestRequestsNotedAnswersWithNothingSaid(t *testing.T) {
 	t.Parallel()
 	h := open(t, house(t))
 	heed := h.Rule("garden/for-us.js", "garden")
-	n := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "4472", "lovely weather", nil)).Number
+	n := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "lovely weather", nil)).Number
 	asking := h.thread(n)[0]
 	noted := got[[]requests.Entry](t)(h.Noted(n, heed, "Not for the garden (0.12)", []int64{asking.ID}))
 	if len(noted) != 1 || noted[0].Kind != requests.KindNoted || noted[0].By != heed || noted[0].Answers != asking.ID ||
@@ -576,7 +576,7 @@ func TestRequestsNotedOnlyWhileNoAnswer(t *testing.T) {
 		must(t, errOf(h.Noted(n, heed, "Not for the garden", []int64{e.ID})))
 	}
 
-	n := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "4472", "lovely weather", nil)).Number
+	n := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "lovely weather", nil)).Number
 	note(n, &h.thread(n)[0])
 	must(t, errOf(h.Say(n, kit, "@gardener the roses?", nil, kitInGarden)))
 	if st := h.state(n); st.Is != requests.Working || st.Noted {
@@ -599,7 +599,7 @@ func TestRequestsNotedOnlyWhileNoAnswer(t *testing.T) {
 	}
 
 	// A quiet answer is an answer: later talk noted leaves it answered.
-	quiet := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "4472", "thanks @gardener", nil)).Number
+	quiet := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "thanks @gardener", nil)).Number
 	must(t, errOf(h.Answer(quiet, h.Worker("gardener"), "", nil)))
 	note(quiet, got[*requests.Entry](t)(h.Say(quiet, kit, "cheers", nil, kitInGarden)))
 	if st := h.state(quiet); st.Is != requests.Answered || st.Noted {
@@ -607,7 +607,7 @@ func TestRequestsNotedOnlyWhileNoAnswer(t *testing.T) {
 	}
 
 	// A noted request stopped holds its stop, and is no longer noted.
-	stopped := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "4472", "rain later", nil)).Number
+	stopped := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "rain later", nil)).Number
 	note(stopped, &h.thread(stopped)[0])
 	must(t, errOf(h.Stop(stopped, h.Person("sam"))))
 	if st := h.state(stopped); st.Is != requests.Answered || st.Noted {

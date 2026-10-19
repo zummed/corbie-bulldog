@@ -64,7 +64,7 @@ func (w *Work) reread(ctx context.Context) bool {
 }
 
 // sweep stops the runs on requests whose worker or team is no longer in
-// the office as it is read now.
+// the office as it is read now, a heed's whose team is not.
 func (w *Work) sweep(o *office.Office) {
 	notes, err := w.goingNotes()
 	if err != nil {
@@ -73,7 +73,7 @@ func (w *Work) sweep(o *office.Office) {
 		return
 	}
 	for _, n := range notes {
-		if n.Kind != KindWork || n.Stop != "" {
+		if n.Kind != KindWork && n.Kind != KindHeed || n.Stop != "" {
 			continue
 		}
 		why := ""
@@ -82,7 +82,7 @@ func (w *Work) sweep(o *office.Office) {
 			// The request was answered by the requests, saying the team
 			// has gone.
 			why = stopped
-		case worker == nil || worker.Team != n.Team:
+		case n.Kind == KindWork && (worker == nil || worker.Team != n.Team):
 			why = fmt.Sprintf("%s is no longer a worker of %s, so its run was stopped", n.Worker, inSentence(o.Teams[n.Team].Called))
 		}
 		if why == "" {

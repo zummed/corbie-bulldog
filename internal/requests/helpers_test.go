@@ -157,7 +157,7 @@ func workDay(t *testing.T) *day {
 	t.Helper()
 	d := &day{desk: open(t, work(t))}
 	must(t, d.Readers("slack", thread, []string{slackDana, slackAl, slackRaj}))
-	d.dana = got[*requests.Request](t)(d.AskAt("slack", "#help", thread, slackDana, "customer 4411 was charged twice after Tuesday's release; refund one and tell me what broke.", nil)).Number
+	d.dana = got[*requests.Request](t)(d.AskAt("slack", "#help", thread, "", slackDana, "customer 4411 was charged twice after Tuesday's release; refund one and tell me what broke.", nil)).Number
 	d.payments = got[*requests.Request](t)(d.Sub(d.dana, d.Worker("bot"), "payments", "Refund one of 4411's two charges.", "ticket-payments")).Number
 	d.platform = got[*requests.Request](t)(d.Sub(d.dana, d.Worker("bot"), "platform", "What broke the webhook retry?", "ticket-platform")).Number
 	return d

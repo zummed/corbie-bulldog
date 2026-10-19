@@ -259,11 +259,16 @@ func (w *Work) lost(ctx context.Context, n *note) {
 	}
 	now := w.clock.Now()
 	e := ending{status: lost, how: how, started: n.Noted, ended: now}
-	if n.Kind != KindWork {
+	switch n.Kind {
+	case KindHeed:
+		w.heeded(n, nil, e)
+		return
+	case KindWork:
+	default:
 		w.endOther(n, e)
 		return
 	}
-	first, err := w.endWork(n, e)
+	first, err := w.endWork(n, e, false)
 	if err != nil || !first {
 		if err != nil {
 			w.trouble(n.Request, n.Team, fmt.Sprintf("Bulldog could not keep that the run of %s was lost, and looks again in %v: %v", n.Worker, Again, err))
@@ -280,9 +285,9 @@ func (w *Work) lost(ctx context.Context, n *note) {
 	}
 }
 
-// endOther keeps how a run ended that is no worker's on a request: a
-// decider's, a bridge's or a clock's. A clock that ended has the clocks
-// looked for, so its routine gets another.
+// endOther keeps how a run ended that is no lead's or heed's on a
+// request: a decider's, a bridge's or a clock's. A clock that ended has
+// the clocks looked for, so its routine gets another.
 func (w *Work) endOther(n *note, e ending) {
 	first, err := w.end(n.Name, e)
 	if err != nil {
@@ -298,8 +303,9 @@ func (w *Work) endOther(n *note, e ending) {
 	}
 }
 
-// take takes how a run ended: it is kept with the run, and a run on a
-// request writes its answer, or what failed, in the request.
+// take takes how a run ended: it is kept with the run, a lead's run on a
+// request writes its answer, or what failed, in the request, and a heed's
+// what it said.
 func (w *Work) take(ctx context.Context, n *note, run *client.Run, e ending) {
 	if isBridge(n.Kind) {
 		end := bridges.End{Failed: e.how}
@@ -310,11 +316,16 @@ func (w *Work) take(ctx context.Context, n *note, run *client.Run, e ending) {
 			return
 		}
 	}
-	if n.Kind != KindWork {
+	switch n.Kind {
+	case KindHeed:
+		w.heeded(n, run, e)
+		return
+	case KindWork:
+	default:
 		w.endOther(n, e)
 		return
 	}
-	first, err := w.endWork(n, e)
+	first, err := w.endWork(n, e, false)
 	switch {
 	case err != nil:
 		w.trouble(n.Request, n.Team, fmt.Sprintf("Bulldog could not keep how the run of %s ended, and reads it again in %v: %v", n.Worker, Again, err))

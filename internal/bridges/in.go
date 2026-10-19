@@ -579,7 +579,7 @@ func (b *Bridges) said(o *office.Office, bridge string, t thing) (handing, error
 	if h, ok, err := b.goesOn(o, bridge, t, who, in); err != nil || ok {
 		return h, err
 	}
-	r, err := b.requests.AskAt(bridge, t.HeardIn, t.Place, t.From, t.Text, t.got)
+	r, err := b.requests.AskAt(bridge, t.HeardIn, t.Place, t.Link, t.From, t.Text, t.got)
 	if isRefusal(err) {
 		return handing{problem: fmt.Sprintf("what %s said in %s was not asked: %v", t.From, t.HeardIn, err)}, b.sentence(bridge, t, cannotTake)
 	}

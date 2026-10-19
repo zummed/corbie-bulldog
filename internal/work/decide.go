@@ -74,13 +74,10 @@ func (w *Work) startDecider(ctx context.Context, s decisions.Start, labels map[s
 			return "", fmt.Errorf("%s is no rule of the office", s.Name)
 		case !rule.Runs():
 			return "", fmt.Errorf("%s cannot run until its file is mended: %v", s.Name, rule.Problems)
-		case rule.Script:
-			var err error
-			if draft, err = client.Script(path.Base(rule.Path), rule.Written, client.ScriptJob{}); err != nil {
-				return "", err
-			}
-		default:
-			draft = rule.Draft
+		}
+		var err error
+		if draft, err = ruleDraft(rule); err != nil {
+			return "", err
 		}
 		input = s.Input
 	case office.IsWorker:
@@ -110,6 +107,16 @@ func (w *Work) startDecider(ctx context.Context, s decisions.Start, labels map[s
 		return "", err
 	}
 	return name, nil
+}
+
+// ruleDraft gives what a rule is started as: a bare script wrapped by
+// Corbie's client, in a flow of one stage with no permission, or the
+// definition as it was checked.
+func ruleDraft(rule *office.Rule) (*machine.Draft, error) {
+	if rule.Script {
+		return client.Script(path.Base(rule.Path), rule.Written, client.ScriptJob{})
+	}
+	return rule.Draft, nil
 }
 
 // deciding gives the three inputs of a worker asked to decide for a team:

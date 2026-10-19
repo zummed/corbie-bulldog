@@ -57,8 +57,8 @@ func TestRequestsNumbersGivenOnce(t *testing.T) {
 func TestRequestsGoToOneTeam(t *testing.T) {
 	t.Parallel()
 	d := open(t, house(t))
-	direct := got[*requests.Request](t)(d.AskAt("telegram", office.Direct, "4472", "4472", "hello", nil))
-	garden := got[*requests.Request](t)(d.AskAt("telegram", "garden-chat", "garden-chat", "4472", "the hedge", nil))
+	direct := got[*requests.Request](t)(d.AskAt("telegram", office.Direct, "4472", "", "4472", "hello", nil))
+	garden := got[*requests.Request](t)(d.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "the hedge", nil))
 	chat := got[*requests.Request](t)(d.AskInChat("kit", "", "the socket", nil))
 	picked := got[*requests.Request](t)(d.AskInChat("kit", "garden", "the lawn", nil))
 	friday := got[*requests.Request](t)(d.AskByRoutine("garden", d.o.Teams["garden"].Routines[0], requests.Who{}))
@@ -278,7 +278,7 @@ func TestRequestsRunToldWhoAsks(t *testing.T) {
 	if p := got[requests.Party](t)(d.Asks(d.dana)); p.Kind != requests.IsPerson || p.Called != "Dana" || !slices.Equal(p.Teams, []string{"support"}) {
 		t.Errorf("Dana's request is asked by %+v", p)
 	}
-	guest := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.02", "U0STRANGE", "hello?", nil))
+	guest := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.02", "", "U0STRANGE", "hello?", nil))
 	if p := got[requests.Party](t)(d.Asks(guest.Number)); p.Kind != requests.IsGuest || p.Bridge != "slack" || p.ID != "U0STRANGE" {
 		t.Errorf("the guest's request is asked by %+v", p)
 	}
@@ -294,7 +294,7 @@ func TestRequestsRunToldWhoAsks(t *testing.T) {
 func TestRequestsGuestJudgedByTheTeam(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
-	guest := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.02", "U0STRANGE", "refund me", nil))
+	guest := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.02", "", "U0STRANGE", "refund me", nil))
 	if lead, _, _ := d.Lead(guest.Number); lead != "bot" || d.state(guest.Number).Is != requests.Working {
 		t.Errorf("the guest's request goes to %s, standing %+v", lead, d.state(guest.Number))
 	}
@@ -370,7 +370,7 @@ func TestRequestsOriginReaders(t *testing.T) {
 	if d.sees(d.dana, "raj") || !d.sees(d.dana, "dana") {
 		t.Error("a report of no readers changed who reads the thread")
 	}
-	other := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.09", slackAl, "who reads this?", nil))
+	other := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.09", "", slackAl, "who reads this?", nil))
 	if d.sees(other.Number, "raj") || d.sees(other.Number, "dana") || !d.sees(other.Number, "al") {
 		t.Error("a thread never reported is read by more than its asker")
 	}
@@ -546,7 +546,7 @@ func TestRequestsTimesInOfficeZone(t *testing.T) {
 	// reported.
 	d := open(t, work(t))
 	issue := "platform/api#51"
-	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, gitlabAl, "the retry is broken", nil)).Number
+	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "the retry is broken", nil)).Number
 	reported := d.clock.Now().In(time.FixedZone("EST", -5*3600))
 	must(t, errOf(d.Source("gitlab", issue, requests.Status{Status: "opened", By: requests.Identity("gitlab", gitlabAl), At: reported})))
 	v := got[*requests.View](t)(d.View(r, "al"))
