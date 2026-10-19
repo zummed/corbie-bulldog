@@ -201,6 +201,53 @@ func (s *Store) OpenOf(team string) ([]Summary, error) {
 	return open, nil
 }
 
+// SaidBefore gives what was said before a request where it was asked: in
+// its team's other requests asked before it at the same listed place of
+// the same bridge, each read by every reader of it, their messages, noted
+// or not, and the team's answers, newest first. A request asked at no
+// place gives nothing.
+func (s *Store) SaidBefore(n int64) ([]Entry, error) {
+	l, err := s.look(s.db)
+	if err != nil {
+		return nil, err
+	}
+	r, err := l.req(n)
+	if err != nil || r.Origin.Kind != AtPlace {
+		return nil, err
+	}
+	rs, err := l.all()
+	if err != nil {
+		return nil, err
+	}
+	var said []Entry
+	for _, o := range slices.Backward(rs) {
+		if o.Number >= n || o.Team != r.Team || o.TeamKnown != r.TeamKnown || o.Origin.Kind != AtPlace ||
+			o.Origin.Bridge != r.Origin.Bridge || o.Origin.Heard != r.Origin.Heard {
+			continue
+		}
+		reads, err := l.readsAll(r, o)
+		if err != nil {
+			return nil, err
+		}
+		if !reads {
+			continue
+		}
+		es, err := l.entries(o.Number)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range slices.Backward(es) {
+			switch e.Kind {
+			case KindAsked, KindSaid, KindAnswer:
+				if e.Read == "" {
+					said = append(said, e)
+				}
+			}
+		}
+	}
+	return said, nil
+}
+
 // LatestAt gives the latest request asked at a place on a bridge, open or
 // answered, and whether there is one.
 func (s *Store) LatestAt(bridge, place string) (int64, bool, error) {

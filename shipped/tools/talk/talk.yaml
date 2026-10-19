@@ -1,7 +1,7 @@
-# The talk tools Bulldog ships: for asking another team or a person, and
-# telling someone something. Each is a run that only waits: Bulldog does
-# what was asked, and its answer is the tool's result. A worker has them by
-# naming this file:
+# The talk tools Bulldog ships: for asking another team or a person,
+# telling someone something, and reading the thread. Each is a run that
+# only waits: Bulldog does what was asked, and its answer is the tool's
+# result. A worker has them by naming this file:
 #   tools_file: [./.bulldog/tools/talk/talk.yaml]
 ask_team:
   does: Ask another team of the office, and wait for its answer. The teams you may ask are in what you were given, each with what it looks after. Never your own team; your colleagues are your tools
@@ -20,3 +20,7 @@ tell:
   does: Tell whoever asked what you are working on, or a person of your team by name, something that needs no answer, and go on
   args: { text: string, who: "string?" }
   job: { machine: ../../call.yaml, input: { tool: tell, args: "${args}", unanswered: *unanswered } }
+read_thread:
+  does: Read the thread of the request you are working on, or, with place, what was said before it where it was asked. Gives up to 20,000 characters
+  args: { from: "number?", place: "boolean?" }
+  job: { machine: ../../call.yaml, input: { tool: read_thread, args: "${args}", unanswered: *unanswered } }

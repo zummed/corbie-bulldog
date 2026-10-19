@@ -210,7 +210,7 @@ func (g *giving) answerText() string {
 // apart from it, whole.
 func (g *giving) before() []requests.Entry {
 	var rest []requests.Entry
-	for _, e := range g.thread {
+	for _, e := range threadGiven(g.thread) {
 		if !slices.ContainsFunc(g.fresh, func(f requests.Entry) bool { return f.ID == e.ID }) {
 			rest = append(rest, e)
 		}
@@ -218,21 +218,40 @@ func (g *giving) before() []requests.Entry {
 	return rest
 }
 
+// threadGiven gives the entries of a thread a run of its request is
+// given: all but its heed's words on what it noted, whose messages are
+// marked noted.
+func threadGiven(thread []requests.Entry) []requests.Entry {
+	return slices.DeleteFunc(slices.Clone(thread), func(e requests.Entry) bool { return e.Kind == requests.KindNoted })
+}
+
 // entryText gives an entry of the thread as a line.
-func (g *giving) entryText(e requests.Entry) string {
+func (g *giving) entryText(e requests.Entry) string { return entryLine(g.o, e) }
+
+// entryLine gives an entry as a line: when, by whom and to whom, what is
+// marked of it, noted among them, and its text.
+func entryLine(o *office.Office, e requests.Entry, marks ...string) string {
 	var to []string
 	for _, w := range e.To {
-		to = append(to, called(g.o, w))
+		to = append(to, called(o, w))
 	}
-	head := fmt.Sprintf("[%s] %s", g.at(e.At), called(g.o, e.By))
+	head := fmt.Sprintf("[%s] %s", timeText(o, e.At), called(o, e.By))
 	if len(to) > 0 {
 		head += " to " + strings.Join(to, ", ")
+	}
+	if e.Noted {
+		marks = append(slices.Clip(marks), "noted")
+	}
+	if len(marks) > 0 {
+		head += " (" + strings.Join(marks, ", ") + ")"
 	}
 	return head + ": " + e.Text
 }
 
-// at gives a time as text, in the office's zone, naming it.
-func (g *giving) at(t time.Time) string { return t.In(g.o.Zone).Format("Mon 2 Jan 2006 15:04 MST") }
+// timeText gives a time as text, in the office's zone, naming it.
+func timeText(o *office.Office, t time.Time) string {
+	return t.In(o.Zone).Format("Mon 2 Jan 2006 15:04 MST")
+}
 
 // shownNotes gives the team's notes within NotesLimit characters in all,
 // and a line naming what is not shown.
@@ -353,7 +372,7 @@ func (g *giving) entryData(e requests.Entry) map[string]any {
 	for _, w := range e.To {
 		to = append(to, whoData(g.o, w))
 	}
-	return map[string]any{"id": e.ID, "kind": e.Kind, "by": whoData(g.o, e.By), "to": to, "time": g.dataTime(e.At), "text": e.Text}
+	return map[string]any{"id": e.ID, "kind": e.Kind, "by": whoData(g.o, e.By), "to": to, "time": g.dataTime(e.At), "text": e.Text, "noted": e.Noted}
 }
 
 // dataTime gives a time as data: in the office's zone, with its offset.

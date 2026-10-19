@@ -69,6 +69,41 @@ func (l *look) originReaders(r *Request) ([]Who, error) {
 	return readers, nil
 }
 
+// readersAt gives every identity that reads a request asked at a place,
+// a person of the office or not: those its bridge last reported as
+// reading the place, or the asker alone where it never reported any.
+func (l *look) readersAt(r *Request) ([]Who, error) {
+	ids, reported, err := l.readersOf(r.Origin.Bridge, r.Origin.Place)
+	if err != nil || !reported {
+		return []Who{r.Asker}, err
+	}
+	var readers []Who
+	for _, id := range ids {
+		readers = append(readers, Identity(r.Origin.Bridge, id))
+	}
+	return readers, nil
+}
+
+// readsAll says whether every reader of a request asked at a place reads
+// another: one the office does not name is the same reader only as the
+// same identity.
+func (l *look) readsAll(r, other *Request) (bool, error) {
+	readers, err := l.readersAt(r)
+	if err != nil {
+		return false, err
+	}
+	theirs, err := l.readersAt(other)
+	if err != nil {
+		return false, err
+	}
+	for _, w := range readers {
+		if !slices.ContainsFunc(theirs, func(o Who) bool { return l.same(w, o) }) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // seesRead says whether a person sees what was read of a team known so:
 // only its people do, and of a team that has gone, nobody.
 func (l *look) seesRead(team string, known int64, person string) bool {

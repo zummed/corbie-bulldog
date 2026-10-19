@@ -28,7 +28,7 @@ The heed is a run of the team's, noted before its start is sent and taken as a l
 
 The heed answers `{ says: act | note, note }`:
 
-- **note**: each message it weighed has its word on it, as the requests page says, and its lead does not start on them. Nothing runs and nothing is said.
+- **note**: each message it weighed has its word on it, as the requests page says, and its lead does not start on them. Nothing runs and nothing is said. The lead is given them in the thread when it next starts, each marked as noted, and never the heed's word.
 - **act**: the lead starts on everything new to it.
 - A heed that fails, runs out of time, is cancelled or lost, or answers anything else, counts as act: the lead starts, and the team's people are told what Corbie said and that the lead was started. The asker is told nothing.
 
@@ -41,8 +41,8 @@ Bulldog starts a worker as its definition is written, with one thing filled in: 
 | Input | What it is |
 |---|---|
 | `said` | what is new for this run, as text: what was asked, or what was said to the team since its last run |
-| `context` | as text a model reads well: the date and time; the team, its people and the workers who sit with it; the team's notes, each whole under its name; the teams it may ask, each with its `about`, the one line its team file gives for what it looks after; who asked, as a person of the office with the teams they are in, or as a guest with the identity the bridge vouched for; where it was asked, and who will read the answer; the thread so far, less what is new for this run, left out when nothing else is in it; then, under "New for you", each entry new for this run on its own line with when it was said and who said it, whole; and last, that its last reply is its answer, and, for a routine or at a channel place, but from a run started again on a refusal, that an empty reply says nothing |
-| `request` | the same as data, for a flow or a statechart: the request's number, its asker, its origin, who reads its answer, its entries with who each is by and to, and apart from them those new for this run, its sub-requests and where each stands, and the team's notes |
+| `context` | as text a model reads well: the date and time; the team, its people and the workers who sit with it; the team's notes, each whole under its name; the teams it may ask, each with its `about`, the one line its team file gives for what it looks after; who asked, as a person of the office with the teams they are in, or as a guest with the identity the bridge vouched for; where it was asked, and who will read the answer; the thread so far, less what is new for this run, each message the team's heed noted marked so, and without the heed's words on them, left out when nothing else is in it; then, under "New for you", each entry new for this run on its own line with when it was said and who said it, whole; and last, that its last reply is its answer, and, for a routine or at a channel place, but from a run started again on a refusal, that an empty reply says nothing |
+| `request` | the same as data, for a flow or a statechart: the request's number, its asker, its origin, who reads its answer, its entries with who each is by and to and whether the team's heed noted it, and apart from them those new for this run, its sub-requests and where each stands, and the team's notes |
 
 Who sits with a worker, which teams it may ask and its team's notes are read from the files each time a run starts, and kept nowhere else. Every run Bulldog starts of a team's worker, its lead, a routine's worker, or a worker asked to decide for it, is given that team's notes, and no other team's, whether or not its definition names the notes tool; a colleague called as a tool is given what its caller gives it.
 
@@ -106,6 +106,7 @@ The talk tools:
 | `ask_team(team, question)` | asks another team of the office, and waits for its answer. The question is a sub-request, which starts that team's lead in a run of its own |
 | `ask_person(question, who)` | asks a person of the worker's team, or, with nobody named, the asker of the request, and waits for the answer |
 | `tell(text, who)` | says something that needs no answer, to the asker or to a person of the worker's team, and goes on |
+| `read_thread(from, place)` | reads the thread of the request it works on, oldest first, from an entry on; or, with `place`, what was said before it where it was asked, newest first, from an entry back |
 
 The notes tool:
 
@@ -114,6 +115,8 @@ The notes tool:
 | `write_notes(name, text, why)` | writes one of the team's own notes, whole, at once, which Changes commits, saying which worker wrote it and why. No decision is asked: it is the one write to the office's files that is not a decided change, and it is still a commit with who and why |
 
 There is no tool for reading notes: a run Bulldog starts of a worker is given its team's notes in its `context`.
+
+`read_thread` gives a run more of what it is given, and nothing it could not be. Without `place`, it reads the request's thread as a run of it is given it, the noted messages marked and the heed's words left out, each entry on its own line with its number, when, by whom and to whom, and what it is, and says how many more there are and where to read on. With `place`, it reads what was said at the listed place the request was asked at, in the team's other requests asked there before it: their messages, noted or not, and the team's answers, and only of the requests every reader of this one reads, so a bot asked at the top of a channel can read the talk noted before it. A request from another team, a routine's request and one asked in the chat were asked at no place, and `place` is refused for them.
 
 `ask_person` and `tell` reach the people of the worker's own team and the asker, and nobody else; anything for anyone else goes as a request to a team, with `ask_team`. The worker that called is the nearest run above the call that is a worker, so a colleague used as a tool asks and tells in its own name. Each question, sub-request and tell is an entry in the request's thread, by that worker.
 
@@ -174,6 +177,7 @@ A run goes on as it was started when the files change, and the worker's next run
 | the thread given to a run | its newest entries within 20,000 characters, the opening entry always kept, and a line saying how many are not shown; what is new for the run is given whole, apart from it |
 | the notes a run is given | 50,000 characters in all, and a line naming what is not shown |
 | the open requests a routine's run is given | the newest 50, and a line saying how many more there are |
+| what `read_thread` gives | its whole entries within 20,000 characters, a first one longer than that cut, and a line saying how many more there are and where to read on |
 | levels of sub-requests below a request | 8 |
 | how long a heed weighs | its rule's own: Bulldog keeps no limit |
 | runs of one request in a row with nothing said in it by a person | 20; then the request is answered as stopped at the limit, or, where the last of them was started by a refused answer, the asker is told that the team did not disclose its answer; a person saying more in it starts it again |
@@ -194,7 +198,7 @@ Every test of this area moves a clock the test holds and steps the work until no
 ## Interfaces
 
 - **Office** gives the teams, their leads, workers, people, notes, routines, zone and `runs:`, each team's `about`, and its heed with its rule and settings, each read from the files when it is needed; looks up the model a one-word name stands for, in the worker's own team and then each team around it, which work fills into the definition it sends; says which workers have a problem, a worker whose model's name is found nowhere, one started at the top that can hold an action and names no ask, and one that names an ask other than Bulldog's among them; and tells work when the office has been read again.
-- **Requests** says who a team with no people has as its people. It keeps the requests, their threads, states and sub-requests, and the source thing a request's asking opened; work opens and answers them, adds entries, writes what a team's heed noted, hands it answers that come once nothing waits for them, and reads who asked, with the person or guest that is, the origin, who reads the answer, and a team's open requests for a routine's run. It tells work when an issue a request came from is closed at its source.
+- **Requests** says who a team with no people has as its people. It keeps the requests, their threads, states and sub-requests, and the source thing a request's asking opened; work opens and answers them, adds entries, writes what a team's heed noted, hands it answers that come once nothing waits for them, and reads who asked, with the person or guest that is, the origin, who reads the answer, a team's open requests for a routine's run, and what was said before a request where it was asked, of the requests every reader of it reads, each reader the office does not name counted as itself. It tells work when an issue a request came from is closed at its source.
 - **Decisions** is handed every held action, through the ask Bulldog ships, and everything said outside a team that set a disclosure check, and work answers Corbie, gives a tool its refusal or starts the lead again with what it decides; it asks work to start the runs its rules and deciding workers need, each labelled with the team it decides for, and owns the one line an asker is told when a team does not disclose its answer; work calls it each time its clock moves, so a rule or a deciding worker past its time limit passes.
 - **Bridges** carries what work says to an asker or a person, and hands work what people answer; its settings say, for each place it listens in, which team is asked there; it asks work to start its in and out machines, which carry the same labels.
 - **Changes** commits what `write_notes` writes, the one write to the office's files that is not a decided change, as one commit with who and why, and is handed each call to the builder's tools, whose answer work keeps and gives.

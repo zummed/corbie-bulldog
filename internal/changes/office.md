@@ -82,7 +82,7 @@ const reply = http.get("https://api.weather.example/v1/forecast?days=" + (input.
 return reply.body.days.map(d => d.date + ": " + d.summary)
 ```
 
-A worker has nothing of Bulldog's that its definition does not name, each by its path in `.bulldog/`: the talk tools, `tools/talk/talk.yaml`, for asking another team or a person; the notes tool, `tools/notes/notes.yaml`, for writing its team's notes; the builder's tools, `tools/build/build.yaml`. Each thing Bulldog ships is a folder there with its page of the manual, named by its path, as `tools/talk` or `bridges/slack`. A worker Bulldog starts at the top, a team's lead or a routine's worker, names the ask Bulldog ships when anything it runs can wait for a yes: `ask: { machine: ./.bulldog/ask.yaml }`. From a team within, the paths begin `../.bulldog/`.
+A worker has nothing of Bulldog's that its definition does not name, each by its path in `.bulldog/`: the talk tools, `tools/talk/talk.yaml`, for asking another team or a person, telling someone, and reading the thread; the notes tool, `tools/notes/notes.yaml`, for writing its team's notes; the builder's tools, `tools/build/build.yaml`. Each thing Bulldog ships is a folder there with its page of the manual, named by its path, as `tools/talk` or `bridges/slack`. A worker Bulldog starts at the top, a team's lead or a routine's worker, names the ask Bulldog ships when anything it runs can wait for a yes: `ask: { machine: ./.bulldog/ask.yaml }`. From a team within, the paths begin `../.bulldog/`.
 
 A tool whose job says `approve: true` waits for a yes, decided by the team's list named for the tool, or else its `everything`.
 

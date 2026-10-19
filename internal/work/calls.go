@@ -35,6 +35,7 @@ const (
 	toolAskTeam    = "ask_team"
 	toolAskPerson  = "ask_person"
 	toolTell       = "tell"
+	toolReadThread = "read_thread"
 	toolWriteNotes = "write_notes"
 	toolOfficePut  = "office_put"
 	// askTool is what an ask's run is kept as among the calls.
@@ -48,7 +49,7 @@ var errGone = errors.New("it no longer waits on its ticket")
 // ships, and no other.
 func does(tool string) bool {
 	switch tool {
-	case toolAskTeam, toolAskPerson, toolTell, toolWriteNotes:
+	case toolAskTeam, toolAskPerson, toolTell, toolReadThread, toolWriteNotes:
 		return true
 	}
 	return slices.Contains(shipped.Tools(shipped.Build), tool)
@@ -293,6 +294,8 @@ func (w *Work) doing(ctx context.Context, c *calling) (string, bool, error) {
 		return w.askPerson(ctx, c)
 	case tool == toolAskTeam:
 		return w.askTeam(ctx, c)
+	case tool == toolReadThread:
+		return w.readThread(c)
 	case tool == toolWriteNotes:
 		return w.writeNotes(ctx, c)
 	case does(tool):

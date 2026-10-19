@@ -95,7 +95,7 @@ func TestEveryShippedFileIsADefinitionCorbieTakes(t *testing.T) {
 func TestToolsNamed(t *testing.T) {
 	t.Parallel()
 	for name, want := range map[string][]string{
-		shipped.Talk:  {"ask_person", "ask_team", "tell"},
+		shipped.Talk:  {"ask_person", "ask_team", "read_thread", "tell"},
 		shipped.Notes: {"write_notes"},
 		shipped.Build: {"manual", "office_check", "office_files", "office_put", "office_read", "office_remove", "office_write"},
 		shipped.Ask:   nil,

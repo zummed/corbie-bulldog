@@ -10,6 +10,7 @@
   const NOTES_TOOL = "write_notes";
   const PEOPLE_TOOLS = ["ask_person", "tell"];
   const TEAMS_TOOL = "ask_team";
+  const THREAD_TOOL = "read_thread";
 
   // What the view keeps while it is drawn again, for one worker: how many
   // of each list are shown.
@@ -114,6 +115,8 @@
       } else if (tool.kind === "bulldog" && tool.name === TEAMS_TOOL) {
         others.push(row(B.el("span", {class: "wk-c1"}, toolName(tool)),
           B.el("span", {class: "wk-c2"}, w.may_ask && w.may_ask.length ? inline("teams", w.may_ask.map(B.teamEl)) : B.el("span", {class: "muted"}, "other teams"))));
+      } else if (tool.kind === "bulldog" && tool.name === THREAD_TOOL) {
+        can.push(row(B.el("span", {class: "wk-c1"}, toolName(tool)), B.el("span", {class: "wk-c2"}, "Thread")));
       } else if (tool.kind === "bulldog" && tool.name === NOTES_TOOL) {
         others.push(row(B.el("span", {class: "wk-c1"}, toolName(tool)),
           B.el("span", {class: "wk-c2"}, B.el("a", {href: B.teamHref(t.name)}, "Notes"))));
