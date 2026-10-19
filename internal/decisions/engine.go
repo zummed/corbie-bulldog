@@ -387,7 +387,7 @@ func (d *Decisions) pass(o *office.Office, dec *Decision, p Pass) error {
 	if err != nil {
 		return err
 	}
-	_, err = d.requests.Write(dec.Request, requests.Writing{Kind: KindPassed, By: d.whoOf(p), To: to, Read: true,
+	_, err = d.requests.Write(dec.Request, requests.Writing{Kind: KindPassed, By: d.whoOf(dec, p), To: to, Read: true,
 		Text: "pass from " + p.Called + noted(p.Note)})
 	return err
 }
@@ -541,7 +541,7 @@ func (d *Decisions) ended(o *office.Office, dec *Decision) error {
 	if err != nil {
 		return err
 	}
-	w := requests.Writing{Kind: KindDecided, By: d.whoOf(*dec.By), To: to, Read: true, Answers: dec.Entry, Text: how(dec) + noted(dec.By.Note)}
+	w := requests.Writing{Kind: KindDecided, By: d.whoOf(dec, *dec.By), To: to, Read: true, Answers: dec.Entry, Text: how(dec) + noted(dec.By.Note)}
 	w.Working = dec.Ended == Refused && dec.Kind == OfDisclosure && dec.Said.What == SaysAnswer
 	if _, err := d.requests.Write(dec.Request, w); err != nil {
 		return err
@@ -697,15 +697,16 @@ func (d *Decisions) recipient(dec *Decision) ([]requests.Who, error) {
 	return []requests.Who{d.requests.Worker(name)}, nil
 }
 
-// whoOf gives who a decider's word is by, in the thread.
-func (d *Decisions) whoOf(p Pass) requests.Who {
+// whoOf gives who a decider's word on a decision is by, in the thread: a
+// rule as of the team whose decision it is.
+func (d *Decisions) whoOf(dec *Decision, p Pass) requests.Who {
 	switch p.Kind {
 	case office.IsPerson:
 		return d.requests.Person(p.Name)
 	case office.IsWorker:
 		return d.requests.Worker(p.Name)
 	case office.IsRule:
-		return d.requests.Rule(p.Name)
+		return d.requests.Rule(p.Name, dec.Team)
 	}
 	return requests.Bulldog
 }

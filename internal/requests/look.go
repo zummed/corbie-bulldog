@@ -41,12 +41,10 @@ func (l *look) worker(n string) Who {
 	return Who{Kind: IsWorker, Name: n, Team: w.Team, Known: l.era(IsTeam, w.Team)}
 }
 
-func (l *look) rule(path string) Who {
-	r := l.o.Rules[path]
-	if r == nil {
-		return Who{Kind: IsRule, Name: path}
-	}
-	return Who{Kind: IsRule, Name: path, Team: r.Team, Known: l.era(IsTeam, r.Team)}
+// rule gives a rule as of the team it decides for, whichever team's
+// folder holds it.
+func (l *look) rule(path, team string) Who {
+	return Who{Kind: IsRule, Name: path, Team: team, Known: l.era(IsTeam, team)}
 }
 
 // personOf gives the person of the office someone is now, or "" for a

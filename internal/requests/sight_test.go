@@ -136,7 +136,7 @@ func TestRequestsRefusedDisclosure(t *testing.T) {
 	if ds := got[[]requests.Delivery](t)(w.Deliveries(answer.ID)); len(ds) != 0 {
 		t.Errorf("the held answer is carried to %+v", ds)
 	}
-	must(t, errOf(w.Write(support, requests.Writing{Kind: "refused", By: w.Rule("support/check.js"), To: []requests.Who{w.Person("dana")},
+	must(t, errOf(w.Write(support, requests.Writing{Kind: "refused", By: w.Rule("support/check.js", "support"), To: []requests.Who{w.Person("dana")},
 		Text: "say which refund", Read: true, Working: true})))
 	if st := w.state(support); st.Is != requests.Waiting || !slices.Equal(on(st), []string{"dana"}) {
 		t.Errorf("after the refusal support's sub-request stands %+v", st)

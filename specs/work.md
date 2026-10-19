@@ -75,7 +75,7 @@ Every run Bulldog starts carries labels, and is found by them:
 
 Corbie gives a run's labels to every run below it, so a call from a colleague three levels down is found with the lead's run. Labels are public in Corbie, so they hold kinds, numbers and identities, never words of a request or anyone's name.
 
-A run started to decide belongs to the team it decides for: a rule's run, and a worker's run, a worker of another team's included. That team is its `team`, and what it read is seen only by that team's people. A rule is run as it is written: a bare script, given the decision as input, or a definition in the team's folder that holds its own permissions, with a model named by one word filled in as a worker's is. Bulldog grants a rule nothing and writes no definition around one; a bare script is wrapped by Corbie's client, in a flow of one stage with no permission.
+A run started to decide belongs to the team it decides for: a rule's run, and a worker's run, a worker of another team's included. That team is its `team`, and what it read is seen only by that team's people. A rule is run as it is written: a bare script, given the decision as input, or a definition that holds its own permissions, in the team's folder, with a model named by one word filled in as a worker's is, or among those Bulldog ships, sent as it ships. Bulldog grants a rule nothing and writes no definition around one; a bare script is wrapped by Corbie's client, in a flow of one stage with no permission.
 
 Bulldog chooses each run's name and notes it, with the team and request it is for, before it sends the start. What a run is for is read from that note; labels are for finding runs.
 

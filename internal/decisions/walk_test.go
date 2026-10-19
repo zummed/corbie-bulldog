@@ -287,6 +287,31 @@ func TestDecisionsEveryWalkEndsAtAPerson(t *testing.T) {
 	}
 }
 
+func TestDecisionsARuleDecidesAsTheTeamWhoseDecisionItIs(t *testing.T) {
+	t.Parallel()
+	files := withDecide(t, "decide:\n  everything: [./a.js, sam]")
+	files["garden/team.yaml"] = strings.Replace(files["garden/team.yaml"], "decide: { everything: [sam] }", "decide: { everything: [./a.js] }", 1)
+	b := newBench(t, files)
+	g := b.chat("sam", "garden", "open the shed")
+	dec := b.one("ask-1", "garden", g, []string{"gardener"}, decisions.Job{Name: "open_door"})
+	b.runner.next(t).says(decisions.SaysPass, "unsure")
+	top := b.runner.next(t)
+	if top.Name != "a.js" || top.Team != "garden" {
+		t.Fatalf("%s of %s was asked second", top.Name, top.Team)
+	}
+	top.says(decisions.SaysPass, "unsure")
+	b.until("the walk reaches Sam", func() bool { return slices.Equal(b.get(dec.ID).Asked, []string{"sam"}) })
+	passes := b.entries(g, decisions.KindPassed)
+	if len(passes) != 2 {
+		t.Fatalf("the thread holds %d passes", len(passes))
+	}
+	for _, e := range passes {
+		if e.By.Kind != requests.IsRule || e.By.Team != "garden" || e.Read != "garden" {
+			t.Errorf("a rule's pass on the garden's decision is by %+v, read by %q", e.By, e.Read)
+		}
+	}
+}
+
 func TestDecisionsReachOutward(t *testing.T) {
 	t.Parallel()
 	plain := newBench(t, work(t))

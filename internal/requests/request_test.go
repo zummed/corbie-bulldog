@@ -196,12 +196,12 @@ func TestRequestsWorkersActInTheirOwnTeam(t *testing.T) {
 	must(t, errOf(h.Answer(mow, h.Worker("groundsman"), "Mown.", nil)))
 	// Who may not say more is told why.
 	for who, words := range map[requests.Who]string{d.Worker("ops"): "of workers, only those of the team that asked it",
-		d.Team("platform"): "only people do", requests.Bulldog: "only people do", d.Rule("payments/no-account-numbers.yaml"): "only people do"} {
+		d.Team("platform"): "only people do", requests.Bulldog: "only people do", d.Rule("payments/no-account-numbers.yaml", "payments"): "only people do"} {
 		if _, err := d.Say(d.payments, who, "me too", nil, requests.Where{}); !errors.As(err, &refusal) || !strings.Contains(err.Error(), words) {
 			t.Errorf("%+v saying more in payments' sub-request is told %v", who, err)
 		}
 	}
-	if r := d.Rule("payments/no-account-numbers.yaml"); r.Kind != requests.IsRule || r.Team != "payments" || r.Known == 0 {
+	if r := d.Rule("payments/no-account-numbers.yaml", "payments"); r.Kind != requests.IsRule || r.Team != "payments" || r.Known == 0 {
 		t.Errorf("payments' disclosure rule is %+v", r)
 	}
 }

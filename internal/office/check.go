@@ -39,8 +39,8 @@ func (r *reading) loader(dir string, uses *[]string) func(string) ([]byte, error
 			if contents, ok := shipped.File(own); ok {
 				return contents, nil
 			}
-			return nil, fmt.Errorf("Bulldog ships no %s: its tools files are %s, %s and %s, and its ask %s, each named by its path in %s/ at the top of the office, as ./%s", full,
-				path.Join(shipped.Dir, shipped.Talk), path.Join(shipped.Dir, shipped.Notes), path.Join(shipped.Dir, shipped.Build), path.Join(shipped.Dir, shipped.Ask), shipped.Dir, path.Join(shipped.Dir, shipped.Talk))
+			return nil, fmt.Errorf("Bulldog ships no %s: its tools files are %s, %s and %s, its ask %s, and its rules each in a folder of %s/rules/, each named by its path in %s/ at the top of the office, as ./%s", full,
+				path.Join(shipped.Dir, shipped.Talk), path.Join(shipped.Dir, shipped.Notes), path.Join(shipped.Dir, shipped.Build), path.Join(shipped.Dir, shipped.Ask), shipped.Dir, shipped.Dir, path.Join(shipped.Dir, shipped.Talk))
 		}
 		switch {
 		case path.IsAbs(full) || full == ".." || strings.HasPrefix(full, "../"):
@@ -430,53 +430,69 @@ func toolNames(tools []Tool) []string {
 
 // checkRules has Corbie check each rule the lists name that is a
 // definition, as it is written, with its models named by one word filled
-// in from its team's; a refused one is reported on its team. A rule
-// Bulldog ships is read from what it ships, and checked as it ships, with
-// nothing filled in, since it is the same rule whichever team names it. A
-// bare script is kept as it is written, in no definition: Corbie checks of
-// a script only that it can be read beside what names it, and the reading
-// has already found it a file of its team's folder or one Bulldog ships.
+// in from its team's; a refused one is reported on each team that names
+// it. A rule Bulldog ships is of no team: it is read from what Bulldog
+// ships, and checked as it ships, with nothing filled in, since it is the
+// same rule whichever team names it. A bare script is kept as it is
+// written, in no definition: Corbie checks of a script only that it can be
+// read beside what names it, and the reading has already found it a file
+// of its team's folder or one Bulldog ships.
 func (r *reading) checkRules() {
 	for _, team := range r.o.Order {
 		t := r.o.Teams[team]
-		lists := append([]List{{Key: "disclosure", Deciders: t.Disclosure}}, t.Decide...)
-		for _, list := range lists {
+		var named []string
+		for _, list := range append([]List{{Key: "disclosure", Deciders: t.Disclosure}}, t.Decide...) {
 			for _, d := range list.Deciders {
-				if d.Kind != IsRule || r.o.Rules[d.Name] != nil {
-					continue
+				if d.Kind == IsRule && !slices.Contains(named, d.Name) {
+					named = append(named, d.Name)
 				}
-				written, ships := r.files[d.Name], false
-				if own, ok := strings.CutPrefix(d.Name, shipped.Dir+"/"); ok {
-					written, ships = shipped.File(own)
-				}
-				rule := &Rule{Team: team, Path: d.Name, Script: path.Ext(d.Name) == ".js", Written: written}
-				r.o.Rules[d.Name] = rule
-				r.o.Checked = append(r.o.Checked, d.Name)
-				if rule.Script {
-					continue
-				}
-				p := Problem{File: d.Name, Team: team, Rule: d.Name}
-				filled := written
-				if !ships {
-					var problems []string
-					filled, _, _, problems = r.fill(written, t, d.Name)
-					for _, problem := range problems {
-						p.Text = problem
-						rule.Problems = append(rule.Problems, p)
-					}
-				}
-				if len(rule.Problems) == 0 {
-					draft, err := machine.Parse(filled, r.loader(dirOf(d.Name), nil))
-					if err != nil {
-						rule.Problems = corbieSays(err, p)
-					} else {
-						rule.Draft = draft
-					}
-				}
-				r.problems = append(r.problems, rule.Problems...)
+			}
+		}
+		for _, name := range named {
+			rule := r.o.Rules[name]
+			if rule == nil {
+				rule = r.checkRule(t, name)
+				r.o.Rules[name] = rule
+				r.o.Checked = append(r.o.Checked, name)
+			}
+			for _, p := range rule.Problems {
+				p.Team = team
+				r.problems = append(r.problems, p)
 			}
 		}
 	}
+}
+
+// checkRule reads and checks one rule a team names.
+func (r *reading) checkRule(t *Team, name string) *Rule {
+	rule := &Rule{Team: t.Name, Path: name, Script: path.Ext(name) == ".js", Written: r.files[name]}
+	own, ships := strings.CutPrefix(name, shipped.Dir+"/")
+	if ships {
+		rule.Team = ""
+		rule.Written, _ = shipped.File(own)
+	}
+	if rule.Script {
+		return rule
+	}
+	p := Problem{File: name, Rule: name}
+	filled := rule.Written
+	if !ships {
+		var problems []string
+		filled, _, _, problems = r.fill(rule.Written, t, name)
+		for _, problem := range problems {
+			p.Text = problem
+			rule.Problems = append(rule.Problems, p)
+		}
+	}
+	if len(rule.Problems) == 0 {
+		draft, err := machine.Parse(filled, r.loader(dirOf(name), nil))
+		if err != nil {
+			rule.Problems = corbieSays(err, p)
+		} else {
+			rule.Draft = draft
+		}
+	}
+	return rule
 }
 
 // checkBridges has Corbie check both machines of each bridge, with their

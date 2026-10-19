@@ -654,29 +654,43 @@ func changedIn(was, now reading, files []string) bool {
 }
 
 func tellRules(t *telling, was, now reading, touched map[string]bool) {
-	lists := func(o *office.Office, rule string) []string {
-		r := o.Rules[rule]
-		team := o.Teams[r.Team]
+	// whose gives a rule as a sentence names it: by the team whose folder
+	// holds it, or as Bulldog's, which is of no team.
+	whose := func(o *office.Office, r *office.Rule) string {
+		if r.Team == "" {
+			return "Bulldog's rule " + r.Path
+		}
+		return of(called(o, r.Team)) + " rule " + r.Path
+	}
+	// on gives the lists and disclosure checks a rule is on, of every team
+	// that names it.
+	on := func(o *office.Office, r *office.Rule) string {
 		var on []string
-		for _, l := range team.Decide {
-			if slices.ContainsFunc(l.Deciders, func(d office.Decider) bool { return d.Name == rule }) {
-				on = append(on, l.Key+" list")
+		for _, name := range o.Order {
+			team, its := o.Teams[name], "its "
+			if r.Team == "" {
+				its = of(called(o, name)) + " "
+			}
+			for _, l := range team.Decide {
+				if slices.ContainsFunc(l.Deciders, func(d office.Decider) bool { return d.Name == r.Path }) {
+					on = append(on, its+l.Key+" list")
+				}
+			}
+			if slices.ContainsFunc(team.Disclosure, func(d office.Decider) bool { return d.Name == r.Path }) {
+				on = append(on, its+"disclosure check")
 			}
 		}
-		if slices.ContainsFunc(team.Disclosure, func(d office.Decider) bool { return d.Name == rule }) {
-			on = append(on, "disclosure check")
-		}
-		return on
+		return strings.Join(on, " and ")
 	}
 	for _, rule := range union(sortedKeys(was.o.Rules), sortedKeys(now.o.Rules)) {
 		a, b := was.o.Rules[rule], now.o.Rules[rule]
 		switch {
 		case b == nil:
-			t.say(false, []string{rule}, "%s rule %s is on none of its lists.", of(called(was.o, a.Team)), rule)
+			t.say(false, []string{rule}, "%s is on none of its lists.", whose(was.o, a))
 			continue
 		case a == nil:
-			t.say(false, []string{rule}, "%s rule %s is new, on its %s.", of(called(now.o, b.Team)), rule, strings.Join(lists(now.o, rule), " and "))
-			tellReach(t, []string{rule}, of(called(now.o, b.Team))+" rule "+rule, reach{}, reachOf(now.o, rule, b.Draft))
+			t.say(false, []string{rule}, "%s is new, on %s.", whose(now.o, b), on(now.o, b))
+			tellReach(t, []string{rule}, whose(now.o, b), reach{}, reachOf(now.o, rule, b.Draft))
 			continue
 		}
 		files := union(uses(rule, a.Draft), uses(rule, b.Draft))
@@ -687,12 +701,12 @@ func tellRules(t *telling, was, now reading, touched map[string]bool) {
 			}
 		}
 		if changedIn(was, now, files) {
-			t.say(true, said, "%s rule %s is changed, and decides on its %s: what a rule decides is read by no one but itself.", of(called(now.o, b.Team)), rule, strings.Join(lists(now.o, rule), " and "))
+			t.say(true, said, "%s is changed, and decides on %s: what a rule decides is read by no one but itself.", whose(now.o, b), on(now.o, b))
 		}
 		// A rule Corbie could not read before reached nothing, since it
 		// could not be started.
 		if b.Draft != nil {
-			tellReach(t, said, of(called(now.o, b.Team))+" rule "+rule, reachOf(was.o, rule, a.Draft), reachOf(now.o, rule, b.Draft))
+			tellReach(t, said, whose(now.o, b), reachOf(was.o, rule, a.Draft), reachOf(now.o, rule, b.Draft))
 		}
 	}
 }

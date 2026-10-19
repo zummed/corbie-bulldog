@@ -317,7 +317,7 @@ func TestWorkRunsInARowResetByAPerson(t *testing.T) {
 	// Something no person says starts the steward again after each run:
 	// the runs come in a row.
 	again := func(i int) {
-		if _, err := b.reqs.Write(n, requests.Writing{Kind: requests.KindSaid, By: b.reqs.Rule("small-orders.js"),
+		if _, err := b.reqs.Write(n, requests.Writing{Kind: requests.KindSaid, By: b.reqs.Rule("small-orders.js", "office"),
 			To: []requests.Who{b.reqs.Worker("steward")}, Text: fmt.Sprint("again ", i), Working: true}); err != nil {
 			t.Fatal(err)
 		}

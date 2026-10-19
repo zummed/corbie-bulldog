@@ -232,9 +232,11 @@ const (
 
 // A Rule is a decider in its team's folder, or one Bulldog ships: a bare
 // script, given the decision and no permission, or a definition holding
-// its own. A rule Bulldog ships is one rule, of the first team that names
-// it.
+// its own. A rule decides as the team whose decision it is, whichever
+// team's folder holds it.
 type Rule struct {
+	// Team is the team whose folder holds it, or "" for a rule Bulldog
+	// ships, which is of no team.
 	Team string
 	// Path is its file in the office, or under .bulldog/ for one Bulldog
 	// ships.
