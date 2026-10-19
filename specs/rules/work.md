@@ -196,7 +196,7 @@ The detailed rules behind the [Work overview](../work.md). Requirements are `R-w
 *Accept:* the test's clock reaches Monday 09:00. A request of the house's own opens, and a run of the steward starts with `said` "Walk round: what is still open?". The clock is waiting on its timer again.
 
 **R-work-36** A routine's answer goes to the team's people.
-*Accept:* the steward answers the Monday routine; Sam and Kit each have an entry by the steward with the answer.
+*Accept:* the steward answers the Monday routine; Sam and Kit each have an entry by the steward with the answer. On Tuesday at six in the evening the bins flow, given the routine's asking as new, answers that the green bin goes out tonight, and Sam and Kit each have it.
 
 **R-work-45** A routine's run is given, in `context` and in `request`, its team's open requests, those working or waiting on someone, each with its number, its asker, its state and the first line of what was asked: the newest 50, and a line saying how many more there are.
 *Accept:* on the Monday routine the steward's `context` names Kit's request, by its number, Kit, waiting on Kit, and "the kitchen socket sparked", and `request` holds the same as data; nothing of the garden's requests is given. With 53 open requests, the newest 50 are given and a line says 3 more are open.

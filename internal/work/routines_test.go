@@ -29,6 +29,8 @@ var (
 	nextMonday = time.Date(2026, 10, 12, 8, 0, 0, 0, time.UTC)
 	// Monday 5 October, six in the evening in London.
 	tonight = time.Date(2026, 10, 5, 17, 0, 0, 0, time.UTC)
+	// Tuesday 6 October, six in the evening in London.
+	tuesday = time.Date(2026, 10, 6, 17, 0, 0, 0, time.UTC)
 	// Friday 9 October, four in the afternoon in London.
 	friday = time.Date(2026, 10, 9, 15, 0, 0, 0, time.UTC)
 )
@@ -179,6 +181,28 @@ func TestARoutineOpensItsRequestWhenItsTimeComes(t *testing.T) {
 	}
 	if slices.Sort(people); answer.Text != "Nothing is open." || !slices.Equal(people, []string{"kit", "sam"}) {
 		t.Errorf("the routine's answer %q goes to %v", answer.Text, people)
+	}
+}
+
+func TestTheBinsRoutineSaysWhichBinGoesOut(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	b.waitsForItsTime(whichBin)
+	b.clock.Set(tonight)
+	b.settled(b.opened(whichBin, 1), requests.Answered)
+	b.waitsForItsTime(whichBin)
+
+	// On Tuesday night the bins flow says the green bin goes out, to Sam
+	// and Kit.
+	b.clock.Set(tuesday)
+	n := b.opened(whichBin, 2)
+	answer := b.answered(n)
+	var people []string
+	for _, d := range must(b.reqs.Deliveries(answer.ID)) {
+		people = append(people, d.Person)
+	}
+	if slices.Sort(people); answer.Text != "The green bin goes out tonight." || !slices.Equal(people, []string{"kit", "sam"}) {
+		t.Errorf("the bins' answer %q goes to %v", answer.Text, people)
 	}
 }
 
