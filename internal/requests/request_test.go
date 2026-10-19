@@ -63,18 +63,18 @@ func TestRequestsGoToOneTeam(t *testing.T) {
 	picked := got[*requests.Request](t)(d.AskInChat("kit", "garden", "the lawn", nil))
 	friday := got[*requests.Request](t)(d.AskByRoutine("garden", d.o.Teams["garden"].Routines[0], requests.Who{}))
 	for _, c := range []struct {
-		r     *requests.Request
-		team  string
-		taker string
+		r    *requests.Request
+		team string
+		lead string
 	}{{direct, office.Top, "steward"}, {garden, "garden", "gardener"}, {chat, office.Top, "steward"}, {picked, "garden", "gardener"}, {friday, "garden", "gardener"}} {
-		taker, person, err := d.Taker(c.r.Number)
-		if err != nil || c.r.Team != c.team || taker != c.taker || person {
-			t.Errorf("request %d went to %s, taken by %s", c.r.Number, c.r.Team, taker)
+		lead, person, err := d.Lead(c.r.Number)
+		if err != nil || c.r.Team != c.team || lead != c.lead || person {
+			t.Errorf("request %d went to %s, whose lead is %s", c.r.Number, c.r.Team, lead)
 		}
 	}
 }
 
-func TestRequestsTakenByTakerOrRoutineWorker(t *testing.T) {
+func TestRequestsGoToLeadOrRoutineWorker(t *testing.T) {
 	t.Parallel()
 	files := replace(t, house(t), "garden/team.yaml", `to: gardener, say: "What needs doing before the weekend?"`, `to: groundsman, say: "Mow?"`)
 	d := open(t, files)
@@ -82,8 +82,8 @@ func TestRequestsTakenByTakerOrRoutineWorker(t *testing.T) {
 	monday := got[*requests.Request](t)(d.AskByRoutine(office.Top, d.o.TopTeam().Routines[0], requests.Who{}))
 	mow := got[*requests.Request](t)(d.AskByRoutine("garden", d.o.Teams["garden"].Routines[0], requests.Who{}))
 	for n, want := range map[int64]string{kit.Number: "steward", monday.Number: "steward", mow.Number: "groundsman"} {
-		if taker, person, err := d.Taker(n); err != nil || taker != want || person {
-			t.Errorf("request %d is taken by %s (%v, %v), not %s", n, taker, person, err, want)
+		if lead, person, err := d.Lead(n); err != nil || lead != want || person {
+			t.Errorf("request %d goes to %s (%v, %v), not %s", n, lead, person, err, want)
 		}
 	}
 	if monday.Asker != d.Team(office.Top) || monday.Origin.Kind != requests.ByRoutine || monday.Origin.At != "mon 09:00" {
@@ -91,12 +91,12 @@ func TestRequestsTakenByTakerOrRoutineWorker(t *testing.T) {
 	}
 }
 
-func TestRequestsPersonTakerWaitsAndAnswers(t *testing.T) {
+func TestRequestsLeadWhoIsAPersonWaitsAndAnswers(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
 	support := got[*requests.Request](t)(d.Sub(d.dana, d.Worker("bot"), "support", "What did we tell 4411?", "ticket-support"))
-	if taker, person, _ := d.Taker(support.Number); taker != "dana" || !person {
-		t.Fatalf("support's sub-request is taken by %s", taker)
+	if lead, person, _ := d.Lead(support.Number); lead != "dana" || !person {
+		t.Fatalf("support's sub-request goes to %s", lead)
 	}
 	if st := d.state(support.Number); st.Is != requests.Waiting || !slices.Equal(on(st), []string{"dana"}) {
 		t.Fatalf("support's sub-request stands %+v", st)
@@ -110,7 +110,7 @@ func TestRequestsPersonTakerWaitsAndAnswers(t *testing.T) {
 
 func errOf[T any](_ T, err error) error { return err }
 
-func TestRequestsTeamWithNoTakerRefused(t *testing.T) {
+func TestRequestsTeamWithNoLeadRefused(t *testing.T) {
 	t.Parallel()
 	d := open(t, house(t))
 	kit := got[*requests.Request](t)(d.AskInChat("kit", "", "the socket", nil)).Number
@@ -120,25 +120,25 @@ func TestRequestsTeamWithNoTakerRefused(t *testing.T) {
 	if !errors.As(err, &refusal) || !strings.Contains(err.Error(), "billing") {
 		t.Errorf("a request to no team is not refused: %v", err)
 	}
-	// The garden's taker is no one, a person not of the garden, or a worker
+	// The garden's lead is no one, a person not of the garden, or a worker
 	// of the house.
-	for _, takes := range []string{"", "kit", "steward"} {
+	for _, lead := range []string{"", "kit", "steward"} {
 		o := *d.o
 		o.Teams = map[string]*office.Team{}
 		for name, team := range d.o.Teams {
 			copied := *team
 			o.Teams[name] = &copied
 		}
-		o.Teams["garden"].Takes = takes
+		o.Teams["garden"].Lead = lead
 		must(t, d.Read(&o))
-		if _, err := d.AskInChat("kit", "garden", "the lawn", nil); !errors.As(err, &refusal) || !strings.Contains(err.Error(), "takes") {
-			t.Errorf("a request to the garden taken by %q is not refused: %v", takes, err)
+		if _, err := d.AskInChat("kit", "garden", "the lawn", nil); !errors.As(err, &refusal) || !strings.Contains(err.Error(), "lead") {
+			t.Errorf("a request to the garden, whose lead is %q, is not refused: %v", lead, err)
 		}
-		if _, err := d.Sub(kit, d.Worker("steward"), "garden", "the lawn", "t-"+takes); !errors.As(err, &refusal) || !strings.Contains(err.Error(), "takes") {
-			t.Errorf("a sub-request of the garden taken by %q is not refused: %v", takes, err)
+		if _, err := d.Sub(kit, d.Worker("steward"), "garden", "the lawn", "t-"+lead); !errors.As(err, &refusal) || !strings.Contains(err.Error(), "lead") {
+			t.Errorf("a sub-request of the garden, whose lead is %q, is not refused: %v", lead, err)
 		}
 	}
-	// A taker that cannot run takes nothing, and a routine said to a worker
+	// A lead that cannot run is asked nothing, and a routine said to a worker
 	// that cannot run asks nothing.
 	broken := replace(t, house(t), "steward.yaml", "prompt: ${input.context}", "prompt: ${input.context")
 	broken = replace(t, broken, "garden/gardener.yaml", "prompt: ${input.context}", "prompt: ${input.context")
@@ -151,11 +151,11 @@ func TestRequestsTeamWithNoTakerRefused(t *testing.T) {
 	}
 	for _, team := range []string{"", "garden"} {
 		if _, err := d.AskInChat("kit", team, "the lawn", nil); !errors.As(err, &refusal) || !strings.Contains(err.Error(), "cannot run") {
-			t.Errorf("a request to %q, whose taker cannot run, is not refused: %v", team, err)
+			t.Errorf("a request to %q, whose lead cannot run, is not refused: %v", team, err)
 		}
 	}
 	if _, err := d.Sub(kit, d.Worker("steward"), "garden", "the lawn", "t-broken"); !errors.As(err, &refusal) || !strings.Contains(err.Error(), "cannot run") {
-		t.Errorf("a sub-request of the garden, whose taker cannot run, is not refused: %v", err)
+		t.Errorf("a sub-request of the garden, whose lead cannot run, is not refused: %v", err)
 	}
 	for team, routine := range map[string]office.Routine{office.Top: d.o.TopTeam().Routines[1], "garden": d.o.Teams["garden"].Routines[0]} {
 		if _, err := d.AskByRoutine(team, routine, requests.Who{}); !errors.As(err, &refusal) || !strings.Contains(err.Error(), "said to "+routine.To+", which cannot run") {
@@ -295,8 +295,8 @@ func TestRequestsGuestJudgedByTheTeam(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
 	guest := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.02", "U0STRANGE", "refund me", nil))
-	if taker, _, _ := d.Taker(guest.Number); taker != "bot" || d.state(guest.Number).Is != requests.Working {
-		t.Errorf("the guest's request is taken by %s, standing %+v", taker, d.state(guest.Number))
+	if lead, _, _ := d.Lead(guest.Number); lead != "bot" || d.state(guest.Number).Is != requests.Working {
+		t.Errorf("the guest's request goes to %s, standing %+v", lead, d.state(guest.Number))
 	}
 	// What needs a yes for a guest waits on the team's deciders, as for anyone.
 	e := got[*requests.Entry](t)(d.Write(guest.Number, requests.Writing{Kind: "decision", By: d.Worker("bot"), To: []requests.Who{d.Person("al")},

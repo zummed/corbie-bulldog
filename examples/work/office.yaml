@@ -18,5 +18,5 @@ bridges:
 models:
   usual: { name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }
 people: [al]
-takes: bot
+lead: bot
 decide: { everything: [al] }

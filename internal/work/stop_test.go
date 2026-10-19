@@ -127,7 +127,7 @@ func removedWorkersRunStopped(t *testing.T) {
 	run := b.started(n, 1)
 	b.until("the gardener is held", func() bool { return held() == 1 })
 	b.rewrite(map[string]string{"garden/gardener.yaml": "",
-		"garden/team.yaml": "name: The garden\nabout: The beds, the lawn and the shed.\npeople: [sam]\ntakes: groundsman\nmodels:\n  usual: { name: opus }\n"})
+		"garden/team.yaml": "name: The garden\nabout: The beds, the lawn and the shed.\npeople: [sam]\nlead: groundsman\nmodels:\n  usual: { name: opus }\n"})
 	if b.office().Workers["gardener"] != nil {
 		t.Fatalf("the gardener is still read: %v", b.keeper.Problems())
 	}

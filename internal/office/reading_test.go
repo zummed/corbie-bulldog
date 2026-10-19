@@ -37,7 +37,7 @@ func TestTheOfficeIsReadWhole(t *testing.T) {
 func TestOfficeEveryProblemTogether(t *testing.T) {
 	t.Parallel()
 	files := replace(t, house(t), "office.yaml", "people: [sam, kit]", "people: [sam, nobody]")
-	files = replace(t, files, "garden/team.yaml", "takes: gardener", "takes: gardener\nbudget: 3")
+	files = replace(t, files, "garden/team.yaml", "lead: gardener", "lead: gardener\nbudget: 3")
 	files = replace(t, files, "clerk.yaml", "model: usual", "model: cheap")
 	files = replace(t, files, "bridges/telegram/in.yaml", "script: ./telegram.js", "script: ./gone.js")
 	problems := refused(t, files)
@@ -141,17 +141,17 @@ func TestTheProblemsAreTheLatestReadings(t *testing.T) {
 
 func TestNothingIsReadWellUntilItIs(t *testing.T) {
 	t.Parallel()
-	k, dir := keeper(t, replace(t, house(t), "office.yaml", "takes: steward\n", ""))
+	k, dir := keeper(t, replace(t, house(t), "office.yaml", "lead: steward\n", ""))
 	if k.Office() != nil {
 		t.Fatal("an office that never read well is given")
 	}
-	says(t, k.Problems(), "office.yaml", "takes")
+	says(t, k.Problems(), "office.yaml", "lead")
 	write(t, dir, "office.yaml", house(t)["office.yaml"])
 	if !k.Look() || k.Office() == nil {
 		t.Errorf("mended, it does not read: %v", k.Problems())
 	}
 	// No reading is kept from one keeper to the next.
-	write(t, dir, "office.yaml", strings.Replace(house(t)["office.yaml"], "takes: steward\n", "", 1))
+	write(t, dir, "office.yaml", strings.Replace(house(t)["office.yaml"], "lead: steward\n", "", 1))
 	if again := office.Keep(dir); again.Office() != nil {
 		t.Error("a new keeper has a reading of the last")
 	}
@@ -290,7 +290,7 @@ func TestProblemsAreOfOneWorkerBridgeRuleOrTeam(t *testing.T) {
 	if len(bridge) != 1 || !strings.Contains(bridge[0].Text, "bridges/garden") {
 		t.Errorf("the bridge's problems are %v", bridge)
 	}
-	if len(team) != 1 || !strings.Contains(team[0].Text, "takes: gardener") {
+	if len(team) != 1 || !strings.Contains(team[0].Text, "lead: gardener") {
 		t.Errorf("the garden's problems are %v", team)
 	}
 	if len(problems.OfWorker("groundsman")) != 1 || len(problems.OfWorker("gardener")) != 1 {

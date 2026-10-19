@@ -25,7 +25,7 @@ func TestEveryPersonIsWrittenOnce(t *testing.T) {
 	if got := o.People["raj"].Called; got != "raj" {
 		t.Errorf("raj with no name is called %q", got)
 	}
-	says(t, refused(t, replace(t, house(t), "garden/team.yaml", "takes: gardener", "takes: gardener\neveryone: { pat: {} }")), "garden/team.yaml", "everyone")
+	says(t, refused(t, replace(t, house(t), "garden/team.yaml", "lead: gardener", "lead: gardener\neveryone: { pat: {} }")), "garden/team.yaml", "everyone")
 }
 
 func TestAPersonsKeysNameTheOfficesBridges(t *testing.T) {

@@ -12,7 +12,7 @@ bridges:
 models:
   usual: { name: sonnet, service: claude-code }
 people: [sam, kit]
-takes: steward
+lead: steward
 decide:
   everything: [sam]
   order_part: [./small-orders.js, sam]

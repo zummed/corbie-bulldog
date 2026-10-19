@@ -546,7 +546,7 @@ func TestServerNobodySignsInUntilTheOfficeReads(t *testing.T) {
 	if err := s.stop(); err != nil {
 		t.Fatal(err)
 	}
-	b.write(map[string]string{"office.yaml": strings.Replace(house(t)["office.yaml"], "takes: steward\n", "", 1)})
+	b.write(map[string]string{"office.yaml": strings.Replace(house(t)["office.yaml"], "lead: steward\n", "", 1)})
 	s = b.serve()
 	for _, k := range []string{key, "anything"} {
 		if r := s.nobody().get("/?key=" + k); r.cookie() != nil || !strings.Contains(string(r.body), "does not read well") {

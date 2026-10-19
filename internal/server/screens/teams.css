@@ -3,7 +3,7 @@
 .tm .head { margin-bottom: 0; }
 .tm .sect > .search { margin-bottom: 10px; }
 
-/* The top team's room: its own people and taker, then its teams */
+/* The top team's room: its own people and lead, then its teams */
 .tm-room > .kv { margin-bottom: var(--gap); }
 .tm-room .plate .tag { color: var(--paper); border-color: var(--ink3); }
 

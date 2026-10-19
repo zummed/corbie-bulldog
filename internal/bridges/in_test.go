@@ -247,16 +247,16 @@ func TestBridgesSaidBecomesAnEntry(t *testing.T) {
 	if r.Team != office.Top || r.Origin.Place != "C1/6.0" || r.Origin.Heard != "#help" || r.Asker != requests.Identity("slack", "U0DANA00") {
 		t.Errorf("request six is %#v", r)
 	}
-	if taker, _, _ := d.requests.Taker(six); taker != "bot" {
-		t.Errorf("request six is taken by %s", taker)
+	if lead, _, _ := d.requests.Lead(six); lead != "bot" {
+		t.Errorf("request six goes to %s", lead)
 	}
 	d.hear("gitlab", said("1187", "platform/api", "platform/api#7", "the webhook retries twice"))
 	seven, _ := d.requests.Get(d.latest())
 	if seven.Team != "platform" || seven.Origin.Place != "platform/api#7" {
 		t.Errorf("Raj's issue is %#v", seven)
 	}
-	if taker, _, _ := d.requests.Taker(seven.Number); taker != "ops" {
-		t.Errorf("Raj's issue is taken by %s", taker)
+	if lead, _, _ := d.requests.Lead(seven.Number); lead != "ops" {
+		t.Errorf("Raj's issue goes to %s", lead)
 	}
 	// Sam's chat with the bot holds no threads: a reply goes on from what
 	// it answers, and anything else begins a request of its own, but for

@@ -107,27 +107,27 @@
       left ? B.el("span", {class: "mono faint tm-more"}, "+" + left) : "");
   }
 
-  function taker(o, t) {
-    if (!t.takes) return "";
-    return o.folk.has(t.takes) ? B.personEl(t.takes) : B.workerEl(t.takes, t.name, {bare: true});
+  function leadEl(o, t) {
+    if (!t.lead) return "";
+    return o.folk.has(t.lead) ? B.personEl(t.lead) : B.workerEl(t.lead, t.name, {bare: true});
   }
 
   function yours(o, t) {
     return o.mine.has(t.name) ? B.el("span", {class: "tag"}, "yours") : "";
   }
 
-  // teamRow is one team on one line; lead is its toggle in the tree, and a
-  // team found by a search is shown with the teams around it.
-  function teamRow(o, t, lead) {
-    const around = lead ? [] : o.around(t);
-    return B.el("div", {class: "row tm-team" + (lead ? "" : " tm-flat")},
-      lead || "",
+  // teamRow is one team on one line, with its toggle in the tree; a team
+  // found by a search is shown with the teams around it.
+  function teamRow(o, t, toggle) {
+    const around = toggle ? [] : o.around(t);
+    return B.el("div", {class: "row tm-team" + (toggle ? "" : " tm-flat")},
+      toggle || "",
       B.el("span", {class: "tm-name tm-cut"},
         around.length ? B.el("span", {class: "mono faint small tm-path"}, around.map((u) => u.called).join(" / ") + " /") : "",
         B.teamEl(t.name)),
       B.el("span", {class: "tm-about muted clip small", title: t.about || null}, t.about || ""),
       B.el("span", {}, people(o, t.people)),
-      B.el("span", {class: "tm-cut"}, taker(o, t)),
+      B.el("span", {class: "tm-cut"}, leadEl(o, t)),
       B.el("span", {class: "tm-mine"}, yours(o, t)));
   }
 
@@ -156,7 +156,7 @@
 
   // room draws a top team as a room holding the tree of its teams.
   function room(o, t) {
-    const own = [["People", people(o, t.people)], ["Taker", taker(o, t)]].filter((p) => p[1] !== "");
+    const own = [["People", people(o, t.people)], ["Lead", leadEl(o, t)]].filter((p) => p[1] !== "");
     return B.el("section", {class: "room tm-room", "aria-label": t.called},
       B.el("div", {class: "plate"}, B.el("a", {href: B.teamHref(t.name)}, t.called),
         t.about ? B.el("span", {class: "about"}, t.about) : null, yours(o, t) || null),

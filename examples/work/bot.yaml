@@ -1,5 +1,5 @@
-# The bot takes what is asked in #help. It asks the teams within, and
-# answers in the thread.
+# The bot is the office's lead, and answers what is asked in #help. It
+# asks the teams within, and answers in the thread.
 agent: bot
 input: [said, context]
 model: usual

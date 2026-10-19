@@ -12,7 +12,7 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 )
 
-func TestARequestStartsItsTaker(t *testing.T) {
+func TestARequestStartsItsLead(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, house(t))
 	n := b.chat("kit", "", "the kitchen socket sparked")
@@ -66,7 +66,7 @@ func TestARequestAtAPlaceStartsTheTeamItNames(t *testing.T) {
 	})
 }
 
-func TestATeamAPersonTakesStartsNoRun(t *testing.T) {
+func TestATeamWhoseLeadIsAPersonStartsNoRun(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
 	_, let := b.hold("charged twice", testkit.Say("asked"))
@@ -82,11 +82,11 @@ func TestATeamAPersonTakesStartsNoRun(t *testing.T) {
 		return err == nil && st.Is == requests.Waiting && len(st.On) == 1 && st.On[0].Name == "dana"
 	})
 	if runs := b.runs(sub.Number); len(runs) != 0 {
-		t.Errorf("a team Dana takes started runs: %+v", runs)
+		t.Errorf("a team whose lead is Dana started runs: %+v", runs)
 	}
 }
 
-func TestSomethingSaidStartsTheTakerAgain(t *testing.T) {
+func TestSomethingSaidStartsTheLeadAgain(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, house(t))
 	b.says(func(turn testkit.Turn) testkit.Reply { return testkit.Say("I will look at the socket.") })
@@ -243,7 +243,7 @@ func TestTheOfficeRunsThreeWhenItSaysNone(t *testing.T) {
 	b.started(ns[3], 1)
 }
 
-func TestWorkBrokenTakerAnswersWithItsProblem(t *testing.T) {
+func TestWorkBrokenLeadAnswersWithItsProblem(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, house(t))
 	held, let := b.hold("socket", testkit.Say("I have asked Kit."))

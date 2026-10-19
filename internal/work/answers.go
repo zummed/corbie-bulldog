@@ -148,7 +148,7 @@ func (w *Work) deliver(ctx context.Context, n int64) error {
 }
 
 // late hands a sub-request's answer that no tool waits for to the
-// request that asked it, which starts its taker again; a request that
+// request that asked it, which starts its lead again; a request that
 // was stopped is given nothing.
 func (w *Work) late(r *requests.Request, answer int64) error {
 	above, err := w.requests.Get(r.Parent)
@@ -163,7 +163,7 @@ func (w *Work) late(r *requests.Request, answer int64) error {
 	return w.subDone(r.Number, answer, !r.Answered)
 }
 
-// lastAnswer gives a request's latest answer to its asker: its taker's, or
+// lastAnswer gives a request's latest answer to its asker: its lead's, or
 // Bulldog's word that it failed or was stopped.
 func lastAnswer(r *requests.Request, thread []requests.Entry) *requests.Entry {
 	for i, e := range slices.Backward(thread) {
@@ -229,9 +229,9 @@ func (w *Work) lets(ctx context.Context) bool {
 
 // letGo does what a release decided. An answer let go was said by the
 // decisions, and goes on to the tool that asked for it; one refused
-// starts the taker again with the decider's word. A question, a tell or a
+// starts the lead again with the decider's word. A question, a tell or a
 // sub-request let go is put or made now, and one refused is the waiting
-// tool's result, or, once it no longer waits, starts the taker again.
+// tool's result, or, once it no longer waits, starts the lead again.
 func (w *Work) letGo(ctx context.Context, l decisions.Let) error {
 	n := l.Said.Request
 	if l.Said.What == decisions.SaysAnswer {
@@ -251,7 +251,7 @@ func (w *Work) letGo(ctx context.Context, l decisions.Let) error {
 		return nil
 	case row == nil:
 		// The tool stopped waiting: what was let go is still said, and a
-		// refusal starts the taker again.
+		// refusal starts the lead again.
 		row = &callRow{Run: l.Said.Ticket, Request: n, Worker: l.Said.By.Name}
 	}
 	if !l.Released {

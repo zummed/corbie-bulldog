@@ -311,7 +311,7 @@ func (r *reading) checkWorker(w *Worker) {
 		stop("ask: %s names an ask of its own, and every ask a worker names is the one Bulldog ships: ask: { machine: %s }", w.Name, ask)
 	}
 	if w.AtTop && needsAsk(draft) {
-		stop("ask: something %s runs can wait for a yes, and Bulldog starts it at the top, as its team's taker or a routine's worker, so it names the ask Bulldog ships: ask: { machine: %s }", w.Name, ask)
+		stop("ask: something %s runs can wait for a yes, and Bulldog starts it at the top, as its team's lead or a routine's worker, so it names the ask Bulldog ships: ask: { machine: %s }", w.Name, ask)
 	}
 	w.Held = r.toolsOf(w, def)
 	w.Tools = toolNames(w.Held)
@@ -515,14 +515,14 @@ func (r *reading) checkBridges() {
 }
 
 // checkKeys reports a decide key that names no tool of the team's
-// workers, and a team whose taker cannot run. While a worker's definition
+// workers, and a team whose lead cannot run. While a worker's definition
 // is one Corbie did not fill out, its tools are not known, and no key is
 // said to name none.
 func (r *reading) checkKeys() {
 	for _, team := range r.o.Order {
 		t := r.o.Teams[team]
-		if w := r.o.Workers[t.Takes]; w != nil && !w.Runs() {
-			r.report(Problem{File: t.File, Team: team, Text: fmt.Sprintf("takes: %s takes what is asked of %s, and cannot run until its problems are mended", w.Name, called(t))})
+		if w := r.o.Workers[t.Lead]; w != nil && !w.Runs() {
+			r.report(Problem{File: t.File, Team: team, Text: fmt.Sprintf("lead: %s is the lead of %s, and cannot run until its problems are mended", w.Name, called(t))})
 		}
 		var tools, listed []string
 		known := true

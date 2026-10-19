@@ -213,7 +213,7 @@ func TestDecisionsPersonCancelsRuleInFlight(t *testing.T) {
 
 func TestDecisionsOutsideDeciderSeesOnlyTheDecision(t *testing.T) {
 	t.Parallel()
-	b := newBench(t, withPayments(t, "people: [lee, priya]\ntakes: ledger\ndecide: { everything: [lee, priya], refund: [raj] }\n"))
+	b := newBench(t, withPayments(t, "people: [lee, priya]\nlead: ledger\ndecide: { everything: [lee, priya], refund: [raj] }\n"))
 	_, sub := b.helpRequest()
 	if _, err := b.reqs.Put(sub, b.reqs.Worker("ledger"), requests.KindQuestion, b.reqs.Person("lee"), "is ch_9 the one with card 4111?", nil); err != nil {
 		t.Fatal(err)

@@ -676,7 +676,7 @@ func (d *Decisions) waitsOn(o *office.Office, dec *Decision) string {
 }
 
 // recipient gives whom a decider's word on a decision is to: the worker
-// whose action it is, the team's taker for a release, and whoever drafted
+// whose action it is, the team's lead for a release, and whoever drafted
 // a change.
 func (d *Decisions) recipient(dec *Decision) ([]requests.Who, error) {
 	if dec.Kind != OfRelease {
@@ -685,7 +685,7 @@ func (d *Decisions) recipient(dec *Decision) ([]requests.Who, error) {
 		}
 		return []requests.Who{dec.Whose}, nil
 	}
-	name, person, err := d.requests.Taker(dec.Request)
+	name, person, err := d.requests.Lead(dec.Request)
 	switch {
 	case err != nil:
 		return nil, err

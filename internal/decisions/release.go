@@ -25,7 +25,7 @@ type Said struct {
 	// Request is the request it is said in, of the team that says it.
 	Request int64 `json:"request"`
 	// By is the worker or the person who said it: for an answer, the
-	// team's taker.
+	// team's lead.
 	By requests.Who `json:"by"`
 	// To is whom a question or a tell is to, and Team the team a
 	// sub-request would ask.
@@ -34,7 +34,7 @@ type Said struct {
 	Text string       `json:"text"`
 	// Files are an answer's files.
 	Files []requests.File `json:"files,omitzero"`
-	// Held is the entry a person taker's answer is held as.
+	// Held is the entry the answer of a lead who is a person is held as.
 	Held int64 `json:"held,omitzero"`
 	// Ticket is the ticket of the tool that waits on it, which work
 	// answers; "" for an answer.
@@ -72,7 +72,7 @@ func whatOf(what string) string {
 // itself until its release check lets it go. A released answer is written
 // as the request's answer exactly as it was said; anything else released,
 // and every refusal, is told to work by Let. A refused release goes back,
-// as the decider's entry, to the team's taker, and a refused answer makes
+// as the decider's entry, to the team's lead, and a refused answer makes
 // the request working again. It gives the decision.
 func (d *Decisions) Release(ctx context.Context, s Said) (int64, error) {
 	var id int64
@@ -84,8 +84,8 @@ func (d *Decisions) Release(ctx context.Context, s Said) (int64, error) {
 	return id, err
 }
 
-// keepRelease keeps a release and walks it, and gives it. A person taker's
-// held answer is handed once, and handed again gives the release it was
+// keepRelease keeps a release and walks it, and gives it. The held
+// answer of a lead who is a person is handed once, and handed again gives the release it was
 // first handed to; one whose team no longer sets a release check is let
 // go by the walk, since the requests hold it already.
 func (d *Decisions) keepRelease(o *office.Office, s Said, fx *effects) (int64, error) {
@@ -115,13 +115,13 @@ func (d *Decisions) keepRelease(o *office.Office, s Said, fx *effects) (int64, e
 	return dec.ID, d.advance(o, dec, fx)
 }
 
-// heldSaid gives the answer of a taker who is a person, which the
+// heldSaid gives the answer of a lead who is a person, which the
 // requests hold for its team's release check, as the check is handed it.
 func heldSaid(e requests.Entry) Said {
 	return Said{What: SaysAnswer, Request: e.Request, By: e.By, Text: e.Text, Held: e.ID}
 }
 
-// held hands the answer of a taker who is a person, which the requests
+// held hands the answer of a lead who is a person, which the requests
 // hold for its team's release check, to the check, however it was said.
 // Once the release is kept it is handed, and what goes wrong after is
 // trouble. One that Bulldog stopped before handing is handed when the

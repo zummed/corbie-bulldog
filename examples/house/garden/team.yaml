@@ -2,7 +2,7 @@
 name: The garden
 about: The beds, the lawn and the shed.
 people: [sam]
-takes: gardener
+lead: gardener
 decide: { everything: [sam] }
 models:
   usual: { name: opus, service: claude-code }   # the garden's own

@@ -34,7 +34,7 @@ everyone:
 models:
   usual: { name: sonnet, service: claude-code }
 people: [sam, kit]
-takes: steward
+lead: steward
 decide:
   everything: [sam]
   order_part: [./small-orders.js, sam]
@@ -47,7 +47,7 @@ routines:
 | `name` | what the team is called, in any words |
 | `about` | one line saying what the team looks after; workers choosing whom to ask are given it |
 | `people` | the team's people, by the names `everyone` writes them under |
-| `takes` | the one worker or person of the team that takes what is asked of it |
+| `lead` | the one worker or person of the team that answers for it |
 | `decide` | ordered lists of deciders: `everything`; the name of a tool a worker of the team holds; and at the top, `change`, for a change to the office files |
 | `release` | a list of deciders for everything the team says outside itself |
 | `routines` | what is said to one of its workers at a time of day, `"18:00"`, or with a weekday, `"mon 09:00"`, in the office's zone |
@@ -84,7 +84,7 @@ const reply = http.get("https://api.weather.example/v1/forecast?days=" + (input.
 return reply.body.days.map(d => d.date + ": " + d.summary)
 ```
 
-A worker has nothing of Bulldog's that its definition does not name, each by its path in `.bulldog/`: the talk tools, `talk.yaml`, for asking another team or a person; the notes tool, `notes.yaml`, for writing its team's notes; the builder's tools, `build.yaml`. A worker Bulldog starts at the top, a team's taker or a routine's worker, names the ask Bulldog ships when anything it runs can wait for a yes: `ask: { machine: ./.bulldog/ask.yaml }`. From a team within, the paths begin `../.bulldog/`.
+A worker has nothing of Bulldog's that its definition does not name, each by its path in `.bulldog/`: the talk tools, `talk.yaml`, for asking another team or a person; the notes tool, `notes.yaml`, for writing its team's notes; the builder's tools, `build.yaml`. A worker Bulldog starts at the top, a team's lead or a routine's worker, names the ask Bulldog ships when anything it runs can wait for a yes: `ask: { machine: ./.bulldog/ask.yaml }`. From a team within, the paths begin `../.bulldog/`.
 
 A tool whose job says `approve: true` waits for a yes, decided by the team's list named for the tool, or else its `everything`.
 
@@ -117,7 +117,7 @@ On a change to the office, a rule's yes is taken as a pass: only a person approv
 
 ## A bridge
 
-A bridge is where things come in and go out. Each is named, with its settings, under `bridges` in `office.yaml`, and is the folder of that name in `bridges/`, with an in machine and an out machine. The settings list the places it listens in, each with the team that takes what is said there, the office when none is named, and whether guests may ask there.
+A bridge is where things come in and go out. Each is named, with its settings, under `bridges` in `office.yaml`, and is the folder of that name in `bridges/`, with an in machine and an out machine. The settings list the places it listens in, each with the team asked there, the office when none is named, and whether guests may ask there.
 
 ```yaml
 # in office.yaml

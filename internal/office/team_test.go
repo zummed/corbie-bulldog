@@ -12,30 +12,30 @@ func TestTheKeysATeamFileTakes(t *testing.T) {
 	t.Parallel()
 	reads(t, house(t))
 	reads(t, work(t))
-	if o := reads(t, replace(t, house(t), "office.yaml", "takes: steward", "takes: steward\nruns: 2")); o.Runs != 2 {
+	if o := reads(t, replace(t, house(t), "office.yaml", "lead: steward", "lead: steward\nruns: 2")); o.Runs != 2 {
 		t.Errorf("runs is %d", o.Runs)
 	}
 	if o := reads(t, house(t)); o.Runs != office.DefaultRuns {
 		t.Errorf("runs is %d with none written", o.Runs)
 	}
-	says(t, refused(t, replace(t, house(t), "office.yaml", "takes: steward", "takes: steward\nruns: 0")), "office.yaml", "runs")
-	says(t, refused(t, replace(t, house(t), "office.yaml", "takes: steward", "takes: steward\nbudget: 40")), "office.yaml", "budget")
+	says(t, refused(t, replace(t, house(t), "office.yaml", "lead: steward", "lead: steward\nruns: 0")), "office.yaml", "runs")
+	says(t, refused(t, replace(t, house(t), "office.yaml", "lead: steward", "lead: steward\nbudget: 40")), "office.yaml", "budget")
 	for key, line := range map[string]string{"zone": "zone: Europe/London", "everyone": "everyone: {}", "bridges": "bridges: {}", "runs": "runs: 2"} {
-		says(t, refused(t, replace(t, house(t), "garden/team.yaml", "takes: gardener", "takes: gardener\n"+line)), "garden/team.yaml", key)
+		says(t, refused(t, replace(t, house(t), "garden/team.yaml", "lead: gardener", "lead: gardener\n"+line)), "garden/team.yaml", key)
 	}
 	says(t, refused(t, replace(t, house(t), "garden/team.yaml", "decide: { everything: [sam] }", "decide: { change: [sam] }")), "garden/team.yaml", "change")
 }
 
 func TestOfficeUnknownKeyRefused(t *testing.T) {
 	t.Parallel()
-	p := says(t, refused(t, replace(t, house(t), "garden/team.yaml", "takes: gardener", "takes: gardener\ntaker: groundsman")), "garden/team.yaml", "taker")
+	p := says(t, refused(t, replace(t, house(t), "garden/team.yaml", "lead: gardener", "lead: gardener\ntakes: groundsman")), "garden/team.yaml", "takes")
 	if !p.Refuses || p.Line == 0 {
 		t.Errorf("the problem is %#v", p)
 	}
-	says(t, refused(t, replace(t, house(t), "garden/team.yaml", "takes: gardener", "takes: gardener\nzone: UTC")), "garden/team.yaml", "zone", "only in the top team's file")
+	says(t, refused(t, replace(t, house(t), "garden/team.yaml", "lead: gardener", "lead: gardener\nzone: UTC")), "garden/team.yaml", "zone", "only in the top team's file")
 	// A key written twice, anywhere in a team file, is never read past.
 	for file, change := range map[string][2]string{
-		"office.yaml":      {"takes: steward", "takes: steward\ntakes: clerk"},
+		"office.yaml":      {"lead: steward", "lead: steward\nlead: clerk"},
 		"garden/team.yaml": {"people: [sam]", "people: [sam]\npeople: [sam, kit]"},
 	} {
 		p := says(t, refused(t, replace(t, house(t), file, change[0], change[1])), file, "written twice")
@@ -79,7 +79,7 @@ func TestOfficeNameIsOnlyWords(t *testing.T) {
 	for _, name := range []string{`""`, `"🌱 !!"`, `The Garden, and the Pond`} {
 		o := reads(t, replace(t, house(t), "garden/team.yaml", "name: The garden", "name: "+name))
 		g := o.Teams["garden"]
-		if g == nil || g.Name != "garden" || g.Dir != "garden" || o.Workers["gardener"].Team != "garden" || o.Teams["garden"].Takes != "gardener" {
+		if g == nil || g.Name != "garden" || g.Dir != "garden" || o.Workers["gardener"].Team != "garden" || o.Teams["garden"].Lead != "gardener" {
 			t.Errorf("named %s, the garden is %#v", name, g)
 		}
 	}
@@ -100,13 +100,13 @@ func TestATeamsPeopleAreThoseItNames(t *testing.T) {
 	says(t, refused(t, replace(t, house(t), "office.yaml", "people: [sam, kit]", "people: [sam, nobody]")), "office.yaml", "nobody")
 }
 
-func TestEveryTeamTakesOneWorkerOrPerson(t *testing.T) {
+func TestEveryTeamsLeadIsOneWorkerOrPerson(t *testing.T) {
 	t.Parallel()
-	says(t, refused(t, replace(t, house(t), "office.yaml", "takes: steward", "takes: groundsman")), "office.yaml", "groundsman")
-	says(t, refused(t, replace(t, house(t), "garden/team.yaml", "takes: gardener\n", "")), "garden/team.yaml", "takes")
-	says(t, refused(t, replace(t, house(t), "garden/team.yaml", "takes: gardener", "takes: [gardener, groundsman]")), "garden/team.yaml", "takes")
-	if o := reads(t, work(t)); o.Teams["support"].Takes != "dana" {
-		t.Errorf("support takes %q", o.Teams["support"].Takes)
+	says(t, refused(t, replace(t, house(t), "office.yaml", "lead: steward", "lead: groundsman")), "office.yaml", "groundsman")
+	says(t, refused(t, replace(t, house(t), "garden/team.yaml", "lead: gardener\n", "")), "garden/team.yaml", "lead")
+	says(t, refused(t, replace(t, house(t), "garden/team.yaml", "lead: gardener", "lead: [gardener, groundsman]")), "garden/team.yaml", "lead")
+	if o := reads(t, work(t)); o.Teams["support"].Lead != "dana" {
+		t.Errorf("support's lead is %q", o.Teams["support"].Lead)
 	}
 }
 
@@ -172,7 +172,7 @@ func TestADeciderIsAPersonAWorkerOrARule(t *testing.T) {
 		"office.yaml", "./garden/check.js", "within")
 	// A rule is a script, .js, or a definition, .yaml.
 	says(t, refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, sam]", "[./notes/rooms.md, sam]")), "office.yaml", "./notes/rooms.md", "is not a rule")
-	o = reads(t, replace(t, work(t), "platform/team.yaml", "takes: ops", "takes: ops\ndecide: { everything: [bot, al] }"))
+	o = reads(t, replace(t, work(t), "platform/team.yaml", "lead: ops", "lead: ops\ndecide: { everything: [bot, al] }"))
 	if d := o.Everything("platform"); d[0].Kind != office.IsWorker || d[1].Kind != office.IsPerson {
 		t.Errorf("platform's everything is %#v", d)
 	}

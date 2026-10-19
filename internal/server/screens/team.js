@@ -1,4 +1,4 @@
-// One team: who is in it and who takes what is asked, and, to its people,
+// One team: who is in it and its lead, and, to its people,
 // how it is written: its workers, its authorisation, its routines, what
 // its workers are at, its models and its notes. A team may have hundreds
 // of people and many workers, so long lists are paged and searched.
@@ -101,9 +101,9 @@
     return B.el("span", {class: "chain"}, list.flatMap((d, i) => [i ? B.el("span", {class: "then", "aria-hidden": "true"}, "→") : "", B.deciderEl(d, t.name)]));
   }
 
-  function taker(t) {
-    if (!t.takes) return null;
-    return B.person(t.takes) ? B.personEl(t.takes) : worker(t, t.takes);
+  function leadEl(t) {
+    if (!t.lead) return null;
+    return B.person(t.lead) ? B.personEl(t.lead) : worker(t, t.lead);
   }
 
   // people gives a team's people, the one looking first, a few at a time,
@@ -157,7 +157,7 @@
     return B.el("tr", {},
       B.el("td", {}, B.el("span", {class: "line te-wname"},
         B.workerEl(w.name, t.name, {bare: true}),
-        w.name === t.takes ? B.el("span", {class: "tag"}, "taker") : null,
+        w.name === t.lead ? B.el("span", {class: "tag"}, "Lead") : null,
         w.runs === false ? B.el("span", {class: "status failed"}, "cannot run") : busy.has(w.name) ? B.status({state: "working"}) : null)),
       B.el("td", {}, B.el("span", {class: "who muted"}, B.icon(w.type), w.type)),
       B.el("td", {class: "muted"}, B.el("span", {class: "te-clip te-file", title: w.file}, w.file)),
@@ -179,7 +179,7 @@
 
   function workers(t) {
     if (!t.workers.length) return null;
-    const list = t.workers.slice().sort((a, b) => (b.name === t.takes) - (a.name === t.takes));
+    const list = t.workers.slice().sort((a, b) => (b.name === t.lead) - (a.name === t.lead));
     const label = B.label("Workers", B.el("span", {class: "count"}, String(list.length)));
     if (list.length <= SEARCH) return B.sect(label, workerTable(t, list));
     const found = searched("workers", "Search workers", list,
@@ -279,7 +279,7 @@
       B.el("div", {class: "plate"}, B.el("b", {}, "Team")),
       B.kv([
         ["People", people(t) || B.empty()],
-        ["Taker", taker(t)],
+        ["Lead", leadEl(t)],
         ["Within", t.within ? B.teamEl(t.within) : null],
         ["Teams inside", inside(t)],
         ["File", whole && t.file ? B.el("span", {class: "mono"}, t.file) : null],

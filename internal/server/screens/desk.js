@@ -80,7 +80,7 @@
 
   // waitingOn gives one request's head, and what in it is put to the one
   // looking: its decisions, its questions, and the request itself when
-  // they take it.
+  // they are its lead.
   function waitingOn(sum, v) {
     const head = B.el("div", {class: "desk-req-head"}, reqLink(sum.number),
       sum.whole ? [B.teamEl(sum.team), B.el("span", {class: "desk-first"}, sum.first)] : null);
@@ -97,7 +97,7 @@
     const me = B.me.me.name;
     const team = B.team(sum.team);
     const onMe = (sum.on || []).some((p) => p.kind === "person" && p.name === me);
-    if (sum.whole && onMe && (!cards.length || (team && team.takes === me))) cards.push(taken(v));
+    if (sum.whole && onMe && (!cards.length || (team && team.lead === me))) cards.push(leadCard(v));
     return B.el("article", {class: "desk-req"}, head, cards);
   }
 
@@ -109,9 +109,9 @@
       typeof B.replyForm === "function" ? B.replyForm(v, e) : null), v.number + ":e" + e.id);
   }
 
-  // taken is a request the one looking takes: what was said last in it,
-  // and their answer.
-  function taken(v) {
+  // leadCard is a request the one looking is the lead of: what was said
+  // last in it, and their answer.
+  function leadCard(v) {
     const entries = v.entries || [];
     const last = entries[entries.length - 1];
     const text = B.el("textarea", {class: "in", rows: 2});
@@ -123,7 +123,7 @@
       B.field("Answer", text),
       B.el("div", {class: "desk-ask-foot"}, B.field("Files", files), B.el("button", {class: "btn go", type: "submit"}, "Answer")));
     return keep(B.el("div", {class: "ask-card"},
-      B.el("div", {class: "line spread"}, B.label("Taker"), last ? B.whenEl(last.at) : null),
+      B.el("div", {class: "line spread"}, B.label("Lead of " + B.teamCalled(v.team)), last ? B.whenEl(last.at) : null),
       last ? B.el("div", {class: "line"}, B.who(last.by), to(last)) : null,
       last && last.text ? B.el("div", {class: "desk-said"}, last.text) : null,
       form), v.number + ":t");
@@ -203,8 +203,8 @@
         const t = B.team(name);
         return B.el("div", {class: "row"},
           B.el("span", {class: "grow"}, B.teamEl(name)),
-          t && t.takes ? B.el("span", {class: "line desk-taker"}, B.el("span", {class: "small muted"}, "Taker"),
-            B.person(t.takes) ? B.personEl(t.takes) : B.workerEl(t.takes, name, {bare: true})) : null,
+          t && t.lead ? B.el("span", {class: "line desk-lead"}, B.el("span", {class: "small muted"}, "Lead"),
+            B.person(t.lead) ? B.personEl(t.lead) : B.workerEl(t.lead, name, {bare: true})) : null,
           B.el("a", {href: "#/requests?team=" + encodeURIComponent(name)}, "Requests"));
       })),
       names.length > TEAMS ? more("#/teams", names.length - TEAMS) : null);

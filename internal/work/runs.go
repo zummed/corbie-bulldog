@@ -352,7 +352,7 @@ func (w *Work) said(ctx context.Context, n *note, run *client.Run, e ending) err
 // answer says a run's answer: through the team's release check where it
 // leaves the team, and otherwise at once. An empty answer to a routine
 // says nothing, and its request is answered; any other is said as the
-// team having given none, or, from a taker started again on a refusal, as
+// team having given none, or, from a lead started again on a refusal, as
 // the team not releasing its answer. Nothing leaves a team whose request
 // was stopped: the answer is kept as what was read of it. What a team
 // that has gone answers is said nowhere.

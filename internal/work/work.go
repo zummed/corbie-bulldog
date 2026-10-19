@@ -1,5 +1,5 @@
 // Package work is Bulldog driving Corbie, and the one part of Bulldog that
-// speaks to it. It starts a team's taker on a request with what it is
+// speaks to it. It starts a team's lead on a request with what it is
 // given, watches every run of the office, takes how each ends into the
 // request it was for, does each call of the tools Bulldog ships and hands
 // each held job to the decisions, answering the tickets they wait on,

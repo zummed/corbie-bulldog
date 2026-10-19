@@ -56,8 +56,8 @@ func TestRequestsStates(t *testing.T) {
 	if st := d.state(d.payments); st.Is != requests.Working {
 		t.Errorf("with Lee's answer after the ledger's, payments' sub-request stands %+v", st)
 	}
-	// So does the answer of a taker who is a person: the request waits on
-	// what is put to them, and no longer on them as its taker.
+	// So does the answer of a lead who is a person: the request waits on
+	// what is put to them, and no longer on them as its lead.
 	support := got[*requests.Request](t)(d.Sub(d.dana, d.Worker("bot"), "support", "What did we tell 4411?", "ticket-support")).Number
 	decision := got[*requests.Entry](t)(d.Write(support, requests.Writing{Kind: "decision", By: d.Worker("bot"), To: []requests.Who{d.Person("dana")},
 		Text: "Tell 4411 of the refund", Waits: []requests.Who{d.Person("dana")}}))
@@ -107,7 +107,7 @@ func TestRequestsWhatWaitsOnAPerson(t *testing.T) {
 		}
 	}
 	support := got[*requests.Request](t)(d.Sub(d.dana, d.Worker("bot"), "support", "What did we tell 4411?", "ticket-support")).Number
-	if ws := got[[]requests.Wait](t)(d.WaitingOn("dana")); len(ws) != 1 || ws[0].Request != support || ws[0].Kind != requests.KindTaker {
+	if ws := got[[]requests.Wait](t)(d.WaitingOn("dana")); len(ws) != 1 || ws[0].Request != support || ws[0].Kind != requests.KindLead {
 		t.Errorf("what waits on Dana is %+v", ws)
 	}
 	must(t, errOf(d.Say(support, requests.Identity("slack", slackDana), "a refund", nil, requests.Where{Bridge: "slack", Place: "direct"})))
@@ -484,9 +484,9 @@ func TestRequestsSourceStatusNeverSet(t *testing.T) {
 	}
 }
 
-func TestRequestsHeldAnswerNotHandedWaitsOnTheTakerAgain(t *testing.T) {
+func TestRequestsHeldAnswerNotHandedWaitsOnTheLeadAgain(t *testing.T) {
 	t.Parallel()
-	files := replace(t, work(t), "support/team.yaml", "takes: dana", "takes: dana\nrelease: [./check.js]")
+	files := replace(t, work(t), "support/team.yaml", "lead: dana", "lead: dana\nrelease: [./check.js]")
 	files["support/check.js"] = `return { says: "yes" }`
 	d := open(t, files)
 	var handed []int64

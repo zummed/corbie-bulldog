@@ -116,7 +116,7 @@ What each person may see is read from the files each time it is shown: being nam
 
 | Everyone signed in | |
 |---|---|
-| sees | the office's name; each team with what it is called, its `about`, its people and its taker; each person with their name, their title and the bridges that reach them |
+| sees | the office's name; each team with what it is called, its `about`, its people and its lead; each person with their name, their title and the bridges that reach them |
 | sees | the requests they may see, by team and by state; those they asked; what waits on them, and how much |
 | asks | in the chat, of the office or of any team |
 | says more | on the screens, in a request they asked, one whose team they are in, one whose origin they can read, or a sub-request asked by a team they are in |

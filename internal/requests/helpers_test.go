@@ -77,7 +77,7 @@ func (d *desk) read(files map[string]string) {
 }
 
 // house gives the house's files, its Telegram bridge listening in a place
-// the garden takes and in one where guests may ask, beside direct.
+// where the garden is asked and in one where guests may ask, beside direct.
 func house(t *testing.T) map[string]string {
 	files := testkit.Files(t, examples.House())
 	return replace(t, files, "office.yaml", "      direct: {}", "      garden-chat: { team: garden }\n      porch: { guests: true }\n      direct: {}")

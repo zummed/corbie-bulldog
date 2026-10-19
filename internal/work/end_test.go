@@ -12,10 +12,10 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 )
 
-// desk is a desk team whose taker is a flow running one script, given
+// desk is a desk team whose lead is a flow running one script, given
 // what is said.
 func desk(files map[string]string, script string) map[string]string {
-	files["desk/team.yaml"] = "name: The desk\nabout: Papers.\npeople: [sam, kit]\ntakes: filer\n"
+	files["desk/team.yaml"] = "name: The desk\nabout: Papers.\npeople: [sam, kit]\nlead: filer\n"
 	files["desk/filer.yaml"] = "flow: filer\ninput: [said]\nstages:\n  a: { job: { script: ./filer.js, input: { said: \"${input.said}\" } } }\noutput: ${stages.a.output}\n"
 	files["desk/filer.js"] = script
 	return files
@@ -217,7 +217,7 @@ func TestAFailureWithASubRequestOpenLeavesTheRequestOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = sub
-	// The garden's taker is held too, so the sub-request stays open.
+	// The garden's lead is held too, so the sub-request stays open.
 	shed := make(chan struct{})
 	defer close(shed)
 	b.says(func(turn testkit.Turn) testkit.Reply {

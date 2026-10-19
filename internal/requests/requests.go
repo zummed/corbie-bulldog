@@ -134,12 +134,12 @@ type Request struct {
 	// at an origin; Ticket is the Corbie ticket its asking run waits on.
 	Parent int64
 	Ticket string
-	// Worker is the worker a routine's request is said to; any other is
-	// taken by its team's taker.
+	// Worker is the worker a routine's request is said to; any other goes
+	// to its team's lead.
 	Worker string
-	// Answered says its taker's answer, or Bulldog's last entry, has been
+	// Answered says its lead's answer, or Bulldog's last entry, has been
 	// said and nothing since; Stopped that it was stopped, and nothing
-	// since has opened it; Held that the answer of its taker, a person, is
+	// since has opened it; Held that the answer of its lead, a person, is
 	// held by its team's release check, and not yet said. A request whose
 	// answer is said still waits while anything in it waits on someone.
 	Answered bool
@@ -160,10 +160,10 @@ const (
 	KindTold     = "told"     // a worker's tell, which waits for nothing
 	KindReplied  = "replied"  // a person's answer to what was put to them
 	KindSub      = "sub"      // a worker's asking of another team, which leads to a sub-request
-	KindAnswer   = "answer"   // the taker's answer
+	KindAnswer   = "answer"   // the lead's answer
 	KindLate     = "late"     // a sub-request's answer that came when no run waited for it
 	KindBulldog  = "bulldog"  // Bulldog's own: a failure, a stop or a line in its place, a close at the source, a going
-	KindHeld     = "held"     // a taker's answer, a person's, held by its team's release check: what was read of the team
+	KindHeld     = "held"     // the answer of a lead who is a person, held by its team's release check: what was read of the team
 )
 
 // An Entry is one thing said in a request. It is written once and never

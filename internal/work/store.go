@@ -394,7 +394,7 @@ func (w *Work) pend(request int64) error {
 	return nil
 }
 
-// refused has a request's taker started again on a decider's refusal of
+// refused has a request's lead started again on a decider's refusal of
 // its answer, also after a restart.
 func (w *Work) refused(request int64) error {
 	if _, err := w.db.Exec(`INSERT INTO work_requests(request, pending, again) VALUES (?, 1, 1)
@@ -404,7 +404,7 @@ func (w *Work) refused(request int64) error {
 	return nil
 }
 
-// isAgain says whether a request's taker is to start again on a refusal.
+// isAgain says whether a request's lead is to start again on a refusal.
 func (w *Work) isAgain(request int64) (bool, error) {
 	var again bool
 	err := w.db.QueryRow(`SELECT again FROM work_requests WHERE request = ?`, request).Scan(&again)

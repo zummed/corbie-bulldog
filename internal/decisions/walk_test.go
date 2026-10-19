@@ -108,7 +108,7 @@ func TestReleaseAndChangeAskedOfTheirOwnLists(t *testing.T) {
 
 func TestNoEverythingIsTheTeamsPeople(t *testing.T) {
 	t.Parallel()
-	b := newBench(t, withPayments(t, "people: [lee, priya]\ntakes: ledger\n"))
+	b := newBench(t, withPayments(t, "people: [lee, priya]\nlead: ledger\n"))
 	_, sub := b.helpRequest()
 	dec := b.one("ask-1", "payments", sub, []string{"ledger"}, refund())
 	if !slices.Equal(dec.Asked, []string{"lee", "priya"}) {
@@ -295,7 +295,7 @@ func TestDecisionsReachOutward(t *testing.T) {
 			t.Fatalf("%s's decisions reach %v", team, got)
 		}
 	}
-	files := withPayments(t, "people: [lee, priya]\ntakes: ledger\n")
+	files := withPayments(t, "people: [lee, priya]\nlead: ledger\n")
 	files["platform/team.yaml"] += "decide: { everything: [./a.js] }\n"
 	files["platform/a.js"] = `return { says: "pass" }`
 	b := newBench(t, files)
@@ -311,7 +311,7 @@ func TestDecisionsReachOutward(t *testing.T) {
 	b.until("the walk reaches Al", func() bool { return slices.Equal(b.get(dec.ID).Asked, []string{"al"}) })
 
 	h := withDecide(t, "decide:\n  everything: [sam]")
-	h["garden/team.yaml"] = "name: The garden\npeople: []\ntakes: gardener\ndecide: { everything: [./a.js] }\nmodels:\n  usual: { name: opus, service: claude-code }\n"
+	h["garden/team.yaml"] = "name: The garden\npeople: []\nlead: gardener\ndecide: { everything: [./a.js] }\nmodels:\n  usual: { name: opus, service: claude-code }\n"
 	hb := newBench(t, h)
 	if got := hb.o.Reached("garden"); !slices.Equal(got, []string{"sam"}) {
 		t.Fatalf("the garden's decisions reach %v", got)

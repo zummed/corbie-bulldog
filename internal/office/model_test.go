@@ -44,7 +44,7 @@ func TestAOneWordModelIsTheNearestTeams(t *testing.T) {
 		t.Error("the fixer's file is not as written, or its definition is not filled")
 	}
 	beds := with(house(t), map[string]string{
-		"garden/beds/team.yaml":   "takes: digger\n",
+		"garden/beds/team.yaml":   "lead: digger\n",
 		"garden/beds/digger.yaml": "agent: digger\nmodel: usual\nprompt: dig\n",
 	})
 	if got := reads(t, beds).Workers["digger"].Model; got != "{ name: opus, service: claude-code }" {

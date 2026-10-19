@@ -127,8 +127,8 @@ func TestARefusedWorkerStopsItselfAndWhatRunsIt(t *testing.T) {
 	}
 	o, problems = read(t, replace(t, house(t), "steward.yaml", "prompt: ${input.context}", "prompt: ${input.context"))
 	says(t, problems.OfWorker("steward"), "steward.yaml", "prompt")
-	if p := says(t, problems, "office.yaml", "takes", "steward", "cannot run"); p.Team != "office" || p.Refuses {
-		t.Errorf("the taker's problem is %#v", p)
+	if p := says(t, problems, "office.yaml", "lead", "steward", "cannot run"); p.Team != "office" || p.Refuses {
+		t.Errorf("the lead's problem is %#v", p)
 	}
 	if !o.Workers["fixer"].Runs() {
 		t.Error("the fixer does not run while the steward cannot")
@@ -139,11 +139,11 @@ func TestWorkerStartedAtTopNamesTheAsk(t *testing.T) {
 	t.Parallel()
 	o := reads(t, house(t))
 	if !o.Workers["steward"].AtTop || o.Workers["fixer"].AtTop || o.Workers["sparks"].AtTop || !o.Workers["bins"].AtTop {
-		t.Error("the workers started at the top are not the taker and the routines' workers")
+		t.Error("the workers started at the top are not the lead and the routines' workers")
 	}
 	o, problems := read(t, replace(t, house(t), "steward.yaml", "ask: { machine: ./.bulldog/ask.yaml }", ""))
 	says(t, problems.OfWorker("steward"), "steward.yaml", "ask", "ask: { machine: ./.bulldog/ask.yaml }")
-	says(t, problems, "office.yaml", "takes", "cannot run")
+	says(t, problems, "office.yaml", "lead", "cannot run")
 	if o.Workers["steward"].Runs() || !o.Workers["fixer"].Runs() || !o.Workers["clerk"].Runs() {
 		t.Error("the steward runs with no ask, or the others do not")
 	}
@@ -155,7 +155,7 @@ func TestWorkerStartedAtTopNamesTheAsk(t *testing.T) {
 	files = replace(t, house(t), "sparks.yaml", "prompt: ${input.said}", "prompt: ${input.said}\nask: { machine: ./tools/my-ask.yaml }")
 	_, problems = read(t, with(files, map[string]string{"tools/my-ask.yaml": "statechart: my-ask\ninitial: yes\nstates: { yes: { end: done, output: { approve: [] } } }\n"}))
 	says(t, problems.OfWorker("sparks"), "sparks.yaml", "ask", "the one Bulldog ships")
-	// A taker within a team names the ask by its path from its folder.
+	// A lead within a team names the ask by its path from its folder.
 	// What can be held may be far down, as permissions to be asked about
 	// or in a machine in tools/.
 	routine = `  - { at: "08:00", to: clerk, say: "Anything owed?" }` + "\n"

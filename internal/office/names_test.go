@@ -24,7 +24,7 @@ func TestOfficeNamesUsedOnce(t *testing.T) {
 	says(t, refused(t, with(house(t), map[string]string{"garden/garden.yaml": "flow: garden\nstages: { a: { job: ./x.js } }\n", "garden/x.js": "return 1"})), "garden", "used twice")
 	// Two teams, one within the other or side by side.
 	for file, said := range map[string]string{"garden/garden/team.yaml": "the team garden/garden", "beds/team.yaml": "the team garden/beds"} {
-		files := with(house(t), map[string]string{"garden/beds/team.yaml": "takes: sam\npeople: [sam]\n", file: "takes: sam\npeople: [sam]\n"})
+		files := with(house(t), map[string]string{"garden/beds/team.yaml": "lead: sam\npeople: [sam]\n", file: "lead: sam\npeople: [sam]\n"})
 		problems := refused(t, files)
 		says(t, problems, "used twice", said)
 		if got := saying(problems, "not a team's folder"); len(got) > 0 {
@@ -41,7 +41,7 @@ func TestOfficeReservedNamesRefused(t *testing.T) {
 		says(t, refused(t, replace(t, house(t), "office.yaml", "  kit: {", "  "+name+": {")), "office.yaml", `"`+name+`"`, "keeps for itself")
 	}
 	says(t, refused(t, with(house(t), map[string]string{"guest.yaml": "flow: guest\nstages: { a: { job: ./tools/order.js } }\n"})), "guest.yaml", "keeps for itself")
-	says(t, refused(t, with(house(t), map[string]string{"chat/team.yaml": "takes: nobody\n"})), "chat/team.yaml", "keeps for itself")
+	says(t, refused(t, with(house(t), map[string]string{"chat/team.yaml": "lead: nobody\n"})), "chat/team.yaml", "keeps for itself")
 	for _, name := range []string{"chat", "name", "title"} {
 		says(t, refused(t, replace(t, house(t), "office.yaml", "  telegram:\n", "  "+name+":\n")), "office.yaml", name)
 	}

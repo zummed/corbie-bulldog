@@ -135,8 +135,8 @@ func TestBridgesBrokenBridgeStopsOnlyItself(t *testing.T) {
 	if r, _ := d.requests.Get(n); r.Team != office.Top {
 		t.Errorf("Dana's request went to %s", r.Team)
 	}
-	if taker, _, _ := d.requests.Taker(n); taker != "bot" {
-		t.Errorf("Dana's request is taken by %s", taker)
+	if lead, _, _ := d.requests.Lead(n); lead != "bot" {
+		t.Errorf("Dana's request goes to %s", lead)
 	}
 }
 

@@ -119,7 +119,7 @@ func TestServerEveryoneSeesTheOffice(t *testing.T) {
 	}
 	payments := me.Teams[slices.IndexFunc(me.Teams, func(t teamOut) bool { return t.Name == "payments" })]
 	if payments.About != "Charges, refunds and the ledger. Holds customer data." || !slices.Equal(payments.People, []string{"lee", "priya"}) ||
-		payments.Takes != "ledger" || payments.Within != "office" {
+		payments.Lead != "ledger" || payments.Within != "office" {
 		t.Errorf("Dana sees payments as %+v", payments)
 	}
 	raj := me.People[slices.IndexFunc(me.People, func(p personOut) bool { return p.Name == "raj" })]
@@ -160,7 +160,7 @@ func TestServerTeamSeenByItsPeople(t *testing.T) {
 	}
 	// Dana sees what /api/me gives of payments, and nothing more.
 	dana := d.s.as("dana").get("/api/teams/payments").is(http.StatusOK).json()
-	if dana["takes"] != "ledger" || dana["workers"] != nil || dana["notes"] != nil {
+	if dana["lead"] != "ledger" || dana["workers"] != nil || dana["notes"] != nil {
 		t.Errorf("Dana sees payments as %v", dana)
 	}
 	// Al decides a change: he sees how payments is written, and not what

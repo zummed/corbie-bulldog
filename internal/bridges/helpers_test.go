@@ -314,7 +314,7 @@ func (d *desk) ask(thread, text string) int64 {
 	return n
 }
 
-// answer has a request's taker, a worker, answer it.
+// answer has a request's lead, a worker, answer it.
 func (d *desk) answer(n int64, worker, text string) *requests.Entry {
 	d.t.Helper()
 	e, err := d.requests.Answer(n, d.requests.Worker(worker), text, nil)

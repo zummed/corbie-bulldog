@@ -57,7 +57,7 @@ func Parse(dir string, given map[string][]byte) (*Office, Problems) {
 	r.readTeamFiles()
 	r.findWorkers()
 	r.readLists()
-	r.readTakers()
+	r.readLeads()
 	r.readRoutines()
 	r.readBridges()
 	r.checkWorkers()
@@ -216,7 +216,7 @@ func (r *reading) teamAt(dir string) *Team {
 
 // The keys a team file takes, and those only the top team's takes.
 var (
-	teamKeys = []string{"name", "about", "people", "takes", "decide", "release", "routines", "models"}
+	teamKeys = []string{"name", "about", "people", "lead", "decide", "release", "routines", "models"}
 	topKeys  = []string{"zone", "everyone", "bridges", "runs"}
 )
 
@@ -239,7 +239,7 @@ func (r *reading) readTeamFiles() {
 			root = &yaml.Node{Kind: yaml.MappingNode}
 		}
 		if root.Kind != yaml.MappingNode {
-			r.teamFile(t, root, "a team file is a mapping of keys, such as name: and takes:, and this is %s", describe(root))
+			r.teamFile(t, root, "a team file is a mapping of keys, such as name: and lead:, and this is %s", describe(root))
 			continue
 		}
 		r.nodes[name] = root
@@ -617,27 +617,28 @@ func hasDot(file string) bool {
 	return slices.ContainsFunc(strings.Split(file, "/"), func(part string) bool { return strings.HasPrefix(part, ".") })
 }
 
-// readTakers reads who takes what is asked of each team.
-func (r *reading) readTakers() {
+// readLeads reads each team's lead: the one worker or person who
+// answers for it.
+func (r *reading) readLeads() {
 	for _, name := range r.o.Order {
 		t, root := r.o.Teams[name], r.nodes[name]
 		if root == nil {
 			continue
 		}
-		node := child(root, "takes")
-		taker, ok := text(node)
+		node := child(root, "lead")
+		lead, ok := text(node)
 		switch {
 		case node == nil:
-			r.teamFile(t, nil, "it names no takes: every team has one worker or one person of its own who takes what is asked of it")
-		case !ok || taker == "":
-			r.teamFile(t, node, "takes is the one worker or person of the team who takes what is asked of it, and this is %s", describe(node))
-		case slices.Contains(t.Workers, taker) || slices.Contains(t.People, taker):
-			t.Takes = taker
-			if w := r.o.Workers[taker]; w != nil && w.Team == t.Name {
+			r.teamFile(t, nil, "it names no lead: every team has one worker or one person of its own who answers for it")
+		case !ok || lead == "":
+			r.teamFile(t, node, "lead is the one worker or person of the team who answers for it, and this is %s", describe(node))
+		case slices.Contains(t.Workers, lead) || slices.Contains(t.People, lead):
+			t.Lead = lead
+			if w := r.o.Workers[lead]; w != nil && w.Team == t.Name {
 				w.AtTop = true
 			}
 		default:
-			r.teamFile(t, node, "takes: %s is not a worker or a person of %s", taker, called(t))
+			r.teamFile(t, node, "lead: %s is not a worker or a person of %s", lead, called(t))
 		}
 	}
 }

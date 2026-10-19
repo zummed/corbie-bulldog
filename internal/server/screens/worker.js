@@ -156,12 +156,12 @@
   }
 
   // calledBy gives what starts the worker: the team's requests when it is
-  // the taker, colleagues that have it as a tool, and routines.
+  // the lead, colleagues that have it as a tool, and routines.
   function calledBy(w, t) {
     const callers = (t.workers || []).filter((x) => x.name !== w.name && (x.tools || []).some((tool) =>
       tool.kind ? tool.kind === "worker" && tool.worker === w.name : tool.name === w.name));
     return inline("callers", [
-      t.takes === w.name ? B.el("a", {href: "#/requests?team=" + encodeURIComponent(t.name)}, B.teamCalled(t.name) + " requests") : null,
+      t.lead === w.name ? B.el("a", {href: "#/requests?team=" + encodeURIComponent(t.name)}, B.teamCalled(t.name) + " requests") : null,
       ...callers.map((x) => B.workerEl(x.name, t.name, {bare: true})),
       ...(t.routines || []).filter((r) => r.to === w.name).map((r) =>
         B.el("span", {class: "who"}, B.icon("clock", "faint"), "routine", B.el("span", {class: "mono"}, r.at))),
@@ -187,7 +187,7 @@
     const title = B.el("span", {class: "who wk-title"}, B.el("span", {class: "ic worker lg", "aria-hidden": "true"}, String(w.name).slice(0, 2)), w.name);
     return B.el("div", {class: "wk"},
       B.head(crumbs, title,
-        t.takes === w.name ? B.el("span", {class: "tag"}, "taker of " + B.teamCalled(t.name)) : null,
+        t.lead === w.name ? B.el("span", {class: "tag"}, "Lead of " + B.teamCalled(t.name)) : null,
         w.runs ? null : B.el("span", {class: "status failed"}, "cannot run")),
       B.el("div", {class: "wk-meta"},
         B.kv([

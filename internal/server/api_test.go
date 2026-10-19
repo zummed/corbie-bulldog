@@ -351,7 +351,7 @@ func TestServerTooLargeRefusedNeverCut(t *testing.T) {
 }
 
 // longThread keeps, in the bench's store before it is served, a request
-// of Raj's to support, which Dana takes, with as many entries as asked,
+// of Raj's to support, whose lead is Dana, with as many entries as asked,
 // the tenth of them waiting on Dana; nothing of the office is running yet,
 // so nothing wakes at each.
 func longThread(t *testing.T, b *bench, entries int) (int64, int64) {

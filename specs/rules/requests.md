@@ -1,6 +1,6 @@
 # Requests: rules
 
-The detailed rules behind the [Requests overview](../requests.md). Requirements are `R-requests-nn`, constraints `C-requests-nn`. The checks use the two offices of the README: the house (Sam and Kit; the steward, its taker, with the fixer, sparks, the clerk, bins and the builder; Sam decides everything) with the garden inside it (Sam its one person; the gardener, its taker, and the groundsman; Sam decides everything), and Platform support (Al and the bot in the office; platform, which is the ops worker alone; payments, which is Lee and Priya with the ledger and a release check; support, which is Dana; and Raj, a person written in the office who is named in no team). A "stand-in bridge" is a bridge built for the tests, which hands in what it is told to, from a place its settings list, with the identity it is told to.
+The detailed rules behind the [Requests overview](../requests.md). Requirements are `R-requests-nn`, constraints `C-requests-nn`. The checks use the two offices of the README: the house (Sam and Kit; the steward, its lead, with the fixer, sparks, the clerk, bins and the builder; Sam decides everything) with the garden inside it (Sam its one person; the gardener, its lead, and the groundsman; Sam decides everything), and Platform support (Al and the bot in the office; platform, which is the ops worker alone; payments, which is Lee and Priya with the ledger and a release check; support, which is Dana; and Raj, a person written in the office who is named in no team). A "stand-in bridge" is a bridge built for the tests, which hands in what it is told to, from a place its settings list, with the identity it is told to.
 
 ## A request
 
@@ -11,15 +11,15 @@ The detailed rules behind the [Requests overview](../requests.md). Requirements 
 *Accept:* three requests are asked and one of them makes a sub-request: the four have four numbers. The server is restarted and a fifth request is asked: its number is none of the four.
 
 **R-requests-03** A request goes to exactly one team, named when it is made: a request from a bridge goes to the team the place it was said in names in the bridge's settings, or to the office where the place names none; from the chat, to the team the person picks, or the office; from a routine, to its team; and a sub-request, to the team asked.
-*Accept:* a request the stand-in bridge hands in from a place listed with no team goes to the house, and is taken by the steward; one from a place listed as the garden's goes to the garden, and is taken by the gardener. One said in the chat with no team picked goes to the house; one with the garden picked goes to the garden. The garden's Friday routine makes a request to the garden.
+*Accept:* a request the stand-in bridge hands in from a place listed with no team goes to the house, and to the steward, its lead; one from a place listed as the garden's goes to the garden, and to the gardener. One said in the chat with no team picked goes to the house; one with the garden picked goes to the garden. The garden's Friday routine makes a request to the garden.
 
-**R-requests-04** A request is taken by its team's taker, or, when a routine makes it, by the worker the routine names.
-*Accept:* Kit's request is taken by the steward. The house's Monday routine, which names the steward, is taken by the steward; a garden routine naming the groundsman, who is not the garden's taker, is taken by the groundsman.
+**R-requests-04** A request goes to its team's lead, or, when a routine makes it, to the worker the routine names.
+*Accept:* Kit's request goes to the steward. The house's Monday routine, which names the steward, goes to the steward; a garden routine naming the groundsman, who is not the garden's lead, goes to the groundsman.
 
-**R-requests-05** A request to a team whose taker is a person waits on that person, and what they say in it is its answer.
+**R-requests-05** A request to a team whose lead is a person waits on that person, and what they say in it is its answer.
 *Accept:* the bot makes a sub-request of support. It is waiting on Dana. Dana answers it on the screens, and the sub-request is answered with her words, by Dana.
 
-**C-requests-01** A request is made only for a team that is in the office and has a taker that can take it; otherwise it is refused where it was asked, saying why, and nothing is kept. Otherwise it would wait on nothing without saying so. *Test:* `requests_team_with_no_taker_refused`
+**C-requests-01** A request is made only for a team that is in the office and has a lead that can answer for it; otherwise it is refused where it was asked, saying why, and nothing is kept. Otherwise it would wait on nothing without saying so. *Test:* `requests_team_with_no_lead_refused`
 
 ## The asker
 
@@ -34,7 +34,7 @@ The detailed rules behind the [Requests overview](../requests.md). Requirements 
 **R-requests-44** A run given a request is told who is asking, as the office is read then: a person, by their name and the teams they are in; a guest, as a guest, with the bridge and the identity it vouched for; for a sub-request, the worker that asked and its team; for a routine, the team.
 *Accept:* the bot's run on Dana's request is told that Dana asks, and that she is in support. Someone the office does not name asks in #help: the bot's run is told a guest asks, on `slack`, as their Slack identity. The ledger's run on payments' sub-request is told the bot of the office asks.
 
-**C-requests-30** Bulldog judges nothing of what a guest may have. What a guest asks reaches the team's taker as anyone's request does, told that a guest asks, and anything done for them that needs a yes waits on the team's deciders as for anyone. Whether a stranger may have something is the team's to judge, with the machines it already has; a second scheme of Bulldog's beside them would be one more place to be wrong. *Test:* `requests_guest_judged_by_the_team`
+**C-requests-30** Bulldog judges nothing of what a guest may have. What a guest asks reaches the team's lead as anyone's request does, told that a guest asks, and anything done for them that needs a yes waits on the team's deciders as for anyone. Whether a stranger may have something is the team's to judge, with the machines it already has; a second scheme of Bulldog's beside them would be one more place to be wrong. *Test:* `requests_guest_judged_by_the_team`
 
 ## The origin
 
@@ -69,14 +69,14 @@ The detailed rules behind the [Requests overview](../requests.md). Requirements 
 
 ## States
 
-**R-requests-16** A request whose origin keeps no status of its own is working while its team is on it and nothing in it waits on a person; waiting on someone while something in it waits on a person; and answered once its taker has answered and nothing has been said in it since.
+**R-requests-16** A request whose origin keeps no status of its own is working while its team is on it and nothing in it waits on a person; waiting on someone while something in it waits on a person; and answered once its lead has answered and nothing has been said in it since.
 An empty answer to a routine's request says nothing: the request is answered with no entry, and nothing goes to the team's people. An empty answer to any other request is an entry like any answer.
 *Accept:* Kit's request is working while the steward's run goes on. When the fixer asks Kit, it is waiting on Kit. When Kit answers, it is working. When the steward answers, it is answered. The steward answers the house's Monday routine with nothing: the request is answered, and its thread holds only its asking.
 
-**R-requests-17** Waiting on someone names everyone it waits on: the person a question is put to, the people a decision has reached, or the person who is its taker.
+**R-requests-17** Waiting on someone names everyone it waits on: the person a question is put to, the people a decision has reached, or the person who is its lead.
 *Accept:* the refund is put to Lee and Priya: payments' sub-request is waiting on Lee or Priya. Lee says yes: it is working.
 
-**R-requests-18** What waits on a person is every open entry to them in a request they may see: a question they have not answered, a decision put to them that nobody has made, and a request they are the taker of that is not answered.
+**R-requests-18** What waits on a person is every open entry to them in a request they may see: a question they have not answered, a decision put to them that nobody has made, and a request they are the lead of that is not answered.
 *Accept:* while the refund waits, what waits on Lee is that decision, and the same for Priya. Priya decides it: nothing waits on either. A sub-request to support waits on Dana until she answers it.
 
 **C-requests-07** What waits on a person is worked out in one place, and the screens' list, their count, and what bridges send all read it there. Written in more than one place, the copies drift, and a person is told of something their list does not show. *Test:* `requests_waiting_on_agrees_everywhere`
@@ -112,10 +112,10 @@ An empty answer to a routine's request says nothing: the request is answered wit
 
 **C-requests-10** A sub-request is kept with the Corbie ticket its asking run waits on, and a ticket that already has one makes no second. After a restart Corbie shows every waiting call again, and each would otherwise make the sub-request again. *Test:* `requests_one_sub_request_per_ticket`
 
-**R-requests-26** A sub-request keeps the origin at the top of its tree, so the team that takes it can be told who will in the end read what it says.
+**R-requests-26** A sub-request keeps the origin at the top of its tree, so the team asked can be told who will in the end read what it says.
 *Accept:* payments' sub-request gives #help on Slack as the origin at the top. A sub-request that payments makes of platform gives the same.
 
-**R-requests-27** A sub-request's answer is an entry in it by its taker, once any release check of its team has let it go, and is given to the run that asked; in the asking request it is what was done.
+**R-requests-27** A sub-request's answer is an entry in it by its lead, once any release check of its team has let it go, and is given to the run that asked; in the asking request it is what was done.
 *Accept:* the ledger answers "Duplicate confirmed; £40 refunded" and the release rule lets it go. Payments' sub-request is answered with it; the bot's run is given it; Dana and Al see it in Dana's request.
 
 **R-requests-28** A sub-request stays as it is when the run that asked it ends, unless that run was stopped.
@@ -144,7 +144,7 @@ An empty answer to a routine's request says nothing: the request is answered wit
 **R-requests-33** Whatever a team's release check holds, an answer, a sub-request it makes, or a question or a tell to someone outside the team, is what was read of that team until it is let go, and what is refused never becomes what was done. A held answer is not yet the request's answer: until it is let go the request is working, or waiting on the people the release has reached.
 *Accept:* the release rule passes an answer to Lee. Until Lee lets it go, Al and Dana see payments' sub-request waiting on Lee or Priya, and not the answer. Lee refuses it: it is never shown to them.
 
-**R-requests-46** A refused release is an entry by the decider, with its note, to the team's taker, always, and is what was read of that team. A refused answer makes the request working, and the taker is started again on it; a refused question, tell or sub-request is given to the run that said it, which goes on. Whoever asked the team is told nothing of it but, when the taker gives up or the limit on runs in a row is reached, the one line Decisions gives, that the team did not release its answer, with who refused (R-decisions-40).
+**R-requests-46** A refused release is an entry by the decider, with its note, to the team's lead, always, and is what was read of that team. A refused answer makes the request working, and the lead is started again on it; a refused question, tell or sub-request is given to the run that said it, which goes on. Whoever asked the team is told nothing of it but, when the lead gives up or the limit on runs in a row is reached, the one line Decisions gives, that the team did not release its answer, with who refused (R-decisions-40).
 *Accept:* Lee refuses the ledger's answer with "no card numbers in an answer". Payments' sub-request gains an entry by Lee to the ledger holding the note, seen by Lee and Priya alone, and is working; the ledger is started on it again. The bot's run is given nothing, and Dana and Al see payments' sub-request working, with nothing of the refusal.
 
 **R-requests-34** What was read of a run is read from Corbie, by the labels that name its request and its team, and is of the team they name, for as long as Corbie keeps the record; when Corbie has dropped it, the request says so. A worker deciding for another team runs as the team it decides for, as Decisions says, so what it read there is of that team.
@@ -213,9 +213,9 @@ An empty answer to a routine's request says nothing: the request is answered wit
 
 ## Interfaces
 
-- **Office** gives the teams with their people, takers, `decide` lists and routines, and each person with the identities their bridges give, and checks that each team a bridge's place names is in the office, and gives the people a team's decisions reach, who stand as the people of a team with none (R-requests-36); a reading that finds a person, a team or a decider gone, a team renamed included, closes here what waited on them (R-requests-38, R-requests-39, C-requests-28).
+- **Office** gives the teams with their people, leads, `decide` lists and routines, and each person with the identities their bridges give, and checks that each team a bridge's place names is in the office, and gives the people a team's decisions reach, who stand as the people of a team with none (R-requests-36); a reading that finds a person, a team or a decider gone, a team renamed included, closes here what waited on them (R-requests-38, R-requests-39, C-requests-28).
 - **Work** makes a routine's request and the sub-requests asked through the tool Bulldog ships (C-requests-10), tells a run who is asking (R-requests-44), gives a routine's run its team's open requests, each with its number, asker, state and first line as the team's people see what was done, writes what a run says in its own request and no other, cancels the runs of a stop whose closing is this area's (R-requests-21, R-requests-45), and writes Bulldog's entries for a run that failed (R-requests-14), to a team with no people through the people of R-requests-36; the labels it gives a run name the request and the team, and what was read is read from Corbie by them (R-requests-34).
-- **Decisions** writes each decision as an entry, holds what a release check holds back from what was done until it is let go (R-requests-33), a person taker's answer included, which this area hands it as soon as it is kept, on the screens or through a bridge alike, and holds no longer, waiting on the taker again, when it cannot be handed, writes a refused release as an entry to the team's taker and gives the one line whoever asked the team is told when the taker gives up or reaches the limit (R-requests-46), says that a run asked to decide for a team is of that team (R-requests-34), walks to whoever a team's decisions reach, whom this area makes the people of a team with none (R-requests-36), and refuses, with why, a decision that reaches nobody, a decider's going included (R-requests-38).
-- **Bridges** hand in what is said, with the sender's checked identity, its place and the identities that can read it (R-requests-09), once for each thing heard; say, for each place they hear, which team takes what is said there and whether guests may ask there (R-requests-03, R-requests-40); hear a source's status, which is shown here, and its closing, which stops the request's work (R-requests-23, R-requests-45); carry out what goes to an origin or to a person; and read here who may say more (R-requests-19).
+- **Decisions** writes each decision as an entry, holds what a release check holds back from what was done until it is let go (R-requests-33), the answer of a lead who is a person included, which this area hands it as soon as it is kept, on the screens or through a bridge alike, and holds no longer, waiting on the lead again, when it cannot be handed, writes a refused release as an entry to the team's lead and gives the one line whoever asked the team is told when the lead gives up or reaches the limit (R-requests-46), says that a run asked to decide for a team is of that team (R-requests-34), walks to whoever a team's decisions reach, whom this area makes the people of a team with none (R-requests-36), and refuses, with why, a decision that reaches nobody, a decider's going included (R-requests-38).
+- **Bridges** hand in what is said, with the sender's checked identity, its place and the identities that can read it (R-requests-09), once for each thing heard; say, for each place they hear, which team is asked there and whether guests may ask there (R-requests-03, R-requests-40); hear a source's status, which is shown here, and its closing, which stops the request's work (R-requests-23, R-requests-45); carry out what goes to an origin or to a person; and read here who may say more (R-requests-19).
 - **Changes** keeps each draft with the request it is drafted in, and a change's decision there is an entry like any other.
 - **Server** opens the store this area keeps its part of, and refuses one made by an older Bulldog; it gives the screens each person's requests, both layers as they may see them, and what waits on them, reads here who may say more (R-requests-19) and who are the people of a team with none (R-requests-36), and says who may stop a request.

@@ -82,10 +82,10 @@ func (s *Store) AskByRoutine(team string, routine office.Routine, by Who) (*Requ
 	return r, err
 }
 
-// ask makes a request to a team that is in the office and has a taker
-// that can take it, with its asking as its first entry.
+// ask makes a request to a team that is in the office and has a lead
+// that can answer for it, with its asking as its first entry.
 func (c *change) ask(team string, asker Who, origin Origin, worker, text string, files []File, in Where) (*Request, error) {
-	if err := c.taken(team); err != nil {
+	if err := c.askable(team); err != nil {
 		return nil, err
 	}
 	r := &Request{Team: team, TeamKnown: c.era(IsTeam, team), Asker: asker, Origin: origin, Worker: worker}
@@ -96,21 +96,20 @@ func (c *change) ask(team string, asker Who, origin Origin, worker, text string,
 	return r, err
 }
 
-// taken refuses a team that is not in the office, or has no taker that
-// can take what is asked of it: a person of the team, or a worker of it
-// that runs.
-func (c *change) taken(team string) error {
+// askable refuses a team that is not in the office, or has no lead that
+// can answer for it: a person of the team, or a worker of it that runs.
+func (c *change) askable(team string) error {
 	t := c.o.Teams[team]
 	if t == nil {
 		return refuse("%s is not a team of the office, so nothing was asked", team)
 	}
-	switch w := c.o.Workers[t.Takes]; {
-	case c.o.People[t.Takes] != nil && slices.Contains(t.People, t.Takes):
+	switch w := c.o.Workers[t.Lead]; {
+	case c.o.People[t.Lead] != nil && slices.Contains(t.People, t.Lead):
 		return nil
 	case w == nil || w.Team != team:
-		return refuse("%s has nobody who takes what is asked of it, so nothing was asked", t.Called)
+		return refuse("%s has no lead that can answer for it, so nothing was asked", t.Called)
 	case !w.Runs():
-		return refuse("%s takes what is asked of %s, and cannot run until its file is mended, so nothing was asked", t.Takes, t.Called)
+		return refuse("%s is the lead of %s, and cannot run until its file is mended, so nothing was asked", t.Lead, t.Called)
 	}
 	return nil
 }
@@ -144,7 +143,7 @@ func (s *Store) Sub(parent int64, by Who, team, question, ticket string) (*Reque
 		case by.Team == team:
 			return refuse("%s is %s's own team, and inside a team workers use each other as tools, so nothing was asked", team, by.Name)
 		}
-		if err := c.taken(team); err != nil {
+		if err := c.askable(team); err != nil {
 			return err
 		}
 		r = &Request{Team: team, TeamKnown: c.era(IsTeam, team), Asker: by, Parent: parent, Ticket: ticket}
@@ -163,11 +162,11 @@ func (s *Store) Sub(parent int64, by Who, team, question, ticket string) (*Reque
 
 // Say writes what someone who may say more in a request says in it, as an
 // entry to its team, which makes an answered or stopped request working
-// again. What its taker says, when that is a person, is its answer, or,
+// again. What its lead says, when that is a person, is its answer, or,
 // for a team that sets a release check, an answer held until the check
 // lets it go, which is what was read of the team, and is handed to the
 // check by Held once it is kept. One that could not be handed is given
-// with the error, and is held no longer, so the taker is waited on again.
+// with the error, and is held no longer, so the lead is waited on again.
 // To someone who may not see it the request is not there.
 func (s *Store) Say(n int64, by Who, text string, files []File, in Where) (*Entry, error) {
 	e, err := s.say(n, by, text, files, in)
@@ -175,7 +174,7 @@ func (s *Store) Say(n int64, by Who, text string, files []File, in Where) (*Entr
 		return e, err
 	}
 	if err := s.Held(e); err != nil {
-		return e, errors.Join(fmt.Errorf("what was said is kept as what was read of the team, but could not be handed to its release check, so it is not said, and the taker is waited on again: %w", err), s.unhold(e))
+		return e, errors.Join(fmt.Errorf("what was said is kept as what was read of the team, but could not be handed to its release check, so it is not said, and the lead is waited on again: %w", err), s.unhold(e))
 	}
 	return e, nil
 }
@@ -194,7 +193,7 @@ func (s *Store) say(n int64, by Who, text string, files []File, in Where) (*Entr
 		if !may {
 			return c.mayNotSay(r, by)
 		}
-		if p := c.personOf(by); p != "" && c.takerPerson(r) == p {
+		if p := c.personOf(by); p != "" && c.leadPerson(r) == p {
 			answer := Entry{Kind: KindAnswer, By: by, To: []Who{r.Asker}, Text: text, In: in}
 			if c.o.Teams[r.Team].HasRelease {
 				answer = Entry{Kind: KindHeld, By: by, To: []Who{teamOf(r)}, Text: text, In: in, Read: r.Team, ReadKnown: r.TeamKnown}
@@ -364,7 +363,7 @@ func (s *Store) Reply(entry int64, by Who, text string, files []File, in Where) 
 	return e, err
 }
 
-// Answer writes a request's answer by its taker, a worker, to its asker,
+// Answer writes a request's answer by its lead, a worker, to its asker,
 // and the request is answered, or, while something put to someone in it
 // still waits, waits on them. What is open beneath it goes on. An empty
 // answer to a routine's request says nothing: the request is answered
@@ -377,8 +376,8 @@ func (s *Store) Answer(n int64, by Who, text string, files []File) (*Entry, erro
 		if err != nil {
 			return err
 		}
-		if !c.takes(r, by) {
-			return refuse("%s does not take request %d, so its answer was not kept", c.calledOf(by), n)
+		if !c.isLead(r, by) {
+			return refuse("%s does not answer request %d, so its answer was not kept", c.calledOf(by), n)
 		}
 		if r.Origin.Kind != ByRoutine || strings.TrimSpace(text) != "" || len(files) > 0 {
 			e, err = c.add(r, Entry{Kind: KindAnswer, By: by, To: []Who{r.Asker}, Text: text}, files, nil)
@@ -392,14 +391,14 @@ func (s *Store) Answer(n int64, by Who, text string, files []File) (*Entry, erro
 	return e, err
 }
 
-// takes says whether someone is the worker who takes a request: the one
-// its routine names, or else its team's taker.
-func (c *change) takes(r *Request, by Who) bool {
+// isLead says whether someone is the worker who answers a request: the
+// one its routine names, or else its team's lead.
+func (c *change) isLead(r *Request, by Who) bool {
 	t := c.teamNow(r.Team, r.TeamKnown)
-	return t != nil && c.workerOf(r, by) && by.Name == cmp.Or(r.Worker, t.Takes)
+	return t != nil && c.workerOf(r, by) && by.Name == cmp.Or(r.Worker, t.Lead)
 }
 
-// Release lets go an answer its team's release check held, of a taker who
+// Release lets go an answer its team's release check held, of a lead who
 // is a person: it becomes the request's answer, by them, with its files,
 // and is what was done.
 func (s *Store) Release(held int64) (*Entry, error) {
@@ -685,8 +684,8 @@ func (s *Store) Readers(bridge, place string, ids []string) error {
 // A Writing is an entry as another area writes it, a decision's among
 // them: what it is, whether it is what was read of the request's team or
 // what was done, the open entry it answers, which it closes, and whom it
-// waits on. Working says it starts the request's taker again: an answered
-// request is working again, and a held answer of a taker who is a person
+// waits on. Working says it starts the request's lead again: an answered
+// request is working again, and a held answer of a lead who is a person
 // is no longer held, so they are waited on again.
 type Writing struct {
 	Kind    string

@@ -252,7 +252,7 @@ func (b *bench) toldAsker(n int64) []string {
 	return told
 }
 
-func TestATakerThatGivesUpOnARefusalIsNotReleased(t *testing.T) {
+func TestALeadThatGivesUpOnARefusalIsNotReleased(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, payments(t))
 	b.says(func(turn testkit.Turn) testkit.Reply {
@@ -392,7 +392,7 @@ func TestARestartOnARefusalIsTriedAgainWhenItsStartFails(t *testing.T) {
 	}
 }
 
-func TestAPersonTakersAnswerOnABridgeReachesItsReleaseCheck(t *testing.T) {
+func TestALeadWhoIsAPersonAnsweringOnABridgeReachesItsReleaseCheck(t *testing.T) {
 	t.Parallel()
 	files := work(t)
 	files["office.yaml"] = strings.Replace(files["office.yaml"], "platform/api: { team: platform }", "platform/api: { team: platform }\n      support/desk: { team: support }", 1)

@@ -87,8 +87,8 @@ type Team struct {
 	Within string
 	// People are its people, as its people: names them.
 	People []string
-	// Takes is the worker or person that takes what is asked of it.
-	Takes string
+	// Lead is the worker or person that answers for it.
+	Lead string
 	// Decide are its lists of deciders, in the order written.
 	Decide []List
 	// Release is its release check, and HasRelease whether it sets one.
@@ -193,7 +193,7 @@ type Worker struct {
 	// job is.
 	Tools []string
 	Held  []Tool
-	// AtTop says Bulldog starts it at the top: it is its team's taker or
+	// AtTop says Bulldog starts it at the top: it is its team's lead or
 	// a routine's worker.
 	AtTop bool
 	// Uses are the files of the office its definition reads, its own among
@@ -276,7 +276,7 @@ func (b *Bridge) Runs() bool { return b.In != nil && b.Out != nil && len(b.Probl
 // A Place is one a bridge listens in, by its name in the bridge's words.
 type Place struct {
 	Name string
-	// Team takes what is asked there.
+	// Team is the team asked there.
 	Team string
 	// Guests says guests may ask there.
 	Guests bool

@@ -48,7 +48,7 @@ bridges:
 models:
   usual: { name: sonnet, service: claude-code }
 people: [sam, kit]
-takes: steward
+lead: steward
 decide:
   everything: [sam]
   order_part: [./small-orders.js, sam]
@@ -62,7 +62,7 @@ routines:
 name: The garden
 about: The beds, the lawn and the shed.
 people: [sam]
-takes: gardener
+lead: gardener
 decide: { everything: [sam] }
 models:
   usual: { name: opus, service: claude-code }   # the garden's own
@@ -75,7 +75,7 @@ routines:
 | `name` | what the team is called, in any words. The top team's is the office's name |
 | `about` | one line saying what the team looks after. Workers choosing whom to ask are given it, and the screens show it |
 | `people` | the people of the team, by name |
-| `takes` | the one worker or person of this team that takes what is asked of it |
+| `lead` | the one worker or person of this team that answers for it |
 | `decide` | who decides what, as ordered lists of deciders: `everything`; the name of a tool one of its workers holds, a `list:` entry such as `github` among them, or of one tool of an entry, such as `github_create_issue`; and at the top `change`, for a change to the office files |
 | `release` | an ordered list of deciders for everything the team says to anyone outside it: its answers, its questions and tells to people outside it, and the requests it makes of other teams. Without one, all of it leaves unchecked |
 | `routines` | what is said to its workers at set times |
@@ -127,7 +127,7 @@ The fixer's `usual` is the house's; the gardener's `usual` would be the garden's
 
 Inside a team, workers use each other as ordinary Corbie tools, as the fixer uses sparks. A worker has nothing of Bulldog's that its own definition does not name, each by its path in `.bulldog/`, and Bulldog writes none of it into a definition. A worker that asks or tells another team or a person names the talk tools Bulldog ships, `talk.yaml`, in its `tools_file:`, and one that writes its team's notes names the notes tool, `notes.yaml`, there too. A team's notes are not Bulldog's but the team's, and every run Bulldog starts of one of its workers is given them, whatever its definition names; a colleague called as a tool is given what its caller gives it.
 
-Corbie gives a held action to the nearest ask at or above the machine that holds it. So a worker Bulldog starts at the top, a team's taker or a routine's worker, names the ask Bulldog ships, `ask.yaml`, as its `ask:` when anything it runs can be held: an action of its own, or of a colleague or any other machine its tools run, as far down as they go. A colleague called as a tool uses the nearest ask above it unless it names the ask Bulldog ships itself, which it may, and must when it can also be started at the top. In the house the steward names the ask, since the fixer it calls holds `cut_power`; the fixer and sparks, only ever called as tools, name none, and the fixer's held `cut_power` goes to the ask the steward names. A worker that must name the ask and does not, or that names another, is reported as its own problem and given no run.
+Corbie gives a held action to the nearest ask at or above the machine that holds it. So a worker Bulldog starts at the top, a team's lead or a routine's worker, names the ask Bulldog ships, `ask.yaml`, as its `ask:` when anything it runs can be held: an action of its own, or of a colleague or any other machine its tools run, as far down as they go. A colleague called as a tool uses the nearest ask above it unless it names the ask Bulldog ships itself, which it may, and must when it can also be started at the top. In the house the steward names the ask, since the fixer it calls holds `cut_power`; the fixer and sparks, only ever called as tools, name none, and the fixer's held `cut_power` goes to the ask the steward names. A worker that must name the ask and does not, or that names another, is reported as its own problem and given no run.
 
 ## Routines
 
@@ -175,19 +175,19 @@ bridges:
 models:
   usual: { name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }
 people: [al]
-takes: bot
+lead: bot
 decide: { everything: [al] }
 
 # platform/team.yaml: one worker, on its own, with no people
 name: Platform
 about: GitLab, the pipelines and deploys.
-takes: ops
+lead: ops
 
 # payments/team.yaml
 name: Payments
 about: Charges, refunds and the ledger. Holds customer data.
 people: [lee, priya]
-takes: ledger
+lead: ledger
 decide: { everything: [lee, priya] }
 release: [./no-account-numbers.yaml]    # what it passes goes to Lee or Priya
 
@@ -195,7 +195,7 @@ release: [./no-account-numbers.yaml]    # what it passes goes to Lee or Priya
 name: Support
 about: Customers' questions, and what they are told.
 people: [dana]
-takes: dana
+lead: dana
 ```
 
 Al is in the office but in no team within it, so he sees inside none of them. Raj is in no team at all: he is a person, who may ask and be named to decide. Platform has no people and writes no `decide`, so what it holds for a yes goes out to the office's `everything`, Al, and Al is its people for sight and control: he is told when it fails, sees what it read, and watches and stops its runs.
@@ -208,8 +208,8 @@ Bulldog reads the whole folder at once. Every team file is read, every definitio
 
 There are two kinds of problem.
 
-- **A problem in a team file refuses the reading.** A file that is not well formed, a key a team file does not take or a top-only key in a team within, an `about` of more than one line, a name that is not allowed, used twice or reserved, a name in a list that is nobody, a `takes` that is not of its team, a decider that is none of a person, a worker of any team or a rule in the team's own folder, a rule or worker after a person in a list, an office whose `everything` names no person, a `runs` that is not a whole number above nought, a routine that is not right, a `models` entry that is not a mapping or whose name is not allowed, a path that leaves the folder or names nothing, or a team file where no team can be: any of these, and the office goes on as it was last read well.
-- **A broken worker, rule or bridge stops only itself, and the workers that run it.** Corbie checks a definition with every colleague it runs as a tool, so a worker whose colleague is refused is refused too, and is reported once as using it. A worker whose definition is refused, whose one-word model no team gives, or that does not name the ask it must, is given no run until it is mended, and when it is a taker its team is reported too; a refused rule is reported on its team. A broken bridge, an entry in `bridges` with no folder at `bridges/<name>`, a folder there that `bridges` does not name, a folder missing either machine, an in machine that takes both `cursor` and `delivery`, the inputs the bridges page names, or neither, a machine Corbie refuses, settings that are not a mapping, or places that are not right, a team that is not there among them, is a problem of that bridge shown on the office, and the bridge carries nothing until it is mended. A `decide` key that names no tool of the team's workers is reported on its team and used for nothing. The rest of the office reads and runs.
+- **A problem in a team file refuses the reading.** A file that is not well formed, a key a team file does not take or a top-only key in a team within, an `about` of more than one line, a name that is not allowed, used twice or reserved, a name in a list that is nobody, a `lead` that is not of its team, a decider that is none of a person, a worker of any team or a rule in the team's own folder, a rule or worker after a person in a list, an office whose `everything` names no person, a `runs` that is not a whole number above nought, a routine that is not right, a `models` entry that is not a mapping or whose name is not allowed, a path that leaves the folder or names nothing, or a team file where no team can be: any of these, and the office goes on as it was last read well.
+- **A broken worker, rule or bridge stops only itself, and the workers that run it.** Corbie checks a definition with every colleague it runs as a tool, so a worker whose colleague is refused is refused too, and is reported once as using it. A worker whose definition is refused, whose one-word model no team gives, or that does not name the ask it must, is given no run until it is mended, and when it is a lead its team is reported too; a refused rule is reported on its team. A broken bridge, an entry in `bridges` with no folder at `bridges/<name>`, a folder there that `bridges` does not name, a folder missing either machine, an in machine that takes both `cursor` and `delivery`, the inputs the bridges page names, or neither, a machine Corbie refuses, settings that are not a mapping, or places that are not right, a team that is not there among them, is a problem of that bridge shown on the office, and the bridge carries nothing until it is mended. A `decide` key that names no tool of the team's workers is reported on its team and used for nothing. The rest of the office reads and runs.
 
 The problems shown are always those of the latest reading. Until the office has once been read well, it starts nothing and only reports. No reading is kept from one start to the next: a file broken by hand while the server is stopped leaves the office unread at the next start, with every problem said, until it is mended.
 
@@ -219,8 +219,8 @@ The problems shown are always those of the latest reading. Until the office has 
 
 ## Interfaces
 
-- **Requests** read who is in each team, who each person is on each bridge, each team's taker and the team each bridge's place names, to say who sees a request and where it goes, and say who stands as the people of a team with none: its own, or those its decisions reach.
-- **Work** starts each team's taker and its workers from their definitions as read, with a one-word model filled in, keeps to the office's `runs`, starts each routine's clock with the office's zone, gives workers each team's `about`, gives every run it starts of a team's worker the team's notes, ships the notes tool, which a worker has only when its definition names its file, and is told when a reading replaces the last, to start, stop and cancel what changed.
+- **Requests** read who is in each team, who each person is on each bridge, each team's lead and the team each bridge's place names, to say who sees a request and where it goes, and say who stands as the people of a team with none: its own, or those its decisions reach.
+- **Work** starts each team's lead and its workers from their definitions as read, with a one-word model filled in, keeps to the office's `runs`, starts each routine's clock with the office's zone, gives workers each team's `about`, gives every run it starts of a team's worker the team's notes, ships the notes tool, which a worker has only when its definition names its file, and is told when a reading replaces the last, to start, stop and cancel what changed.
 - **Decisions** reads the `decide` and `release` lists and the notes a release check reads, and runs the rules they name, each as it is written. The office gives the people a team's decisions reach: those its `everything` names, or its people where it writes none, or, where that names nobody, those of the first `everything` outward that does, with anyone no longer in the office left out. Decisions and Requests both take them from here.
 - **Bridges** reads `bridges` and the folders under `bridges/`, says the shape of the places a bridge listens in, whose teams the office checks, and matches the identity a bridge gives to the person whose entry names it.
 - **Changes** writes the office's files, a person's entry among them, keeps each note a worker writes as a commit, has every change checked by a reading of the folder as it would be after the change, and asks which files are the office's and which files only one worker's definition names.

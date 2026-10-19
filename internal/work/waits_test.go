@@ -163,7 +163,7 @@ func TestWorkUnreadableCallLookedAtAgain(t *testing.T) {
 	holds(t, "the desk's answer", b.answered(n).Text, "Told Sam")
 }
 
-// deep is a desk whose taker makes its call from below so many machines
+// deep is a desk whose lead makes its call from below so many machines
 // written in place.
 func deep(files map[string]string, depth int) map[string]string {
 	job := callChart("tell", "{ text: hello, who: Sam }")

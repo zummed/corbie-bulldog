@@ -161,8 +161,8 @@ func tellTeam(t *telling, now *office.Office, a, b *office.Team, sawWas, sawNow 
 			}
 		}
 	}
-	if a.Takes != b.Takes && b.Takes != "" {
-		t.say(false, files, "%s takes what is asked of %s.", b.Takes, name)
+	if a.Lead != b.Lead && b.Lead != "" {
+		t.say(false, files, "%s is the lead of %s.", b.Lead, name)
 	}
 	keys := []string{}
 	lists := func(team *office.Team) map[string][]office.Decider {

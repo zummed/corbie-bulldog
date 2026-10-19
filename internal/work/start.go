@@ -14,7 +14,7 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/requests"
 )
 
-// A ready is a request ready for its taker to start on it: what is new to
+// A ready is a request ready for its lead to start on it: what is new to
 // the team in it, and its thread as it stands.
 type ready struct {
 	r      *requests.Request
@@ -108,9 +108,9 @@ func (w *Work) working() int {
 	return count
 }
 
-// consider says whether a request is ready for its taker to start on it:
-// it has no run going, its taker is a worker, and something new was said
-// to its team. A request whose taker cannot run is answered saying so,
+// consider says whether a request is ready for its lead to start on it:
+// it has no run going, its lead is a worker, and something new was said
+// to its team. A request whose lead cannot run is answered saying so,
 // and one at the limit of runs in a row is stopped. A request that was
 // stopped has its run noted as stopping, should its stop not have been.
 // What cannot be read is looked at again later.
@@ -139,9 +139,9 @@ func (w *Work) consider(ctx context.Context, n int64) *ready {
 		// It is looked at again when that run ends.
 		return nil
 	}
-	taker, person, err := w.requests.Taker(n)
+	lead, person, err := w.requests.Lead(n)
 	if err != nil {
-		return unread("who takes it", err)
+		return unread("its lead", err)
 	}
 	thread, err := w.requests.Thread(n)
 	if err != nil {
@@ -164,14 +164,14 @@ func (w *Work) consider(ctx context.Context, n int64) *ready {
 		last = max(last, thread[len(thread)-1].ID)
 	}
 	said := fresh(r, thread, mark, again, given)
-	worker := w.office.Workers[taker]
+	worker := w.office.Workers[lead]
 	switch {
-	case taker == "" || person:
-		// A team that has gone, or a person who takes it: no run.
+	case lead == "" || person:
+		// A team that has gone, or a lead who is a person: no run.
 		w.dealtWith(n, mark)
 		return nil
 	case worker == nil || !worker.Runs():
-		w.cannotRun(r, taker, said, last)
+		w.cannotRun(r, lead, said, last)
 		return nil
 	case len(said) == 0 || r.Stopped:
 		w.dealtWith(n, mark)
@@ -206,11 +206,11 @@ func (w *Work) dealtWith(n, seen int64) {
 	}
 }
 
-// cannotRun answers a request whose taker cannot run: the asker is told
+// cannotRun answers a request whose lead cannot run: the asker is told
 // the team cannot answer, and the team's people are told the problem.
 // One open with nothing new is answered once for each problem.
-func (w *Work) cannotRun(r *requests.Request, taker string, fresh []requests.Entry, last int64) {
-	why := problem(w.office, taker)
+func (w *Work) cannotRun(r *requests.Request, lead string, fresh []requests.Entry, last int64) {
+	why := problem(w.office, lead)
 	if len(fresh) == 0 {
 		told, err := w.told(r.Number)
 		if err != nil {
@@ -228,7 +228,7 @@ func (w *Work) cannotRun(r *requests.Request, taker string, fresh []requests.Ent
 		}
 	}
 	if err := w.requests.Failed(r.Number, why); err != nil {
-		w.trouble(r.Number, r.Team, fmt.Sprintf("Bulldog could not say that %s cannot answer: %v", taker, err))
+		w.trouble(r.Number, r.Team, fmt.Sprintf("Bulldog could not say that %s cannot answer: %v", lead, err))
 		return
 	}
 	if err := w.keepTold(r.Number, why); err != nil {
@@ -341,7 +341,7 @@ func byPerson(e requests.Entry) bool {
 	return false
 }
 
-// start starts a request's taker on it. The run is noted, with its team
+// start starts a request's lead on it. The run is noted, with its team
 // and request, before its start is sent; a start that cannot be sent is
 // said to the team's people and tried again later, as what it was, and
 // holds up no other.

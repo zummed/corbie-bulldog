@@ -31,7 +31,7 @@ func TestAFolderThatIsNoOfficeIsRefused(t *testing.T) {
 
 func TestATeamWithinMayHoldTeams(t *testing.T) {
 	t.Parallel()
-	o := reads(t, with(house(t), map[string]string{"garden/beds/team.yaml": "takes: digger\n", "garden/beds/digger.yaml": "flow: digger\nstages: { dig: { job: ./dig.js } }\n", "garden/beds/dig.js": "return 1"}))
+	o := reads(t, with(house(t), map[string]string{"garden/beds/team.yaml": "lead: digger\n", "garden/beds/digger.yaml": "flow: digger\nstages: { dig: { job: ./dig.js } }\n", "garden/beds/dig.js": "return 1"}))
 	if !slices.Equal(o.Order, []string{"office", "garden", "beds"}) || o.Teams["beds"].Within != "garden" || o.Teams["garden"].Within != "office" {
 		t.Errorf("the teams are %v", o.Order)
 	}
@@ -72,7 +72,7 @@ func TestNothingWhoseNameStartsWithADotIsTheOffice(t *testing.T) {
 	t.Parallel()
 	plain := reads(t, house(t))
 	dotted := reads(t, with(house(t), map[string]string{
-		".git/HEAD": "ref: refs/heads/main", ".bulldog/identity": "x", ".scratch/team.yaml": "takes: nobody\n",
+		".git/HEAD": "ref: refs/heads/main", ".bulldog/identity": "x", ".scratch/team.yaml": "lead: nobody\n",
 		".scratch/odd.yaml": "agent: odd\n", "garden/.hidden.yaml": "flow: hidden\n",
 	}))
 	if !slices.Equal(plain.Order, dotted.Order) || len(plain.Workers) != len(dotted.Workers) {
@@ -93,7 +93,7 @@ func TestOfficeStrayTeamFileRefused(t *testing.T) {
 		"garden/office.yaml":         "read only at the top",
 		"bridges/telegram/team.yaml": "not a team's folder",
 	} {
-		problems := refused(t, with(house(t), map[string]string{file: "takes: nobody\n"}))
+		problems := refused(t, with(house(t), map[string]string{file: "lead: nobody\n"}))
 		if p := says(t, problems, said); p.File != file {
 			t.Errorf("the problem is of %s, not %s", p.File, file)
 		}

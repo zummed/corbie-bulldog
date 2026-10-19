@@ -158,7 +158,7 @@ func TestWorkerDecidesFromItsReply(t *testing.T) {
 		t.Fatalf("the reply is cut as %q", note)
 	}
 
-	w := newBench(t, withPayments(t, "people: [lee, priya]\ntakes: ledger\nrelease: [ops, lee, priya]\n"))
+	w := newBench(t, withPayments(t, "people: [lee, priya]\nlead: ledger\nrelease: [ops, lee, priya]\n"))
 	_, sub := w.helpRequest()
 	if _, err := w.d.Release(ctx, decisions.Said{What: decisions.SaysAnswer, Request: sub, By: w.reqs.Worker("ledger"), Text: "Refunded."}); err != nil {
 		t.Fatal(err)
@@ -190,7 +190,7 @@ func TestDecisionsRuleGetsNoGrant(t *testing.T) {
 
 func TestDecisionsWorkerDeciderRunBelongsToTeamDecidedFor(t *testing.T) {
 	t.Parallel()
-	b := newBench(t, withPayments(t, "people: [lee, priya]\ntakes: ledger\ndecide: { everything: [ops, lee, priya] }\n"))
+	b := newBench(t, withPayments(t, "people: [lee, priya]\nlead: ledger\ndecide: { everything: [ops, lee, priya] }\n"))
 	_, sub := b.helpRequest()
 	b.one("ask-1", "payments", sub, []string{"ledger"}, refund())
 	c := b.runner.next(t)

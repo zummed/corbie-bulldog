@@ -48,10 +48,10 @@ func holdsNone(t *testing.T, what, text string, parts ...string) {
 	}
 }
 
-// echo is a desk team whose taker is a flow that answers with the
+// echo is a desk team whose lead is a flow that answers with the
 // request it is given, as data, and a note.
 func echo(files map[string]string) map[string]string {
-	files["desk/team.yaml"] = "name: The desk\nabout: Papers.\npeople: [sam]\ntakes: echo\n"
+	files["desk/team.yaml"] = "name: The desk\nabout: Papers.\npeople: [sam]\nlead: echo\n"
 	files["desk/echo.yaml"] = "flow: echo\ninput: [request]\nstages:\n  a: { job: { script: ./echo.js, input: { request: \"${input.request}\" } } }\noutput: ${stages.a.output}\n"
 	files["desk/echo.js"] = "return input.request\n"
 	files["desk/notes/stamps.md"] = "First class only.\n"
@@ -61,7 +61,7 @@ func echo(files map[string]string) map[string]string {
 func TestARunIsGivenItsDefinitionAsWritten(t *testing.T) {
 	t.Parallel()
 	files := house(t)
-	files["garden/team.yaml"] = strings.Replace(files["garden/team.yaml"], "takes: gardener", "takes: groundsman", 1)
+	files["garden/team.yaml"] = strings.Replace(files["garden/team.yaml"], "lead: gardener", "lead: groundsman", 1)
 	b := newBench(t, files)
 	n := b.chat("kit", "", "the kitchen socket sparked")
 	run := b.started(n, 1)
@@ -362,7 +362,7 @@ func TestEveryRunOfATeamIsGivenItsNotes(t *testing.T) {
 func TestARoutineIsGivenItsTeamsOpenRequests(t *testing.T) {
 	t.Parallel()
 	files := house(t)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "takes: steward", "takes: sam", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "lead: steward", "lead: sam", 1)
 	b := newBench(t, files)
 	first := b.chat("kit", "", "the kitchen socket sparked")
 	b.chat("sam", "garden", "how is the lawn?")

@@ -120,10 +120,10 @@ func TestRequestsRefusedRelease(t *testing.T) {
 			t.Errorf("%s sees payments' sub-request as %+v", p, v.Subs[0])
 		}
 	}
-	// A taker who is a person, of a team that sets a release check, has
+	// A lead who is a person, of a team that sets a release check, has
 	// their answer held as what was read of the team, and answered only
 	// once the check lets it go.
-	files := replace(t, work(t), "support/team.yaml", "takes: dana", "takes: dana\nrelease: [./check.js]")
+	files := replace(t, work(t), "support/team.yaml", "lead: dana", "lead: dana\nrelease: [./check.js]")
 	files["support/check.js"] = `return { says: "yes" }`
 	w := open(t, files)
 	must(t, w.Readers("slack", thread, []string{slackDana, slackAl}))

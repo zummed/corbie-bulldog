@@ -49,7 +49,7 @@ func play(turn testkit.Turn) testkit.Reply {
 	return testkit.Say("This is the demo's stand-in for a model, which has no part for this worker.")
 }
 
-// steward plays the house's taker.
+// steward plays the house's lead.
 func steward(turn testkit.Turn, asked string) testkit.Reply {
 	if strings.Contains(asked, "walk round") {
 		return walkRound(turn.Prompt())

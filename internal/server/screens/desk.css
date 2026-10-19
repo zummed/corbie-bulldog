@@ -22,7 +22,7 @@
 .desk-ask-foot .field { flex: 1 1 240px; max-width: 420px; }
 
 /* Your teams */
-.desk-taker { gap: 8px; }
+.desk-lead { gap: 8px; }
 
 @media (max-width: 640px) {
   .desk-req-head { flex-wrap: wrap; }

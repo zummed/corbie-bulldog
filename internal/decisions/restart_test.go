@@ -196,7 +196,7 @@ func TestDecisionWalksOnAtAReading(t *testing.T) {
 	b := newBench(t, work(t))
 	_, sub := b.helpRequest()
 	dec := b.one("ask-1", "payments", sub, []string{"ledger"}, refund())
-	team := "name: Payments\npeople: [lee, priya]\ntakes: ledger\nrelease: [./no-account-numbers.yaml]\n"
+	team := "name: Payments\npeople: [lee, priya]\nlead: ledger\nrelease: [./no-account-numbers.yaml]\n"
 	b.rewrite(map[string]string{"payments/team.yaml": team + "decide: { everything: [priya] }\n"})
 	if on := b.waitsOn(sub); !slices.Equal(on, []string{"priya"}) {
 		t.Fatalf("the refund waits on %v", on)
@@ -223,7 +223,7 @@ func TestDecisionWalksOnAtAReading(t *testing.T) {
 	id := b.ledgerAnswers(sub, "Duplicate confirmed; £40 refunded.")
 	b.runner.next(t).says(decisions.SaysPass, "0.9")
 	b.until("Raj is asked", func() bool { return len(b.waitingFor("raj")) == 2 })
-	b.rewrite(map[string]string{"payments/team.yaml": "name: Payments\npeople: [lee, priya]\ntakes: ledger\ndecide: { everything: [raj] }\n"})
+	b.rewrite(map[string]string{"payments/team.yaml": "name: Payments\npeople: [lee, priya]\nlead: ledger\ndecide: { everything: [raj] }\n"})
 	if l := b.let(id); !l.Released {
 		t.Fatalf("the release ended %+v", l)
 	}

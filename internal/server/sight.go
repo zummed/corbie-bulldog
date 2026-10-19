@@ -31,7 +31,7 @@ type (
 		Called string   `json:"called"`
 		About  string   `json:"about,omitempty"`
 		People []string `json:"people"`
-		Takes  string   `json:"takes"`
+		Lead   string   `json:"lead"`
 		Within string   `json:"within,omitempty"`
 	}
 	personOut struct {
@@ -117,7 +117,7 @@ func (s *site) me(person string, w http.ResponseWriter, r *http.Request) (any, e
 }
 
 func teamOf(t *office.Team) teamOut {
-	return teamOut{Name: t.Name, Called: t.Called, About: t.About, People: orEmpty(t.People), Takes: t.Takes, Within: t.Within}
+	return teamOut{Name: t.Name, Called: t.Called, About: t.About, People: orEmpty(t.People), Lead: t.Lead, Within: t.Within}
 }
 
 // personOf gives a person as everyone sees them: the bridges that reach

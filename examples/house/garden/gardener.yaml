@@ -1,4 +1,4 @@
-# The gardener takes what is asked of the garden.
+# The gardener is the garden's lead, and answers for it.
 agent: gardener
 input: [said, context]
 model: usual

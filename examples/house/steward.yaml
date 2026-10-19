@@ -1,6 +1,6 @@
-# The steward takes what is asked of the house. It does little itself: its
-# colleagues, in crew.yaml, are its tools, and it asks the garden what is
-# the garden's.
+# The steward is the house's lead, and answers for it. It does little
+# itself: its colleagues, in crew.yaml, are its tools, and it asks the
+# garden what is the garden's.
 agent: steward
 input: [said, context]
 model: usual

@@ -321,7 +321,7 @@ func TestServerUnreadOfficeServedAllTheSame(t *testing.T) {
 		t.Fatal(err)
 	}
 	text, _ := os.ReadFile(filepath.Join(b.dir, office.OfficeFile))
-	broken := strings.Replace(string(text), "takes: steward\n", "", 1)
+	broken := strings.Replace(string(text), "lead: steward\n", "", 1)
 	b.write(map[string]string{office.OfficeFile: broken})
 	// Corbie makes a run once it takes its start, so every run the first
 	// server sent is listed before the runs are counted.

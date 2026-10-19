@@ -32,7 +32,7 @@ func (s *Store) Thread(n int64) ([]Entry, error) {
 }
 
 // HeldAnswers gives the answer each request holds for its team's release
-// check: the latest a taker who is a person said, of each request whose
+// check: the latest a lead who is a person said, of each request whose
 // answer is held.
 func (s *Store) HeldAnswers() ([]Entry, error) {
 	l, err := s.look(s.db)
@@ -146,10 +146,10 @@ func (s *Store) Asks(n int64) (Party, error) {
 	return l.party(r.Asker), nil
 }
 
-// Taker gives who takes a request: the worker a routine names, or else
-// the team's taker as the office is read now, and whether that is a
+// Lead gives who answers a request: the worker a routine names, or else
+// the team's lead as the office is read now, and whether that is a
 // person. A request whose team has gone has none.
-func (s *Store) Taker(n int64) (string, bool, error) {
+func (s *Store) Lead(n int64) (string, bool, error) {
 	l, err := s.look(s.db)
 	if err != nil {
 		return "", false, err
@@ -165,7 +165,7 @@ func (s *Store) Taker(n int64) (string, bool, error) {
 	case r.Worker != "":
 		return r.Worker, false, nil
 	}
-	return t.Takes, l.o.People[t.Takes] != nil, nil
+	return t.Lead, l.o.People[t.Lead] != nil, nil
 }
 
 // OpenOf gives a team's open requests, those working or waiting on

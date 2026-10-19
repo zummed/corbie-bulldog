@@ -12,7 +12,7 @@ A broken bridge stops only itself, as a broken worker does: an entry with no fol
 
 ## Places
 
-A bridge's settings list, under `places`, the places it listens in, each by its name in the bridge's own words: a channel, a project, or `direct`, which is anything said to the bridge directly. Each place says which `team` takes what is asked there, the office if it names none, and whether `guests` may ask there, which they may not unless it says so. That is all of the settings Bulldog reads; the rest, and anything else a place holds, is the bridge's, handed on and not read.
+A bridge's settings list, under `places`, the places it listens in, each by its name in the bridge's own words: a channel, a project, or `direct`, which is anything said to the bridge directly. Each place says which `team` is asked there, the office if it names none, and whether `guests` may ask there, which they may not unless it says so. That is all of the settings Bulldog reads; the rest, and anything else a place holds, is the bridge's, handed on and not read.
 
 ```yaml
 bridges:
@@ -24,7 +24,7 @@ bridges:
       platform/api: { team: platform }
 ```
 
-A listed place is wider than where a thing is said in it: what is said in a thread of #help is heard in #help, and said at that thread. Something asked in a listed place begins a request to the team the place names, whose origin is where it was said, and that team's taker starts on it. A direct message to the bridge is a place like any other, and begins a request only when `direct` is listed. What is said in a place not listed begins nothing, is said in no request, and has nothing sent back for it; the one thing taken from anywhere is an answer to what Bulldog sent its sender directly, a choice included, so a person decides by a direct message on a bridge whose `direct` is not listed. Each team a place names is a team of the office, which Office checks.
+A listed place is wider than where a thing is said in it: what is said in a thread of #help is heard in #help, and said at that thread. Something asked in a listed place begins a request to the team the place names, whose origin is where it was said, and that team's lead starts on it. A direct message to the bridge is a place like any other, and begins a request only when `direct` is listed. What is said in a place not listed begins nothing, is said in no request, and has nothing sent back for it; the one thing taken from anywhere is an answer to what Bulldog sent its sender directly, a choice included, so a person decides by a direct message on a bridge whose `direct` is not listed. Each team a place names is a team of the office, which Office checks.
 
 ## In
 
@@ -47,7 +47,7 @@ A one-time sign-in link is no entry of any request. The server has it carried to
 
 ## Who is speaking
 
-A bridge gives the identity of the sender, never of the place: a message and a press of a button are matched the same way. Bulldog matches it to the one person the office writes down with that identity on that bridge. Someone it matches to nobody is a **guest**. A guest may ask only in a listed place whose settings say `guests: true`, `direct` among them, and is answered there; what a guest says anywhere else is not taken, and nothing is sent back; a choice a guest makes anywhere else is given to no decision, and is only answered. A guest's request shows the bridge and the identity it gave, so that a person can be written down for them and the team's taker knows who is asking.
+A bridge gives the identity of the sender, never of the place: a message and a press of a button are matched the same way. Bulldog matches it to the one person the office writes down with that identity on that bridge. Someone it matches to nobody is a **guest**. A guest may ask only in a listed place whose settings say `guests: true`, `direct` among them, and is answered there; what a guest says anywhere else is not taken, and nothing is sent back; a choice a guest makes anywhere else is given to no decision, and is only answered. A guest's request shows the bridge and the identity it gave, so that a person can be written down for them and the team's lead knows who is asking.
 
 Who a person is on each bridge is their entry in the files, so changing it, their own entry included, is a change to the office decided like any other, as Changes says, since changing who someone is on a bridge is just what a person taking over their account would do.
 
@@ -74,7 +74,7 @@ A new office has only the built-in chat; the house's first change is Sam adding 
 ## Interfaces
 
 - **Office** reads the `bridges` listing, the teams its places name, which it checks are the office's, and each person's identity on each bridge, and says which model a word names in a bridge's machines; it checks both machines of every bridge with Corbie, and shows a broken bridge as a problem of that bridge, which stops only it.
-- **Requests** takes each entry, guest and status Bulldog makes of what was heard, a new request going to the team its listed place names, whose taker starts on it, shows a status at the source and stops a request's work when its source thing is closed, says who may say more in a request and who may still answer what was sent, makes an answered request working again when more is said in it, keeps that a sub-request has no place, keeps a request's origin and its readers, keeps the files copied out of an in run, and says what each person may see, which is all a bridge carries.
+- **Requests** takes each entry, guest and status Bulldog makes of what was heard, a new request going to the team its listed place names, whose lead starts on it, shows a status at the source and stops a request's work when its source thing is closed, says who may say more in a request and who may still answer what was sent, makes an answered request working again when more is said in it, keeps that a sub-request has no place, keeps a request's origin and its readers, keeps the files copied out of an in run, and says what each person may see, which is all a bridge carries.
 - **Decisions** says who decides, is given each choice with the checked identity of who made it, and gives the sentence carried back for it; a bridge accepts nothing on that identity's behalf.
 - **Work** starts every in and out run with its labels, from the definitions as Office filled them, and finds them again after a restart.
 - **Server** serves the built-in chat, and the address at which a bridge that hears is called, and has a one-time sign-in link carried to a person's direct place, choosing the bridge and being told how its out run ended.

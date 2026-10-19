@@ -160,7 +160,7 @@ func TestBridgesNothingEchoed(t *testing.T) {
 	if got := d.carry(); len(got) != 0 {
 		t.Errorf("Dana's words are carried to %v", places(got))
 	}
-	// Dana takes what is asked of support: her answer, said in the thread
+	// Dana is support's lead: her answer, said in the thread
 	// it answers, is not carried back there.
 	d.delivered("slack", said("U0RAJ000", "#support", "C2/1.0", "who looks after refunds?"))
 	support := d.latest()

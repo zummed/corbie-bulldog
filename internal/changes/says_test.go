@@ -50,10 +50,10 @@ func TestChangesSayWhatChangesInTeams(t *testing.T) {
 	files["garden/team.yaml"] += "release: [sam]\n"
 	f := newOffice(t, files)
 	change := map[string]string{
-		"pond/team.yaml": "name: The pond\nabout: The water.\npeople: [sam]\ntakes: sam\n",
+		"pond/team.yaml": "name: The pond\nabout: The water.\npeople: [sam]\nlead: sam\n",
 		"office.yaml": replaced(t, files, "office.yaml",
 			"about: The house and everything in it, but the garden.", "about: The house, and the pond.",
-			"takes: steward", "takes: clerk",
+			"lead: steward", "lead: clerk",
 			"  everything: [sam]\n", "  everything: [sam, kit]\n",
 			"  - { at: \"18:00\"", "  - { at: \"07:00\", to: bins, say: \"Morning\" }\n  - { at: \"18:00\"",
 			"models:\n", "models:\n  quick: { name: haiku, service: claude-code }\n",
@@ -77,7 +77,7 @@ func TestChangesSayWhatChangesInTeams(t *testing.T) {
 	has(t, all, "the garden moves from within the house to within the pond")
 	has(t, all, "the house looks after: The house, and the pond.")
 	has(t, check.LetsMoreBy, "kit is named in the garden")
-	has(t, check.Says, "clerk takes what is asked of the house")
+	has(t, check.Says, "clerk is the lead of the house")
 	has(t, check.Says, "the house decides everything by sam, kit, where it was sam")
 	has(t, check.LetsMoreBy, "the garden's release check is taken away")
 	has(t, check.Says, "the house has a routine: at 07:00, bins is told \"Morning\"")

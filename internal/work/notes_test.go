@@ -11,7 +11,7 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 )
 
-// noting has the taker of a request write notes, one call a turn, and
+// noting has the lead of a request write notes, one call a turn, and
 // answer with every result it was given.
 func noting(word string, writes ...map[string]any) (func(testkit.Turn) testkit.Reply, *[]string) {
 	var results []string

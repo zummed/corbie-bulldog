@@ -100,7 +100,7 @@ func TestWorkAnswerGoesToOnePlace(t *testing.T) {
 	}
 	b.answered(n)
 	// The answer went to the tool, and is no entry that starts the
-	// taker: saying more starts a run given only what was said.
+	// lead: saying more starts a run given only what was said.
 	b.say(n, "kit", "and the fuse?")
 	run := b.started(n, 2)
 	said := fmt.Sprint(b.input(run.Name)["said"])
@@ -272,7 +272,7 @@ func TestAskTeamMakesASubRequest(t *testing.T) {
 	}
 }
 
-func TestAPersonTakersAnswerIsTheToolsResult(t *testing.T) {
+func TestTheAnswerOfALeadWhoIsAPersonIsTheToolsResult(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
 	b.says(func(turn testkit.Turn) testkit.Reply {
@@ -284,7 +284,7 @@ func TestAPersonTakersAnswerIsTheToolsResult(t *testing.T) {
 	n := b.chat("al", "", "customer 4411 was charged twice")
 	s := b.waitsOn(n, requests.KindSub)
 	if runs := b.runs(s.Sub); len(runs) != 0 {
-		t.Errorf("a run started for a team Dana takes: %+v", runs)
+		t.Errorf("a run started for a team whose lead is Dana: %+v", runs)
 	}
 	if _, err := b.reqs.Say(s.Sub, b.reqs.Person("dana"), "Yes, on Tuesday.", nil, requests.Screens); err != nil {
 		t.Fatal(err)
@@ -321,7 +321,7 @@ func TestAskTeamIsRefusedEightLevelsDown(t *testing.T) {
 	t.Parallel()
 	files := house(t)
 	for i := 1; i <= 9; i++ {
-		files[fmt.Sprintf("a%d/team.yaml", i)] = fmt.Sprintf("name: A%d\npeople: [sam]\ntakes: w%d\n", i, i)
+		files[fmt.Sprintf("a%d/team.yaml", i)] = fmt.Sprintf("name: A%d\npeople: [sam]\nlead: w%d\n", i, i)
 		files[fmt.Sprintf("a%d/w%d.yaml", i, i)] = fmt.Sprintf("agent: w%d\ninput: [said]\nmodel: usual\nprompt: ${input.said}\ntools_file: [../.bulldog/talk.yaml]\n", i)
 	}
 	b := newBench(t, files)
@@ -391,11 +391,11 @@ func TestWorkEveryShippedToolIsDone(t *testing.T) {
 	holds(t, "a tool in no file Bulldog ships", b.answered(n).Text, `Bulldog does no tool called "read_notes"`)
 }
 
-// caller is the house with a desk, whose taker is a flow that makes one
+// caller is the house with a desk, whose lead is a flow that makes one
 // call of a shipped tool, its waiting chart written in place, and answers
 // with its result.
 func caller(files map[string]string, tool, args string) map[string]string {
-	files["desk/team.yaml"] = "name: The desk\nabout: Papers.\npeople: [sam, kit]\ntakes: filer\n"
+	files["desk/team.yaml"] = "name: The desk\nabout: Papers.\npeople: [sam, kit]\nlead: filer\n"
 	files["desk/filer.yaml"] = "flow: filer\ninput: [said]\nstages:\n  a:\n    job:\n" + indent(callChart(tool, args), 6) + "output: ${stages.a.output}\n"
 	return files
 }

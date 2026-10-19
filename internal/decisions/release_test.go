@@ -11,7 +11,7 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 )
 
-// answerOf gives a request's answer by its taker, or "" while it has none.
+// answerOf gives a request's answer by its lead, or "" while it has none.
 func (b *bench) answerOf(n int64) string {
 	b.t.Helper()
 	got := b.entries(n, requests.KindAnswer)
@@ -112,10 +112,10 @@ func TestReleasedAsDecidedRefusedGoesBack(t *testing.T) {
 	}
 }
 
-func TestPersonTakersHeldAnswerRefused(t *testing.T) {
+func TestHeldAnswerOfALeadWhoIsAPersonRefused(t *testing.T) {
 	t.Parallel()
 	files := work(t)
-	files["support/team.yaml"] = "name: Support\npeople: [dana]\ntakes: dana\nrelease: [./refuse-all.js]\n"
+	files["support/team.yaml"] = "name: Support\npeople: [dana]\nlead: dana\nrelease: [./refuse-all.js]\n"
 	files["support/refuse-all.js"] = `return { says: "refuse", note: "say it kindly" }`
 	b := newBench(t, files)
 	top := b.chat("al", "office", "a customer is cross")
@@ -137,7 +137,7 @@ func TestPersonTakersHeldAnswerRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.ContainsFunc(ws, func(w requests.Wait) bool { return w.Request == sub.Number && w.Kind == requests.KindTaker }) {
+	if !slices.ContainsFunc(ws, func(w requests.Wait) bool { return w.Request == sub.Number && w.Kind == requests.KindLead }) {
 		t.Fatalf("the sub-request does not wait on Dana again: %+v", ws)
 	}
 	r := b.entries(sub.Number, decisions.KindDecided)[0]
@@ -158,7 +158,7 @@ func TestPersonTakersHeldAnswerRefused(t *testing.T) {
 
 func TestDecisionsRefusedReleaseNotToldOutside(t *testing.T) {
 	t.Parallel()
-	b := newBench(t, withPayments(t, "name: Payments\npeople: [lee, priya]\ntakes: ledger\ndecide: { everything: [lee, priya] }\nrelease: [./refuse-all.js]\n"))
+	b := newBench(t, withPayments(t, "name: Payments\npeople: [lee, priya]\nlead: ledger\ndecide: { everything: [lee, priya] }\nrelease: [./refuse-all.js]\n"))
 	top, sub := b.helpRequest()
 	for range 3 {
 		id := b.ledgerAnswers(sub, "Card 4111 was refunded.")
@@ -321,10 +321,10 @@ func TestDecisionsReleaseReadsCurrentNotes(t *testing.T) {
 	}
 }
 
-func TestPersonTakersHeldAnswerLeftByAStopIsHandedOnce(t *testing.T) {
+func TestHeldAnswerOfALeadWhoIsAPersonLeftByAStopIsHandedOnce(t *testing.T) {
 	t.Parallel()
 	files := work(t)
-	files["support/team.yaml"] = "name: Support\npeople: [dana]\ntakes: dana\nrelease: [./yes.js]\n"
+	files["support/team.yaml"] = "name: Support\npeople: [dana]\nlead: dana\nrelease: [./yes.js]\n"
 	files["support/yes.js"] = `return { says: "yes" }`
 	b := newBench(t, files)
 	top := b.chat("al", "office", "a customer is cross")

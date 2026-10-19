@@ -141,8 +141,8 @@ func TestChangesAWorkerCannotChangeWhoDecidesAChange(t *testing.T) {
 		t.Errorf("a worker's change to a rule on the everything list is checked %v", check.Refused)
 	}
 	// With no everything, the top team's people decide.
-	g := newOffice(t, map[string]string{"office.yaml": "everyone: { sam: {}, kit: {} }\npeople: [sam]\ntakes: sam\n"})
-	g.write(1, "office.yaml", "everyone: { sam: {}, kit: {} }\npeople: [sam, kit]\ntakes: sam\n")
+	g := newOffice(t, map[string]string{"office.yaml": "everyone: { sam: {}, kit: {} }\npeople: [sam]\nlead: sam\n"})
+	g.write(1, "office.yaml", "everyone: { sam: {}, kit: {} }\npeople: [sam, kit]\nlead: sam\n")
 	if check := g.check(1); !strings.Contains(strings.Join(check.Refused, "\n"), "top team's people") {
 		t.Errorf("a worker's change to the top team's people is checked %v", check.Refused)
 	}

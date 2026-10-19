@@ -13,7 +13,7 @@ import (
 // What a run of a team's worker is given is put together here, from the
 // files and the request as they are when it starts, and kept nowhere.
 
-// given gives the three inputs of a taker's run on a request: what is new
+// given gives the three inputs of a lead's run on a request: what is new
 // to it, as text; everything it is to know, as text a model reads well;
 // and the same as data.
 func (w *Work) given(o *office.Office, rd ready) (map[string]any, error) {

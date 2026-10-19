@@ -390,7 +390,7 @@ func TestBridgesRefusedAskingIsTrouble(t *testing.T) {
 	d := open(t, replace(t, work(t), "bot.yaml", "model: usual", "model: nosuchmodel"))
 	d.delivered("slack", said("U0DANA00", "#help", "C1/1.0", "customer 4411 was charged twice"))
 	if d.latest() != 0 {
-		t.Fatal("a request was made for a taker that cannot run")
+		t.Fatal("a request was made for a lead that cannot run")
 	}
 	troubles, err := d.Troubles()
 	must(t, err)

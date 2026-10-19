@@ -323,8 +323,8 @@ func TestChangesAnUnfitChangeIsNotPut(t *testing.T) {
 func TestChangesWrittenAndReadAgain(t *testing.T) {
 	t.Parallel()
 	f := newOffice(t, house(t))
-	f.write(1, "office.yaml", strings.Replace(house(t)["office.yaml"], "takes: steward", "takes: clerk", 1))
-	p := f.put(1, "The clerk takes what is asked")
+	f.write(1, "office.yaml", strings.Replace(house(t)["office.yaml"], "lead: steward", "lead: clerk", 1))
+	p := f.put(1, "The clerk is the lead")
 	o := f.yes(p.ID, "sam", "")
 	if o.Ended != Written {
 		t.Fatal(o)
@@ -335,8 +335,8 @@ func TestChangesWrittenAndReadAgain(t *testing.T) {
 	if h := f.history()[0]; h.ID != o.Commit || !slices.Equal(h.Files, []string{"office.yaml"}) {
 		t.Errorf("the newest commit is %+v", h)
 	}
-	if got := f.keeper.Office().TopTeam().Takes; got != "clerk" {
-		t.Errorf("the office read again is taken by %s", got)
+	if got := f.keeper.Office().TopTeam().Lead; got != "clerk" {
+		t.Errorf("the office read again has the lead %s", got)
 	}
 }
 

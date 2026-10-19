@@ -77,7 +77,7 @@ func listTeam(out io.Writer, o *office.Office, t *office.Team) []string {
 	}
 	fmt.Fprintln(out, head)
 	fmt.Fprintf(out, "  people: %s\n", orNone(strings.Join(t.People, ", ")))
-	fmt.Fprintf(out, "  takes: %s\n", orNone(t.Takes))
+	fmt.Fprintf(out, "  lead: %s\n", orNone(t.Lead))
 	fmt.Fprintf(out, "  decides everything: %s\n", decidedBy(o, t.Name, "everything"))
 	for _, l := range t.Decide {
 		if l.Key != "everything" {
@@ -165,7 +165,7 @@ func listBridge(out io.Writer, o *office.Office, b *office.Bridge) {
 	}
 	var places []string
 	for _, p := range b.Places {
-		place := fmt.Sprintf("%s, taken by %s", p.Name, o.Teams[p.Team].Called)
+		place := fmt.Sprintf("%s, where %s is asked", p.Name, o.Teams[p.Team].Called)
 		if p.Guests {
 			place += ", where guests may ask"
 		}

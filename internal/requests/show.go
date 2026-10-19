@@ -54,7 +54,7 @@ func (l *look) party(w Who) Party {
 }
 
 // waitingOn gives everyone a request waits on: those its open entries wait
-// on, and the person who is its taker while it is not answered and their
+// on, and the person who is its lead while it is not answered and their
 // answer is not held.
 func (l *look) waitingOn(r *Request, ws []wait) []Who {
 	var on []Who
@@ -68,32 +68,31 @@ func (l *look) waitingOn(r *Request, ws []wait) []Who {
 			add(w.who)
 		}
 	}
-	if taker := l.takerWaits(r); taker != "" {
-		add(l.person(taker))
+	if lead := l.leadWaits(r); lead != "" {
+		add(l.person(lead))
 	}
 	return on
 }
 
-// takerWaits gives the person who takes a request while it waits on them:
-// it is not answered, and their answer is not held.
-func (l *look) takerWaits(r *Request) string {
+// leadWaits gives the person who is a request's lead while it waits on
+// them: it is not answered, and their answer is not held.
+func (l *look) leadWaits(r *Request) string {
 	if r.Answered || r.Held {
 		return ""
 	}
-	return l.takerPerson(r)
+	return l.leadPerson(r)
 }
 
-// takerPerson gives the person who takes a request, when its taker is a
-// person.
-func (l *look) takerPerson(r *Request) string {
+// leadPerson gives a request's lead, when its lead is a person.
+func (l *look) leadPerson(r *Request) string {
 	t := l.teamNow(r.Team, r.TeamKnown)
-	if t == nil || r.Worker != "" || l.o.People[t.Takes] == nil {
+	if t == nil || r.Worker != "" || l.o.People[t.Lead] == nil {
 		return ""
 	}
-	return t.Takes
+	return t.Lead
 }
 
-// answered says whether a request is answered: its taker's answer, or
+// answered says whether a request is answered: its lead's answer, or
 // Bulldog's last entry, has been said and nothing since, and nothing in it
 // waits on anyone. It is the one account of it, which every state, list
 // and stop reads.
@@ -216,18 +215,18 @@ func (s *Store) List(person string, f Filter) ([]Summary, error) {
 }
 
 // A Wait is one thing waiting on a person: an entry put to them that is
-// open, or a request they are the taker of.
+// open, or a request they are the lead of.
 type Wait struct {
 	Request int64
-	// Entry is the open entry, 0 for a request they take; Kind is its kind,
-	// or KindTaker.
+	// Entry is the open entry, 0 for a request they are the lead of; Kind
+	// is its kind, or KindLead.
 	Entry int64
 	Kind  string
 	Text  string
 }
 
-// KindTaker is the kind of a Wait for a request a person takes.
-const KindTaker = "taker"
+// KindLead is the kind of a Wait for a request a person is the lead of.
+const KindLead = "lead"
 
 // WaitingOn gives what waits on a person, oldest first: the one account
 // of it, which every list, count and bridge reads.
@@ -275,8 +274,8 @@ func (l *look) waitsOn(rs []*Request, ws []wait, person string) []Wait {
 				waits = append(waits, Wait{Request: r.Number, Entry: w.entry})
 			}
 		}
-		if l.takerWaits(r) == person {
-			waits = append(waits, Wait{Request: r.Number, Kind: KindTaker})
+		if l.leadWaits(r) == person {
+			waits = append(waits, Wait{Request: r.Number, Kind: KindLead})
 		}
 	}
 	return waits
@@ -393,7 +392,7 @@ func (l *look) tree(n int64) ([]Sub, error) {
 }
 
 // answerOf gives the latest answer in a sub-request's thread, of what was
-// done: its taker's, or Bulldog's entry to its asker saying why there is
+// done: its lead's, or Bulldog's entry to its asker saying why there is
 // none. It is nil while there is none.
 func (l *look) answerOf(r *Request, es []Entry) *Entry {
 	for i, e := range slices.Backward(es) {
