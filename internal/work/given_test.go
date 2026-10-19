@@ -3,6 +3,7 @@ package work
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -235,6 +236,30 @@ func TestWorkRunToldTrulyWhereItsAnswerGoes(t *testing.T) {
 		t.Fatal(err)
 	}
 	holds(t, "a routine's run", b.prompt(routine.Say), "Your last reply is your answer, said to the people of The garden: Sam, Kit. An empty reply says nothing.")
+
+	// A guest asks payments in #refunds, and its rule refuses every
+	// answer: the ledger, started again on the refusal, is not told that
+	// an empty reply says nothing, for its empty reply is not disclosed.
+	files = payments(t)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], `"#help": { guests: true }`,
+		`"#help": { guests: true }`+"\n      \"#refunds\": { team: payments, guests: true }", 1)
+	files["payments/team.yaml"] = strings.Replace(files["payments/team.yaml"], "disclosure: [./no-cards.js]", "disclosure: [./refuse-all.js]", 1)
+	files["payments/refuse-all.js"] = "return { says: \"refuse\", note: \"never the card ending 1111\" }\n"
+	b = newBench(t, files)
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		if strings.Contains(turn.Prompt(), "never the card ending 1111") {
+			return testkit.Say("")
+		}
+		return testkit.Say("Duplicate on the card ending 1111.")
+	})
+	refunds := must(b.reqs.AskAt("slack", "#refunds", "#refunds/1700.2", "U0GUEST1", "was 4411 charged twice?", nil)).Number
+	again := b.prompt("never the card ending 1111")
+	holds(t, "a run started again on a refusal", again, "Your last reply is your answer, said to a guest (U0GUEST1 on slack) on slack, in #refunds/1700.2.")
+	holdsNone(t, "a run started again on a refusal", again, "An empty reply says nothing.")
+	b.settled(refunds, requests.Answered)
+	if told := b.toldAsker(refunds); !slices.Equal(told, []string{"payments did not disclose its answer (refuse-all.js)"}) {
+		t.Errorf("Bulldog told the guest %q", told)
+	}
 }
 
 func TestWorkTimesInTheOfficeZone(t *testing.T) {

@@ -55,7 +55,7 @@ func (w *Work) given(o *office.Office, rd ready) (map[string]any, error) {
 		}
 	}
 	g := &giving{o: o, now: w.clock.Now().In(o.Zone), r: r, team: team, worker: rd.worker.Name, asker: asker, top: top, readers: readers,
-		subs: subs, notes: notes, open: open, thread: rd.thread, fresh: rd.fresh}
+		subs: subs, notes: notes, open: open, thread: rd.thread, fresh: rd.fresh, again: rd.again}
 	return map[string]any{"said": g.said(), "context": g.context(), "request": g.data()}, nil
 }
 
@@ -74,6 +74,7 @@ type giving struct {
 	open    []requests.Summary
 	thread  []requests.Entry
 	fresh   []requests.Entry
+	again   bool
 }
 
 // said gives what is new for the run: one thing as it was said, and more
@@ -175,7 +176,8 @@ func (g *giving) whereText() string {
 }
 
 // answerText says where the run's answer goes, and when an empty one
-// says nothing.
+// says nothing: never for a run started again on a refusal, whose empty
+// answer says that its team did not disclose it.
 func (g *giving) answerText() string {
 	text := fmt.Sprintf("Your last reply is your answer, said to %s %s.", partyText(g.asker), originText(g.r.Origin))
 	switch {
@@ -184,7 +186,7 @@ func (g *giving) answerText() string {
 	case g.r.Origin.Kind == requests.ByRoutine:
 		text = fmt.Sprintf("Your last reply is your answer, said to the people of %s: %s.", g.team.Called, partiesText(g.readers))
 	}
-	if g.r.Origin.Quiet() {
+	if g.r.Origin.Quiet() && !g.again {
 		text += " An empty reply says nothing."
 	}
 	return text
