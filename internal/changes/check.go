@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"path"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -261,8 +262,9 @@ func paths(files []File) []string {
 // guard says what in a worker's draft is a person's to write: the people
 // of the office and how each is reached; who decides a change to the
 // office, the files of the rules and workers on the top team's change and
-// everything lists and the models those workers take; and a bridge's in
-// machine and the files it uses.
+// everything lists and the models those workers take; a bridge's in
+// machine and the files it uses; and which bridges the office has, with
+// every setting of each but its places.
 func guard(was, now *office.Office, folder, laid map[string][]byte, files []File) []string {
 	var out []string
 	touched := map[string]bool{}
@@ -367,6 +369,33 @@ func guard(was, now *office.Office, folder, laid map[string][]byte, files []File
 			}
 		}
 	}
+	for _, name := range union(was.BridgeOrder, now.BridgeOrder) {
+		const why = "a bridge's entry, its from and its settings but places are a person's to write"
+		a, b := bridgeEntry(was, name), bridgeEntry(now, name)
+		switch {
+		case a == nil && b == nil:
+		case a == nil:
+			out = append(out, fmt.Sprintf("it adds the bridge %s: %s", name, why))
+		case b == nil:
+			out = append(out, fmt.Sprintf("it takes the bridge %s away: %s", name, why))
+		default:
+			var changed []string
+			for key := range a {
+				if key != "places" && !reflect.DeepEqual(a[key], b[key]) {
+					changed = append(changed, key)
+				}
+			}
+			for key := range b {
+				if _, ok := a[key]; !ok && key != "places" {
+					changed = append(changed, key)
+				}
+			}
+			slices.Sort(changed)
+			if len(changed) > 0 {
+				out = append(out, fmt.Sprintf("it changes %s %s: %s", of(name), strings.Join(changed, ", "), why))
+			}
+		}
+	}
 	// A file newly under bridges/ whose bridge is not read as one still may
 	// be an in machine.
 	for _, f := range files {
@@ -375,6 +404,17 @@ func guard(was, now *office.Office, folder, laid map[string][]byte, files []File
 		}
 	}
 	return out
+}
+
+// bridgeEntry gives a bridge's settings as office.yaml writes them, or nil
+// where office.yaml names no such bridge.
+func bridgeEntry(o *office.Office, name string) map[string]any {
+	b := o.Bridges[name]
+	if b == nil {
+		return nil
+	}
+	settings, _ := b.Settings.(map[string]any)
+	return settings
 }
 
 func sortedIDs(p *office.Person) []string {

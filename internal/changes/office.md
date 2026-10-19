@@ -54,7 +54,7 @@ routines:
 
 A decider is a person, a worker of any team by its name, or a rule by its path, in the team's own folder, as `./small-orders.js`, or among those Bulldog ships, in `.bulldog/rules/` at the top of the office. In a list every rule and worker comes before every person.
 
-The people of the office, how each is reached, who decides a change to the office and a bridge's in machine are a person's to write: a builder's draft that changes any of them is refused, and from outside you say what you would write there and let the person write it.
+The people of the office, how each is reached, who decides a change to the office, a bridge's in machine, and a bridge's entry with its `from` and every setting but its places are a person's to write: a builder's draft that changes any of them is refused, and from outside you say what you would write there and let the person write it.
 
 ## A worker
 
@@ -142,7 +142,7 @@ stages:
 output: ${stages.say.output}
 ```
 
-The in machine says who a person is, and so is a person's to write.
+The in machine says who a person is, and so is a person's to write. So is a bridge's entry, its `from` and every setting but its places, since they say what it runs, where it listens and whom it signs in as; a builder may draft a change to its places.
 
 ## Notes
 

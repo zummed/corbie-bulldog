@@ -4,7 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zummed/corbie-bulldog/examples"
 	"github.com/zummed/corbie-bulldog/internal/office"
+	"github.com/zummed/corbie-bulldog/internal/testkit"
 )
 
 func TestChangesCheckSaysEveryProblemTogether(t *testing.T) {
@@ -153,7 +155,7 @@ func TestChangesAWorkerCannotChangeWhoDecidesAChange(t *testing.T) {
 	}
 }
 
-func TestChangesAWorkerCannotChangeAnInMachine(t *testing.T) {
+func TestChangesAWorkerCannotSetABridge(t *testing.T) {
 	t.Parallel()
 	f := newOffice(t, house(t))
 	f.write(1, "bridges/telegram/in.yaml", house(t)["bridges/telegram/in.yaml"]+"# changed\n")
@@ -189,6 +191,33 @@ func TestChangesAWorkerCannotChangeAnInMachine(t *testing.T) {
 	if check := g.check(1); !strings.Contains(strings.Join(check.Refused, "\n"), "bridges/slack/in.yaml") {
 		t.Errorf("a worker's new bridge is checked %v", check.Refused)
 	}
+	// A bridge's entry, its from and its settings but places are a
+	// person's to write, for a bridge Bulldog ships too.
+	files := testkit.Files(t, examples.Work())
+	w := newOffice(t, files)
+	for request, c := range map[int64]struct{ office, refused string }{
+		1: {replaced(t, files, "office.yaml", "site: gitlab.com", "site: gitlab.example.com"), "it changes gitlab's site"},
+		2: {replaced(t, files, "office.yaml", "    site: gitlab.com\n", "    site: gitlab.com\n    email: bot@example.com\n"), "it changes gitlab's email"},
+		3: {replaced(t, files, "office.yaml", "./.bulldog/bridges/slack", "./.bulldog/bridges/telegram"), "it changes slack's from"},
+		4: {replaced(t, files, "office.yaml", "bridges:\n", "bridges:\n  telegram: { from: ./.bulldog/bridges/telegram, places: { direct: {} } }\n"), "it adds the bridge telegram"},
+		5: {replaced(t, files, "office.yaml", "  gitlab:\n    from: ./.bulldog/bridges/gitlab\n    site: gitlab.com\n    places:\n      platform/api: { team: platform }\n", "", `, gitlab: "1041"`, "", `, gitlab: "1187"`, ""), "it takes the bridge gitlab away"},
+	} {
+		w.write(request, "office.yaml", c.office)
+		if check := w.check(request); !strings.Contains(strings.Join(check.Refused, "\n"), c.refused) {
+			t.Errorf("a worker's change %d to a bridge's entry is checked %v", request, check.Refused)
+		}
+		draft, _ := w.c.Drafted(ctx, request)
+		if mine, _ := w.c.Check(ctx, draft, Drafter{Name: "al", Person: true}); len(mine.Refused) > 0 {
+			t.Errorf("a person's change %d is refused %v", request, mine.Refused)
+		}
+	}
+	// Its places are a worker's to draft, set apart for a person to see.
+	w.write(6, "office.yaml", replaced(t, files, "office.yaml", "      platform/api: { team: platform }\n", "      platform/api: { team: platform }\n      platform/web: { team: platform }\n"))
+	check := w.check(6)
+	if len(check.Refused) > 0 {
+		t.Errorf("a worker's change to a bridge's places is refused %v", check.Refused)
+	}
+	has(t, check.LetsMoreBy, "gitlab's settings are changed")
 }
 
 // inPlaceIn gives the house with a machine written in place in the

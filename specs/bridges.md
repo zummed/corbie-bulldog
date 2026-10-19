@@ -81,4 +81,4 @@ A new office has only the built-in chat; the house's first change is Sam setting
 - **Decisions** says who decides, is given each choice with the checked identity of who made it, and gives the sentence carried back for it; a bridge accepts nothing on that identity's behalf.
 - **Work** starts every in and out run with its labels, from the definitions as Office filled them, and finds them again after a restart.
 - **Server** serves the built-in chat, and the address at which a bridge that hears is called, and has a one-time sign-in link carried to a person's direct place, choosing the bridge and being told how its out run ended.
-- **Changes** writes a bridge's entry, a shipped bridge's `from` among it, any change to a bridge, its places or a person's identity on it, their own included, as a change decided like any other; an in machine is a person's to write.
+- **Changes** writes a bridge's entry, a shipped bridge's `from` among it, any change to a bridge, its places or a person's identity on it, their own included, as a change decided like any other; a bridge's entry, its `from` and its settings but its places, and an in machine, are a person's to write.

@@ -217,6 +217,8 @@ func TestChangesWhatLetsMoreBy(t *testing.T) {
 	broken["clerk.yaml"] += "nonsense: 1\n"
 	brokenRule := work(t)
 	brokenRule["payments/no-account-numbers.yaml"] += "nonsense: 1\n"
+	// The work office with the bridges Bulldog ships.
+	shippedWork := testkit.Files(t, examples.Work())
 	// The house with no bridge, to which one is added.
 	bridgeless := map[string]string{}
 	for file, text := range house(t) {
@@ -252,6 +254,8 @@ func TestChangesWhatLetsMoreBy(t *testing.T) {
 		{broken, map[string]string{"clerk.yaml": house(t)["clerk.yaml"] + "tools:\n  fetch: { does: Fetch, args: {}, job: { script: ./tools/order.js, allow: [net:evil.example] } }\n"}, "clerk may connect to evil.example"},
 		{brokenRule, map[string]string{"payments/no-account-numbers.yaml": replaced(t, w, "payments/no-account-numbers.yaml", "allow: [net:screen.example.com,", "allow: [net:evil.example, net:screen.example.com,")}, "rule payments/no-account-numbers.yaml may connect to evil.example"},
 		{house(t), map[string]string{"office.yaml": replaced(t, house(t), "office.yaml", "      direct: {}", "      direct: {}\n    token: other")}, "telegram's settings are changed"},
+		{shippedWork, map[string]string{"office.yaml": replaced(t, shippedWork, "office.yaml", "./.bulldog/bridges/slack", "./.bulldog/bridges/telegram")}, "slack's settings are changed"},
+		{shippedWork, map[string]string{"office.yaml": replaced(t, shippedWork, "office.yaml", "      platform/api: { team: platform }\n", "      platform/api: { team: platform }\n      platform/web: { team: platform }\n")}, "gitlab's settings are changed"},
 	} {
 		f := newOffice(t, c.files)
 		check := saysOf(t, f, c.change)
