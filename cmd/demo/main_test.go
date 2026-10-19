@@ -355,8 +355,8 @@ func TestDemoPlaysTheHouseDay(t *testing.T) {
 	t.Parallel()
 	type turn struct{ told, does string }
 	given := func(said, open string) string {
-		return "Request 9. Asked by Kit, a person of the office, who is in The house.\n\nThe thread so far:\n" + open +
-			"\nWhat is new for you: " + said + "\n\nYour last reply is your answer, said to Kit in the chat."
+		return "Request 9. Asked by Kit, a person of the office, who is in The house.\n\n" + open +
+			"New for you:\n[Mon 5 Oct 2026 10:00 BST] Kit to The house: " + said + "\n\nYour last reply is your answer, said to Kit in the chat."
 	}
 	for _, part := range []struct {
 		name, worker, asked string
@@ -379,7 +379,7 @@ func TestDemoPlaysTheHouseDay(t *testing.T) {
 			{"", "use clerk"}, {"This month the house spent £12.", "The clerk says: This month the house spent £12."}}},
 		{"the clerk", "clerk.yaml", "what have we spent this month?", []turn{{"", "spent £12"}}},
 		{"the walk round", "steward.yaml", given("Walk round: what is still open?",
-			"\nThe open requests of The house, newest first; you act on none of them:\n- Request 2, asked by Sam, waiting: the bathroom fan has stopped\n"),
+			"The open requests of The house, newest first; you act on none of them:\n- Request 2, asked by Sam, waiting: the bathroom fan has stopped\n\n"),
 			[]turn{{"", "- Request 2, asked by Sam, waiting: the bathroom fan has stopped"}}},
 		{"the shed", "steward.yaml", given("is the shed locked?", ""), []turn{
 			{"", "use ask_team"}, {"The garden, answered by its gardener:\n\nThe shed is dry inside and locked.", "The garden says: The shed is dry inside and locked."}}},

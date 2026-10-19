@@ -146,12 +146,20 @@ func walkRound(context string) testkit.Reply {
 }
 
 // said gives what a worker was asked, lower-cased: of a run given the
-// whole context, what is new for it, and of a colleague called as a tool,
-// its whole prompt.
+// whole context, what is new for it, each entry without its time and who
+// said it, and of a colleague called as a tool, its whole prompt.
 func said(turn testkit.Turn) string {
 	asked := turn.Prompt()
-	if _, latest, ok := strings.Cut(asked, "\nWhat is new for you: "); ok {
-		asked, _, _ = strings.Cut(latest, "\n\nYour last reply")
+	if _, latest, ok := strings.Cut(asked, "\nNew for you:\n"); ok {
+		latest, _, _ = strings.Cut(latest, "\n\nYour last reply")
+		var lines []string
+		for _, line := range strings.Split(latest, "\n") {
+			if _, words, ok := strings.Cut(line, "] "); ok && strings.HasPrefix(line, "[") {
+				_, line, _ = strings.Cut(words, ": ")
+			}
+			lines = append(lines, line)
+		}
+		asked = strings.Join(lines, "\n")
 	}
 	return strings.ToLower(asked)
 }

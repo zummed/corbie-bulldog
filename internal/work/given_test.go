@@ -30,6 +30,13 @@ func (b *bench) prompt(word string) string {
 	return prompt
 }
 
+// newFor gives what a run's context says is new for it.
+func newFor(context string) string {
+	_, fresh, _ := strings.Cut(context, "\nNew for you:\n")
+	fresh, _, _ = strings.Cut(fresh, "\n\nYour last reply")
+	return fresh
+}
+
 // holds fails the test for each part a text does not hold.
 func holds(t *testing.T, what, text string, parts ...string) {
 	t.Helper()
@@ -159,8 +166,9 @@ func TestTheRequestAsData(t *testing.T) {
 		t.Errorf("the readers are %v", readers)
 	}
 	entries, _ := d["entries"].([]any)
-	if len(entries) != 4 {
-		t.Fatalf("the entries are %v", entries)
+	fresh, _ := d["new"].([]any)
+	if len(entries) != 3 || len(fresh) != 1 || fresh[0].(map[string]any)["text"] != "and the receipt" {
+		t.Fatalf("the entries are %v, and those new %v", entries, fresh)
 	}
 	first := entries[0].(map[string]any)
 	if first["kind"] != requests.KindAsked || first["text"] != "file the bill" || first["by"].(map[string]any)["name"] != "sam" ||
@@ -273,7 +281,7 @@ func TestWorkTimesInTheOfficeZone(t *testing.T) {
 	holds(t, "the context", context, "Monday 5 October 2026, 12:00 BST, in the office's time zone, Europe/London",
 		"[Mon 5 Oct 2026 12:00 BST] Kit to The house: the kitchen socket sparked")
 	d, _ := in["request"].(map[string]any)
-	entry := d["entries"].([]any)[0].(map[string]any)
+	entry := d["new"].([]any)[0].(map[string]any)
 	if d["now"] != "2026-10-05T12:00:00+01:00" || d["zone"] != "Europe/London" || entry["time"] != "2026-10-05T12:00:00+01:00" {
 		t.Errorf("the request's times are %v, %v and %v", d["now"], d["zone"], entry["time"])
 	}
@@ -315,10 +323,45 @@ func TestTheThreadIsCutToItsNewest(t *testing.T) {
 	run := b.started(n, 3)
 	b.settled(n, requests.Answered)
 	context := b.input(run.Name)["context"].(string)
-	thread2 := context[strings.Index(context, "The thread so far:"):strings.Index(context, "What is new for you:")]
-	holds(t, "the thread given", thread2, "first words", "entries are not shown here.", "last")
+	thread2 := context[strings.Index(context, "The thread so far:"):strings.Index(context, "New for you:")]
+	holds(t, "the thread given", thread2, "first words", "entries are not shown here.", "Kit to The house: 038z")
+	holds(t, "what is new", newFor(context), "Kit to The house: last")
 	if utf8.RuneCountInString(thread2) > 21_000 {
 		t.Errorf("the thread given holds %d characters", utf8.RuneCountInString(thread2))
+	}
+}
+
+func TestWorkNewEntriesShownWithWhoSaidThem(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	n := b.chat("kit", "", "hello")
+	run := b.started(n, 1)
+	b.settled(n, requests.Answered)
+	context := b.input(run.Name)["context"].(string)
+	holds(t, "the first run's context", context, "\nNew for you:\n[Mon 5 Oct 2026 10:00 BST] Kit to The house: hello\n\nYour last reply")
+	holdsNone(t, "the first run's context", context, "The thread so far:")
+
+	long := "the log: " + strings.Repeat("x", ThreadLimit+500) + " END"
+	b.say(n, "sam", long)
+	run = b.started(n, 2)
+	b.settled(n, requests.Answered)
+	in := b.input(run.Name)
+	context = in["context"].(string)
+	thread := context[strings.Index(context, "The thread so far:"):strings.Index(context, "New for you:")]
+	holds(t, "the thread given", thread, "Kit to The house: hello")
+	holdsNone(t, "the thread given", thread, "the log: ")
+	if fresh := newFor(context); fresh != "[Mon 5 Oct 2026 10:00 BST] Sam to The house: "+long {
+		t.Errorf("what is new is given as %.200q", fresh)
+	}
+	d := in["request"].(map[string]any)
+	fresh, _ := d["new"].([]any)
+	if len(fresh) != 1 || fresh[0].(map[string]any)["text"] != long || fresh[0].(map[string]any)["by"].(map[string]any)["name"] != "sam" {
+		t.Errorf("what is new is given as data as %.200v", fresh)
+	}
+	for _, e := range d["entries"].([]any) {
+		if e.(map[string]any)["text"] == long {
+			t.Errorf("what is new is among the entries of the thread")
+		}
 	}
 }
 

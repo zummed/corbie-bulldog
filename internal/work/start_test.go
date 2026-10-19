@@ -156,7 +156,7 @@ func TestTheOfficeRunsAtMostItsRunsAtOnce(t *testing.T) {
 	}
 	b.says(func(turn testkit.Turn) testkit.Reply {
 		for word, gate := range gates {
-			if strings.Contains(turn.Prompt(), "What is new for you: "+word) {
+			if strings.HasSuffix(newFor(turn.Prompt()), ": "+word) {
 				if word == "one" && turn.Number == 1 {
 					return testkit.Use("ask_person", map[string]any{"question": "which tap?"})
 				}
@@ -213,7 +213,7 @@ func TestARequestWaitsItsTurnOldestFirst(t *testing.T) {
 	var order []string
 	for _, turn := range b.model.Turns() {
 		for _, word := range []string{"second", "third", "fourth"} {
-			if strings.Contains(turn.Prompt(), "What is new for you: "+word) {
+			if strings.HasSuffix(newFor(turn.Prompt()), ": "+word) {
 				order = append(order, word)
 			}
 		}

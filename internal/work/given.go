@@ -2,6 +2,7 @@ package work
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -14,8 +15,8 @@ import (
 // files and the request as they are when it starts, and kept nowhere.
 
 // given gives the three inputs of a lead's run on a request: what is new
-// to it, as text; everything it is to know, as text a model reads well;
-// and the same as data.
+// to it, as text; everything it is to know, as text a model reads well,
+// with what is new last; and the same as data.
 func (w *Work) given(o *office.Office, rd ready) (map[string]any, error) {
 	r := rd.r
 	team := o.Teams[r.Team]
@@ -123,16 +124,17 @@ func (g *giving) context() string {
 	line("Request %d. %s", g.r.Number, g.askedText())
 	line("%s", g.whereText())
 	line("")
-	line("The thread so far:")
-	shown, left := window(g.thread, g.entryText)
-	for i, e := range shown {
-		line("%s", g.entryText(e))
-		if i == 0 && left > 0 {
-			line("(%d entries are not shown here.)", left)
+	if shown, left := window(g.before(), g.entryText); len(shown) > 0 {
+		line("The thread so far:")
+		for i, e := range shown {
+			line("%s", g.entryText(e))
+			if i == 0 && left > 0 {
+				line("(%d entries are not shown here.)", left)
+			}
 		}
+		line("")
 	}
 	if len(g.open) > 0 {
-		line("")
 		line("The open requests of %s, newest first; you act on none of them:", g.team.Called)
 		for i, s := range g.open {
 			if i == OpenLimit {
@@ -141,9 +143,12 @@ func (g *giving) context() string {
 			}
 			line("- Request %d, asked by %s, %s: %s", s.Number, partyText(s.Asker), stateText(s.State), s.First)
 		}
+		line("")
 	}
-	line("")
-	line("What is new for you: %s", g.said())
+	line("New for you:")
+	for _, e := range g.fresh {
+		line("%s", g.entryText(e))
+	}
 	line("")
 	line("%s", g.answerText())
 	return b.String()
@@ -190,6 +195,18 @@ func (g *giving) answerText() string {
 		text += " An empty reply says nothing."
 	}
 	return text
+}
+
+// before gives the thread less what is new for the run, which is given
+// apart from it, whole.
+func (g *giving) before() []requests.Entry {
+	var rest []requests.Entry
+	for _, e := range g.thread {
+		if !slices.ContainsFunc(g.fresh, func(f requests.Entry) bool { return f.ID == e.ID }) {
+			rest = append(rest, e)
+		}
+	}
+	return rest
 }
 
 // entryText gives an entry of the thread as a line.
@@ -262,15 +279,13 @@ func notesData(notes []office.Note) []any {
 
 // data gives the same as context, as data, for a worker that is no model.
 func (g *giving) data() map[string]any {
-	shown, left := window(g.thread, g.entryText)
-	var entries []any
+	shown, left := window(g.before(), g.entryText)
+	var entries, fresh []any
 	for _, e := range shown {
-		var to []any
-		for _, w := range e.To {
-			to = append(to, whoData(g.o, w))
-		}
-		entries = append(entries, map[string]any{"id": e.ID, "kind": e.Kind, "by": whoData(g.o, e.By), "to": to, "time": g.dataTime(e.At),
-			"text": e.Text})
+		entries = append(entries, g.entryData(e))
+	}
+	for _, e := range g.fresh {
+		fresh = append(fresh, g.entryData(e))
 	}
 	var subs []any
 	for _, s := range g.subs {
@@ -303,6 +318,7 @@ func (g *giving) data() map[string]any {
 		"readers":        readers,
 		"answer_goes_to": g.answerText(),
 		"entries":        entries, "entries_not_shown": left,
+		"new":   fresh,
 		"subs":  subs,
 		"notes": noteData, "notes_not_shown": notesLeft,
 		"said": g.said(),
@@ -320,6 +336,15 @@ func (g *giving) data() map[string]any {
 		d["open_not_shown"] = max(0, len(g.open)-OpenLimit)
 	}
 	return d
+}
+
+// entryData gives an entry of the thread as data.
+func (g *giving) entryData(e requests.Entry) map[string]any {
+	var to []any
+	for _, w := range e.To {
+		to = append(to, whoData(g.o, w))
+	}
+	return map[string]any{"id": e.ID, "kind": e.Kind, "by": whoData(g.o, e.By), "to": to, "time": g.dataTime(e.At), "text": e.Text}
 }
 
 // dataTime gives a time as data: in the office's zone, with its offset.
