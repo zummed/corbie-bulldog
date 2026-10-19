@@ -118,7 +118,7 @@ const (
 )
 
 // A Decider is one of those a list names: a person, a worker of any team,
-// or a rule in the team's own folder.
+// or a rule in the team's own folder or one Bulldog ships.
 type Decider struct {
 	// Written is the entry as the list writes it.
 	Written string
@@ -230,11 +230,14 @@ const (
 	ToolBulldog = "bulldog"
 )
 
-// A Rule is a decider in its team's folder: a bare script, given the
-// decision and no permission, or a definition holding its own.
+// A Rule is a decider in its team's folder, or one Bulldog ships: a bare
+// script, given the decision and no permission, or a definition holding
+// its own. A rule Bulldog ships is one rule, of the first team that names
+// it.
 type Rule struct {
 	Team string
-	// Path is its file in the office.
+	// Path is its file in the office, or under .bulldog/ for one Bulldog
+	// ships.
 	Path string
 	// Script says it is a bare script.
 	Script bool

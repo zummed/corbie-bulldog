@@ -178,6 +178,21 @@ func TestADeciderIsAPersonAWorkerOrARule(t *testing.T) {
 	}
 }
 
+func TestARuleMayBeOneBulldogShips(t *testing.T) {
+	t.Parallel()
+	for _, entry := range []string{"./.bulldog/rules/none/none.js", "./.bulldog/tools/talk/talk.yaml"} {
+		problems := refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, sam]", "["+entry+", sam]"))
+		if p := says(t, problems, "office.yaml", entry, "no rule Bulldog ships", ".bulldog/rules/"); len(problems) != 1 {
+			t.Errorf("%s gives more than its own problem %v: %v", entry, p, problems)
+		}
+	}
+	// From a team within, Bulldog's rules are at the top of the office.
+	says(t, refused(t, replace(t, house(t), "garden/team.yaml", "everything: [sam]", "everything: [../.bulldog/rules/none/none.js, sam]")),
+		"garden/team.yaml", "../.bulldog/rules/none/none.js", "no rule Bulldog ships")
+	says(t, refused(t, replace(t, house(t), "garden/team.yaml", "everything: [sam]", "everything: [./.bulldog/rules/none/none.js, sam]")),
+		"garden/team.yaml", "./.bulldog/rules/none/none.js", "not a file of the office")
+}
+
 func TestOfficeTopEverythingNamesAPerson(t *testing.T) {
 	t.Parallel()
 	says(t, refused(t, replace(t, house(t), "office.yaml", "everything: [sam]", "everything: [./small-orders.js]")), "office.yaml", "everything names no person")

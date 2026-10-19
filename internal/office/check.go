@@ -430,10 +430,12 @@ func toolNames(tools []Tool) []string {
 
 // checkRules has Corbie check each rule the lists name that is a
 // definition, as it is written, with its models named by one word filled
-// in from its team's; a refused one is reported on its team. A bare script
-// is kept as it is written, in no definition: Corbie checks of a script
-// only that it can be read beside what names it, and the reading has
-// already found it a file of its team's folder.
+// in from its team's; a refused one is reported on its team. A rule
+// Bulldog ships is read from what it ships, and checked as it ships, with
+// nothing filled in, since it is the same rule whichever team names it. A
+// bare script is kept as it is written, in no definition: Corbie checks of
+// a script only that it can be read beside what names it, and the reading
+// has already found it a file of its team's folder or one Bulldog ships.
 func (r *reading) checkRules() {
 	for _, team := range r.o.Order {
 		t := r.o.Teams[team]
@@ -443,17 +445,25 @@ func (r *reading) checkRules() {
 				if d.Kind != IsRule || r.o.Rules[d.Name] != nil {
 					continue
 				}
-				rule := &Rule{Team: team, Path: d.Name, Script: path.Ext(d.Name) == ".js", Written: r.files[d.Name]}
+				written, ships := r.files[d.Name], false
+				if own, ok := strings.CutPrefix(d.Name, shipped.Dir+"/"); ok {
+					written, ships = shipped.File(own)
+				}
+				rule := &Rule{Team: team, Path: d.Name, Script: path.Ext(d.Name) == ".js", Written: written}
 				r.o.Rules[d.Name] = rule
 				r.o.Checked = append(r.o.Checked, d.Name)
 				if rule.Script {
 					continue
 				}
 				p := Problem{File: d.Name, Team: team, Rule: d.Name}
-				filled, _, _, problems := r.fill(rule.Written, t, d.Name)
-				for _, problem := range problems {
-					p.Text = problem
-					rule.Problems = append(rule.Problems, p)
+				filled := written
+				if !ships {
+					var problems []string
+					filled, _, _, problems = r.fill(written, t, d.Name)
+					for _, problem := range problems {
+						p.Text = problem
+						rule.Problems = append(rule.Problems, p)
+					}
 				}
 				if len(rule.Problems) == 0 {
 					draft, err := machine.Parse(filled, r.loader(dirOf(d.Name), nil))

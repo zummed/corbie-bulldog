@@ -11,6 +11,8 @@ import (
 	_ "time/tzdata" // every zone is known, wherever Bulldog runs
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/zummed/corbie-bulldog/shipped"
 )
 
 // Read reads the office in a folder. A reading that a problem in a team
@@ -571,7 +573,7 @@ func (r *reading) readList(t *Team, what string, node *yaml.Node) ([]Decider, bo
 		case r.o.Workers[entry] != nil:
 			d.Kind, d.Name = IsWorker, entry
 		default:
-			r.teamFile(t, at, "%s: %s is nobody: a decider is a person under everyone, a worker of the office, or a rule in %s's folder, by its path, as ./a-rule.js", what, entry, called(t))
+			r.teamFile(t, at, "%s: %s is nobody: a decider is a person under everyone, a worker of the office, or a rule, in %s's folder or among those Bulldog ships in %s/rules/, by its path, as ./a-rule.js", what, entry, called(t), shipped.Dir)
 			good = false
 			continue
 		}
@@ -593,14 +595,26 @@ func (r *reading) readList(t *Team, what string, node *yaml.Node) ([]Decider, bo
 }
 
 // rulePath says what is wrong with the path of a rule, by its path in the
-// office, or nothing. A rule is a bare script, a .js file, or a definition.
+// office, or nothing. A rule is a bare script, a .js file, or a definition,
+// in its team's own folder, or one Bulldog ships, in .bulldog/rules/ at the
+// top of the office, which any team may name.
 func (r *reading) rulePath(t *Team, full string) string {
+	if own, ok := strings.CutPrefix(full, shipped.Dir+"/"); ok {
+		_, ships := shipped.File(own)
+		switch ext := path.Ext(full); {
+		case !strings.HasPrefix(own, "rules/") || !ships:
+			return fmt.Sprintf("is no rule Bulldog ships: those are each named by its path in %s/rules/ at the top of the office", shipped.Dir)
+		case ext != ".js" && ext != ".yaml" && ext != ".yml":
+			return "is not a rule: a rule is a bare script, a .js file, or a Corbie definition, a .yaml file"
+		}
+		return ""
+	}
 	inside := t.Dir == "" && !strings.HasPrefix(full, "../") && full != ".." || t.Dir != "" && strings.HasPrefix(full, t.Dir+"/")
 	switch ext := path.Ext(full); {
 	case !inside:
-		return fmt.Sprintf("leaves %s's folder: a rule is in its team's own folder", called(t))
+		return fmt.Sprintf("leaves %s's folder: a rule is in its team's own folder, or is one Bulldog ships in %s/rules/", called(t), shipped.Dir)
 	case r.teamAt(dirOf(full)) != t:
-		return fmt.Sprintf("is in the folder of %s, a team within %s: a rule is in its team's own folder", r.teamAt(dirOf(full)).Name, called(t))
+		return fmt.Sprintf("is in the folder of %s, a team within %s: a rule is in its team's own folder, or is one Bulldog ships in %s/rules/", r.teamAt(dirOf(full)).Name, called(t), shipped.Dir)
 	case hasDot(full):
 		return "is not a file of the office: nothing whose name starts with a dot is the office's"
 	case ext != ".js" && ext != ".yaml" && ext != ".yml":

@@ -54,7 +54,7 @@ routines:
 | `models` | models by a name of the team's, each written as Corbie writes one, naming the secret that holds its key and never a key |
 | `zone`, `everyone`, `bridges`, `runs` | the top team's only |
 
-A decider is a person, a worker of any team by its name, or a rule in the team's own folder by its path, as `./small-orders.js`. In a list every rule and worker comes before every person.
+A decider is a person, a worker of any team by its name, or a rule by its path, in the team's own folder, as `./small-orders.js`, or among those Bulldog ships, in `.bulldog/rules/` at the top of the office. In a list every rule and worker comes before every person.
 
 The people of the office, how each is reached, who decides a change to the office and a bridge's in machine are a person's to write: a builder's draft that changes any of them is refused, and from outside you say what you would write there and let the person write it.
 
