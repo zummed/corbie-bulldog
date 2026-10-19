@@ -13,10 +13,13 @@ const (
 )
 
 // A State is where a request stands: working, waiting on someone, whom,
-// or answered.
+// or answered. Noted labels an answered request with no answer in it,
+// said or quiet: its team's heed noted every message in it, so its lead
+// never started, nothing was said, and it waits on nobody.
 type State struct {
-	Is string
-	On []Party
+	Is    string
+	On    []Party
+	Noted bool
 }
 
 // The kinds of party a Party describes, beyond those of a Who.
@@ -100,13 +103,13 @@ func (l *look) answered(r *Request, ws []wait) bool {
 	return r.Answered && !slices.ContainsFunc(ws, func(w wait) bool { return w.request == r.Number })
 }
 
-// state gives where a request stands: waiting while anything in it waits
-// on someone, answered or not.
-func (l *look) state(r *Request, ws []wait) State {
+// state gives where a request stands, with its thread: waiting while
+// anything in it waits on someone, answered or not.
+func (l *look) state(r *Request, ws []wait, es []Entry) State {
 	on := l.waitingOn(r, ws)
 	switch {
 	case len(on) == 0 && l.answered(r, ws):
-		return State{Is: Answered}
+		return State{Is: Answered, Noted: l.noted(r, es)}
 	case len(on) == 0:
 		return State{Is: Working}
 	}
@@ -115,6 +118,14 @@ func (l *look) state(r *Request, ws []wait) State {
 		st.On = append(st.On, l.party(w))
 	}
 	return st
+}
+
+// noted says whether nothing in a request was ever answered, said or
+// quiet: its team's heed noted every message in it, and nothing in it
+// answers its asker.
+func (l *look) noted(r *Request, es []Entry) bool {
+	unnoted := func(e Entry) bool { return (e.Kind == KindAsked || e.Kind == KindSaid) && !e.Noted }
+	return !slices.ContainsFunc(es, unnoted) && l.answerOf(r, es) == nil
 }
 
 // A Summary is a request as a list shows it. Of a request someone sees
@@ -138,7 +149,7 @@ func (l *look) summary(r *Request, ws []wait, person string) (Summary, error) {
 	if err != nil {
 		return Summary{}, err
 	}
-	sum := Summary{Number: r.Number, Whole: true, Team: r.Team, Asker: l.party(r.Asker), State: l.state(r, ws),
+	sum := Summary{Number: r.Number, Whole: true, Team: r.Team, Asker: l.party(r.Asker), State: l.state(r, ws, es),
 		Source: r.Source, Made: r.Made}
 	if len(es) > 0 {
 		sum.First = firstLine(es[0].Text)
@@ -378,7 +389,7 @@ func (l *look) tree(n int64) ([]Sub, error) {
 		if err != nil {
 			return nil, err
 		}
-		sub := Sub{Number: r.Number, Team: r.Team, State: l.state(r, ws)}
+		sub := Sub{Number: r.Number, Team: r.Team, State: l.state(r, ws, es)}
 		sub.Question = es[0].Text
 		if answer := l.answerOf(r, es); answer != nil {
 			sub.Answer = answer.Text
@@ -391,7 +402,7 @@ func (l *look) tree(n int64) ([]Sub, error) {
 	return tree, nil
 }
 
-// answerOf gives the latest answer in a sub-request's thread, of what was
+// answerOf gives the latest answer in a request's thread, of what was
 // done: its lead's, or Bulldog's entry to its asker saying why there is
 // none. It is nil while there is none.
 func (l *look) answerOf(r *Request, es []Entry) *Entry {

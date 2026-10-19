@@ -240,7 +240,7 @@ func (l *look) scanRequests(rows *sql.Rows) ([]*Request, error) {
 }
 
 // entries reads a request's thread, in the order it was written, its times
-// in the office's zone.
+// in the office's zone, each message its team's heed noted marked so.
 func (l *look) entries(n int64) ([]Entry, error) {
 	rows, err := l.q.Query(`SELECT id, request, kind, by_, to_, at, text, came_in, read_team, read_known, answers, sub
 		FROM requests_entries WHERE request = ? ORDER BY id`, n)
@@ -269,6 +269,15 @@ func (l *look) entries(n int64) ([]Entry, error) {
 		return nil, failed(err)
 	}
 	rows.Close()
+	noted := map[int64]bool{}
+	for _, e := range es {
+		if e.Kind == KindNoted {
+			noted[e.Answers] = true
+		}
+	}
+	for i := range es {
+		es[i].Noted = noted[es[i].ID]
+	}
 	heads, err := l.q.Query(`SELECT f.entry, f.name, length(f.data) FROM requests_files f JOIN requests_entries e ON e.id = f.entry
 		WHERE e.request = ? ORDER BY f.rowid`, n)
 	if err != nil {

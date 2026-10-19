@@ -96,7 +96,11 @@ func (s *Store) State(n int64) (State, error) {
 	if err != nil {
 		return State{}, err
 	}
-	return l.state(r, ws), nil
+	es, err := l.entries(n)
+	if err != nil {
+		return State{}, err
+	}
+	return l.state(r, ws, es), nil
 }
 
 // Tree gives the sub-requests beneath a request, as far down as they go,

@@ -171,6 +171,7 @@ const (
 	KindLate     = "late"     // a sub-request's answer that came when no run waited for it
 	KindBulldog  = "bulldog"  // Bulldog's own: a failure, a stop or a line in its place, a close at the source, a going
 	KindHeld     = "held"     // the answer of a lead who is a person, held by its team's disclosure check: what was read of the team
+	KindNoted    = "noted"    // a team's heed's word on a message it noted, which it answers: what was read of the team
 )
 
 // An Entry is one thing said in a request. It is written once and never
@@ -193,6 +194,10 @@ type Entry struct {
 	// Answers is the entry it answers; Sub the sub-request it leads to.
 	Answers int64
 	Sub     int64
+	// Noted says a message, the asking or more said, was noted by its
+	// team's heed: worked out when it is read, as the message itself is
+	// never changed.
+	Noted bool
 }
 
 // A FileHead names a file kept on an entry.

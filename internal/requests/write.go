@@ -391,6 +391,55 @@ func (s *Store) Answer(n int64, by Who, text string, files []File) (*Entry, erro
 	return e, err
 }
 
+// Noted writes what a team's heed said of the messages it noted, the
+// asking or more said: for each, an entry by the rule to the team,
+// answering it and holding the rule's note, or else that the rule noted
+// it, which is what was read of the team and goes to nobody. The request
+// is answered with nothing said, as by an answer, and a stopped one is
+// left as it is. A message is never changed, and one noted already is
+// passed over, so writing it again writes nothing.
+func (s *Store) Noted(n int64, rule Who, note string, messages []int64) ([]Entry, error) {
+	var noted []Entry
+	err := s.write(func(c *change) error {
+		r, err := c.req(n)
+		if err != nil {
+			return err
+		}
+		if rule.Kind != IsRule {
+			return fmt.Errorf("%s is no rule, so it notes nothing", c.calledOf(rule))
+		}
+		es, err := c.entries(n)
+		if err != nil {
+			return err
+		}
+		text := cmp.Or(strings.TrimSpace(note), "Noted by "+rule.Name)
+		for _, id := range messages {
+			i := slices.IndexFunc(es, func(e Entry) bool { return e.ID == id })
+			switch {
+			case i < 0:
+				return fmt.Errorf("entry %d is not in request %d, so it is not noted", id, n)
+			case es[i].Kind != KindAsked && es[i].Kind != KindSaid:
+				return fmt.Errorf("entry %d of request %d is a %s, not a message, so it is not noted", id, n, es[i].Kind)
+			case es[i].Noted:
+				continue
+			}
+			e, err := c.add(r, Entry{Kind: KindNoted, By: rule, To: []Who{teamOf(r)}, Text: text, Read: r.Team, ReadKnown: r.TeamKnown,
+				Answers: id}, nil, nil)
+			if err != nil {
+				return err
+			}
+			es[i].Noted = true
+			noted = append(noted, *e)
+		}
+		if len(noted) == 0 || r.Stopped {
+			return nil
+		}
+		r.Answered = true
+		return c.set(r)
+	})
+	return noted, err
+}
+
 // isLead says whether someone is the worker who answers a request: the
 // one its routine names, or else its team's lead.
 func (c *change) isLead(r *Request, by Who) bool {

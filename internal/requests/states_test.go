@@ -515,3 +515,102 @@ func TestRequestsHeldAnswerNotHandedWaitsOnTheLeadAgain(t *testing.T) {
 		t.Errorf("with Dana's answer not handed, support's sub-request stands %+v", st)
 	}
 }
+
+// kitInGarden is where Kit talks in the garden's Telegram chat.
+var kitInGarden = requests.Where{Bridge: "telegram", Place: "garden-chat"}
+
+func TestRequestsNotedAnswersWithNothingSaid(t *testing.T) {
+	t.Parallel()
+	h := open(t, house(t))
+	heed := h.Rule("garden/for-us.js", "garden")
+	n := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "4472", "lovely weather", nil)).Number
+	asking := h.thread(n)[0]
+	noted := got[[]requests.Entry](t)(h.Noted(n, heed, "Not for the garden (0.12)", []int64{asking.ID}))
+	if len(noted) != 1 || noted[0].Kind != requests.KindNoted || noted[0].By != heed || noted[0].Answers != asking.ID ||
+		noted[0].Read != "garden" || noted[0].Text != "Not for the garden (0.12)" {
+		t.Fatalf("the heed noted %+v", noted)
+	}
+	if st := h.state(n); st.Is != requests.Answered || !st.Noted || len(st.On) != 0 {
+		t.Errorf("the noted request is %+v", st)
+	}
+	if ds := got[[]requests.Delivery](t)(h.Deliveries(noted[0].ID)); len(ds) != 0 {
+		t.Errorf("the heed's word is carried to %+v", ds)
+	}
+	if w := got[[]requests.Wait](t)(h.WaitingOn("sam")); len(w) != 0 {
+		t.Errorf("Sam is waited on for %+v", w)
+	}
+	// Kit, who reads the place, sees her words noted, and not the heed's
+	// word on them; Sam, the garden's person, sees both.
+	kit := got[*requests.View](t)(h.View(n, "kit"))
+	if len(kit.Entries) != 1 || !kit.Entries[0].Noted || !kit.State.Noted {
+		t.Errorf("Kit sees %+v as %+v", kit.Entries, kit.State)
+	}
+	if sam := h.shows(n, "sam"); !slices.Equal(sam, []string{"lovely weather", "Not for the garden (0.12)"}) {
+		t.Errorf("Sam sees %q", sam)
+	}
+	// Noting it again writes nothing.
+	if again := got[[]requests.Entry](t)(h.Noted(n, heed, "", []int64{asking.ID})); len(again) != 0 || len(h.thread(n)) != 2 {
+		t.Errorf("noting it again wrote %+v", again)
+	}
+	// With no note, the entry says which rule noted it; only a message is
+	// noted.
+	more := got[*requests.Entry](t)(h.Say(n, requests.Identity("telegram", "4472"), "the roses are out", nil, kitInGarden))
+	if e := got[[]requests.Entry](t)(h.Noted(n, heed, " ", []int64{more.ID})); len(e) != 1 || e[0].Text != "Noted by garden/for-us.js" {
+		t.Errorf("noted with no note: %+v", e)
+	}
+	if err := errOf(h.Noted(n, heed, "", []int64{noted[0].ID})); err == nil {
+		t.Error("the heed's own word was noted")
+	}
+	if err := errOf(h.Noted(n, h.Worker("gardener"), "", []int64{more.ID})); err == nil {
+		t.Error("a worker noted a message")
+	}
+}
+
+func TestRequestsNotedOnlyWhileNoAnswer(t *testing.T) {
+	t.Parallel()
+	h := open(t, house(t))
+	heed := h.Rule("garden/for-us.js", "garden")
+	kit := requests.Identity("telegram", "4472")
+	note := func(n int64, e *requests.Entry) {
+		t.Helper()
+		must(t, errOf(h.Noted(n, heed, "Not for the garden", []int64{e.ID})))
+	}
+
+	n := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "4472", "lovely weather", nil)).Number
+	note(n, &h.thread(n)[0])
+	must(t, errOf(h.Say(n, kit, "@gardener the roses?", nil, kitInGarden)))
+	if st := h.state(n); st.Is != requests.Working || st.Noted {
+		t.Errorf("asked of the gardener, the request is %+v", st)
+	}
+	must(t, errOf(h.Answer(n, h.Worker("gardener"), "Prune in March.", nil)))
+	if st := h.state(n); st.Is != requests.Answered || st.Noted {
+		t.Errorf("answered by the gardener, the request is %+v", st)
+	}
+	// Later talk the heed notes leaves it answered, and is marked noted.
+	thanks := got[*requests.Entry](t)(h.Say(n, kit, "thanks", nil, kitInGarden))
+	note(n, thanks)
+	if st := h.state(n); st.Is != requests.Answered || st.Noted {
+		t.Errorf("with the thanks noted, the request is %+v", st)
+	}
+	for _, e := range h.thread(n) {
+		if e.Noted != (e.ID == thanks.ID || e.Kind == requests.KindAsked) {
+			t.Errorf("entry %d %q is marked noted %v", e.ID, e.Text, e.Noted)
+		}
+	}
+
+	// A quiet answer is an answer: later talk noted leaves it answered.
+	quiet := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "4472", "thanks @gardener", nil)).Number
+	must(t, errOf(h.Answer(quiet, h.Worker("gardener"), "", nil)))
+	note(quiet, got[*requests.Entry](t)(h.Say(quiet, kit, "cheers", nil, kitInGarden)))
+	if st := h.state(quiet); st.Is != requests.Answered || st.Noted {
+		t.Errorf("answered quietly, the request is %+v", st)
+	}
+
+	// A noted request stopped holds its stop, and is no longer noted.
+	stopped := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "4472", "rain later", nil)).Number
+	note(stopped, &h.thread(stopped)[0])
+	must(t, errOf(h.Stop(stopped, h.Person("sam"))))
+	if st := h.state(stopped); st.Is != requests.Answered || st.Noted {
+		t.Errorf("stopped, the noted request is %+v", st)
+	}
+}
