@@ -182,14 +182,14 @@ func problemsOf(ps office.Problems) []problemOut {
 type (
 	teamWhole struct {
 		teamOut
-		File     string       `json:"file"`
-		Decide   []listOut    `json:"decide"`
-		Release  []deciderOut `json:"release,omitempty"`
-		Routines []routineOut `json:"routines"`
-		Models   []modelOut   `json:"models"`
-		Workers  []workerOut  `json:"workers"`
-		Notes    []noteOut    `json:"notes"`
-		Problems []problemOut `json:"problems"`
+		File       string       `json:"file"`
+		Decide     []listOut    `json:"decide"`
+		Disclosure []deciderOut `json:"disclosure,omitempty"`
+		Routines   []routineOut `json:"routines"`
+		Models     []modelOut   `json:"models"`
+		Workers    []workerOut  `json:"workers"`
+		Notes      []noteOut    `json:"notes"`
+		Problems   []problemOut `json:"problems"`
 		// In says the one looking is among its people, and AtWork, to
 		// them alone, are its workers at work, and on what.
 		In     bool     `json:"in"`
@@ -281,8 +281,8 @@ func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any,
 	for _, l := range t.Decide {
 		out.Decide = append(out.Decide, listOut{Key: l.Key, Deciders: writtenAll(o, l.Deciders)})
 	}
-	if t.HasRelease {
-		out.Release = writtenAll(o, t.Release)
+	if t.HasDisclosure {
+		out.Disclosure = writtenAll(o, t.Disclosure)
 	}
 	for _, rt := range t.Routines {
 		out.Routines = append(out.Routines, routineOut{At: rt.At, To: rt.To, Say: rt.Say})

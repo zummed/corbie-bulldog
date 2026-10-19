@@ -259,7 +259,7 @@ func newLedger(t *testing.T) *ledgerService {
 }
 
 // workDay gives the work office with its services stood in for: the
-// ledger's, and the screening service for payments' release check; and a rule that
+// ledger's, and the screening service for payments' disclosure check; and a rule that
 // passes each refund on to Lee or Priya.
 func workDay(t *testing.T, ledger *ledgerService, screen *screener) map[string]string {
 	files := work(t)
@@ -364,7 +364,7 @@ func TestTheWorkOfficesRefundDay(t *testing.T) {
 		t.Errorf("the refund is decided %+v", d)
 	}
 
-	// 5. The ledger answers; the release rule finds no account number, and
+	// 5. The ledger answers; the disclosure rule finds no account number, and
 	// the answer leaves payments.
 	b.answered(payments)
 	ledger.mu.Lock()

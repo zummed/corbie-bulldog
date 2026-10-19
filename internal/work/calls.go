@@ -313,7 +313,7 @@ func (w *Work) tell(ctx context.Context, c *calling) (string, bool, error) {
 		return refusal, false, err
 	}
 	if w.leaves(c.team, to) {
-		return w.release(ctx, c, decisions.Said{What: decisions.SaysTell, To: to, Text: text})
+		return w.disclose(ctx, c, decisions.Said{What: decisions.SaysTell, To: to, Text: text})
 	}
 	if _, err := w.putOnce(c.row, requests.KindTold, to, text); err != nil {
 		return "", false, err
@@ -337,7 +337,7 @@ func (w *Work) askPerson(ctx context.Context, c *calling) (string, bool, error) 
 		return refusal, false, err
 	}
 	if w.leaves(c.team, to) {
-		return w.release(ctx, c, decisions.Said{What: decisions.SaysQuestion, To: to, Text: question})
+		return w.disclose(ctx, c, decisions.Said{What: decisions.SaysQuestion, To: to, Text: question})
 	}
 	e, err := w.putOnce(c.row, requests.KindQuestion, to, question)
 	if err != nil {
@@ -370,8 +370,8 @@ func (w *Work) askTeam(ctx context.Context, c *calling) (string, bool, error) {
 	if err := w.tooDeep(c.r.Number); err != nil {
 		return "", false, err
 	}
-	if c.team.HasRelease {
-		return w.release(ctx, c, decisions.Said{What: decisions.SaysSub, Team: team.Name, Text: question})
+	if c.team.HasDisclosure {
+		return w.disclose(ctx, c, decisions.Said{What: decisions.SaysSub, Team: team.Name, Text: question})
 	}
 	return "", true, w.sub(c.row, c.r.Number, w.requests.Worker(c.worker), team.Name, question)
 }
@@ -514,12 +514,12 @@ func (w *Work) reaches(r *requests.Request) bool {
 }
 
 // leaves says whether what a team says to someone leaves it through its
-// release check: the team sets one, and they are not of it. A person is
+// disclosure check: the team sets one, and they are not of it. A person is
 // of it as one of its people, signed in or by an identity a bridge
 // checked; a worker as one of its workers; and the team itself, which
 // asks its routines.
 func (w *Work) leaves(team *office.Team, to requests.Who) bool {
-	if !team.HasRelease {
+	if !team.HasDisclosure {
 		return false
 	}
 	switch to.Kind {
@@ -537,11 +537,11 @@ func (w *Work) leaves(team *office.Team, to requests.Who) bool {
 	return true
 }
 
-// release hands what a worker would say outside its team to its release
+// disclose hands what a worker would say outside its team to its disclosure
 // check, once, and the call waits until it is let go or refused. One
 // handed in before Bulldog stopped is found among the request's
 // decisions.
-func (w *Work) release(ctx context.Context, c *calling, said decisions.Said) (string, bool, error) {
+func (w *Work) disclose(ctx context.Context, c *calling, said decisions.Said) (string, bool, error) {
 	said.Request, said.By, said.Ticket = c.r.Number, w.requests.Worker(c.worker), c.row.Run
 	decs, err := w.decide.OfRequest(c.r.Number)
 	if err != nil {
@@ -554,7 +554,7 @@ func (w *Work) release(ctx context.Context, c *calling, said decisions.Said) (st
 		}
 	}
 	if id == 0 {
-		if id, err = w.decide.Release(ctx, said); err != nil {
+		if id, err = w.decide.Disclose(ctx, said); err != nil {
 			return "", false, err
 		}
 	}

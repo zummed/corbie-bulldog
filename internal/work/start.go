@@ -241,7 +241,7 @@ func (w *Work) cannotRun(r *requests.Request, lead string, fresh []requests.Entr
 // said in it by a person: the team's people are told why, and the request
 // is answered as stopped. Where the last run was started by a refused
 // answer, the asker is told only the one line the decisions give, in
-// place of who stopped it: that the team did not release its answer, and
+// place of who stopped it: that the team did not disclose its answer, and
 // who refused it.
 func (w *Work) atLimit(ctx context.Context, r *requests.Request, last int64, refused bool) {
 	w.dealtWith(r.Number, last)
@@ -254,13 +254,13 @@ func (w *Work) atLimit(ctx context.Context, r *requests.Request, last int64, ref
 	var line string
 	if refused {
 		var err error
-		if line, refused, err = w.decide.NotReleased(r.Number); err != nil {
+		if line, refused, err = w.decide.NotDisclosed(r.Number); err != nil {
 			w.trouble(r.Number, r.Team, fmt.Sprintf("Bulldog could not read who refused request %d's answer, so it is stopped by Bulldog: %v", r.Number, err))
 		}
 	}
 	var err error
 	if refused {
-		err = w.notReleased(ctx, r, line)
+		err = w.notDisclosed(ctx, r, line)
 	} else {
 		var numbers []int64
 		if numbers, err = w.requests.Stop(r.Number, requests.Bulldog); err == nil {
@@ -272,10 +272,10 @@ func (w *Work) atLimit(ctx context.Context, r *requests.Request, last int64, ref
 	}
 }
 
-// notReleased answers a request whose team did not release its answer: it
+// notDisclosed answers a request whose team did not disclose its answer: it
 // is stopped, and its asker is told only the one line the decisions give,
 // which stands in place of the team having given no answer.
-func (w *Work) notReleased(ctx context.Context, r *requests.Request, line string) error {
+func (w *Work) notDisclosed(ctx context.Context, r *requests.Request, line string) error {
 	numbers, err := w.requests.StopWith(r.Number, line)
 	if err != nil {
 		return err

@@ -47,7 +47,7 @@ func replaced(t *testing.T, files map[string]string, file string, pairs ...strin
 func TestChangesSayWhatChangesInTeams(t *testing.T) {
 	t.Parallel()
 	files := house(t)
-	files["garden/team.yaml"] += "release: [sam]\n"
+	files["garden/team.yaml"] += "disclosure: [sam]\n"
 	f := newOffice(t, files)
 	change := map[string]string{
 		"pond/team.yaml": "name: The pond\nabout: The water.\npeople: [sam]\nlead: sam\n",
@@ -66,7 +66,7 @@ func TestChangesSayWhatChangesInTeams(t *testing.T) {
 			change[file] = ""
 			text = strings.ReplaceAll(text, "../.bulldog/", "../../.bulldog/")
 			if rest == "team.yaml" {
-				text = strings.Replace(strings.Replace(text, "people: [sam]", "people: [sam, kit]", 1), "release: [sam]\n", "", 1)
+				text = strings.Replace(strings.Replace(text, "people: [sam]", "people: [sam, kit]", 1), "disclosure: [sam]\n", "", 1)
 			}
 			change["pond/garden/"+rest] = text
 		}
@@ -79,7 +79,7 @@ func TestChangesSayWhatChangesInTeams(t *testing.T) {
 	has(t, check.LetsMoreBy, "kit is named in the garden")
 	has(t, check.Says, "clerk is the lead of the house")
 	has(t, check.Says, "the house decides everything by sam, kit, where it was sam")
-	has(t, check.LetsMoreBy, "the garden's release check is taken away")
+	has(t, check.LetsMoreBy, "the garden's disclosure check is taken away")
 	has(t, check.Says, "the house has a routine: at 07:00, bins is told \"Morning\"")
 	has(t, check.Says, "the house gives the model quick as { name: haiku, service: claude-code }")
 	has(t, check.Says, "the house's note rooms is changed")
@@ -141,7 +141,7 @@ func TestChangesSayWhatChangesInRulesAndBridges(t *testing.T) {
 		"bridges/slack/out.yaml":           replaced(t, files, "bridges/slack/out.yaml", "allow: [net:slack.com,", "allow: [net:slack.com, net:files.slack.com,"),
 		"office.yaml":                      replaced(t, files, "office.yaml", `      "#help": { guests: true }`, `      "#help": { guests: true }`+"\n"+`      "#deploys": { team: platform, guests: true }`),
 	})
-	has(t, check.LetsMoreBy, "Payments' rule payments/no-account-numbers.yaml", "release check")
+	has(t, check.LetsMoreBy, "Payments' rule payments/no-account-numbers.yaml", "disclosure check")
 	has(t, check.LetsMoreBy, "Payments' rule payments/no-account-numbers.yaml may connect to other.example")
 	has(t, check.LetsMoreBy, "slack's out machine may connect to files.slack.com")
 	has(t, check.LetsMoreBy, "slack's settings are changed")

@@ -135,18 +135,18 @@ func TestATeamNeedWriteNoDecide(t *testing.T) {
 	says(t, refused(t, replace(t, house(t), "office.yaml", "everything: [sam]", "everything: [./small-orders.js]")), "office.yaml", "no person")
 }
 
-func TestDecideAndReleaseAreListsOfDeciders(t *testing.T) {
+func TestDecideAndDisclosureAreListsOfDeciders(t *testing.T) {
 	t.Parallel()
 	o := reads(t, house(t))
 	if d := o.TopTeam().Decide; len(d) != 2 || d[0].Key != "everything" || d[1].Key != "order_part" || !slices.Equal(written(d[1].Deciders), []string{"./small-orders.js", "sam"}) {
 		t.Errorf("the house decides %#v", d)
 	}
 	p := reads(t, work(t)).Teams["payments"]
-	if !p.HasRelease || len(p.Release) != 1 || p.Release[0].Kind != office.IsRule || p.Release[0].Name != "payments/no-account-numbers.yaml" {
-		t.Errorf("payments releases by %#v", p.Release)
+	if !p.HasDisclosure || len(p.Disclosure) != 1 || p.Disclosure[0].Kind != office.IsRule || p.Disclosure[0].Name != "payments/no-account-numbers.yaml" {
+		t.Errorf("payments discloses by %#v", p.Disclosure)
 	}
 	says(t, refused(t, replace(t, house(t), "garden/team.yaml", "decide: { everything: [sam] }", "decide: { everything: sam }")), "garden/team.yaml", "everything")
-	says(t, refused(t, replace(t, work(t), "payments/team.yaml", "release: [./no-account-numbers.yaml]", "release: { lee: yes }")), "payments/team.yaml", "release")
+	says(t, refused(t, replace(t, work(t), "payments/team.yaml", "disclosure: [./no-account-numbers.yaml]", "disclosure: { lee: yes }")), "payments/team.yaml", "disclosure")
 }
 
 func TestADeciderIsAPersonAWorkerOrARule(t *testing.T) {

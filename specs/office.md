@@ -77,7 +77,7 @@ routines:
 | `people` | the people of the team, by name |
 | `lead` | the one worker or person of this team that answers for it |
 | `decide` | who decides what, as ordered lists of deciders: `everything`; the name of a tool one of its workers holds, a `list:` entry such as `github` among them, or of one tool of an entry, such as `github_create_issue`; and at the top `change`, for a change to the office files |
-| `release` | an ordered list of deciders for everything the team says to anyone outside it: its answers, its questions and tells to people outside it, and the requests it makes of other teams. Without one, all of it leaves unchecked |
+| `disclosure` | an ordered list of deciders for everything the team says to anyone outside it: its answers, its questions and tells to people outside it, and the requests it makes of other teams. Without one, all of it leaves unchecked |
 | `routines` | what is said to its workers at set times |
 | `models` | models by name, each a model written as Corbie writes one, which names the secret that holds its key, where it needs one, and never holds a key. A worker that names its model by one word is given the nearest team's model of that name |
 | `zone`, `everyone`, `bridges`, `runs` | the top team's only: the office's time zone, in which times are shown and routines' `at` read, UTC if not given; its people; its bridges with their settings, among them the places each listens in; and how many runs may be at work at once in the whole office, 3 if not given; a run waiting on a person, another team or a decision is not at work |
@@ -135,7 +135,7 @@ A routine is something said to one of a team's workers at a set time. `at` is a 
 
 ## Notes
 
-A team's notes are the files in its `notes/` folder: prose the team knows, in Markdown. Notes are the team's, never one worker's. They are read from the folder each time they are needed, and every run Bulldog starts of one of the team's workers is given them in its context, as the work page says. A team that sets a release check may say there, in plain words, what it never lets out.
+A team's notes are the files in its `notes/` folder: prose the team knows, in Markdown. Notes are the team's, never one worker's. They are read from the folder each time they are needed, and every run Bulldog starts of one of the team's workers is given them in its context, as the work page says. A team that sets a disclosure check may say there, in plain words, what it never lets out.
 
 A worker writes its own team's notes with the notes tool Bulldog ships, `write_notes` in `notes.yaml`, and has it only when its own definition names that file; a team that does not want its workers writing its notes names it in none of their definitions. What a run may write with it is the work page's. Writing a team's notes is the one write to the office's files that is not a decided change: a note is what a team knows, not how the office works. Each write is still a commit that says who wrote it and why, as the changes page says.
 
@@ -189,7 +189,7 @@ about: Charges, refunds and the ledger. Holds customer data.
 people: [lee, priya]
 lead: ledger
 decide: { everything: [lee, priya] }
-release: [./no-account-numbers.yaml]    # what it passes goes to Lee or Priya
+disclosure: [./no-account-numbers.yaml]    # what it passes goes to Lee or Priya
 
 # support/team.yaml: people only
 name: Support
@@ -200,7 +200,7 @@ lead: dana
 
 Al is in the office but in no team within it, so he sees inside none of them. Raj is in no team at all: he is a person, who may ask and be named to decide. Platform has no people and writes no `decide`, so what it holds for a yes goes out to the office's `everything`, Al, and Al is its people for sight and control: he is told when it fails, sees what it read, and watches and stops its runs.
 
-Payments' rule must reach the screening service with a key, so it is a definition: `no-account-numbers.yaml` is a flow whose one job runs `no-account-numbers.js`, and its own allow lines let that job reach the service's host with the key bound to it, and nothing else. Being named by its path in `release`, it is a rule and not a worker of payments.
+Payments' rule must reach the screening service with a key, so it is a definition: `no-account-numbers.yaml` is a flow whose one job runs `no-account-numbers.js`, and its own allow lines let that job reach the service's host with the key bound to it, and nothing else. Being named by its path in `disclosure`, it is a rule and not a worker of payments.
 
 ## Reading the office
 
@@ -221,7 +221,7 @@ The problems shown are always those of the latest reading. Until the office has 
 
 - **Requests** read who is in each team, who each person is on each bridge, each team's lead and the team each bridge's place names, to say who sees a request and where it goes, and say who stands as the people of a team with none: its own, or those its decisions reach.
 - **Work** starts each team's lead and its workers from their definitions as read, with a one-word model filled in, keeps to the office's `runs`, starts each routine's clock with the office's zone, gives workers each team's `about`, gives every run it starts of a team's worker the team's notes, ships the notes tool, which a worker has only when its definition names its file, and is told when a reading replaces the last, to start, stop and cancel what changed.
-- **Decisions** reads the `decide` and `release` lists and the notes a release check reads, and runs the rules they name, each as it is written. The office gives the people a team's decisions reach: those its `everything` names, or its people where it writes none, or, where that names nobody, those of the first `everything` outward that does, with anyone no longer in the office left out. Decisions and Requests both take them from here.
+- **Decisions** reads the `decide` and `disclosure` lists and the notes a disclosure check reads, and runs the rules they name, each as it is written. The office gives the people a team's decisions reach: those its `everything` names, or its people where it writes none, or, where that names nobody, those of the first `everything` outward that does, with anyone no longer in the office left out. Decisions and Requests both take them from here.
 - **Bridges** reads `bridges` and the folders under `bridges/`, says the shape of the places a bridge listens in, whose teams the office checks, and matches the identity a bridge gives to the person whose entry names it.
 - **Changes** writes the office's files, a person's entry among them, keeps each note a worker writes as a commit, has every change checked by a reading of the folder as it would be after the change, and asks which files are the office's and which files only one worker's definition names.
 - **Server** reads the office from the folder it is given at each start, writes the house without its bridge into an empty folder, holds the office's identity, which is not its name and not in its files, signs people in, sending a one-time link over a person's bridges in the order written, and shows each team's `about`, notes and problems of the latest reading, and each worker's model as filled in, to those who may see them.

@@ -21,19 +21,19 @@ func (b *bench) answerOf(n int64) string {
 	return got[len(got)-1].Text
 }
 
-// release hands what a team says outside itself to its release check.
-func (b *bench) release(s decisions.Said) int64 {
+// disclose hands what a team says outside itself to its disclosure check.
+func (b *bench) disclose(s decisions.Said) int64 {
 	b.t.Helper()
-	id, err := b.d.Release(ctx, s)
+	id, err := b.d.Disclose(ctx, s)
 	if err != nil {
 		b.t.Fatal(err)
 	}
 	return id
 }
 
-// heldRelease gives the one release a held answer was handed to as it
+// heldDisclosure gives the one disclosure a held answer was handed to as it
 // was said.
-func (b *bench) heldRelease(e *requests.Entry) int64 {
+func (b *bench) heldDisclosure(e *requests.Entry) int64 {
 	b.t.Helper()
 	decs, err := b.d.OfRequest(e.Request)
 	if err != nil {
@@ -41,28 +41,28 @@ func (b *bench) heldRelease(e *requests.Entry) int64 {
 	}
 	var ids []int64
 	for _, dec := range decs {
-		if dec.Kind == decisions.OfRelease && dec.Said.Held == e.ID {
+		if dec.Kind == decisions.OfDisclosure && dec.Said.Held == e.ID {
 			ids = append(ids, dec.ID)
 		}
 	}
 	if len(ids) != 1 {
-		b.t.Fatalf("the held answer %d was handed to the releases %v", e.ID, ids)
+		b.t.Fatalf("the held answer %d was handed to the disclosures %v", e.ID, ids)
 	}
 	return ids[0]
 }
 
 func (b *bench) ledgerAnswers(sub int64, text string) int64 {
-	return b.release(decisions.Said{What: decisions.SaysAnswer, Request: sub, By: b.reqs.Worker("ledger"), Text: text})
+	return b.disclose(decisions.Said{What: decisions.SaysAnswer, Request: sub, By: b.reqs.Worker("ledger"), Text: text})
 }
 
-func TestReleaseHoldsWhatATeamSaysOutside(t *testing.T) {
+func TestDisclosureHoldsWhatATeamSaysOutside(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
 	top, sub := b.helpRequest()
 	id := b.ledgerAnswers(sub, "Duplicate confirmed; £40 refunded.")
 	rule := b.runner.next(t)
 	if b.answerOf(sub) != "" {
-		t.Fatal("payments' answer was said before it was released")
+		t.Fatal("payments' answer was said before it was disclosed")
 	}
 	hasNo(t, b.seen(top, "dana"), "Duplicate confirmed")
 	hasNo(t, b.seen(top, "al"), "Duplicate confirmed")
@@ -71,14 +71,14 @@ func TestReleaseHoldsWhatATeamSaysOutside(t *testing.T) {
 	if got := b.answerOf(sub); got != "Duplicate confirmed; £40 refunded." {
 		t.Fatalf("payments' answer is %q", got)
 	}
-	q := b.release(decisions.Said{What: decisions.SaysSub, Request: sub, By: b.reqs.Worker("ledger"), Team: "platform", Text: "what deployed on Tuesday?"})
+	q := b.disclose(decisions.Said{What: decisions.SaysSub, Request: sub, By: b.reqs.Worker("ledger"), Team: "platform", Text: "what deployed on Tuesday?"})
 	b.runner.next(t).says(decisions.SaysYes, "")
-	if l := b.let(q); !l.Released || l.Said.Team != "platform" || l.Said.Text != "what deployed on Tuesday?" {
+	if l := b.let(q); !l.Disclosed || l.Said.Team != "platform" || l.Said.Text != "what deployed on Tuesday?" {
 		t.Fatalf("the question to platform ended %+v", l)
 	}
 }
 
-func TestReleasedAsDecidedRefusedGoesBack(t *testing.T) {
+func TestDisclosedAsDecidedRefusedGoesBack(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
 	top, sub := b.helpRequest()
@@ -87,8 +87,8 @@ func TestReleasedAsDecidedRefusedGoesBack(t *testing.T) {
 	b.until("Lee is asked", func() bool { return len(b.waitingFor("lee")) == 1 })
 	b.decide(id, "lee", decisions.SaysRefuse, "that names the card")
 	l := b.let(id)
-	if l.Released || l.By != "Lee" || l.Note != "that names the card" {
-		t.Fatalf("the release ended %+v", l)
+	if l.Disclosed || l.By != "Lee" || l.Note != "that names the card" {
+		t.Fatalf("the disclosure ended %+v", l)
 	}
 	if b.answerOf(sub) != "" {
 		t.Fatal("the refused answer was said")
@@ -115,7 +115,7 @@ func TestReleasedAsDecidedRefusedGoesBack(t *testing.T) {
 func TestHeldAnswerOfALeadWhoIsAPersonRefused(t *testing.T) {
 	t.Parallel()
 	files := work(t)
-	files["support/team.yaml"] = "name: Support\npeople: [dana]\nlead: dana\nrelease: [./refuse-all.js]\n"
+	files["support/team.yaml"] = "name: Support\npeople: [dana]\nlead: dana\ndisclosure: [./refuse-all.js]\n"
 	files["support/refuse-all.js"] = `return { says: "refuse", note: "say it kindly" }`
 	b := newBench(t, files)
 	top := b.chat("al", "office", "a customer is cross")
@@ -130,7 +130,7 @@ func TestHeldAnswerOfALeadWhoIsAPersonRefused(t *testing.T) {
 	if e.Kind != requests.KindHeld {
 		t.Fatalf("Dana's answer is a %s", e.Kind)
 	}
-	id := b.heldRelease(e)
+	id := b.heldDisclosure(e)
 	b.runner.next(t).says(decisions.SaysRefuse, "say it kindly")
 	b.let(id)
 	ws, err := b.reqs.WaitingOn("dana")
@@ -149,24 +149,24 @@ func TestHeldAnswerOfALeadWhoIsAPersonRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	id = b.heldRelease(e)
+	id = b.heldDisclosure(e)
 	b.let(id)
 	if got := b.answerOf(sub.Number); got != "we are sorry, and have refunded you" {
-		t.Fatalf("Dana's released answer is %q", got)
+		t.Fatalf("Dana's disclosed answer is %q", got)
 	}
 }
 
-func TestDecisionsRefusedReleaseNotToldOutside(t *testing.T) {
+func TestDecisionsRefusedDisclosureNotToldOutside(t *testing.T) {
 	t.Parallel()
-	b := newBench(t, withPayments(t, "name: Payments\npeople: [lee, priya]\nlead: ledger\ndecide: { everything: [lee, priya] }\nrelease: [./refuse-all.js]\n"))
+	b := newBench(t, withPayments(t, "name: Payments\npeople: [lee, priya]\nlead: ledger\ndecide: { everything: [lee, priya] }\ndisclosure: [./refuse-all.js]\n"))
 	top, sub := b.helpRequest()
 	for range 3 {
 		id := b.ledgerAnswers(sub, "Card 4111 was refunded.")
 		b.runner.next(t).says(decisions.SaysRefuse, "never")
 		b.let(id)
 	}
-	line, ok, err := b.d.NotReleased(sub)
-	if err != nil || !ok || line != "payments did not release its answer (refuse-all.js)" {
+	line, ok, err := b.d.NotDisclosed(sub)
+	if err != nil || !ok || line != "payments did not disclose its answer (refuse-all.js)" {
 		t.Fatalf("the line is %q, %v, %v", line, ok, err)
 	}
 	for _, person := range []string{"dana", "al"} {
@@ -187,27 +187,27 @@ func TestDecisionsRefusedReleaseNotToldOutside(t *testing.T) {
 	id := w.ledgerAnswers(sub, "Card 4111 was refunded.")
 	w.runner.next(t).says(decisions.SaysPass, "0.9")
 	w.until("Lee is asked", func() bool { return len(w.waitingFor("lee")) == 1 })
-	if _, ok, _ := w.d.NotReleased(sub); ok {
-		t.Fatal("the line is there while the release waits")
+	if _, ok, _ := w.d.NotDisclosed(sub); ok {
+		t.Fatal("the line is there while the disclosure waits")
 	}
 	w.decide(id, "lee", decisions.SaysRefuse, "names the card")
-	if line, ok, _ := w.d.NotReleased(sub); !ok || line != "payments did not release its answer (Lee)" {
+	if line, ok, _ := w.d.NotDisclosed(sub); !ok || line != "payments did not disclose its answer (Lee)" {
 		t.Fatalf("the line is %q", line)
 	}
 	w.ledgerAnswers(sub, "Refunded.")
 	w.runner.next(t)
-	if line, ok, _ := w.d.NotReleased(sub); ok {
-		t.Fatalf("the line is %q while a later answer waits on its release check", line)
+	if line, ok, _ := w.d.NotDisclosed(sub); ok {
+		t.Fatalf("the line is %q while a later answer waits on its disclosure check", line)
 	}
 }
 
-func TestReleaseOfATeamWithNoReleaseCheckRefused(t *testing.T) {
+func TestDisclosureOfATeamWithNoDisclosureCheckRefused(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, house(t))
 	n := b.chat("kit", office.Top, "the kitchen socket sparked")
-	_, err := b.d.Release(ctx, decisions.Said{What: decisions.SaysAnswer, Request: n, By: b.reqs.Worker("steward"), Text: "Fixed."})
-	if err == nil || !strings.Contains(err.Error(), "The house sets no release check") {
-		t.Fatalf("a release of the house is %v", err)
+	_, err := b.d.Disclose(ctx, decisions.Said{What: decisions.SaysAnswer, Request: n, By: b.reqs.Worker("steward"), Text: "Fixed."})
+	if err == nil || !strings.Contains(err.Error(), "The house sets no disclosure check") {
+		t.Fatalf("a disclosure of the house is %v", err)
 	}
 	if decs, err := b.d.OfRequest(n); err != nil || len(decs) != 0 {
 		t.Fatalf("the request holds the decisions %+v, %v", decs, err)
@@ -218,12 +218,12 @@ func TestRefusedQuestionStaysInside(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
 	top, sub := b.helpRequest()
-	id := b.release(decisions.Said{What: decisions.SaysSub, Request: sub, By: b.reqs.Worker("ledger"), Team: "platform", Text: "which deploy touched card 4111?", Ticket: "t-7"})
+	id := b.disclose(decisions.Said{What: decisions.SaysSub, Request: sub, By: b.reqs.Worker("ledger"), Team: "platform", Text: "which deploy touched card 4111?", Ticket: "t-7"})
 	b.runner.next(t).says(decisions.SaysPass, "It may name a card number, 0.80.")
 	b.until("Lee is asked", func() bool { return len(b.waitingFor("lee")) == 1 })
 	b.decide(id, "lee", decisions.SaysRefuse, "no card numbers to platform")
 	l := b.let(id)
-	if l.Released || l.Said.Ticket != "t-7" || !strings.Contains(l.Text(), "not released") || !strings.Contains(l.Text(), "Lee") ||
+	if l.Disclosed || l.Said.Ticket != "t-7" || !strings.Contains(l.Text(), "not disclosed") || !strings.Contains(l.Text(), "Lee") ||
 		!strings.Contains(l.Text(), "no card numbers to platform") {
 		t.Fatalf("the ledger's tool is told %q", l.Text())
 	}
@@ -237,13 +237,13 @@ func TestRefusedQuestionStaysInside(t *testing.T) {
 	}
 }
 
-func TestReleaseDeciderShownWhatWouldLeave(t *testing.T) {
+func TestDisclosureDeciderShownWhatWouldLeave(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
 	_, sub := b.helpRequest()
 	b.ledgerAnswers(sub, "Duplicate confirmed; £40 refunded.")
 	r := b.runner.next(t)
-	rel := r.Input["release"].(map[string]any)
+	rel := r.Input["disclosure"].(map[string]any)
 	notes := r.Input["notes"].([]map[string]any)
 	if rel["what"] != "answer" || rel["text"] != "Duplicate confirmed; £40 refunded." || rel["to"] != "bot, of office" || rel["read_at"] != "#help on slack" ||
 		len(notes) != 1 || !strings.Contains(notes[0]["text"].(string), "A charge taken twice") || r.Input["request"].(map[string]any)["asked"] != "was 4411 charged twice?" {
@@ -261,16 +261,16 @@ func TestReleaseDeciderShownWhatWouldLeave(t *testing.T) {
 	if dana.Team != "payments" {
 		t.Fatalf("Dana's request went to %s", dana.Team)
 	}
-	w.release(decisions.Said{What: decisions.SaysTell, Request: dana.Number, By: w.reqs.Worker("ledger"), To: dana.Asker, Text: "looking at the charges now"})
+	w.disclose(decisions.Said{What: decisions.SaysTell, Request: dana.Number, By: w.reqs.Worker("ledger"), To: dana.Asker, Text: "looking at the charges now"})
 	r = w.runner.next(t)
-	rel = r.Input["release"].(map[string]any)
+	rel = r.Input["disclosure"].(map[string]any)
 	if rel["what"] != "tell" || rel["to"] != "Dana" || rel["read_at"] != "#help on slack" || rel["said_in"] != dana.Number || len(r.Input["notes"].([]map[string]any)) != 1 {
 		t.Fatalf("the rule is given %v", r.Input)
 	}
 	r.says(decisions.SaysYes, "")
-	b.release(decisions.Said{What: decisions.SaysSub, Request: sub, By: b.reqs.Worker("ledger"), Team: "platform", Text: "what deployed?"})
+	b.disclose(decisions.Said{What: decisions.SaysSub, Request: sub, By: b.reqs.Worker("ledger"), Team: "platform", Text: "what deployed?"})
 	r = b.runner.next(t)
-	rel = r.Input["release"].(map[string]any)
+	rel = r.Input["disclosure"].(map[string]any)
 	if rel["what"] != "sub" || rel["to"] != "Platform" || rel["said_in"] != sub {
 		t.Fatalf("the rule is given %v", r.Input)
 	}
@@ -281,7 +281,7 @@ func TestReleaseDeciderShownWhatWouldLeave(t *testing.T) {
 	}
 }
 
-func TestDecisionsReleaseLetsOutExactlyWhatWasDecided(t *testing.T) {
+func TestDecisionsDisclosureLetsOutExactlyWhatWasDecided(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
 	top, sub := b.helpRequest()
@@ -303,7 +303,7 @@ func TestDecisionsReleaseLetsOutExactlyWhatWasDecided(t *testing.T) {
 	}
 }
 
-func TestDecisionsReleaseReadsCurrentNotes(t *testing.T) {
+func TestDecisionsDisclosureReadsCurrentNotes(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
 	_, sub := b.helpRequest()
@@ -324,7 +324,7 @@ func TestDecisionsReleaseReadsCurrentNotes(t *testing.T) {
 func TestHeldAnswerOfALeadWhoIsAPersonLeftByAStopIsHandedOnce(t *testing.T) {
 	t.Parallel()
 	files := work(t)
-	files["support/team.yaml"] = "name: Support\npeople: [dana]\nlead: dana\nrelease: [./yes.js]\n"
+	files["support/team.yaml"] = "name: Support\npeople: [dana]\nlead: dana\ndisclosure: [./yes.js]\n"
 	files["support/yes.js"] = `return { says: "yes" }`
 	b := newBench(t, files)
 	top := b.chat("al", "office", "a customer is cross")
@@ -333,7 +333,7 @@ func TestHeldAnswerOfALeadWhoIsAPersonLeftByAStopIsHandedOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Bulldog stops after Dana's answer is kept and before it is handed to
-	// the release check.
+	// the disclosure check.
 	b.reqs.Held = func(*requests.Entry) error { return nil }
 	e, err := b.reqs.Say(sub.Number, b.reqs.Person("dana"), "we are sorry, and have refunded you", nil, requests.Screens)
 	if err != nil || e.Kind != requests.KindHeld {
@@ -346,13 +346,13 @@ func TestHeldAnswerOfALeadWhoIsAPersonLeftByAStopIsHandedOnce(t *testing.T) {
 	// office, once however often they read it.
 	b.runner.answers(func(decisions.Start) (string, error, bool) { return `{"says":"yes"}`, nil, true })
 	b.restart()
-	id := b.heldRelease(e)
+	id := b.heldDisclosure(e)
 	b.read()
-	if again := b.heldRelease(e); again != id {
+	if again := b.heldDisclosure(e); again != id {
 		t.Errorf("read again, the held answer was handed to %d after %d", again, id)
 	}
 	b.let(id)
 	if got := b.answerOf(sub.Number); got != "we are sorry, and have refunded you" {
-		t.Fatalf("Dana's released answer is %q", got)
+		t.Fatalf("Dana's disclosed answer is %q", got)
 	}
 }

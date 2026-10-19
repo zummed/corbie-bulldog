@@ -187,7 +187,7 @@
     return B.sect(label, B.el("div", {class: "te-search"}, found.box), found.out);
   }
 
-  // Authorisation and release
+  // Authorisation and disclosure
 
   function authorisation(t) {
     if (!t.decide || !t.decide.length) return null;
@@ -195,10 +195,10 @@
       rows("authorisation", t.decide, (l) => B.el("div", {class: "row te-list"}, B.el("span", {class: "mono te-key"}, l.key), chain(t, l.deciders || [])), "te-lists"));
   }
 
-  function release(t) {
-    if (!t.release || !t.release.length) return null;
-    return B.sect("Release",
-      B.el("div", {class: "rows"}, B.el("div", {class: "row"}, chain(t, t.release))));
+  function disclosure(t) {
+    if (!t.disclosure || !t.disclosure.length) return null;
+    return B.sect("Disclosure",
+      B.el("div", {class: "rows"}, B.el("div", {class: "row"}, chain(t, t.disclosure))));
   }
 
   // The side
@@ -286,7 +286,7 @@
       ]),
       whole ? workers(t) : null,
       whole ? authorisation(t) : null,
-      whole ? release(t) : null);
+      whole ? disclosure(t) : null);
 
     const side = whole ? [routines(t), runs(t), models(t), notes(t), problems(t)].filter(Boolean) : [];
     const out = B.el("div", {class: "te"}, head,

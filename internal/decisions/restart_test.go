@@ -127,15 +127,15 @@ func TestEndedDecisionCarriedThroughARestart(t *testing.T) {
 	b.letFails = nil
 	b.mu.Unlock()
 	if got := b.answerOf(sub); got != text {
-		t.Fatalf("the released answer is %q", got)
+		t.Fatalf("the disclosed answer is %q", got)
 	}
 	b.restart()
-	if l := b.let(id); !l.Released || l.Said.Text != text {
-		t.Fatalf("the release is told %+v", l)
+	if l := b.let(id); !l.Disclosed || l.Said.Text != text {
+		t.Fatalf("the disclosure is told %+v", l)
 	}
 	b.restart()
 	if b.letsOf(id) != 1 || len(b.entries(sub, requests.KindAnswer)) != 1 || len(b.entries(sub, decisions.KindDecided)) != 1 {
-		t.Fatalf("the release was told %d times, its answer said %d times and its yes written %d times",
+		t.Fatalf("the disclosure was told %d times, its answer said %d times and its yes written %d times",
 			b.letsOf(id), len(b.entries(sub, requests.KindAnswer)), len(b.entries(sub, decisions.KindDecided)))
 	}
 
@@ -196,7 +196,7 @@ func TestDecisionWalksOnAtAReading(t *testing.T) {
 	b := newBench(t, work(t))
 	_, sub := b.helpRequest()
 	dec := b.one("ask-1", "payments", sub, []string{"ledger"}, refund())
-	team := "name: Payments\npeople: [lee, priya]\nlead: ledger\nrelease: [./no-account-numbers.yaml]\n"
+	team := "name: Payments\npeople: [lee, priya]\nlead: ledger\ndisclosure: [./no-account-numbers.yaml]\n"
 	b.rewrite(map[string]string{"payments/team.yaml": team + "decide: { everything: [priya] }\n"})
 	if on := b.waitsOn(sub); !slices.Equal(on, []string{"priya"}) {
 		t.Fatalf("the refund waits on %v", on)
@@ -224,8 +224,8 @@ func TestDecisionWalksOnAtAReading(t *testing.T) {
 	b.runner.next(t).says(decisions.SaysPass, "0.9")
 	b.until("Raj is asked", func() bool { return len(b.waitingFor("raj")) == 2 })
 	b.rewrite(map[string]string{"payments/team.yaml": "name: Payments\npeople: [lee, priya]\nlead: ledger\ndecide: { everything: [raj] }\n"})
-	if l := b.let(id); !l.Released {
-		t.Fatalf("the release ended %+v", l)
+	if l := b.let(id); !l.Disclosed {
+		t.Fatalf("the disclosure ended %+v", l)
 	}
 	if got := b.answerOf(sub); got != "Duplicate confirmed; £40 refunded." {
 		t.Fatalf("the answer let go is %q", got)

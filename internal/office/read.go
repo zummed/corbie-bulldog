@@ -216,7 +216,7 @@ func (r *reading) teamAt(dir string) *Team {
 
 // The keys a team file takes, and those only the top team's takes.
 var (
-	teamKeys = []string{"name", "about", "people", "lead", "decide", "release", "routines", "models"}
+	teamKeys = []string{"name", "about", "people", "lead", "decide", "disclosure", "routines", "models"}
 	topKeys  = []string{"zone", "everyone", "bridges", "runs"}
 )
 
@@ -492,7 +492,7 @@ func (r *reading) teamOfFolder(dir string) *Team {
 func (r *reading) ruleEntries(team string) []string {
 	var entries []string
 	root := r.nodes[team]
-	lists := []*yaml.Node{child(root, "release")}
+	lists := []*yaml.Node{child(root, "disclosure")}
 	for _, v := range pairs(child(root, "decide")) {
 		lists = append(lists, v)
 	}
@@ -512,7 +512,7 @@ func isPath(entry string) bool {
 	return strings.HasPrefix(entry, "./") || strings.HasPrefix(entry, "../")
 }
 
-// readLists reads each team's decide and release lists.
+// readLists reads each team's decide and disclosure lists.
 func (r *reading) readLists() {
 	for _, name := range r.o.Order {
 		t, root := r.o.Teams[name], r.nodes[name]
@@ -533,9 +533,9 @@ func (r *reading) readLists() {
 				}
 			}
 		}
-		if node := child(root, "release"); node != nil {
-			if deciders, ok := r.readList(t, "release", node); ok {
-				t.Release, t.HasRelease = deciders, true
+		if node := child(root, "disclosure"); node != nil {
+			if deciders, ok := r.readList(t, "disclosure", node); ok {
+				t.Disclosure, t.HasDisclosure = deciders, true
 			}
 		}
 	}

@@ -91,10 +91,10 @@ type Team struct {
 	Lead string
 	// Decide are its lists of deciders, in the order written.
 	Decide []List
-	// Release is its release check, and HasRelease whether it sets one.
-	Release    []Decider
-	HasRelease bool
-	Routines   []Routine
+	// Disclosure is its disclosure check, and HasDisclosure whether it sets one.
+	Disclosure    []Decider
+	HasDisclosure bool
+	Routines      []Routine
 	// Models are the models it gives by name, in the order written.
 	Models []Model
 	// Workers are the names of its workers, in order.

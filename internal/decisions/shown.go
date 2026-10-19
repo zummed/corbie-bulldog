@@ -13,7 +13,7 @@ import (
 
 // input gives a decision as a rule or a worker is given it, at the step it
 // is asked: what it decides, the request it serves, every pass before it,
-// and where its own pass would go. A release is given the team's notes as
+// and where its own pass would go. A disclosure is given the team's notes as
 // they are now, and what would leave as its text.
 func (d *Decisions) input(o *office.Office, dec *Decision, stages []stage, at int) (map[string]any, string, error) {
 	in := map[string]any{"kind": dec.Kind, "decision": dec.ID, "team": dec.Team, "team_called": called(o, dec.Team), "does": dec.Does}
@@ -43,14 +43,14 @@ func (d *Decisions) input(o *office.Office, dec *Decision, stages []stage, at in
 			in["said"] = dec.Job.Asked.Said
 		}
 		in["worker"] = dec.Whose.Name
-	case OfRelease:
-		release, err := d.release(o, dec)
+	case OfDisclosure:
+		disclosure, err := d.disclosure(o, dec)
 		if err != nil {
 			return nil, "", err
 		}
-		in["release"] = release
+		in["disclosure"] = disclosure
 		in["text"] = dec.Said.Text
-		in["notes"] = release["notes"]
+		in["notes"] = disclosure["notes"]
 	case OfChange:
 		p := dec.Put
 		var files []map[string]any
@@ -152,10 +152,10 @@ func (d *Decisions) served(o *office.Office, dec *Decision) (map[string]any, err
 	return map[string]any{"number": dec.Request, "asked": asked, "asker": partyCalled(asks)}, nil
 }
 
-// release gives what a release decider is shown: what would leave, and
+// disclosure gives what a disclosure decider is shown: what would leave, and
 // whether it is an answer, a question, a tell or a sub-request; whom it is
 // to, and where it will be read; and the team's notes, read now.
-func (d *Decisions) release(o *office.Office, dec *Decision) (map[string]any, error) {
+func (d *Decisions) disclosure(o *office.Office, dec *Decision) (map[string]any, error) {
 	s := dec.Said
 	out := map[string]any{"what": s.What, "text": s.Text, "said_in": s.Request}
 	switch s.What {
@@ -217,8 +217,8 @@ func (d *Decisions) shown(o *office.Office, dec *Decision, people []string) (str
 		if dec.Job.Asked != nil && dec.Job.Asked.Said != "" {
 			fmt.Fprintf(&b, "%s said: %s\n", who, dec.Job.Asked.Said)
 		}
-	case OfRelease:
-		r, err := d.release(o, dec)
+	case OfDisclosure:
+		r, err := d.disclosure(o, dec)
 		if err != nil {
 			return "", err
 		}

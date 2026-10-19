@@ -264,7 +264,7 @@ func TestDecisionEntriesAreByTheDeciderToWhoseItIs(t *testing.T) {
 	b.runner.answers(func(s decisions.Start) (string, error, bool) {
 		return `{"says":"yes","note":"No account number."}`, nil, true
 	})
-	id, err := b.d.Release(ctx, decisions.Said{What: decisions.SaysAnswer, Request: sub, By: b.reqs.Worker("ledger"), Text: "Refunded."})
+	id, err := b.d.Disclose(ctx, decisions.Said{What: decisions.SaysAnswer, Request: sub, By: b.reqs.Worker("ledger"), Text: "Refunded."})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +272,7 @@ func TestDecisionEntriesAreByTheDeciderToWhoseItIs(t *testing.T) {
 	es := b.entries(sub, decisions.KindDecided)
 	e = es[len(es)-1]
 	if e.By.Kind != requests.IsRule || e.By.Name != "payments/no-account-numbers.yaml" || e.To[0].Name != "ledger" {
-		t.Fatalf("the release's entry is %+v", e)
+		t.Fatalf("the disclosure's entry is %+v", e)
 	}
 }
 

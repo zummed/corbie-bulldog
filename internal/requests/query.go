@@ -31,7 +31,7 @@ func (s *Store) Thread(n int64) ([]Entry, error) {
 	return l.entries(n)
 }
 
-// HeldAnswers gives the answer each request holds for its team's release
+// HeldAnswers gives the answer each request holds for its team's disclosure
 // check: the latest a lead who is a person said, of each request whose
 // answer is held.
 func (s *Store) HeldAnswers() ([]Entry, error) {

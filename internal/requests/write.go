@@ -163,7 +163,7 @@ func (s *Store) Sub(parent int64, by Who, team, question, ticket string) (*Reque
 // Say writes what someone who may say more in a request says in it, as an
 // entry to its team, which makes an answered or stopped request working
 // again. What its lead says, when that is a person, is its answer, or,
-// for a team that sets a release check, an answer held until the check
+// for a team that sets a disclosure check, an answer held until the check
 // lets it go, which is what was read of the team, and is handed to the
 // check by Held once it is kept. One that could not be handed is given
 // with the error, and is held no longer, so the lead is waited on again.
@@ -174,7 +174,7 @@ func (s *Store) Say(n int64, by Who, text string, files []File, in Where) (*Entr
 		return e, err
 	}
 	if err := s.Held(e); err != nil {
-		return e, errors.Join(fmt.Errorf("what was said is kept as what was read of the team, but could not be handed to its release check, so it is not said, and the lead is waited on again: %w", err), s.unhold(e))
+		return e, errors.Join(fmt.Errorf("what was said is kept as what was read of the team, but could not be handed to its disclosure check, so it is not said, and the lead is waited on again: %w", err), s.unhold(e))
 	}
 	return e, nil
 }
@@ -195,7 +195,7 @@ func (s *Store) say(n int64, by Who, text string, files []File, in Where) (*Entr
 		}
 		if p := c.personOf(by); p != "" && c.leadPerson(r) == p {
 			answer := Entry{Kind: KindAnswer, By: by, To: []Who{r.Asker}, Text: text, In: in}
-			if c.o.Teams[r.Team].HasRelease {
+			if c.o.Teams[r.Team].HasDisclosure {
 				answer = Entry{Kind: KindHeld, By: by, To: []Who{teamOf(r)}, Text: text, In: in, Read: r.Team, ReadKnown: r.TeamKnown}
 			}
 			if e, err = c.add(r, answer, files, nil); err != nil {
@@ -220,7 +220,7 @@ func (s *Store) say(n int64, by Who, text string, files []File, in Where) (*Entr
 }
 
 // unhold has an answer that was held, and could not be handed to its
-// release check, held no longer, unless a later one is held in its place.
+// disclosure check, held no longer, unless a later one is held in its place.
 func (s *Store) unhold(held *Entry) error {
 	return s.write(func(c *change) error {
 		r, err := c.req(held.Request)
@@ -398,10 +398,10 @@ func (c *change) isLead(r *Request, by Who) bool {
 	return t != nil && c.workerOf(r, by) && by.Name == cmp.Or(r.Worker, t.Lead)
 }
 
-// Release lets go an answer its team's release check held, of a lead who
+// Disclose lets go an answer its team's disclosure check held, of a lead who
 // is a person: it becomes the request's answer, by them, with its files,
 // and is what was done.
-func (s *Store) Release(held int64) (*Entry, error) {
+func (s *Store) Disclose(held int64) (*Entry, error) {
 	var e *Entry
 	err := s.write(func(c *change) error {
 		put, err := c.entry(held)
@@ -564,7 +564,7 @@ func (s *Store) Stop(n int64, by Who) ([]int64, error) {
 }
 
 // StopWith answers a request as Bulldog with a line of its own, as when its
-// team did not release its answer: it is stopped as Stop stops it, by
+// team did not disclose its answer: it is stopped as Stop stops it, by
 // Bulldog, but its asker is told only the line, and what is stopped
 // beneath it is stopped by Bulldog. It gives the requests it stopped,
 // whose runs are to be cancelled.

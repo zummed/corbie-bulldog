@@ -445,7 +445,7 @@ const (
 	doing = "doing"
 	// waiting: it waits on a person, another team or a change's decision.
 	waiting = "waiting"
-	// held: what it would say waits on its team's release check.
+	// held: what it would say waits on its team's disclosure check.
 	held = "held"
 	// answered: its answer is kept, and given whenever it is seen waiting.
 	answered = "answered"
@@ -463,7 +463,7 @@ type callRow struct {
 	// what it put is after it.
 	Mark int64
 	// Entry is the question or the tell it put, Sub the sub-request it
-	// made, Put the change it put, and Decision the release its words wait
+	// made, Put the change it put, and Decision the disclosure its words wait
 	// on.
 	Entry    int64
 	Sub      int64
@@ -668,7 +668,7 @@ func (w *Work) numbers(query string, args ...any) ([]int64, error) {
 }
 
 // keepOwed keeps what another area told work, to be done on work's own
-// goroutine: how a release ended, in work_lets by its decision, or how a
+// goroutine: how a disclosure ended, in work_lets by its decision, or how a
 // change put ended, in work_outcomes by its put. Told twice, it is kept
 // once, and done once.
 func (w *Work) keepOwed(table string, id int64, told any) error {

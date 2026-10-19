@@ -18,18 +18,18 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 )
 
-// releasing waits until a release of a kind waits on people in a
+// disclosing waits until a disclosure of a kind waits on people in a
 // request, and gives it.
-func (b *bench) releasing(n int64, what string) *decisions.Decision {
+func (b *bench) disclosing(n int64, what string) *decisions.Decision {
 	b.t.Helper()
 	var dec *decisions.Decision
-	b.until(fmt.Sprintf("a %s waits on its release in request %d", what, n), func() bool {
+	b.until(fmt.Sprintf("a %s waits on its disclosure in request %d", what, n), func() bool {
 		decs, err := b.d.OfRequest(n)
 		if err != nil {
 			b.t.Fatal(err)
 		}
 		for _, d := range decs {
-			if d.Kind == decisions.OfRelease && d.Said.What == what && d.Ended == "" && len(d.Asked) > 0 {
+			if d.Kind == decisions.OfDisclosure && d.Said.What == what && d.Ended == "" && len(d.Asked) > 0 {
 				dec = d
 			}
 		}
@@ -38,7 +38,7 @@ func (b *bench) releasing(n int64, what string) *decisions.Decision {
 	return dec
 }
 
-func TestWhatAToolSaysOutsideItsTeamIsReleasedFirst(t *testing.T) {
+func TestWhatAToolSaysOutsideItsTeamIsDisclosedFirst(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, payments(t))
 	var mu sync.Mutex
@@ -70,9 +70,9 @@ func TestWhatAToolSaysOutsideItsTeamIsReleasedFirst(t *testing.T) {
 
 	// The question to platform names a card: the rule passes it, and it
 	// waits on Lee and Priya, asked of nobody yet.
-	first := b.releasing(sub, decisions.SaysSub)
+	first := b.disclosing(sub, decisions.SaysSub)
 	if subs := b.entries(sub, requests.KindSub); len(subs) != 0 {
-		t.Fatalf("platform was asked before the release: %v", b.thread(sub))
+		t.Fatalf("platform was asked before the disclosure: %v", b.thread(sub))
 	}
 	holdsNone(t, "the bot's request", strings.Join(b.thread(n), "\n"), "4111")
 	if r, err := b.d.Decide(ctx, first.ID, b.reqs.Person("lee"), "yes", ""); err != nil || !r.Taken {
@@ -85,7 +85,7 @@ func TestWhatAToolSaysOutsideItsTeamIsReleasedFirst(t *testing.T) {
 
 	// Asked again, Priya refuses it: nothing is asked, and the refusal is
 	// the tool's result, and an entry to the ledger seen only in payments.
-	second := b.releasing(sub, decisions.SaysSub)
+	second := b.disclosing(sub, decisions.SaysSub)
 	if r, err := b.d.Decide(ctx, second.ID, b.reqs.Person("priya"), "refuse", "no card numbers"); err != nil || !r.Taken {
 		t.Fatalf("Priya's refusal: %v %v", r, err)
 	}
@@ -103,7 +103,7 @@ func TestWhatAToolSaysOutsideItsTeamIsReleasedFirst(t *testing.T) {
 		t.Fatalf("the ledger's turns were given %q", ledger)
 	}
 	holds(t, "the ledger's first result", ledger[1], "ops answered for Platform", "Merge request 812")
-	holds(t, "the ledger's refusal", ledger[2], "not released", "Priya", "no card numbers")
+	holds(t, "the ledger's refusal", ledger[2], "not disclosed", "Priya", "no card numbers")
 	var refusal *requests.Entry
 	for _, e := range b.entries(sub, decisions.KindDecided) {
 		if strings.Contains(e.Text, "no card numbers") {
@@ -116,10 +116,10 @@ func TestWhatAToolSaysOutsideItsTeamIsReleasedFirst(t *testing.T) {
 	if subs := b.entries(sub, requests.KindSub); len(subs) != 1 {
 		t.Errorf("the refused question was asked: %v", b.thread(sub))
 	}
-	// The question to Lee, inside payments, waited on no release.
+	// The question to Lee, inside payments, waited on no disclosure.
 	for _, d := range must(b.d.OfRequest(sub)) {
 		if d.Said != nil && d.Said.What == decisions.SaysQuestion {
-			t.Errorf("the question to Lee was held for release: %+v", d)
+			t.Errorf("the question to Lee was held for disclosure: %+v", d)
 		}
 	}
 	holdsNone(t, "the bot's request", strings.Join(b.thread(n), "\n"), "4111", "no card numbers")
@@ -200,19 +200,19 @@ func TestARuleNamingItsHostReachesIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dec := b.releasing(other.Number, decisions.SaysAnswer)
+	dec := b.disclosing(other.Number, decisions.SaysAnswer)
 	if len(dec.Passes) != 1 || !strings.Contains(dec.Passes[0].Note, "0.90") || strings.Join(dec.Asked, ",") != "lee,priya" {
-		t.Errorf("the release stands as %+v", dec)
+		t.Errorf("the disclosure stands as %+v", dec)
 	}
 	if decide := b.waitsOn(other.Number, decisions.KindDecide); !strings.Contains(decide.Text, "0.90") {
 		t.Errorf("Lee and Priya are shown %v", b.thread(other.Number))
 	}
 }
 
-func TestAnAnswerRefusedToTheLimitIsNotReleased(t *testing.T) {
+func TestAnAnswerRefusedToTheLimitIsNotDisclosed(t *testing.T) {
 	t.Parallel()
 	files := payments(t)
-	files["payments/team.yaml"] = strings.Replace(files["payments/team.yaml"], "release: [./no-cards.js]", "release: [./refuse-all.js]", 1)
+	files["payments/team.yaml"] = strings.Replace(files["payments/team.yaml"], "disclosure: [./no-cards.js]", "disclosure: [./refuse-all.js]", 1)
 	files["payments/refuse-all.js"] = "return { says: \"refuse\", note: \"never the card ending 1111\" }\n"
 	b := newBench(t, files)
 	b.says(func(turn testkit.Turn) testkit.Reply {
@@ -227,14 +227,14 @@ func TestAnAnswerRefusedToTheLimitIsNotReleased(t *testing.T) {
 	n := b.chat("dana", "", "customer 4411 was charged twice")
 	sub := b.waitsOn(n, requests.KindSub).Sub
 	a := b.answered(n)
-	if a.Text != "bot heard: payments did not release its answer (refuse-all.js)" {
+	if a.Text != "bot heard: payments did not disclose its answer (refuse-all.js)" {
 		t.Errorf("the bot was given %q", a.Text)
 	}
 	if runs := b.runs(sub); len(runs) != RunsInARow {
 		t.Errorf("the ledger was started %d times", len(runs))
 	}
 	holdsNone(t, "the bot's request", strings.Join(b.thread(n), "\n"), "1111")
-	if told := b.toldAsker(sub); !slices.Equal(told, []string{"payments did not release its answer (refuse-all.js)"}) {
+	if told := b.toldAsker(sub); !slices.Equal(told, []string{"payments did not disclose its answer (refuse-all.js)"}) {
 		t.Errorf("Bulldog told the bot %q", told)
 	}
 }
@@ -252,7 +252,7 @@ func (b *bench) toldAsker(n int64) []string {
 	return told
 }
 
-func TestALeadThatGivesUpOnARefusalIsNotReleased(t *testing.T) {
+func TestALeadThatGivesUpOnARefusalIsNotDisclosed(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, payments(t))
 	b.says(func(turn testkit.Turn) testkit.Reply {
@@ -268,18 +268,18 @@ func TestALeadThatGivesUpOnARefusalIsNotReleased(t *testing.T) {
 	})
 	n := b.chat("dana", "", "customer 4411 was charged twice")
 	sub := b.waitsOn(n, requests.KindSub).Sub
-	dec := b.releasing(sub, decisions.SaysAnswer)
+	dec := b.disclosing(sub, decisions.SaysAnswer)
 	if r, err := b.d.Decide(ctx, dec.ID, b.reqs.Person("lee"), "refuse", "the last four digits only"); err != nil || !r.Taken {
 		t.Fatalf("Lee's refusal: %v %v", r, err)
 	}
-	if a := b.answered(n); a.Text != "bot heard: payments did not release its answer (Lee)" {
+	if a := b.answered(n); a.Text != "bot heard: payments did not disclose its answer (Lee)" {
 		t.Errorf("the bot was given %q", a.Text)
 	}
 	if runs := b.runs(sub); len(runs) != 2 {
 		t.Errorf("the ledger was started %d times", len(runs))
 	}
 	holdsNone(t, "the bot's request", strings.Join(b.thread(n), "\n"), "4111", "the last four digits only", "gave no answer")
-	if told := b.toldAsker(sub); !slices.Equal(told, []string{"payments did not release its answer (Lee)"}) {
+	if told := b.toldAsker(sub); !slices.Equal(told, []string{"payments did not disclose its answer (Lee)"}) {
 		t.Errorf("Bulldog told the bot %q", told)
 	}
 }
@@ -340,7 +340,7 @@ func TestAStoppedRunsAnswerStaysInItsTeam(t *testing.T) {
 		}
 	}
 	if decs, err := b.d.OfRequest(sub); err != nil || len(decs) != 0 {
-		t.Errorf("the stopped answer was handed to the release check: %+v %v", decs, err)
+		t.Errorf("the stopped answer was handed to the disclosure check: %+v %v", decs, err)
 	}
 }
 
@@ -360,7 +360,7 @@ func TestARestartOnARefusalIsTriedAgainWhenItsStartFails(t *testing.T) {
 	})
 	n := b.chat("dana", "", "customer 4411 was charged twice")
 	sub := b.waitsOn(n, requests.KindSub).Sub
-	dec := b.releasing(sub, decisions.SaysAnswer)
+	dec := b.disclosing(sub, decisions.SaysAnswer)
 	var mu sync.Mutex
 	failing := true
 	b.reach.set(func(f *flaky) {
@@ -392,12 +392,12 @@ func TestARestartOnARefusalIsTriedAgainWhenItsStartFails(t *testing.T) {
 	}
 }
 
-func TestALeadWhoIsAPersonAnsweringOnABridgeReachesItsReleaseCheck(t *testing.T) {
+func TestALeadWhoIsAPersonAnsweringOnABridgeReachesItsDisclosureCheck(t *testing.T) {
 	t.Parallel()
 	files := work(t)
 	files["office.yaml"] = strings.Replace(files["office.yaml"], "platform/api: { team: platform }", "platform/api: { team: platform }\n      support/desk: { team: support }", 1)
 	files["office.yaml"] = strings.Replace(files["office.yaml"], "slack: U0DANA00 }", `slack: U0DANA00, gitlab: "1300" }`, 1)
-	files["support/team.yaml"] += "release: [./kindly.js]\n"
+	files["support/team.yaml"] += "disclosure: [./kindly.js]\n"
 	files["support/kindly.js"] = `return input.text.includes("calm down") ? { says: "refuse", note: "say it kindly" } : { says: "yes" }`
 	b := newBench(t, files)
 	b.hear(b.listening("gitlab"), 1, thing("said", "1041", "support/desk", "support/desk#1", "text", "a customer is cross: what do we tell them?"))

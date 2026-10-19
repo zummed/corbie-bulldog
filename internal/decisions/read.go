@@ -12,13 +12,13 @@ import (
 // Read takes a new reading of the office, after Requests has taken it,
 // and walks every decision that waits on over its lists as now read: who
 // is no longer on them is no longer asked, a rule or worker no longer on
-// them is cancelled, a release whose team no longer sets a release check
+// them is cancelled, a disclosure whose team no longer sets a disclosure check
 // is let go, and one that nobody can now decide is refused; an answer the
-// requests hold that was never handed to its release check, as when
+// requests hold that was never handed to its disclosure check, as when
 // Bulldog stopped in between, is handed to it now. The first
 // reading also takes up the runs of rules and workers that were deciding
 // when Bulldog stopped, to read what they end with, and does what a
-// release or a change that ended before Bulldog stopped had still to do.
+// disclosure or a change that ended before Bulldog stopped had still to do.
 func (d *Decisions) Read(ctx context.Context, o *office.Office) error {
 	return d.doing(ctx, func(fx *effects) error {
 		d.state.Lock()
@@ -46,7 +46,7 @@ func (d *Decisions) Read(ctx context.Context, o *office.Office) error {
 			return err
 		}
 		for _, e := range held {
-			if _, err := d.keepRelease(o, heldSaid(e), fx); err != nil {
+			if _, err := d.keepDisclosure(o, heldSaid(e), fx); err != nil {
 				return err
 			}
 		}

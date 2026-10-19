@@ -181,7 +181,7 @@ func tellTeam(t *telling, now *office.Office, a, b *office.Team, sawWas, sawNow 
 		db, hasB := lb[key]
 		tellList(t, files, fmt.Sprintf("%s decides %s by", name, key), fmt.Sprintf("%s %s list", of(name), key), da, db, hadA, hasB, a.File == "")
 	}
-	tellList(t, files, fmt.Sprintf("%s release check is", of(name)), fmt.Sprintf("%s release check", of(name)), a.Release, b.Release, a.HasRelease, b.HasRelease, a.File == "")
+	tellList(t, files, fmt.Sprintf("%s disclosure check is", of(name)), fmt.Sprintf("%s disclosure check", of(name)), a.Disclosure, b.Disclosure, a.HasDisclosure, b.HasDisclosure, a.File == "")
 	routine := func(r office.Routine) string { return r.At + "|" + r.To + "|" + r.Say }
 	for _, r := range b.Routines {
 		if !slices.ContainsFunc(a.Routines, func(x office.Routine) bool { return routine(x) == routine(r) }) {
@@ -296,7 +296,7 @@ func seers(o *office.Office, team string) []string {
 	for _, l := range t.Decide {
 		add(l.Deciders)
 	}
-	add(t.Release)
+	add(t.Disclosure)
 	for at := team; at != ""; at = o.Teams[at].Within {
 		everything := o.Everything(at)
 		add(everything)
@@ -663,8 +663,8 @@ func tellRules(t *telling, was, now reading, touched map[string]bool) {
 				on = append(on, l.Key+" list")
 			}
 		}
-		if slices.ContainsFunc(team.Release, func(d office.Decider) bool { return d.Name == rule }) {
-			on = append(on, "release check")
+		if slices.ContainsFunc(team.Disclosure, func(d office.Decider) bool { return d.Name == rule }) {
+			on = append(on, "disclosure check")
 		}
 		return on
 	}

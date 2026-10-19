@@ -84,11 +84,11 @@ func listTeam(out io.Writer, o *office.Office, t *office.Team) []string {
 			fmt.Fprintf(out, "  decides %s: %s\n", l.Key, decidedBy(o, t.Name, l.Key))
 		}
 	}
-	release := "none"
-	if t.HasRelease {
-		release = written(t.Release)
+	disclosure := "none"
+	if t.HasDisclosure {
+		disclosure = written(t.Disclosure)
 	}
-	fmt.Fprintf(out, "  release check: %s\n", release)
+	fmt.Fprintf(out, "  disclosure check: %s\n", disclosure)
 	for _, r := range t.Routines {
 		fmt.Fprintf(out, "  routine at %s, to %s: %s\n", r.At, r.To, r.Say)
 	}

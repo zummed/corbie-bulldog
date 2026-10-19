@@ -43,8 +43,8 @@ func walk(o *office.Office, dec *Decision) (stages []stage, why string) {
 		return nil, "it is no longer in the office"
 	}
 	switch dec.Kind {
-	case OfRelease:
-		stages = listed(t.Release, t.Name, "release", o)
+	case OfDisclosure:
+		stages = listed(t.Disclosure, t.Name, "disclosure", o)
 	case OfAction:
 		keys := []string{dec.Job.key()}
 		if dec.Job.Asked != nil && dec.Job.Asked.Entry != "" {

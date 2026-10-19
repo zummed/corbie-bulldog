@@ -17,7 +17,7 @@ import (
 )
 
 // What a waiting tool waits for comes from elsewhere: a person's answer
-// to a question, a sub-request's answer, a release let go or refused, a
+// to a question, a sub-request's answer, a disclosure let go or refused, a
 // change decided. Each goes to the tool while it waits, and otherwise
 // into the request's thread, never both.
 
@@ -186,7 +186,7 @@ func (w *Work) subText(r *requests.Request, answer requests.Entry) string {
 	return fmt.Sprintf("%s answered for %s:\n\n%s", called(w.office, answer.By), calledTeam(w.office, r.Team), answer.Text)
 }
 
-// let is told how a release ended, and keeps it, to be done on work's own
+// let is told how a disclosure ended, and keeps it, to be done on work's own
 // goroutine; told twice, it is done once.
 func (w *Work) let(ctx context.Context, l decisions.Let) error {
 	if err := w.keepOwed("work_lets", l.Decision, l); err != nil {
@@ -196,11 +196,11 @@ func (w *Work) let(ctx context.Context, l decisions.Let) error {
 	return nil
 }
 
-// lets does what each release that ended asks of work.
+// lets does what each disclosure that ended asks of work.
 func (w *Work) lets(ctx context.Context) bool {
 	owed, err := w.owed("work_lets")
 	if err != nil {
-		w.Log("the releases that ended could not be read, so they are read again in %v: %v", Again, err)
+		w.Log("the disclosures that ended could not be read, so they are read again in %v: %v", Again, err)
 		w.again("owed")
 		return false
 	}
@@ -220,14 +220,14 @@ func (w *Work) lets(ctx context.Context) bool {
 			err = w.paid("work_lets", id)
 		}
 		if err != nil {
-			w.trouble(l.Said.Request, w.teamOf(l.Said.Request), fmt.Sprintf("Bulldog could not do what the release %d decided, and tries again in %v: %v", id, Again, err))
+			w.trouble(l.Said.Request, w.teamOf(l.Said.Request), fmt.Sprintf("Bulldog could not do what the disclosure %d decided, and tries again in %v: %v", id, Again, err))
 			w.again(key)
 		}
 	}
 	return did
 }
 
-// letGo does what a release decided. An answer let go was said by the
+// letGo does what a disclosure decided. An answer let go was said by the
 // decisions, and goes on to the tool that asked for it; one refused
 // starts the lead again with the decider's word. A question, a tell or a
 // sub-request let go is put or made now, and one refused is the waiting
@@ -235,7 +235,7 @@ func (w *Work) lets(ctx context.Context) bool {
 func (w *Work) letGo(ctx context.Context, l decisions.Let) error {
 	n := l.Said.Request
 	if l.Said.What == decisions.SaysAnswer {
-		if !l.Released {
+		if !l.Disclosed {
 			if err := w.refused(n); err != nil {
 				return err
 			}
@@ -254,7 +254,7 @@ func (w *Work) letGo(ctx context.Context, l decisions.Let) error {
 		// refusal starts the lead again.
 		row = &callRow{Run: l.Said.Ticket, Request: n, Worker: l.Said.By.Name}
 	}
-	if !l.Released {
+	if !l.Disclosed {
 		if row.State == held {
 			gone, err := w.settleCall(ctx, row, l.Text(), nil)
 			if err != nil || !gone {

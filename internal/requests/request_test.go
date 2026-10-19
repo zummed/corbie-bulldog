@@ -202,7 +202,7 @@ func TestRequestsWorkersActInTheirOwnTeam(t *testing.T) {
 		}
 	}
 	if r := d.Rule("payments/no-account-numbers.yaml"); r.Kind != requests.IsRule || r.Team != "payments" || r.Known == 0 {
-		t.Errorf("payments' release rule is %+v", r)
+		t.Errorf("payments' disclosure rule is %+v", r)
 	}
 }
 

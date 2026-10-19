@@ -20,11 +20,11 @@ type Decision struct {
 	Team    string `json:"team"`
 	Request int64  `json:"request,omitzero"`
 	// Whose is the worker whose action it is, who said what is to be
-	// released, or who drafted the change; for a held job no worker of the
+	// disclosed, or who drafted the change; for a held job no worker of the
 	// office holds, nobody.
 	Whose requests.Who `json:"whose"`
 	// Does is the action as its tool describes itself, what is to be
-	// released, or the change, in a line.
+	// disclosed, or the change, in a line.
 	Does string `json:"does"`
 
 	// Ask is the ask's run that holds the job, and Job the job.
@@ -55,15 +55,15 @@ type Decision struct {
 	Decided time.Time `json:"decided,omitzero"`
 	Made    time.Time `json:"made"`
 
-	// owed is what an ended release or change has still to do beyond this
+	// owed is what an ended disclosure or change has still to do beyond this
 	// area, kept with it so what Bulldog stopped before doing is done once
 	// it is back: "" once all is done.
 	owed string
 }
 
 // What an ended decision may still owe: how it ended written in the
-// request's thread; a released answer to be said and then work told; work
-// told how a release ended; Changes told how a change ended.
+// request's thread; a disclosed answer to be said and then work told; work
+// told how a disclosure ended; Changes told how a change ended.
 const (
 	oweEntries = "entries"
 	oweSay     = "say"

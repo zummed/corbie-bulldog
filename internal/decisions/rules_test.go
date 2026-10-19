@@ -36,18 +36,18 @@ func TestRuleStartedWithTheDecision(t *testing.T) {
 
 	w := newBench(t, work(t))
 	_, sub := w.helpRequest()
-	id, err := w.d.Release(ctx, decisions.Said{What: decisions.SaysAnswer, Request: sub, By: w.reqs.Worker("ledger"), Text: "Duplicate confirmed; £40 refunded."})
+	id, err := w.d.Disclose(ctx, decisions.Said{What: decisions.SaysAnswer, Request: sub, By: w.reqs.Worker("ledger"), Text: "Duplicate confirmed; £40 refunded."})
 	if err != nil {
 		t.Fatal(err)
 	}
 	r := w.runner.next(t)
-	if r.Name != "payments/no-account-numbers.yaml" || r.Labels["team"] != "payments" || r.Labels["kind"] != "decide" || r.Input["kind"] != decisions.OfRelease ||
+	if r.Name != "payments/no-account-numbers.yaml" || r.Labels["team"] != "payments" || r.Labels["kind"] != "decide" || r.Input["kind"] != decisions.OfDisclosure ||
 		r.Input["text"] != "Duplicate confirmed; £40 refunded." {
-		t.Fatalf("the release rule is started as %s, labelled %v, given %v", r.Name, r.Labels, r.Input)
+		t.Fatalf("the disclosure rule is started as %s, labelled %v, given %v", r.Name, r.Labels, r.Input)
 	}
 	r.says(decisions.SaysYes, "No account number.")
-	if l := w.let(id); !l.Released || l.By != "no-account-numbers.yaml" {
-		t.Fatalf("the release ended %+v", l)
+	if l := w.let(id); !l.Disclosed || l.By != "no-account-numbers.yaml" {
+		t.Fatalf("the disclosure ended %+v", l)
 	}
 }
 
@@ -65,12 +65,12 @@ func TestRuleResultReadByItsThreshold(t *testing.T) {
 			}
 			return fmt.Sprintf(`{"says":"pass","note":"It may name an account number, %.2f."}`, c.leaks), nil, true
 		})
-		id, err := b.d.Release(ctx, decisions.Said{What: decisions.SaysAnswer, Request: sub, By: b.reqs.Worker("ledger"), Text: "Refunded."})
+		id, err := b.d.Disclose(ctx, decisions.Said{What: decisions.SaysAnswer, Request: sub, By: b.reqs.Worker("ledger"), Text: "Refunded."})
 		if err != nil {
 			t.Fatal(err)
 		}
 		if c.yes {
-			if l := b.let(id); !l.Released {
+			if l := b.let(id); !l.Disclosed {
 				t.Fatalf("at %v the answer was not let go", c.leaks)
 			}
 			continue
@@ -158,9 +158,9 @@ func TestWorkerDecidesFromItsReply(t *testing.T) {
 		t.Fatalf("the reply is cut as %q", note)
 	}
 
-	w := newBench(t, withPayments(t, "people: [lee, priya]\nlead: ledger\nrelease: [ops, lee, priya]\n"))
+	w := newBench(t, withPayments(t, "people: [lee, priya]\nlead: ledger\ndisclosure: [ops, lee, priya]\n"))
 	_, sub := w.helpRequest()
-	if _, err := w.d.Release(ctx, decisions.Said{What: decisions.SaysAnswer, Request: sub, By: w.reqs.Worker("ledger"), Text: "Refunded."}); err != nil {
+	if _, err := w.d.Disclose(ctx, decisions.Said{What: decisions.SaysAnswer, Request: sub, By: w.reqs.Worker("ledger"), Text: "Refunded."}); err != nil {
 		t.Fatal(err)
 	}
 	ops := w.runner.next(t)

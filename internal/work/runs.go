@@ -349,11 +349,11 @@ func (w *Work) said(ctx context.Context, n *note, run *client.Run, e ending) err
 	return w.requests.Failed(n.Request, e.how)
 }
 
-// answer says a run's answer: through the team's release check where it
+// answer says a run's answer: through the team's disclosure check where it
 // leaves the team, and otherwise at once. An empty answer to a routine
 // says nothing, and its request is answered; any other is said as the
 // team having given none, or, from a lead started again on a refusal, as
-// the team not releasing its answer. Nothing leaves a team whose request
+// the team not disclosing its answer. Nothing leaves a team whose request
 // was stopped: the answer is kept as what was read of it. What a team
 // that has gone answers is said nowhere.
 func (w *Work) answer(ctx context.Context, n *note, text string) error {
@@ -373,12 +373,12 @@ func (w *Work) answer(ctx context.Context, n *note, text string) error {
 	}
 	empty := strings.TrimSpace(text) == ""
 	if empty && n.Again {
-		line, refused, err := w.decide.NotReleased(r.Number)
+		line, refused, err := w.decide.NotDisclosed(r.Number)
 		if err != nil {
 			return err
 		}
 		if refused {
-			return w.notReleased(ctx, r, line)
+			return w.notDisclosed(ctx, r, line)
 		}
 	}
 	if empty && r.Origin.Kind != requests.ByRoutine {
@@ -386,7 +386,7 @@ func (w *Work) answer(ctx context.Context, n *note, text string) error {
 	}
 	by := w.requests.Worker(n.Worker)
 	if w.leaves(team, r.Asker) {
-		_, err := w.decide.Release(ctx, decisions.Said{What: decisions.SaysAnswer, Request: r.Number, By: by, Text: text})
+		_, err := w.decide.Disclose(ctx, decisions.Said{What: decisions.SaysAnswer, Request: r.Number, By: by, Text: text})
 		return err
 	}
 	_, err = w.requests.Answer(r.Number, by, text, nil)

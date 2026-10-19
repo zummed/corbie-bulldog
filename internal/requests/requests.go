@@ -140,7 +140,7 @@ type Request struct {
 	// Answered says its lead's answer, or Bulldog's last entry, has been
 	// said and nothing since; Stopped that it was stopped, and nothing
 	// since has opened it; Held that the answer of its lead, a person, is
-	// held by its team's release check, and not yet said. A request whose
+	// held by its team's disclosure check, and not yet said. A request whose
 	// answer is said still waits while anything in it waits on someone.
 	Answered bool
 	Stopped  bool
@@ -163,7 +163,7 @@ const (
 	KindAnswer   = "answer"   // the lead's answer
 	KindLate     = "late"     // a sub-request's answer that came when no run waited for it
 	KindBulldog  = "bulldog"  // Bulldog's own: a failure, a stop or a line in its place, a close at the source, a going
-	KindHeld     = "held"     // the answer of a lead who is a person, held by its team's release check: what was read of the team
+	KindHeld     = "held"     // the answer of a lead who is a person, held by its team's disclosure check: what was read of the team
 )
 
 // An Entry is one thing said in a request. It is written once and never
@@ -239,7 +239,7 @@ type Store struct {
 	// Runs gives what the runs labelled so read, from Corbie's record:
 	// whoever reads Corbie sets it.
 	Runs func(labels map[string]string) ([]Record, error)
-	// Held is handed each answer a release check holds, once it is kept,
+	// Held is handed each answer a disclosure check holds, once it is kept,
 	// to be decided; an error says it was not handed. Decisions sets it.
 	Held func(held *Entry) error
 

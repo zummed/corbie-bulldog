@@ -100,19 +100,19 @@ func TestAnEmptyAnswerIsTheTeamGivingNone(t *testing.T) {
 	holdsNone(t, "what the bins flow is told", told, "no answer")
 }
 
-// payments is the work office with a release check that is a bare
+// payments is the work office with a disclosure check that is a bare
 // script: it lets go what names no card, and passes the rest to Lee or
 // Priya.
 func payments(t *testing.T) map[string]string {
 	files := work(t)
-	files["payments/team.yaml"] = strings.Replace(files["payments/team.yaml"], "release: [./no-account-numbers.yaml]", "release: [./no-cards.js]", 1)
+	files["payments/team.yaml"] = strings.Replace(files["payments/team.yaml"], "disclosure: [./no-account-numbers.yaml]", "disclosure: [./no-cards.js]", 1)
 	files["payments/no-cards.js"] = `if (String(input.text).includes("4111")) return { says: "pass", note: "It names a card." }
 return { says: "yes", note: "No card." }
 `
 	return files
 }
 
-func TestAnAnswerInsideATeamGoesToNoReleaseCheck(t *testing.T) {
+func TestAnAnswerInsideATeamGoesToNoDisclosureCheck(t *testing.T) {
 	t.Parallel()
 	const check = "Morning check of the ledger"
 	files := payments(t)
@@ -122,7 +122,7 @@ func TestAnAnswerInsideATeamGoesToNoReleaseCheck(t *testing.T) {
 		return testkit.Say("Duplicate confirmed on card 4111 1111 1111 1111.")
 	})
 	// Lee, of payments, asks it, and its routine asks it for its people:
-	// neither answer leaves payments, so neither waits on its release.
+	// neither answer leaves payments, so neither waits on its disclosure.
 	b.waitsForItsTime(check)
 	lee := b.chat("lee", "payments", "was 4411 charged twice?")
 	b.clock.Set(time.Date(2026, 10, 6, 6, 0, 0, 0, time.UTC))
@@ -135,7 +135,7 @@ func TestAnAnswerInsideATeamGoesToNoReleaseCheck(t *testing.T) {
 	}
 }
 
-func TestAnAnswerLeavingATeamWithAReleaseCheckWaitsForIt(t *testing.T) {
+func TestAnAnswerLeavingATeamWithADisclosureCheckWaitsForIt(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, payments(t))
 	b.says(func(turn testkit.Turn) testkit.Reply {
@@ -153,9 +153,9 @@ func TestAnAnswerLeavingATeamWithAReleaseCheckWaitsForIt(t *testing.T) {
 	sub := b.waitsOn(n, requests.KindSub).Sub
 	// The rule passes it to Lee and Priya; nothing leaves payments, and
 	// the bot's tool still waits.
-	dec := b.releasing(sub, decisions.SaysAnswer)
+	dec := b.disclosing(sub, decisions.SaysAnswer)
 	if answers := b.entries(sub, requests.KindAnswer); len(answers) != 0 {
-		t.Fatalf("the answer left payments before it was released: %v", b.thread(sub))
+		t.Fatalf("the answer left payments before it was disclosed: %v", b.thread(sub))
 	}
 	b.still()
 	if calls := b.calls(n); len(calls) != 1 || calls[0].HasEnded() {

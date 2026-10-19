@@ -436,7 +436,7 @@ func toolNames(tools []Tool) []string {
 func (r *reading) checkRules() {
 	for _, team := range r.o.Order {
 		t := r.o.Teams[team]
-		lists := append([]List{{Key: "release", Deciders: t.Release}}, t.Decide...)
+		lists := append([]List{{Key: "disclosure", Deciders: t.Disclosure}}, t.Decide...)
 		for _, list := range lists {
 			for _, d := range list.Deciders {
 				if d.Kind != IsRule || r.o.Rules[d.Name] != nil {

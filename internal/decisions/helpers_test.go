@@ -256,11 +256,11 @@ func (b *bench) answers(ask string) int {
 	return n
 }
 
-// let stays until a release has ended, and gives how.
+// let stays until a disclosure has ended, and gives how.
 func (b *bench) let(id int64) decisions.Let {
 	b.t.Helper()
 	var l *decisions.Let
-	b.until(fmt.Sprintf("the release %d has ended", id), func() bool {
+	b.until(fmt.Sprintf("the disclosure %d has ended", id), func() bool {
 		b.mu.Lock()
 		defer b.mu.Unlock()
 		for _, got := range b.lets {
@@ -273,7 +273,7 @@ func (b *bench) let(id int64) decisions.Let {
 	return *l
 }
 
-// letsOf gives how many times a release was told.
+// letsOf gives how many times a disclosure was told.
 func (b *bench) letsOf(id int64) int {
 	b.mu.Lock()
 	defer b.mu.Unlock()

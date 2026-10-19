@@ -370,7 +370,7 @@ func TestRequestsStopWithALineOfItsOwn(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
 	must(t, errOf(d.Put(d.payments, d.Worker("ledger"), requests.KindQuestion, d.Person("lee"), "which card?", nil)))
-	const line = "the office did not release its answer"
+	const line = "the office did not disclose its answer"
 	stopped := got[[]int64](t)(d.StopWith(d.dana, line))
 	if !slices.Equal(stopped, []int64{d.dana, d.payments, d.platform}) {
 		t.Errorf("the stop stopped %v", stopped)
@@ -486,7 +486,7 @@ func TestRequestsSourceStatusNeverSet(t *testing.T) {
 
 func TestRequestsHeldAnswerNotHandedWaitsOnTheLeadAgain(t *testing.T) {
 	t.Parallel()
-	files := replace(t, work(t), "support/team.yaml", "lead: dana", "lead: dana\nrelease: [./check.js]")
+	files := replace(t, work(t), "support/team.yaml", "lead: dana", "lead: dana\ndisclosure: [./check.js]")
 	files["support/check.js"] = `return { says: "yes" }`
 	d := open(t, files)
 	var handed []int64

@@ -92,7 +92,7 @@ func (d *Decisions) after(ctx context.Context, fx *effects) error {
 
 // settle does what an ended decision still owes, keeping each step once
 // it is done: how it ended is written in the request's thread; then a
-// released answer is said, and work told how the release ended; or
+// disclosed answer is said, and work told how the disclosure ended; or
 // Changes is told how a change ended, unless it has ended there already.
 func (d *Decisions) settle(ctx context.Context, dec *Decision) error {
 	if dec.owed == oweEntries {
@@ -123,10 +123,10 @@ func (d *Decisions) settle(ctx context.Context, dec *Decision) error {
 	switch dec.owed {
 	case oweLet:
 		if d.Let == nil {
-			return fmt.Errorf("the release %d ended, but nothing tells work", dec.ID)
+			return fmt.Errorf("the disclosure %d ended, but nothing tells work", dec.ID)
 		}
 		if err := d.Let(ctx, letOf(dec)); err != nil {
-			return fmt.Errorf("the release %d ended, but work could not be told: %w", dec.ID, err)
+			return fmt.Errorf("the disclosure %d ended, but work could not be told: %w", dec.ID, err)
 		}
 	case oweDecided:
 		_, out, err := d.changes.Put(ctx, dec.Put.ID)
@@ -167,13 +167,13 @@ func owing(dec *Decision) string {
 }
 
 // owedBeyond gives what an ended decision owes beyond this area: a
-// released answer to be said, work to be told how a release ended, or
+// disclosed answer to be said, work to be told how a disclosure ended, or
 // Changes how a change did.
 func owedBeyond(dec *Decision) string {
 	switch {
-	case dec.Kind == OfRelease && dec.Ended == Yes && dec.Said.What == SaysAnswer:
+	case dec.Kind == OfDisclosure && dec.Ended == Yes && dec.Said.What == SaysAnswer:
 		return oweSay
-	case dec.Kind == OfRelease && dec.Ended != Withdrawn:
+	case dec.Kind == OfDisclosure && dec.Ended != Withdrawn:
 		return oweLet
 	case dec.Kind == OfChange && dec.Ended != Withdrawn:
 		return oweDecided
@@ -195,8 +195,8 @@ func (d *Decisions) owe(dec *Decision, owed string) error {
 func (d *Decisions) advance(o *office.Office, dec *Decision, fx *effects) error {
 	fx.touch(dec.ID)
 	for dec.Ended == "" {
-		if dec.Kind == OfRelease && o.Teams[dec.Team] != nil && !o.Teams[dec.Team].HasRelease {
-			return d.end(dec, Yes, Pass{Kind: requests.IsBulldog, Called: "Bulldog", Note: called(o, dec.Team) + " no longer sets a release check"}, fx)
+		if dec.Kind == OfDisclosure && o.Teams[dec.Team] != nil && !o.Teams[dec.Team].HasDisclosure {
+			return d.end(dec, Yes, Pass{Kind: requests.IsBulldog, Called: "Bulldog", Note: called(o, dec.Team) + " no longer sets a disclosure check"}, fx)
 		}
 		stages, why := walk(o, dec)
 		s, i, ok := next(stages, dec)
@@ -542,7 +542,7 @@ func (d *Decisions) ended(o *office.Office, dec *Decision) error {
 		return err
 	}
 	w := requests.Writing{Kind: KindDecided, By: d.whoOf(*dec.By), To: to, Read: true, Answers: dec.Entry, Text: how(dec) + noted(dec.By.Note)}
-	w.Working = dec.Ended == Refused && dec.Kind == OfRelease && dec.Said.What == SaysAnswer
+	w.Working = dec.Ended == Refused && dec.Kind == OfDisclosure && dec.Said.What == SaysAnswer
 	if _, err := d.requests.Write(dec.Request, w); err != nil {
 		return err
 	}
@@ -623,12 +623,12 @@ func verdictOf(q querier, ask string) (*Verdict, error) {
 }
 
 // record writes what was done of a decision: what it is, who it waits on
-// and how it ended, to whoever else was asked. Of a release nothing is
+// and how it ended, to whoever else was asked. Of a disclosure nothing is
 // what was done until it is let go, so its record is what was read of the
 // team.
 func (d *Decisions) record(o *office.Office, dec *Decision, text string, to []string) error {
 	_, err := d.requests.Write(dec.Request, requests.Writing{Kind: KindDecision, By: requests.Bulldog, To: d.persons(o, to),
-		Read: dec.Kind == OfRelease, Text: text})
+		Read: dec.Kind == OfDisclosure, Text: text})
 	return err
 }
 
@@ -676,10 +676,10 @@ func (d *Decisions) waitsOn(o *office.Office, dec *Decision) string {
 }
 
 // recipient gives whom a decider's word on a decision is to: the worker
-// whose action it is, the team's lead for a release, and whoever drafted
+// whose action it is, the team's lead for a disclosure, and whoever drafted
 // a change.
 func (d *Decisions) recipient(dec *Decision) ([]requests.Who, error) {
-	if dec.Kind != OfRelease {
+	if dec.Kind != OfDisclosure {
 		if dec.Whose.Kind == "" {
 			return nil, nil
 		}

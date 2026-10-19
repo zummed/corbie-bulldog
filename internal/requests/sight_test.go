@@ -37,9 +37,9 @@ func TestRequestsTwoLayers(t *testing.T) {
 	if record.Read != "" || d.last(d.payments).Read != "payments" {
 		t.Error("the decision's record and what a decider is shown are not in their layers")
 	}
-	// Payments asks platform something: until the release lets it go, the
+	// Payments asks platform something: until the disclosure lets it go, the
 	// question is what was read of payments, and there is no sub-request.
-	held := got[*requests.Entry](t)(d.Write(d.payments, requests.Writing{Kind: "release", By: d.Worker("ledger"), To: []requests.Who{d.Team("platform")},
+	held := got[*requests.Entry](t)(d.Write(d.payments, requests.Writing{Kind: "disclosure", By: d.Worker("ledger"), To: []requests.Who{d.Team("platform")},
 		Text: "When did the retry break?", Read: true, Waits: []requests.Who{d.Person("lee")}}))
 	for _, p := range []string{"al", "dana"} {
 		if v := got[*requests.View](t)(d.View(d.payments, p)); len(v.Subs) != 0 || holds(d.shows(d.payments, p), "retry") {
@@ -49,7 +49,7 @@ func TestRequestsTwoLayers(t *testing.T) {
 	if !holds(d.shows(d.payments, "lee"), "retry") {
 		t.Error("Lee does not see payments' held question")
 	}
-	must(t, errOf(d.Write(d.payments, requests.Writing{Kind: "released", By: d.Person("lee"), To: []requests.Who{d.Worker("ledger")}, Text: "yes",
+	must(t, errOf(d.Write(d.payments, requests.Writing{Kind: "disclosed", By: d.Person("lee"), To: []requests.Who{d.Worker("ledger")}, Text: "yes",
 		Read: true, Answers: held.ID})))
 	below := got[*requests.Request](t)(d.Sub(d.payments, d.Worker("ledger"), "platform", "When did the retry break?", "ticket-below")).Number
 	for _, p := range []string{"al", "dana"} {
@@ -79,7 +79,7 @@ func TestRequestsDecisionShowsNoArguments(t *testing.T) {
 func TestRequestsHeldNotDone(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
-	release := got[*requests.Entry](t)(d.Write(d.payments, requests.Writing{Kind: "release", By: d.Worker("ledger"),
+	disclosure := got[*requests.Entry](t)(d.Write(d.payments, requests.Writing{Kind: "disclosure", By: d.Worker("ledger"),
 		To: []requests.Who{d.Person("lee"), d.Person("priya")}, Text: "the ledger would answer: refunded card 4111", Read: true,
 		Waits: []requests.Who{d.Person("lee"), d.Person("priya")}}))
 	for _, p := range []string{"al", "dana"} {
@@ -89,7 +89,7 @@ func TestRequestsHeldNotDone(t *testing.T) {
 		}
 	}
 	must(t, errOf(d.Write(d.payments, requests.Writing{Kind: "refused", By: d.Person("lee"), To: []requests.Who{d.Worker("ledger")},
-		Text: "no card numbers in an answer", Read: true, Answers: release.ID, Working: true})))
+		Text: "no card numbers in an answer", Read: true, Answers: disclosure.ID, Working: true})))
 	for _, p := range []string{"al", "dana"} {
 		if shown := d.shows(d.payments, p); holds(shown, "4111") || holds(shown, "no card numbers") {
 			t.Errorf("%s is shown %q", p, shown)
@@ -97,12 +97,12 @@ func TestRequestsHeldNotDone(t *testing.T) {
 	}
 }
 
-func TestRequestsRefusedRelease(t *testing.T) {
+func TestRequestsRefusedDisclosure(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
-	// The ledger's answer is held, and put to Lee, as the release check
+	// The ledger's answer is held, and put to Lee, as the disclosure check
 	// puts it: it was never the request's answer.
-	held := got[*requests.Entry](t)(d.Write(d.payments, requests.Writing{Kind: "release", By: d.Worker("ledger"), To: []requests.Who{d.Person("lee")},
+	held := got[*requests.Entry](t)(d.Write(d.payments, requests.Writing{Kind: "disclosure", By: d.Worker("ledger"), To: []requests.Who{d.Person("lee")},
 		Text: "the ledger would answer: refunded card 4111", Read: true, Waits: []requests.Who{d.Person("lee")}}))
 	refusal := got[*requests.Entry](t)(d.Write(d.payments, requests.Writing{Kind: "refused", By: d.Person("lee"), To: []requests.Who{d.Worker("ledger")},
 		Text: "no card numbers in an answer", Read: true, Answers: held.ID, Working: true}))
@@ -120,10 +120,10 @@ func TestRequestsRefusedRelease(t *testing.T) {
 			t.Errorf("%s sees payments' sub-request as %+v", p, v.Subs[0])
 		}
 	}
-	// A lead who is a person, of a team that sets a release check, has
+	// A lead who is a person, of a team that sets a disclosure check, has
 	// their answer held as what was read of the team, and answered only
 	// once the check lets it go.
-	files := replace(t, work(t), "support/team.yaml", "lead: dana", "lead: dana\nrelease: [./check.js]")
+	files := replace(t, work(t), "support/team.yaml", "lead: dana", "lead: dana\ndisclosure: [./check.js]")
 	files["support/check.js"] = `return { says: "yes" }`
 	w := open(t, files)
 	must(t, w.Readers("slack", thread, []string{slackDana, slackAl}))
@@ -131,7 +131,7 @@ func TestRequestsRefusedRelease(t *testing.T) {
 	support := got[*requests.Request](t)(w.Sub(dana, w.Worker("bot"), "support", "What did we tell 4411?", "t")).Number
 	answer := got[*requests.Entry](t)(w.Say(support, w.Person("dana"), "a refund", []requests.File{{Name: "note.txt", Data: []byte("4411")}}, requests.Screens))
 	if answer.Kind != requests.KindHeld || answer.Read != "support" || w.state(support).Is != requests.Working || holds(w.shows(support, "al"), "a refund") {
-		t.Errorf("Dana's answer through a release check is %+v, standing %+v", answer, w.state(support))
+		t.Errorf("Dana's answer through a disclosure check is %+v, standing %+v", answer, w.state(support))
 	}
 	if ds := got[[]requests.Delivery](t)(w.Deliveries(answer.ID)); len(ds) != 0 {
 		t.Errorf("the held answer is carried to %+v", ds)
@@ -143,10 +143,10 @@ func TestRequestsRefusedRelease(t *testing.T) {
 	}
 	again := got[*requests.Entry](t)(w.Say(support, w.Person("dana"), "the £40 refund", []requests.File{{Name: "note.txt", Data: []byte("4411")}}, requests.Screens))
 	var refused requests.Refusal
-	if _, err := w.Release(answer.ID); !errors.As(err, &refused) {
+	if _, err := w.Disclose(answer.ID); !errors.As(err, &refused) {
 		t.Errorf("letting go an answer said again is told %v", err)
 	}
-	let := got[*requests.Entry](t)(w.Release(again.ID))
+	let := got[*requests.Entry](t)(w.Disclose(again.ID))
 	if let.Kind != requests.KindAnswer || let.By != w.Person("dana") || let.Text != "the £40 refund" || len(let.Files) != 1 || let.Read != "" ||
 		w.state(support).Is != requests.Answered || !holds(w.shows(support, "al"), "the £40 refund") {
 		t.Errorf("the answer let go is %+v, standing %+v", let, w.state(support))
@@ -463,7 +463,7 @@ func TestRequestsNoFallbackRecipient(t *testing.T) {
 	must(t, errOf(d.Write(d.payments, requests.Writing{Kind: "said", By: d.Worker("ledger"), To: []requests.Who{d.Worker("ledger"), d.Team("payments")}, Text: "y", Read: true})))
 	guest := requests.Identity("slack", "U0STRANGE")
 	n := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", guest.ID, "refund me", nil)).Number
-	must(t, errOf(d.Write(n, requests.Writing{Kind: "not released", By: requests.Bulldog, To: []requests.Who{guest}, Text: "the office did not release its answer"})))
+	must(t, errOf(d.Write(n, requests.Writing{Kind: "not disclosed", By: requests.Bulldog, To: []requests.Who{guest}, Text: "the office did not disclose its answer"})))
 }
 
 // noSam gives the house with Sam gone from the office.

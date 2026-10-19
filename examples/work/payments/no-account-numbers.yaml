@@ -1,6 +1,6 @@
-# Payments' release check. It needs the screening service, with a key, so
+# Payments' disclosure check. It needs the screening service, with a key, so
 # it is a definition, which may reach that host with that key and nothing
-# else. Being named in release, it is a rule and not a worker.
+# else. Being named in disclosure, it is a rule and not a worker.
 flow: no-account-numbers
 stages:
   check:

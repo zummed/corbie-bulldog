@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  const KIND = {action: "Authorisation · action", release: "Release", change: "Change"};
+  const KIND = {action: "Authorisation · action", disclosure: "Disclosure", change: "Change"};
   const ENDED = {yes: "approved", refused: "refused", withdrawn: "withdrawn"};
   const FEW = 3; // of a long list of people, how many are drawn before +N
 

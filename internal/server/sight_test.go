@@ -21,14 +21,14 @@ import (
 	"github.com/zummed/corbie-bulldog/shipped"
 )
 
-// refundOffice gives the work office with a release check that lets
+// refundOffice gives the work office with a disclosure check that lets
 // everything payments says go, so that nothing in it needs a service.
 func refundOffice(t *testing.T) map[string]string {
 	files := workOffice(t)
 	delete(files, "payments/no-account-numbers.yaml")
 	delete(files, "payments/no-account-numbers.js")
-	files["payments/team.yaml"] = strings.Replace(files["payments/team.yaml"], "release: [./no-account-numbers.yaml]", "release: [./release.js]", 1)
-	files["payments/release.js"] = "return { says: \"yes\" }\n"
+	files["payments/team.yaml"] = strings.Replace(files["payments/team.yaml"], "disclosure: [./no-account-numbers.yaml]", "disclosure: [./disclosure.js]", 1)
+	files["payments/disclosure.js"] = "return { says: \"yes\" }\n"
 	return files
 }
 
@@ -146,8 +146,8 @@ func TestServerTeamSeenByItsPeople(t *testing.T) {
 		!refund.Waits || !slices.Equal(refund.Deciders, []deciderOut{{Kind: "person", Name: "lee"}, {Kind: "person", Name: "priya"}}) {
 		t.Errorf("Lee sees the ledger as %+v", ledger)
 	}
-	if !slices.Equal(lee.Release, []deciderOut{{Kind: "rule", Name: "./release.js"}}) || len(lee.Notes) != 1 || lee.Notes[0].Name != "refunds" {
-		t.Errorf("Lee sees payments' release %v and notes %v", lee.Release, lee.Notes)
+	if !slices.Equal(lee.Disclosure, []deciderOut{{Kind: "rule", Name: "./disclosure.js"}}) || len(lee.Notes) != 1 || lee.Notes[0].Name != "refunds" {
+		t.Errorf("Lee sees payments' disclosure %v and notes %v", lee.Disclosure, lee.Notes)
 	}
 	if !slices.ContainsFunc(lee.AtWork, func(a atWork) bool { return a.Worker == "ledger" && a.Request == d.payments }) {
 		t.Errorf("Lee does not see the ledger at work on payments' request: %+v", lee.AtWork)

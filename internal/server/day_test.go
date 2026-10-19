@@ -288,14 +288,14 @@ func TestServerTheHousesDay(t *testing.T) {
 }
 
 // refundsDay gives the work office as its day goes: the ledger's refund
-// is passed by a rule to Lee or Priya, and payments' release check is a
+// is passed by a rule to Lee or Priya, and payments' disclosure check is a
 // rule that passes on anything that names a card's or an account's
 // number, and lets the rest go. Nothing stands in for the ledger's
 // service, so its tools reach nothing: what the stand-in says of the
 // charges and the refund is the whole of them.
 func refundsDay(t *testing.T) map[string]string {
 	files := refundOffice(t)
-	files["payments/release.js"] = `if (/(\d[ -]?){8,19}/.test(input.text)) return { says: "pass", note: "It names a number that may be an account's." }
+	files["payments/disclosure.js"] = `if (/(\d[ -]?){8,19}/.test(input.text)) return { says: "pass", note: "It names a number that may be an account's." }
 return { says: "yes" }
 `
 	files["payments/team.yaml"] = strings.Replace(files["payments/team.yaml"], "decide: { everything: [lee, priya] }",
@@ -363,11 +363,11 @@ func TestServerTheWorkOfficesRefundDay(t *testing.T) {
 		t.Errorf("Priya is shown the refund as %+v", d)
 	}
 
-	// 5. The ledger answers; the release rule finds no account number,
+	// 5. The ledger answers; the disclosure rule finds no account number,
 	// and the answer leaves payments.
 	s.answered(payments)
 
-	holds(t, "Lee's view of payments' request", lee.view(payments).all(), "to release: yes from release.js")
+	holds(t, "Lee's view of payments' request", lee.view(payments).all(), "to disclose: yes from disclosure.js")
 
 	// 6. The bot's answer lands in Dana's thread.
 	s.answered(n)

@@ -1,5 +1,5 @@
 // Package decisions is every yes that work waits for: an action Corbie
-// holds, what a team with a release check says outside itself, and a
+// holds, what a team with a disclosure check says outside itself, and a
 // change to the office's files. Each is asked of its team's deciders in
 // order, rules and workers one at a time and then people all at once, and
 // the first yes or refusal stands. What each decider said is an entry in
@@ -33,9 +33,9 @@ const (
 
 // The kinds of decision.
 const (
-	OfAction  = "action"
-	OfRelease = "release"
-	OfChange  = "change"
+	OfAction     = "action"
+	OfDisclosure = "disclosure"
+	OfChange     = "change"
 )
 
 // How a decision ends. One that has not ended has Ended "".
@@ -133,11 +133,11 @@ type Decisions struct {
 	// which work answers the ask's ticket. It is given the same verdict
 	// again for an ask handed in again. Work sets it.
 	Answer func(ctx context.Context, ask string, v Verdict) error
-	// Let tells work how a release ended, so it says what was released
-	// and gives a waiting tool its refusal. A release is told once it has
+	// Let tells work how a disclosure ended, so it says what was disclosed
+	// and gives a waiting tool its refusal. A disclosure is told once it has
 	// ended and is kept, and told again when the office's decisions are
 	// opened again if Bulldog stopped, or Let failed, before it was told:
-	// work may be told one release twice. Work sets it.
+	// work may be told one disclosure twice. Work sets it.
 	Let func(ctx context.Context, l Let) error
 	// Trouble is told what went wrong where no caller waits to be told,
 	// such as in taking a rule's result. The server sets it.
@@ -175,7 +175,7 @@ CREATE TABLE decisions_asks(run TEXT PRIMARY KEY, verdict TEXT NOT NULL DEFAULT 
 `
 
 // Open opens the decisions' part of the store, making it the first time,
-// and has the requests hand it each answer of a person a release check
+// and has the requests hand it each answer of a person a disclosure check
 // holds. A part made by an older Bulldog is refused. Nothing is decided
 // until the office has been read with Read.
 func Open(db *sql.DB, store *requests.Store, ch *changes.Changes) (*Decisions, error) {

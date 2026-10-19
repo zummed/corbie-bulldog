@@ -87,7 +87,7 @@ func TestHeldListedCallDecidedByItsEntrysList(t *testing.T) {
 	}
 }
 
-func TestReleaseAndChangeAskedOfTheirOwnLists(t *testing.T) {
+func TestDisclosureAndChangeAskedOfTheirOwnLists(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
 	_, sub := b.helpRequest()
@@ -98,7 +98,7 @@ func TestReleaseAndChangeAskedOfTheirOwnLists(t *testing.T) {
 	if len(b.runner.started()) != 0 {
 		t.Fatalf("the held refund was put to %s", b.runner.started()[0].Name)
 	}
-	if _, err := b.d.Release(ctx, decisions.Said{What: decisions.SaysAnswer, Request: sub, By: b.reqs.Worker("ledger"), Text: "Duplicate confirmed; £40 refunded."}); err != nil {
+	if _, err := b.d.Disclose(ctx, decisions.Said{What: decisions.SaysAnswer, Request: sub, By: b.reqs.Worker("ledger"), Text: "Duplicate confirmed; £40 refunded."}); err != nil {
 		t.Fatal(err)
 	}
 	if c := b.runner.next(t); c.Name != "payments/no-account-numbers.yaml" || c.Kind != office.IsRule {
@@ -237,22 +237,22 @@ func TestEveryPassGoesOutward(t *testing.T) {
 	}
 }
 
-func TestReleasePassedGoesToEverything(t *testing.T) {
+func TestDisclosurePassedGoesToEverything(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
 	_, sub := b.helpRequest()
-	id, err := b.d.Release(ctx, decisions.Said{What: decisions.SaysAnswer, Request: sub, By: b.reqs.Worker("ledger"), Text: "Card 4111 1111 1111 1111 was charged twice."})
+	id, err := b.d.Disclose(ctx, decisions.Said{What: decisions.SaysAnswer, Request: sub, By: b.reqs.Worker("ledger"), Text: "Card 4111 1111 1111 1111 was charged twice."})
 	if err != nil {
 		t.Fatal(err)
 	}
 	b.runner.next(t).says(decisions.SaysPass, "It may name an account number, 0.90.")
-	b.until("the release reaches Lee and Priya", func() bool { return len(b.get(id).Asked) == 2 })
+	b.until("the disclosure reaches Lee and Priya", func() bool { return len(b.get(id).Asked) == 2 })
 	if b.letsOf(id) != 0 {
-		t.Fatal("the release ended before Lee let it go")
+		t.Fatal("the disclosure ended before Lee let it go")
 	}
 	b.decide(id, "lee", decisions.SaysYes, "")
-	if l := b.let(id); !l.Released {
-		t.Fatalf("the release ended %+v", l)
+	if l := b.let(id); !l.Disclosed {
+		t.Fatalf("the disclosure ended %+v", l)
 	}
 }
 
