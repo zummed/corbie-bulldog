@@ -357,8 +357,8 @@ func TestBridgesShippedKeysAreCorbieSecrets(t *testing.T) {
 	for name, secret := range map[string][]string{
 		"telegram": {"secret:TELEGRAM_TOKEN@net:api.telegram.org"},
 		"slack":    {"secret:SLACK_TOKEN@net:slack.com", "secret:SLACK_SIGNING_SECRET@*"},
-		"gitlab":   {"secret:GITLAB_TOKEN@net:gitlab.com"},
-		"jira":     {"secret:JIRA_TOKEN@net:example.atlassian.net"},
+		"gitlab":   {"secret:GITLAB_TOKEN@net:${input.settings.site}"},
+		"jira":     {"secret:JIRA_TOKEN@net:${input.settings.site}"},
 	} {
 		files := folder(t, name)
 		for _, s := range secret {

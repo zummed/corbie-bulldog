@@ -1,9 +1,7 @@
 package changes
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"path"
 	"slices"
 	"strings"
@@ -16,14 +14,12 @@ import (
 
 // An Edit is a person's draft as the screens hold it: whole files written,
 // or nil to remove one; fields of files set; workers moved to a team, by
-// the team's name; workers taken away; and a bridge Bulldog ships added,
-// by its name.
+// the team's name; and workers taken away.
 type Edit struct {
 	Files  map[string]*string `json:"files,omitzero"`
 	Set    []Setting          `json:"set,omitzero"`
 	Move   map[string]string  `json:"move,omitzero"`
 	Remove []string           `json:"remove,omitzero"`
-	Bridge string             `json:"bridge,omitzero"`
 }
 
 // Edited gives the files a person's edit would change, each whole, against
@@ -87,20 +83,6 @@ func (c *Changes) Edited(e Edit) ([]File, []string, error) {
 			if err := put(file, moved[file]); err != nil {
 				return nil, nil, err
 			}
-		}
-	}
-	// A folder under bridges/ that office.yaml does not name is read as a
-	// bridge too, so a bridge is never added over one.
-	if e.Bridge != "" && o.Bridges[e.Bridge] != nil {
-		return nil, nil, refuse("the office has a bridge %s already, or a folder bridges/%s", e.Bridge, e.Bridge)
-	}
-	if e.Bridge != "" {
-		kept, err := c.addBridge(e.Bridge, textOf, put)
-		if err != nil {
-			return nil, nil, err
-		}
-		if !kept {
-			told = append(told, notKept(office.OfficeFile, []string{"bridges", e.Bridge}))
 		}
 	}
 	for _, s := range e.Set {
@@ -260,50 +242,4 @@ func relative(from, to string) string {
 		return "./" + rest
 	}
 	return up + rest
-}
-
-// addBridge puts a bridge Bulldog ships into a draft: its machines, its
-// script and its page as Bulldog ships them, under bridges/<name>, and its
-// entry under bridges in office.yaml, with the settings it is shipped with.
-// It says whether office.yaml kept how it was set out.
-func (c *Changes) addBridge(name string, textOf func(string) (string, bool), put func(string, *string) error) (kept bool, err error) {
-	if c.Shipped == nil {
-		return false, refuse("Bulldog ships no bridge %s", name)
-	}
-	tree, settings, ok := c.Shipped(name)
-	if !ok {
-		return false, refuse("Bulldog ships no bridge %s", name)
-	}
-	dir := path.Join("bridges", name)
-	err = fs.WalkDir(tree, ".", func(file string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || file == shipped.Settings {
-			return err
-		}
-		contents, err := fs.ReadFile(tree, file)
-		if err != nil {
-			return err
-		}
-		text := string(contents)
-		return put(path.Join(dir, file), &text)
-	})
-	var refusal Refusal
-	switch {
-	case errors.As(err, &refusal):
-		return false, err
-	case err != nil:
-		return false, fmt.Errorf("the shipped bridge %s cannot be read: %w", name, err)
-	}
-	var entry map[string]any
-	if err := yaml.Unmarshal([]byte(settings), &entry); err != nil {
-		return false, fmt.Errorf("the settings the bridge %s is shipped with cannot be read: %w", name, err)
-	}
-	if entry == nil {
-		return false, fmt.Errorf("the bridge %s is shipped with no settings", name)
-	}
-	src, _ := textOf(office.OfficeFile)
-	text, kept, err := setField(src, []string{"bridges", name}, entry)
-	if err != nil {
-		return false, fmt.Errorf("%s: %w", office.OfficeFile, err)
-	}
-	return kept, put(office.OfficeFile, &text)
 }

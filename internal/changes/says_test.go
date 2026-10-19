@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zummed/corbie-bulldog/examples"
 	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 )
@@ -245,6 +246,7 @@ func TestChangesWhatLetsMoreBy(t *testing.T) {
 		{house(t), map[string]string{"bridges/telegram/in.yaml": house(t)["bridges/telegram/in.yaml"] + "# x\n"}, "telegram's in machine is changed"},
 		{inPlaceIn(t), map[string]string{"bridges/telegram/verify.js": "return input.heard // changed\n"}, "telegram's in machine is changed"},
 		{bridgeless, map[string]string{"bridges/telegram/in.yaml": house(t)["bridges/telegram/in.yaml"], "bridges/telegram/out.yaml": house(t)["bridges/telegram/out.yaml"], "bridges/telegram/telegram.js": house(t)["bridges/telegram/telegram.js"], "office.yaml": house(t)["office.yaml"]}, "the bridge telegram is new"},
+		{bridgeless, map[string]string{"office.yaml": testkit.Files(t, examples.House())["office.yaml"]}, "the bridge telegram is new"},
 		// Mending a worker or a rule Corbie could not read says all it
 		// may reach and every tool it has.
 		{broken, map[string]string{"clerk.yaml": house(t)["clerk.yaml"] + "tools:\n  fetch: { does: Fetch, args: {}, job: { script: ./tools/order.js, allow: [net:evil.example] } }\n"}, "clerk may connect to evil.example"},

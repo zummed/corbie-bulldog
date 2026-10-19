@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"path"
 	"slices"
 	"strings"
@@ -42,9 +41,6 @@ type Changes struct {
 	// refused, not written or withdrawn. Whoever decides drops a
 	// withdrawn one.
 	Told func(Outcome)
-	// Shipped gives a bridge Bulldog ships, by its name: the files of its
-	// folder, and its settings as office.yaml writes them under bridges.
-	Shipped func(name string) (fs.FS, string, bool)
 
 	// writing is held while anything is written into the folder, so that
 	// two writes never check and write over each other; deciding while a

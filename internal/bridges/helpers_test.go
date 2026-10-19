@@ -126,19 +126,15 @@ func must(t *testing.T, err error) {
 // house gives the house's files, with a stand-in for its Telegram bridge,
 // which listens and says things to a person directly.
 func house(t *testing.T) map[string]string {
-	files := without(testkit.Files(t, examples.House()), "bridges/telegram")
-	maps.Copy(files, standin.In("telegram", standin.Folder(false, true)))
-	return files
+	return standin.Instead(testkit.Files(t, examples.House()), "telegram", standin.Folder(false, true))
 }
 
 // work gives the work office's files, with stand-ins for its Slack bridge,
 // which hears and says things to a person directly, and its GitLab
 // bridge, which listens and has no direct place.
 func work(t *testing.T) map[string]string {
-	files := without(without(testkit.Files(t, examples.Work()), "bridges/slack"), "bridges/gitlab")
-	maps.Copy(files, standin.In("slack", standin.Folder(true, true)))
-	maps.Copy(files, standin.In("gitlab", standin.Folder(false, false)))
-	return files
+	files := standin.Instead(testkit.Files(t, examples.Work()), "slack", standin.Folder(true, true))
+	return standin.Instead(files, "gitlab", standin.Folder(false, false))
 }
 
 // replace gives files with one file's text changed: old must be in it.

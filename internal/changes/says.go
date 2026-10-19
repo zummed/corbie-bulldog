@@ -732,15 +732,15 @@ func tellBridges(t *telling, was, now reading, touched map[string]bool) {
 			a = &office.Bridge{Name: name}
 		}
 		for _, which := range []string{"in", "out"} {
-			file := dir + which + ".yaml"
+			fileA, fileB := a.Dir()+"/"+which+".yaml", b.Dir()+"/"+which+".yaml"
 			da, db := machineOf(a, which), machineOf(b, which)
-			if was.o.Bridges[name] != nil && changedIn(was, now, union(uses(file, da), uses(file, db))) {
+			if was.o.Bridges[name] != nil && changedIn(was, now, union(uses(fileA, da), uses(fileB, db))) {
 				t.say(true, files, "%s %s machine is changed.", of(name), which)
 			}
-			tellReach(t, files, of(name)+" "+which+" machine", reachOf(was.o, file, da), reachOf(now.o, file, db))
+			tellReach(t, files, of(name)+" "+which+" machine", reachOf(was.o, fileA, da), reachOf(now.o, fileB, db))
 		}
 		if was.o.Bridges[name] != nil && !reflect.DeepEqual(a.Settings, b.Settings) {
-			t.say(true, []string{office.OfficeFile}, "%s settings are changed: Bulldog reads only the places they list.", of(name))
+			t.say(true, []string{office.OfficeFile}, "%s settings are changed: Bulldog reads only the folder they name and the places they list.", of(name))
 		}
 		place := func(p office.Place) string {
 			guests := "where only the people of the office may ask"

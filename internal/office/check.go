@@ -496,27 +496,35 @@ func (r *reading) checkRule(t *Team, name string) *Rule {
 }
 
 // checkBridges has Corbie check both machines of each bridge, with their
-// models named by one word filled in from the office's. An in machine
-// takes a cursor, and listens, or a delivery, and hears.
+// models named by one word filled in from the office's; the machines of a
+// bridge Bulldog ships name none. An in machine takes a cursor, and
+// listens, or a delivery, and hears.
 func (r *reading) checkBridges() {
 	for _, name := range r.o.BridgeOrder {
 		b := r.o.Bridges[name]
-		dir := "bridges/" + name
+		dir := b.Dir()
 		for _, which := range []string{"in.yaml", "out.yaml"} {
 			file := dir + "/" + which
 			src, ok := r.files[file]
+			if b.From != "" {
+				src, ok = shipped.File(strings.TrimPrefix(file, shipped.Dir+"/"))
+			}
 			if !ok {
 				continue
 			}
 			p := Problem{File: file, Team: Top, Bridge: name}
 			r.o.Checked = append(r.o.Checked, file)
-			filled, _, _, problems := r.fill(src, r.o.Teams[Top], file)
-			if len(problems) > 0 {
-				for _, problem := range problems {
-					p.Text = problem
-					b.Problems = append(b.Problems, p)
+			filled := src
+			if b.From == "" {
+				var problems []string
+				filled, _, _, problems = r.fill(src, r.o.Teams[Top], file)
+				if len(problems) > 0 {
+					for _, problem := range problems {
+						p.Text = problem
+						b.Problems = append(b.Problems, p)
+					}
+					continue
 				}
-				continue
 			}
 			draft, err := machine.Parse(filled, r.loader(dir, nil))
 			if err != nil {

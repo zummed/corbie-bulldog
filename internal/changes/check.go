@@ -341,7 +341,11 @@ func guard(was, now *office.Office, folder, laid map[string][]byte, files []File
 		file := dir + "in.yaml"
 		var used []string
 		for _, b := range []*office.Bridge{was.Bridges[name], now.Bridges[name]} {
-			if b != nil && b.In != nil {
+			switch {
+			case b != nil && b.From != "":
+				// What Bulldog ships no draft touches.
+				continue
+			case b != nil && b.In != nil:
 				used = append(used, uses(file, b.In)...)
 				continue
 			}

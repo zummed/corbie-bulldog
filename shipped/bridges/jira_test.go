@@ -87,7 +87,9 @@ func (j *jira) serve(w http.ResponseWriter, r *http.Request) {
 
 func newJiraBridge(t *testing.T) (*jira, *service) {
 	j := newJira(t)
-	return j, newService(t, pointed(t, "jira", j.Server, "example.atlassian.net"), map[string]string{"JIRA_TOKEN": jiraToken})
+	s := newService(t, pointed(t, "jira", j.Server), map[string]string{"JIRA_TOKEN": jiraToken})
+	s.site = strings.TrimPrefix(j.URL, "http://")
+	return j, s
 }
 
 var jiraSettings = map[string]any{"email": jiraEmail, "places": map[string]any{"OPS": map[string]any{"team": "platform"}}}

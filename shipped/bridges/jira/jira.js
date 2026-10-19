@@ -1,7 +1,8 @@
 // The Jira bridge's script, for both its machines: input.do is hear, for
-// the in machine, or say, for the out machine. It speaks Jira Cloud's REST
-// API as the settings' email, with an API token it holds only as a handle.
-const site = "https://example.atlassian.net"
+// the in machine, or say, for the out machine. It speaks the REST API of
+// the Jira Cloud at the settings' site as the settings' email, with an API
+// token it holds only as a handle.
+const site = "https://" + input.settings.site
 const api = site + "/rest/api/2"
 
 // Jira takes up to 32,767 characters in a comment. A string's length here

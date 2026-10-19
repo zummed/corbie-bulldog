@@ -3,7 +3,8 @@
 # place to say anything to a person directly, so this takes no direct, and
 # carries only what goes to an issue. It ends with { sent } or, when Jira
 # refuses it for good, { refused }. Bulldog gives the text, and each
-# file's data, as a blob of the run's input.
+# file's data, as a blob of the run's input. It speaks to the Jira at the
+# settings' site.
 flow: jira-out
 input: [settings, to, text, files]
 stages:
@@ -11,5 +12,5 @@ stages:
     job:
       script: ./jira.js
       input: { do: say, settings: "${input.settings}", to: "${input.to}", text: "${input.text}", files: "${input.files}" }
-      allow: [net:example.atlassian.net, "secret:JIRA_TOKEN@net:example.atlassian.net"]
+      allow: ["net:${input.settings.site}", "secret:JIRA_TOKEN@net:${input.settings.site}"]
 output: ${stages.say.output}

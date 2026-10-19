@@ -45,11 +45,14 @@ func TestTheBridgesInTheFiles(t *testing.T) {
 	if !slices.Equal(o.BridgeOrder, []string{"slack", "gitlab"}) || !o.Bridges["slack"].Hears || !o.Bridges["gitlab"].Listens {
 		t.Errorf("the bridges are %v", o.BridgeOrder)
 	}
-	if !reflect.DeepEqual(o.Bridges["slack"].Settings, map[string]any{"places": map[string]any{"#help": map[string]any{"guests": true}}}) {
+	if !reflect.DeepEqual(o.Bridges["slack"].Settings, map[string]any{"from": "./.bulldog/bridges/slack", "places": map[string]any{"#help": map[string]any{"guests": true}}}) {
 		t.Errorf("slack's settings are %#v", o.Bridges["slack"].Settings)
 	}
-	files := work(t)
-	says(t, broken(t, replace(t, files, "office.yaml", "  gitlab:\n    places:\n      platform/api: { team: platform }\n", ""), "gitlab", "slack"), "bridges/gitlab", "does not name")
+	files := own(t, work(t), "gitlab")
+	if o := reads(t, files); o.Bridges["gitlab"].Dir() != "bridges/gitlab" || !o.Bridges["gitlab"].Runs() {
+		t.Errorf("the office's own gitlab runs %s", o.Bridges["gitlab"].Dir())
+	}
+	says(t, broken(t, replace(t, files, "office.yaml", "  gitlab:\n    site: gitlab.com\n    places:\n      platform/api: { team: platform }\n", ""), "gitlab", "slack"), "bridges/gitlab", "does not name")
 	says(t, broken(t, with(files, map[string]string{"bridges/gitlab/in.yaml": "", "bridges/gitlab/out.yaml": "", "bridges/gitlab/gitlab.js": "", "bridges/gitlab/README.md": ""}), "gitlab", "slack"), "no folder bridges/gitlab")
 	says(t, broken(t, with(files, map[string]string{"bridges/gitlab/out.yaml": ""}), "gitlab", "slack"), "no out.yaml")
 	says(t, broken(t, replace(t, files, "bridges/gitlab/in.yaml", "input: [settings, cursor]", "input: [settings, cursor, delivery]"), "gitlab", "slack"), "both or neither")
@@ -57,6 +60,30 @@ func TestTheBridgesInTheFiles(t *testing.T) {
 	says(t, broken(t, with(files, map[string]string{"bridges/jira/in.yaml": "flow: jira-in\n"}), "jira", "slack", "gitlab"), "bridges/jira", "does not name")
 	// The house without its bridge reads with no problem.
 	reads(t, stringsOf(examples.NewHouse()))
+}
+
+func TestABridgeRunsTheShippedFolderItsFromNames(t *testing.T) {
+	t.Parallel()
+	o := reads(t, work(t))
+	for _, name := range []string{"slack", "gitlab"} {
+		if b := o.Bridges[name]; b.From != ".bulldog/bridges/"+name || b.Dir() != b.From || !b.Runs() {
+			t.Errorf("%s runs %s", name, b.Dir())
+		}
+	}
+	// The key the bridge is under is its name, whichever folder it runs.
+	files := replace(t, work(t), "office.yaml", "  gitlab:\n    from: ./.bulldog/bridges/gitlab\n", "  lab:\n    from: ./.bulldog/bridges/gitlab\n")
+	files = replace(t, replace(t, files, "office.yaml", `gitlab: "1041"`, `lab: "1041"`), "office.yaml", `gitlab: "1187"`, `lab: "1187"`)
+	o = reads(t, files)
+	if b := o.Bridges["lab"]; b == nil || b.Dir() != ".bulldog/bridges/gitlab" || !b.Runs() {
+		t.Errorf("the bridges are %v", o.BridgeOrder)
+	}
+	// from names only a folder Bulldog ships; one with a folder of the
+	// office's own beside it runs neither.
+	for _, from := range []string{"./bridges/gitlab", "./.bulldog/bridges/matrix", "./.bulldog/tools/talk", "../.bulldog/bridges/gitlab", "[gitlab]"} {
+		says(t, broken(t, replace(t, work(t), "office.yaml", "from: ./.bulldog/bridges/gitlab", "from: "+from), "gitlab", "slack"), "office.yaml", "from", "./.bulldog/bridges/jira")
+	}
+	beside := with(work(t), map[string]string{"bridges/gitlab/in.yaml": "flow: gitlab-in\n"})
+	says(t, broken(t, beside, "gitlab", "slack"), "bridges/gitlab", "bridges/gitlab is not run: gitlab runs ./.bulldog/bridges/gitlab")
 }
 
 func stringsOf(files map[string][]byte) map[string]string {
@@ -69,8 +96,8 @@ func stringsOf(files map[string][]byte) map[string]string {
 
 func TestABridgesSettingsAreItsOwnButForThePlaces(t *testing.T) {
 	t.Parallel()
-	o := reads(t, replace(t, work(t), "office.yaml", "  slack:\n    places:\n      \"#help\": { guests: true }\n", "  slack: { places: { \"#help\": { guests: true } }, anything: 3 }\n"))
-	if !reflect.DeepEqual(o.Bridges["slack"].Settings, map[string]any{"places": map[string]any{"#help": map[string]any{"guests": true}}, "anything": 3}) {
+	o := reads(t, replace(t, work(t), "office.yaml", "  slack:\n    from: ./.bulldog/bridges/slack\n    places:\n      \"#help\": { guests: true }\n", "  slack: { from: ./.bulldog/bridges/slack, places: { \"#help\": { guests: true } }, anything: 3 }\n"))
+	if !reflect.DeepEqual(o.Bridges["slack"].Settings, map[string]any{"from": "./.bulldog/bridges/slack", "places": map[string]any{"#help": map[string]any{"guests": true}}, "anything": 3}) {
 		t.Errorf("slack's settings are %#v", o.Bridges["slack"].Settings)
 	}
 	if p, ok := o.Place("slack", "#help"); !ok || p.Team != "office" || !p.Guests {
@@ -79,13 +106,13 @@ func TestABridgesSettingsAreItsOwnButForThePlaces(t *testing.T) {
 	if p, ok := o.Place("gitlab", "platform/api"); !ok || p.Team != "platform" || p.Guests {
 		t.Errorf("platform/api is %#v", p)
 	}
-	slack := "  slack:\n    places:\n      \"#help\": { guests: true }\n"
+	slack := "  slack:\n    from: ./.bulldog/bridges/slack\n    places:\n      \"#help\": { guests: true }\n"
 	says(t, broken(t, replace(t, work(t), "office.yaml", slack, "  slack: \"#help\"\n"), "slack", "gitlab"), "slack")
 	says(t, broken(t, replace(t, work(t), "office.yaml", `"#help": { guests: true }`, `"#help": { team: billing }`), "slack", "gitlab"), "slack", "billing")
 	says(t, broken(t, replace(t, work(t), "office.yaml", `"#help": { guests: true }`, `"#help": { guests: maybe }`), "slack", "gitlab"), "slack", "guests")
-	says(t, broken(t, replace(t, work(t), "office.yaml", slack, "  slack: { places: [\"#help\"] }\n"), "slack", "gitlab"), "slack", "places")
+	says(t, broken(t, replace(t, work(t), "office.yaml", slack, "  slack: { from: ./.bulldog/bridges/slack, places: [\"#help\"] }\n"), "slack", "gitlab"), "slack", "places")
 	// Settings with no places listen in none.
-	o = reads(t, replace(t, house(t), "office.yaml", "  telegram:\n    places:\n      direct: {}                   # as Bulldog ships it: Sam and Kit may ask the house in a direct message\n", "  telegram: {}\n"))
+	o = reads(t, replace(t, house(t), "office.yaml", "    places:\n      direct: {}                   # as Bulldog ships it: Sam and Kit may ask the house in a direct message\n", ""))
 	if len(o.Bridges["telegram"].Places) != 0 {
 		t.Errorf("telegram listens in %v", o.Bridges["telegram"].Places)
 	}
@@ -96,7 +123,7 @@ func TestABridgesSettingsAreItsOwnButForThePlaces(t *testing.T) {
 
 func TestABridgeCorbieRefusesCarriesNothing(t *testing.T) {
 	t.Parallel()
-	p := says(t, broken(t, replace(t, work(t), "bridges/gitlab/in.yaml", "script: ./gitlab.js", "script: ./missing.js"), "gitlab", "slack"), "bridges/gitlab/in.yaml", "missing.js")
+	p := says(t, broken(t, replace(t, own(t, work(t), "gitlab"), "bridges/gitlab/in.yaml", "script: ./gitlab.js", "script: ./missing.js"), "gitlab", "slack"), "bridges/gitlab/in.yaml", "missing.js")
 	if p.Bridge != "gitlab" {
 		t.Errorf("the problem is %#v", p)
 	}

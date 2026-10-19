@@ -10,7 +10,6 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/requests"
 	"github.com/zummed/corbie-bulldog/internal/work"
-	"github.com/zummed/corbie-bulldog/shipped"
 )
 
 // open opens every area of the office in its store and wires them to its
@@ -26,7 +25,6 @@ func open(ctx context.Context, db *sql.DB, opt Options, keeper *office.Keeper) (
 		return Areas{}, err
 	}
 	ch.Now = now
-	ch.Shipped = shipped.Bridge
 	d, err := decisions.Open(db, reqs, ch)
 	if err != nil {
 		return Areas{}, err

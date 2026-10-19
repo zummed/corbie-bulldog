@@ -1,5 +1,5 @@
 // Changes: the office's files, a change of one's own drafted and checked
-// and put to be decided, the bridges Bulldog ships, and the history. An
+// and put to be decided, and the history. An
 // office may have hundreds of files and thousands of changes, so a folder
 // is drawn only when it is opened, lists are paged, and the lists are
 // fetched again only when the office changed.
@@ -7,14 +7,14 @@
   "use strict";
 
   const PAGE = 50;
-  const empty = () => ({files: {}, move: {}, remove: [], bridge: ""});
+  const empty = () => ({files: {}, move: {}, remove: []});
 
   // The draft of a change of one's own, as it is made on the screens: whole
-  // files, or null for one removed; workers moved or taken away; and a
-  // bridge Bulldog ships added. It is kept while the screens are open.
+  // files, or null for one removed; and workers moved or taken away. It is
+  // kept while the screens are open.
   let draft = empty();
 
-  // The office's files, bridges and history, as fetched for the office the
+  // The office's files and history, as fetched for the office the
   // screens last read; they are fetched again when it is read again.
   let lists = null;
 
@@ -37,7 +37,6 @@
     if (Object.keys(draft.files).length) d.files = draft.files;
     if (Object.keys(draft.move).length) d.move = draft.move;
     if (draft.remove.length) d.remove = draft.remove;
-    if (draft.bridge) d.bridge = draft.bridge;
     return d;
   }
 
@@ -241,7 +240,6 @@
       ...Object.entries(draft.move).map(([w, t]) => partRow("move",
         [B.workerEl(w), B.el("span", {class: "faint mono"}, "→"), B.teamEl(t)], () => { delete draft.move[w]; }, update)),
       ...draft.remove.map((w) => partRow("remove", B.workerEl(w), () => { draft.remove = draft.remove.filter((x) => x !== w); }, update)),
-      ...(draft.bridge ? [partRow("add", B.el("span", {class: "who"}, B.icon("bridge"), B.el("span", {class: "mono"}, draft.bridge)), () => { draft.bridge = ""; }, update)] : []),
     ];
     return rows.length ? B.el("div", {class: "rows"}, rows) : "";
   }
@@ -289,17 +287,7 @@
       c.fit ? B.el("div", {class: "ch-form"}, B.field("Why", why), put) : "");
   }
 
-  // Bridges and history
-
-  function bridges(list, update) {
-    if (!list.length) return "";
-    return B.sect("Bridges", B.el("div", {class: "rows"}, list.map((b) => B.el("div", {class: "row ch-bridge"},
-      B.el("span", {class: "who"}, B.icon("bridge"), B.el("span", {class: "mono"}, b.name)),
-      B.el("span", {class: "grow clip muted small", title: b.carries}, b.carries),
-      b.added ? B.el("span", {class: "tag"}, "added")
-        : B.el("button", {class: "btn sm ghost", type: "button", disabled: draft.bridge === b.name || null,
-          onclick: () => drafted(() => { draft.bridge = b.name; }, update)}, "Add")))));
-  }
+  // History
 
   function history(list) {
     const row = (c) => B.el("div", {class: "row ch-hist"},
@@ -323,8 +311,8 @@
     const selected = (B.query().get("file") || "").trim();
     if (!lists || lists.me !== B.me) {
       const me = B.me;
-      const [files, shipped, past] = await Promise.all([B.api("/api/office/files"), B.api("/api/office/bridges"), B.api("/api/history")]);
-      lists = {me, files: files.files, bridges: shipped.bridges, history: past.history};
+      const [files, past] = await Promise.all([B.api("/api/office/files"), B.api("/api/history")]);
+      lists = {me, files: files.files, history: past.history};
     }
     const listed = lists.files.find((f) => f.path === selected);
     let text = null;
@@ -344,18 +332,16 @@
     const editorBox = B.el("div", {});
     const partsBox = B.el("div", {});
     const resultBox = B.el("div", {});
-    const bridgesBox = B.el("div", {});
     const check = B.el("button", {class: "btn go", type: "button"}, "Check");
 
     // update draws again what the draft shows: the files' marks, the file
-    // open, the draft's parts, its check and the bridges.
+    // open, the draft's parts and its check.
     const update = () => {
       remark();
       editorBox.replaceChildren(editor(selected, Boolean(listed), text, update));
       partsBox.replaceChildren(parts(update));
       check.disabled = Object.keys(draftBody()).length === 0;
       resultBox.replaceChildren(result(state.check, update));
-      bridgesBox.replaceChildren(bridges(lists.bridges, update));
     };
 
     // A check is shown only for the draft it was asked of.
@@ -376,7 +362,6 @@
       B.el("div", {class: "cols"},
         B.el("div", {class: "main"},
           B.sect(B.label("Draft"), B.el("div", {class: "stack"}, editorBox, newFile(), workers(update), partsBox, B.el("div", {}, check), resultBox)),
-          bridgesBox,
           history(lists.history)),
         B.el("div", {class: "side ch-files"}, filesTree(lists.files, selected))));
   }, "changes", (what) => what === "office");

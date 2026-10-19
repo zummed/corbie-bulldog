@@ -3,9 +3,9 @@
 # nothing has, it rests thirty seconds and asks again, since GitLab cannot
 # be asked to wait; it ends with what it heard and the cursor to go on
 # from, or after an hour with nothing. Its first ask, given no cursor,
-# hears nothing, and marks where each project stands. The token is the
-# Corbie secret GITLAB_TOKEN; for a GitLab of your own, write its host in
-# place of gitlab.com, here, in out.yaml and in gitlab.js.
+# hears nothing, and marks where each project stands. It speaks to the
+# GitLab at the settings' site, as gitlab.com, with the token that is the
+# Corbie secret GITLAB_TOKEN.
 statechart: gitlab-in
 input: [settings, cursor]
 initial: listening
@@ -19,7 +19,7 @@ states:
         job:
           script: ./gitlab.js
           input: { do: hear, settings: "${input.settings}", cursor: "${states.hearing.output ? states.hearing.output.cursor : input.cursor}" }
-          allow: [net:gitlab.com, "secret:GITLAB_TOKEN@net:gitlab.com"]
+          allow: ["net:${input.settings.site}", "secret:GITLAB_TOKEN@net:${input.settings.site}"]
         on:
           done:
             - { go: heard, when: "${event.data.heard.length > 0}" }

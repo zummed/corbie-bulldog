@@ -4,13 +4,14 @@
 # person directly, so this takes no direct, and carries only what goes to
 # an issue or a merge request. It ends with { sent } or, when GitLab
 # refuses it for good, { refused }. Bulldog gives the text, and each
-# file's data, as a blob of the run's input.
+# file's data, as a blob of the run's input. It speaks to the GitLab at the
+# settings' site.
 flow: gitlab-out
 input: [settings, to, text, files]
 stages:
   say:
     job:
       script: ./gitlab.js
-      input: { do: say, to: "${input.to}", text: "${input.text}", files: "${input.files}" }
-      allow: [net:gitlab.com, "secret:GITLAB_TOKEN@net:gitlab.com"]
+      input: { do: say, settings: "${input.settings}", to: "${input.to}", text: "${input.text}", files: "${input.files}" }
+      allow: ["net:${input.settings.site}", "secret:GITLAB_TOKEN@net:${input.settings.site}"]
 output: ${stages.say.output}

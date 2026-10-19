@@ -8,6 +8,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
+	"github.com/zummed/corbie-bulldog/examples"
 	"github.com/zummed/corbie-bulldog/internal/office"
 )
 
@@ -326,33 +327,20 @@ func TestChangesAPersonWhoDoesNotDecideCannotPutOne(t *testing.T) {
 	}
 }
 
-func TestChangesAShippedBridgeIsAdded(t *testing.T) {
+func TestChangesAShippedBridgeIsSetByItsEntry(t *testing.T) {
 	t.Parallel()
 	files := map[string]string{}
-	for file, text := range house(t) {
-		if !strings.HasPrefix(file, "bridges/") {
-			files[file] = text
-		}
+	for file, text := range examples.NewHouse() {
+		files[file] = string(text)
 	}
-	files["office.yaml"] = replaced(t, files, "office.yaml", "bridges:\n  telegram:\n    places:\n      direct: {}                   # as Bulldog ships it: Sam and Kit may ask the house in a direct message\n", "", `, telegram: "4471"`, "", `, telegram: "4472"`, "")
 	f := newOffice(t, files)
-	changed, _, err := f.c.Edited(Edit{Bridge: "telegram"})
+	entry := map[string]any{"from": "./.bulldog/bridges/telegram", "places": map[string]any{"direct": map[string]any{}}}
+	changed, _, err := f.c.Edited(Edit{Set: []Setting{{Path: "office.yaml", Field: []string{"bridges", "telegram"}, Value: entry}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var paths []string
-	var officeYAML string
-	for _, file := range changed {
-		paths = append(paths, file.Path)
-		if file.Path == "office.yaml" {
-			officeYAML = file.Text
-		}
-	}
-	if !slices.Equal(paths, []string{"bridges/telegram/README.md", "bridges/telegram/in.yaml", "bridges/telegram/out.yaml", "bridges/telegram/telegram.js", "office.yaml"}) {
-		t.Errorf("the draft holds %v", paths)
-	}
-	if !strings.Contains(officeYAML, "bridges:\n  telegram: { places: { direct: {} } }\n") {
-		t.Errorf("office.yaml would be\n%s", officeYAML)
+	if len(changed) != 1 || changed[0].Path != "office.yaml" || !strings.Contains(changed[0].Text, "telegram: { from: ./.bulldog/bridges/telegram, places: { direct: {} } }") {
+		t.Fatalf("the draft holds %+v", changed)
 	}
 	check, _ := f.c.Check(ctx, changed, Drafter{Name: "sam", Person: true})
 	if !check.Fit() {
@@ -362,22 +350,11 @@ func TestChangesAShippedBridgeIsAdded(t *testing.T) {
 	if _, err := f.c.PutOwn(ctx, "sam", "Telegram", changed, check.Mark); err != nil {
 		t.Fatal(err)
 	}
-	if h := f.history()[0]; !slices.Equal(h.Files, paths) {
+	if h := f.history()[0]; !slices.Equal(h.Files, []string{"office.yaml"}) {
 		t.Errorf("the commit holds %v", h.Files)
 	}
-	// A folder of the bridge's name already there is never written over.
-	files["bridges/telegram/telegram.js"] = "// the office's own\n"
-	if _, _, err := newOffice(t, files).c.Edited(Edit{Bridge: "telegram"}); err == nil || !strings.Contains(err.Error(), "a folder bridges/telegram") {
-		t.Errorf("a bridge added over a folder there: %v", err)
-	}
-	delete(files, "bridges/telegram/telegram.js")
-	// A builder that writes the same files is refused.
-	g := newOffice(t, files)
-	for _, file := range changed {
-		g.write(1, file.Path, file.Text)
-	}
-	if check := g.check(1); !strings.Contains(strings.Join(check.Refused, "\n"), "in machine") {
-		t.Errorf("the builder's bridge is checked %v", check.Refused)
+	if o := f.keeper.Office(); o == nil || !o.Bridges["telegram"].Runs() || o.Bridges["telegram"].Dir() != ".bulldog/bridges/telegram" {
+		t.Errorf("the house reads with %v", f.keeper.Problems())
 	}
 }
 
@@ -539,23 +516,6 @@ func TestChangesARewriteIsCheckedAgainstThePlainText(t *testing.T) {
 	_, told, err := f.c.Edited(Edit{Set: []Setting{{Path: "notes/plain.yaml", Field: []string{"about"}, Value: "three"}}})
 	if err != nil || len(told) != 1 || !strings.Contains(told[0], "could not be kept") {
 		t.Errorf("the person is told %v, %v", told, err)
-	}
-	// So is a person adding a bridge Bulldog ships, where office.yaml
-	// cannot keep how it is set out with the bridge's entry in it.
-	files := map[string]string{}
-	for file, text := range house(t) {
-		if !strings.HasPrefix(file, "bridges/") {
-			files[file] = text
-		}
-	}
-	files["office.yaml"] = replaced(t, files, "office.yaml", "bridges:\n  telegram:\n    places:\n      direct: {}                   # as Bulldog ships it: Sam and Kit may ask the house in a direct message\n", "", `, telegram: "4471"`, "", `, telegram: "4472"`, "",
-		"about: The house and everything in it, but the garden.\n", "") + "about: The house and everything in it,\n  but the garden.\n"
-	changed, told, err := newOffice(t, files).c.Edited(Edit{Bridge: "telegram"})
-	if err != nil || len(told) != 1 || !strings.Contains(told[0], "office.yaml") || !strings.Contains(told[0], "could not be kept") {
-		t.Errorf("adding a bridge tells the person %v, %v", told, err)
-	}
-	if i := slices.IndexFunc(changed, func(file File) bool { return file.Path == "office.yaml" }); i < 0 || !sameValue(changed[i].Text, replaced(t, house(t), "office.yaml", `, telegram: "4471"`, "", `, telegram: "4472"`, "")) {
-		t.Errorf("office.yaml would be\n%+v", changed)
 	}
 }
 

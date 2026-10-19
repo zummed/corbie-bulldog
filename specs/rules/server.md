@@ -219,7 +219,7 @@ The detailed rules behind the [Server overview](../server.md). Requirements are 
 *Accept:* the work office's stand-in Slack in machine fails; Al's `/api/me` holds the failure, and Dana's does not.
 
 **R-server-37** A person sees the problems of the teams they are in, and the people who decide a change see every problem.
-*Accept:* with `ledger.yaml` broken, Lee's `/api/me` holds the problem; Dana's does not; Al's does. With `bridges/gitlab/` removed, the problem naming the GitLab bridge is the office's: Al's `/api/me` holds it and Dana's does not, and Dana's request from #help runs to its answer.
+*Accept:* with `ledger.yaml` broken, Lee's `/api/me` holds the problem; Dana's does not; Al's does. With the GitLab bridge's folder removed, the problem naming the GitLab bridge is the office's: Al's `/api/me` holds it and Dana's does not, and Dana's request from #help runs to its answer.
 
 ## What a person may do
 
@@ -238,8 +238,8 @@ The detailed rules behind the [Server overview](../server.md). Requirements are 
 **R-server-42** A team's people run one of its routines now, named by what is written in it.
 *Accept:* Sam's `POST /api/teams/office/routines/now` with `{ "at": "mon 09:00", "to": "steward", "say": "Walk round: what is still open?" }` opens the routine's request, which keeps that Sam ran it (C-server-32). Kit, not in the garden, running a garden routine is answered 404, as is a routine written otherwise than the body says.
 
-**R-server-43** The people who decide a change draft one on the screens, adding a bridge Bulldog ships if they choose, have it checked, and put it; it still goes first to every rule and worker the walk asks before it reaches a person, as the changes area says (R-changes-29). Anyone else asks for one in a request.
-*Accept:* Sam's `POST /api/office/check` with a new worker's file gives the files, the problems, what the change says and what it lets more by, and writes nothing; in the house as the server writes it (R-server-06), with `bridge: "telegram"` it gives `bridges/telegram/` among the files, and `telegram: { places: { direct: {} } }` under `bridges` in `office.yaml`, the settings Bulldog ships it with. Kit's is refused with a sentence that says to ask for it.
+**R-server-43** The people who decide a change draft one on the screens, setting a bridge Bulldog ships by its entry if they choose, have it checked, and put it; it still goes first to every rule and worker the walk asks before it reaches a person, as the changes area says (R-changes-29). Anyone else asks for one in a request.
+*Accept:* Sam's `POST /api/office/check` with a new worker's file gives the files, the problems, what the change says and what it lets more by, and writes nothing; in the house as the server writes it (R-server-06), with the field `bridges.telegram` of `office.yaml` set to `{ from: ./.bulldog/bridges/telegram, places: { direct: {} } }`, the settings Bulldog ships it with, it gives `office.yaml` alone, with `telegram: { from: ./.bulldog/bridges/telegram, places: { direct: {} } }` under `bridges`, and can be put. Kit's is refused with a sentence that says to ask for it.
 
 **C-server-32** Every action on the screens is done as the person signed in, and is kept as theirs. An action that carried nobody could be done by anyone with a key, and would be answered as no one's. *Test:* `server_every_action_has_its_person`
 
@@ -257,7 +257,6 @@ The detailed rules behind the [Server overview](../server.md). Requirements are 
 | `GET /api/requests/{n}?before=&size=` | one request: what was done, and what was read of each team the one looking is in; its sub-requests as they may see them; its thread in part, with `before` naming the entry to reach back from and `size` how many entries; the decisions the one looking was asked, with the note of each decider that passed them on, and the team of each worker among them; and its runs, to the team's people |
 | `GET /api/teams/{team}` | one team as the one looking may see it |
 | `GET /api/office/files`, `GET /api/office/file?path=` | the office's files by path, and one file's text |
-| `GET /api/office/bridges` | the bridges Bulldog ships, each by its name with what it carries |
 | `GET /api/history`, `GET /api/history/{id}` | every change, newest first, with who, why and who decided; and one change with each file it touched, before and after |
 | `GET /api/events` | the stream of changes |
 | `GET /api/runs/{run}/watch` | the stream of one run, its name escaped as one part of the address; a screen that connects again gives `Last-Event-ID` |
@@ -267,8 +266,8 @@ The detailed rules behind the [Server overview](../server.md). Requirements are 
 | `POST /api/requests/{n}/decisions/{id}` `{ says, note }` | decides: `says` is `yes` or `refuse` |
 | `POST /api/requests/{n}/stop` | stops it, and what is beneath it |
 | `POST /api/teams/{team}/routines/now` `{ at, to, say }` | runs the routine written so |
-| `POST /api/office/check` `{ files, set, move, remove, bridge }` | a draft: files written whole, or `null` to remove one; a field set in a file; a worker moved to a team; a worker taken away; a bridge Bulldog ships added, by its name. Gives `{ files, problems, says, lets_more_by, mark }`, and writes nothing; the `mark` names what was checked |
-| `POST /api/office/put` `{ why, mark, files, set, move, remove, bridge }` | puts the draft to be decided, with the `mark` of the check the person was shown: a draft or an office not as it was checked is not put, and they are told to look again. Gives what became of it |
+| `POST /api/office/check` `{ files, set, move, remove }` | a draft: files written whole, or `null` to remove one; a field set in a file; a worker moved to a team; a worker taken away. Gives `{ files, problems, says, lets_more_by, mark }`, and writes nothing; the `mark` names what was checked |
+| `POST /api/office/put` `{ why, mark, files, set, move, remove }` | puts the draft to be decided, with the `mark` of the check the person was shown: a draft or an office not as it was checked is not put, and they are told to look again. Gives what became of it |
 | `POST /api/me/key` | replaces the one looking's key |
 
 and these, open without a key:

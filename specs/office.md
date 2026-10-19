@@ -4,7 +4,7 @@ The office is a folder. It is the top team, and every team inside it is a folder
 
 ## The folder
 
-The house, as a person writes it, with the Telegram bridge Sam added as its first change, with the settings Bulldog ships it with:
+The house, as a person writes it, with the Telegram bridge Bulldog ships set by Sam as its first change, with the settings Bulldog ships it with:
 
 ```
 house/
@@ -17,17 +17,15 @@ house/
   garden/
     team.yaml  gardener.yaml  groundsman.yaml
     notes/
-  bridges/
-    telegram/  in.yaml  out.yaml  telegram.js  README.md
   .bulldog/                    Bulldog's own
 ```
 
 - **The top team's file is `office.yaml`.** A team within is a folder directly inside a team's folder that holds a `team.yaml`, and it may hold teams of its own the same way.
 - **A worker is a machine directly in a team's folder**: a file whose definition is an agent, a flow or a statechart. Its name is its file's name, and its definition carries that name. A machine in any other folder, such as `tools/`, is something workers use, and not a worker.
-- **`notes/`** in a team's folder holds its notes. **`bridges/`**, at the top only, holds a folder for each bridge, `bridges/<name>`, found by the bridge's name alone. The settings `bridges` gives a bridge are handed whole to its machines, and Bulldog reads of them only the places the bridge listens in, whose shape is the bridges page's; the office checks that each team a place names is a team of the office.
+- **`notes/`** in a team's folder holds its notes. A bridge runs the folder Bulldog ships that its entry's `from` names, as `./.bulldog/bridges/telegram`, or else the office's own: **`bridges/`**, at the top only, holds a folder for each bridge of the office's own, `bridges/<name>`, found by the bridge's name alone. The settings `bridges` gives a bridge are handed whole to its machines, and Bulldog reads of them only the folder `from` names and the places the bridge listens in, whose shape is the bridges page's; the office checks that each team a place names is a team of the office.
 - **`.bulldog/` is Bulldog's, not the office's.** It holds Bulldog's store, the office's identity, and what Bulldog ships, which a definition names by its path there, and Corbie reads it from there as it reads the office's files. What Bulldog ships is its own machines, flat at the top, the ask among them; and one folder for each thing an office uses, a tools file in `tools/<name>/`, a rule in `rules/<name>/` or a bridge in `bridges/<name>/`, with the thing's page, `README.md`, which is also its page of the manual, named by its path, as `tools/talk`. No change touches it and it is not in the history. Nothing else whose name starts with a dot is the office either.
 
-The office the server writes into an empty folder is this house without the bridge: no `bridges` key, no `bridges/` folder and no Telegram identities under its people, spoken to in the built-in chat alone. It reads with no problem at once; the server page says when it is written.
+The office the server writes into an empty folder is this house without the bridge: no `bridges` key and no Telegram identities under its people, spoken to in the built-in chat alone. It reads with no problem at once; the server page says when it is written.
 
 Everything a definition or a team file names is inside the folder. What runs is what is in the files. A folder that is not there, or holds no `office.yaml`, is not an office, and Bulldog writes nothing into it.
 
@@ -43,6 +41,7 @@ everyone:
   kit: { name: Kit, title: Lives here., telegram: "4472" }
 bridges:
   telegram:
+    from: ./.bulldog/bridges/telegram
     places:
       direct: {}                   # as Bulldog ships it: Sam and Kit may ask the house in a direct message
 models:
@@ -80,7 +79,7 @@ routines:
 | `disclosure` | an ordered list of deciders for everything the team says to anyone outside it: its answers, its questions and tells to people outside it, and the requests it makes of other teams. Without one, all of it leaves unchecked |
 | `routines` | what is said to its workers at set times |
 | `models` | models by name, each a model written as Corbie writes one, which names the secret that holds its key, where it needs one, and never holds a key. A worker that names its model by one word is given the nearest team's model of that name |
-| `zone`, `everyone`, `bridges`, `runs` | the top team's only: the office's time zone, in which times are shown and routines' `at` read, UTC if not given; its people; its bridges with their settings, among them the places each listens in; and how many runs may be at work at once in the whole office, 3 if not given; a run waiting on a person, another team or a decision is not at work |
+| `zone`, `everyone`, `bridges`, `runs` | the top team's only: the office's time zone, in which times are shown and routines' `at` read, UTC if not given; its people; its bridges with their settings, among them the folder Bulldog ships that each runs and the places each listens in; and how many runs may be at work at once in the whole office, 3 if not given; a run waiting on a person, another team or a decision is not at work |
 
 **A team is known by its folder's name, and the top team as `office`.** Its `name` is only what it is called: nothing is found by it, so it may be in any words and change freely. A folder renamed is one team gone and another new.
 
@@ -146,8 +145,6 @@ Notes are files of the office like any other. They are not sealed as what a team
 ```
 work/
   office.yaml  bot.yaml
-  bridges/slack/   in.yaml  out.yaml  slack.js  README.md
-  bridges/gitlab/  in.yaml  out.yaml  gitlab.js  README.md
   platform/  team.yaml  ops.yaml  tools/
   payments/  team.yaml  ledger.yaml  tools/  no-account-numbers.yaml  no-account-numbers.js  notes/
   support/   team.yaml
@@ -167,9 +164,12 @@ everyone:
   raj:   { name: Raj, title: Backend., slack: U0RAJ000, gitlab: "1187" }
 bridges:
   slack:
+    from: ./.bulldog/bridges/slack
     places:
       "#help": { guests: true }
   gitlab:
+    from: ./.bulldog/bridges/gitlab
+    site: gitlab.com
     places:
       platform/api: { team: platform }
 models:
@@ -209,7 +209,7 @@ Bulldog reads the whole folder at once. Every team file is read, every definitio
 There are two kinds of problem.
 
 - **A problem in a team file refuses the reading.** A file that is not well formed, a key a team file does not take or a top-only key in a team within, an `about` of more than one line, a name that is not allowed, used twice or reserved, a name in a list that is nobody, a `lead` that is not of its team, a decider that is none of a person, a worker of any team, a rule in the team's own folder or a rule Bulldog ships, a rule or worker after a person in a list, an office whose `everything` names no person, a `runs` that is not a whole number above nought, a routine that is not right, a `models` entry that is not a mapping or whose name is not allowed, a path that leaves the folder or names nothing, or a team file where no team can be: any of these, and the office goes on as it was last read well.
-- **A broken worker, rule or bridge stops only itself, and the workers that run it.** Corbie checks a definition with every colleague it runs as a tool, so a worker whose colleague is refused is refused too, and is reported once as using it. A worker whose definition is refused, whose one-word model no team gives, or that does not name the ask it must, is given no run until it is mended, and when it is a lead its team is reported too; a refused rule is reported on each team that names it. A broken bridge, an entry in `bridges` with no folder at `bridges/<name>`, a folder there that `bridges` does not name, a folder missing either machine, an in machine that takes both `cursor` and `delivery`, the inputs the bridges page names, or neither, a machine Corbie refuses, settings that are not a mapping, or places that are not right, a team that is not there among them, is a problem of that bridge shown on the office, and the bridge carries nothing until it is mended. A `decide` key that names no tool of the team's workers is reported on its team and used for nothing. The rest of the office reads and runs.
+- **A broken worker, rule or bridge stops only itself, and the workers that run it.** Corbie checks a definition with every colleague it runs as a tool, so a worker whose colleague is refused is refused too, and is reported once as using it. A worker whose definition is refused, whose one-word model no team gives, or that does not name the ask it must, is given no run until it is mended, and when it is a lead its team is reported too; a refused rule is reported on each team that names it. A broken bridge, an entry in `bridges` with no folder at `bridges/<name>` and no `from`, a `from` that names no folder Bulldog ships under `.bulldog/bridges/`, an entry with `from` and a folder at `bridges/<name>` too, a folder there that `bridges` does not name, a folder missing either machine, an in machine that takes both `cursor` and `delivery`, the inputs the bridges page names, or neither, a machine Corbie refuses, settings that are not a mapping, or places that are not right, a team that is not there among them, is a problem of that bridge shown on the office, and the bridge carries nothing until it is mended. A `decide` key that names no tool of the team's workers is reported on its team and used for nothing. The rest of the office reads and runs.
 
 The problems shown are always those of the latest reading. Until the office has once been read well, it starts nothing and only reports. No reading is kept from one start to the next: a file broken by hand while the server is stopped leaves the office unread at the next start, with every problem said, until it is mended.
 
@@ -222,7 +222,7 @@ The problems shown are always those of the latest reading. Until the office has 
 - **Requests** read who is in each team, who each person is on each bridge, each team's lead and the team each bridge's place names, to say who sees a request and where it goes, and say who stands as the people of a team with none: its own, or those its decisions reach.
 - **Work** starts each team's lead and its workers from their definitions as read, with a one-word model filled in, keeps to the office's `runs`, starts each routine's clock with the office's zone, gives workers each team's `about`, gives every run it starts of a team's worker the team's notes, ships the notes tool, which a worker has only when its definition names its file, and is told when a reading replaces the last, to start, stop and cancel what changed.
 - **Decisions** reads the `decide` and `disclosure` lists and the notes a disclosure check reads, and runs the rules they name, each as it is written. The office gives the people a team's decisions reach: those its `everything` names, or its people where it writes none, or, where that names nobody, those of the first `everything` outward that does, with anyone no longer in the office left out. Decisions and Requests both take them from here.
-- **Bridges** reads `bridges` and the folders under `bridges/`, says the shape of the places a bridge listens in, whose teams the office checks, and matches the identity a bridge gives to the person whose entry names it.
+- **Bridges** reads `bridges`, the folders under `bridges/` and the folders Bulldog ships that a `from` names, says the shape of the places a bridge listens in, whose teams the office checks, and matches the identity a bridge gives to the person whose entry names it.
 - **Changes** writes the office's files, a person's entry among them, keeps each note a worker writes as a commit, has every change checked by a reading of the folder as it would be after the change, and asks which files are the office's and which files only one worker's definition names.
 - **Server** reads the office from the folder it is given at each start, writes the house without its bridge into an empty folder, holds the office's identity, which is not its name and not in its files, signs people in, sending a one-time link over a person's bridges in the order written, and shows each team's `about`, notes and problems of the latest reading, and each worker's model as filled in, to those who may see them.
 - **Corbie's client** checks every definition, as it does before a start.

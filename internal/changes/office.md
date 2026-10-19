@@ -14,8 +14,6 @@ house/
   notes/                       what the house knows, in Markdown
   garden/
     team.yaml  gardener.yaml   a team within the house
-  bridges/
-    telegram/  in.yaml  out.yaml  telegram.js
   .bulldog/                    Bulldog's own, which it writes: never edited
 ```
 
@@ -117,16 +115,19 @@ On a change to the office, a rule's yes is taken as a pass: only a person approv
 
 ## A bridge
 
-A bridge is where things come in and go out. Each is named, with its settings, under `bridges` in `office.yaml`, and is the folder of that name in `bridges/`, with an in machine and an out machine. The settings list the places it listens in, each with the team asked there, the office when none is named, and whether guests may ask there.
+A bridge is where things come in and go out. Each is named, with its settings, under `bridges` in `office.yaml`, and runs a folder with an in machine and an out machine: one Bulldog ships, which its `from` names, as `./.bulldog/bridges/slack`, used in place and kept current with Bulldog; or, with no `from`, the office's own folder of its name in `bridges/`. The settings list the places it listens in, each with the team asked there, the office when none is named, and whether guests may ask there. Each shipped bridge's page, as `bridges/slack`, gives its other settings.
 
 ```yaml
 # in office.yaml
 bridges:
   slack:
+    from: ./.bulldog/bridges/slack
     places:
       "#help": { guests: true }
       "#deploys": { team: platform }
 ```
+
+A bridge of the office's own names no `from`, and its machines are in `bridges/<name>/`, such as:
 
 ```yaml
 # bridges/slack/out.yaml
@@ -141,7 +142,7 @@ stages:
 output: ${stages.say.output}
 ```
 
-The in machine says who a person is, and so is a person's to write; a person adds a bridge Bulldog ships from the screens.
+The in machine says who a person is, and so is a person's to write.
 
 ## Notes
 

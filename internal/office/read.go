@@ -743,6 +743,9 @@ func (r *reading) readBridges() {
 	stop := func(b *Bridge, line int, file, format string, args ...any) {
 		b.Problems = append(b.Problems, Problem{File: file, Line: line, Team: Top, Bridge: b.Name, Text: fmt.Sprintf(format, args...)})
 	}
+	// froms are the bridges whose entry names a folder Bulldog ships, by
+	// the folder it names.
+	froms := map[string]string{}
 	for k, v := range pairs(node) {
 		b := r.o.Bridges[k.Value]
 		if b == nil {
@@ -752,6 +755,20 @@ func (r *reading) readBridges() {
 			stop(b, v.Line, OfficeFile, "bridges: %s's settings are a mapping, as { places: { direct: {} } }, and these are %s", b.Name, describe(v))
 		} else if err := v.Decode(&b.Settings); err != nil {
 			stop(b, v.Line, OfficeFile, "bridges: %s's settings cannot be read: %v", b.Name, err)
+		}
+		if from := child(v, "from"); from != nil {
+			s, _ := text(from)
+			dir := path.Clean(s)
+			froms[b.Name] = "./" + dir
+			if name, ok := strings.CutPrefix(dir, shipped.Dir+"/bridges/"); ok && slices.Contains(shipped.Bridges(), name) {
+				b.From = dir
+			} else {
+				var ships []string
+				for _, name := range shipped.Bridges() {
+					ships = append(ships, "./"+path.Join(shipped.Dir, "bridges", name))
+				}
+				stop(b, from.Line, OfficeFile, "bridges: %s's from is %s, and from names a bridge Bulldog ships, by its folder: %s", b.Name, describe(from), strings.Join(ships, ", "))
+			}
 		}
 		places := child(v, "places")
 		if places != nil && places.Kind != yaml.MappingNode {
@@ -783,10 +800,17 @@ func (r *reading) readBridges() {
 			}
 		}
 	}
-	// The folders under bridges/, and the bridges they are.
+	// The folders under bridges/, and the bridges they are. A bridge that
+	// runs a folder Bulldog ships has none of its own.
 	folders := r.bridgeFolders()
 	for _, name := range r.o.BridgeOrder {
 		b := r.o.Bridges[name]
+		if from, ok := froms[name]; ok {
+			if folders[name] {
+				stop(b, 0, "bridges/"+name, "bridges/%s is not run: %s runs %s, which its from names", name, name, from)
+			}
+			continue
+		}
 		if !folders[name] {
 			stop(b, 0, OfficeFile, "there is no folder bridges/%s, which holds its in.yaml and out.yaml", name)
 			continue

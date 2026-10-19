@@ -51,9 +51,9 @@ func TestPersonAskedOnTheirBridgesAndScreens(t *testing.T) {
 func TestDecisionsPersonAlwaysAskedOnScreens(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, house(t))
-	b.rewrite(map[string]string{"bridges/telegram/out.yaml": ""})
+	b.rewrite(map[string]string{"office.yaml": strings.Replace(house(t)["office.yaml"], "from: ./.bulldog/bridges/telegram", "from: ./.bulldog/bridges/pigeon", 1)})
 	if b.o.Bridges["telegram"].Runs() {
-		t.Fatal("the Telegram bridge runs with no out machine")
+		t.Fatal("the Telegram bridge runs from a folder Bulldog does not ship")
 	}
 	n := b.chat("kit", office.Top, "the kitchen socket sparked")
 	b.one("ask-1", office.Top, n, fixerUp, cutPower("4"))

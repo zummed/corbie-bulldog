@@ -1,3 +1,6 @@
-# GitLab's entry under bridges in office.yaml. Each place is a project, by
-# its path, as platform/api: { team: platform }.
+# GitLab's entry under bridges in office.yaml. site is the host of the
+# GitLab it speaks to, which GITLAB_TOKEN is for; each place is a project,
+# by its path, as platform/api: { team: platform }.
+from: ./.bulldog/bridges/gitlab
+site: gitlab.com
 places: {}

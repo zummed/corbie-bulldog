@@ -17,7 +17,6 @@ import (
 	"os"
 	"os/signal"
 	"path"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -123,13 +122,19 @@ func house(standIn string) (map[string][]byte, error) {
 	}
 	files := map[string][]byte{}
 	err := fs.WalkDir(examples.House(), ".", func(name string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || strings.HasPrefix(name, "bridges/telegram/") {
+		if err != nil || d.IsDir() {
 			return err
 		}
 		contents, err := fs.ReadFile(examples.House(), name)
-		if err != nil || path.Ext(name) != ".yaml" {
-			files[name] = contents
+		if err != nil {
 			return err
+		}
+		if name == "office.yaml" {
+			contents = []byte(standin.Unshipped(string(contents), "telegram"))
+		}
+		if path.Ext(name) != ".yaml" {
+			files[name] = contents
+			return nil
 		}
 		var doc yaml.Node
 		if err := yaml.Unmarshal(contents, &doc); err != nil {

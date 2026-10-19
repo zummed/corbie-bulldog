@@ -33,7 +33,7 @@ With no folder named, it is the folder the program is run in when that holds an 
 | an office with no `.bulldog/` | makes it, with the office's identity |
 | an office whose `.bulldog/` was made in another folder | refuses it, naming both folders, unless the command is `init`, which takes it as the office moved |
 
-The example is the house the office page shows, without its bridge: no `bridges` key, no `bridges/` folder and no Telegram identities under its people, spoken to in the built-in chat alone. It reads with no problem at once, and a person can ask it something as soon as it is served. Adding a bridge is a person's first change: adding the shipped Telegram bridge writes `telegram: { places: { direct: {} } }` under `bridges`, the settings Bulldog ships it with, which hear people's direct messages to the bot.
+The example is the house the office page shows, without its bridge: no `bridges` key and no Telegram identities under its people, spoken to in the built-in chat alone. It reads with no problem at once, and a person can ask it something as soon as it is served. Setting a bridge is a person's first change: setting the shipped Telegram bridge writes `telegram: { from: ./.bulldog/bridges/telegram, places: { direct: {} } }` under `bridges`, the settings Bulldog ships it with, which hear people's direct messages to the bot.
 
 - A folder named that is not there is refused, and nothing is made: `corbie bulldog init <folder>` makes it.
 - A folder that has things in it and no `office.yaml` is no office. It is refused, and left as it was.
@@ -93,7 +93,7 @@ A signal stops the server: it stops listening, stops what it started, waits for 
 
 Bulldog's own machines sit flat at the top: those it starts or answers itself, with nothing an office would change. Each other thing it ships is one folder, with its page, `README.md`: its first line says what it is, then what it needs, its settings, what it leaves out, an example of using it and what changed in it with each version of Bulldog. Each page is also a page of the manual, named by the thing's path, as `tools/talk`. A bridge's `settings.yaml` is its entry under `bridges` in `office.yaml`, as it is shipped.
 
-A worker names what it uses of these by its path here: the talk tools, the notes tool or the builder's tools in its `tools_file:`, as `./.bulldog/tools/talk/talk.yaml`, and the ask as its `ask:`. A worker Bulldog starts at the top names the ask when anything it runs can be held; a colleague called as a tool uses the nearest ask above it unless it names the ask Bulldog ships itself, and must name it when it can also be started at the top. Every ask a worker names is this one, as the work page says.
+A bridge runs the shipped folder its entry's `from` names, as `./.bulldog/bridges/telegram`. A worker names what it uses of these by its path here: the talk tools, the notes tool or the builder's tools in its `tools_file:`, as `./.bulldog/tools/talk/talk.yaml`, and the ask as its `ask:`. A worker Bulldog starts at the top names the ask when anything it runs can be held; a colleague called as a tool uses the nearest ask above it unless it names the ask Bulldog ships itself, and must name it when it can also be started at the top. Every ask a worker names is this one, as the work page says.
 
 - **The office's identity** is made once, at random, when the folder is first readied. It is how every run of the office is labelled and found, so two offices of one name on one Corbie are two offices, and an office keeps its runs when it is renamed. It is kept beside the store and not in it, so a store made again finds the runs the office still has.
 - **The identity knows the folder it was made in.** A copy of an office made with its `.bulldog/` would be the same office to Corbie, and the two would answer and cancel each other's runs; so a folder whose `.bulldog/` was made in another, by its real path with links followed, is refused before its store is opened, naming both, and saying what to do: remove `.bulldog/` for an office of its own, or run `corbie bulldog init` in it if the office was moved. `init` then takes the folder as the office's, keeping its identity, its store and its runs, and says so. `check` reads such a folder all the same, since it starts nothing.
@@ -140,7 +140,7 @@ A run is the team's its labels name. A worker of one team asked to decide for an
 | The people who decide a change | |
 |---|---|
 | see | every file of the office, notes included, every team as it is written, every problem, the history, and which files are edited by hand; and nothing of what a team they are not in is doing or has read |
-| draft, check and put | a change of their own, which may add a bridge Bulldog ships, and which still goes first to every rule and worker the walk asks before it reaches a person |
+| draft, check and put | a change of their own, which may set a bridge Bulldog ships by its entry, and which still goes first to every rule and worker the walk asks before it reaches a person |
 
 Anyone else who wants the office changed asks for it in a request, and a builder drafts it.
 
@@ -159,7 +159,6 @@ JSON in and out, with the key in its cookie. `/api/me` gives the office's `zone`
 | `GET /api/requests/{n}` | one request: what was done, and what was read of each team the one looking is in; its thread in part, with `before` to reach further back; the decisions they were asked, a worker who passed or decided one with the team it is of |
 | `GET /api/teams/{team}` | one team: everyone sees it as in `/api/me`, and its people see the rest of it, each worker's tools with what each does, what its job is and, for one that waits for a yes, its deciders in order, each a person, a rule or a worker, and a worker with the team it is of |
 | `GET /api/office/files`, `GET /api/office/file?path=` | the office's files, to the people who decide a change |
-| `GET /api/office/bridges` | the bridges Bulldog ships, which they may add |
 | `GET /api/history`, `GET /api/history/{id}` | every change to the office's files, newest first, and one change with each file before and after, to the people who decide a change |
 | `GET /api/events` | a stream: `hello` when a screen connects, then `change` naming what changed |
 | `GET /api/runs/{run}/watch` | a stream of what one run does, as it does it |
@@ -197,5 +196,5 @@ The screens are in the program and load nothing from any other site. Besides the
 - **Work** looks in Corbie for another server of the office before the server opens anything of it, is started by the server once it listens, labels every run with the office's identity the server holds, starts and renews the server's own run for it and otherwise leaves that run alone, and stops a request when a person who may stop it asks.
 - **Decisions** is given a person's answer from the screens, as that person, and says that a worker asked to decide for a team runs as that team's.
 - **Bridges** carry a one-time sign-in link to a person's direct place, one out run at a time, telling the server how it ended, and are called at an address the server serves without a key.
-- **Changes** is given a person's draft to check and put, and names the people who decide a change, to whom the server shows the office's files, the bridges Bulldog ships and the history; the server makes the repository of a folder that has none, and the office's first commit is the one commit Bulldog makes that is neither a decided change nor a team's note.
+- **Changes** is given a person's draft to check and put, and names the people who decide a change, to whom the server shows the office's files and the history; the server makes the repository of a folder that has none, and the office's first commit is the one commit Bulldog makes that is neither a decided change nor a team's note.
 - **Corbie** is reached as a client, named as `corbie` itself is told.

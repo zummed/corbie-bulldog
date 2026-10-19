@@ -114,9 +114,9 @@ func usedIn(o *office.Office, but string) map[string]bool {
 	for file, r := range o.Rules {
 		add(uses(file, r.Draft))
 	}
-	for name, b := range o.Bridges {
+	for _, b := range o.Bridges {
 		for _, which := range []string{"in", "out"} {
-			add(uses("bridges/"+name+"/"+which+".yaml", machineOf(b, which)))
+			add(uses(b.Dir()+"/"+which+".yaml", machineOf(b, which)))
 		}
 	}
 	return out

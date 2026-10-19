@@ -401,7 +401,7 @@ func TestServerFilesAndHistoryForDeciders(t *testing.T) {
 	if len(history.History) != 1 {
 		t.Errorf("Sam's history is %+v", history.History)
 	}
-	for _, path := range []string{"/api/office/files", "/api/office/file?path=notes/rooms.md", "/api/office/bridges", "/api/history", "/api/history/" + history.History[0].ID} {
+	for _, path := range []string{"/api/office/files", "/api/office/file?path=notes/rooms.md", "/api/history", "/api/history/" + history.History[0].ID} {
 		s.as("kit").get(path).is(http.StatusNotFound)
 	}
 	// Kit, of the house, sees its notes and its problems; not the

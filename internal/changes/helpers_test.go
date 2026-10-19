@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -18,6 +17,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/zummed/corbie-bulldog/examples"
+	"github.com/zummed/corbie-bulldog/internal/bridges/standin"
 	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 	"github.com/zummed/corbie-bulldog/shipped"
@@ -43,9 +43,30 @@ type officeAt struct {
 	told []Outcome
 }
 
-// house gives the files of the house, and work those of the work office.
-func house(t *testing.T) map[string]string { return testkit.Files(t, examples.House()) }
-func work(t *testing.T) map[string]string  { return testkit.Files(t, examples.Work()) }
+// house gives the files of the house, and work those of the work office,
+// each bridge copied into a folder of the office's own, as a person copies
+// one to change it.
+func house(t *testing.T) map[string]string {
+	return ownCopy(t, testkit.Files(t, examples.House()), "telegram")
+}
+
+func work(t *testing.T) map[string]string {
+	return ownCopy(t, ownCopy(t, testkit.Files(t, examples.Work()), "slack"), "gitlab")
+}
+
+// ownCopy gives an office's files with a bridge that runs the folder
+// Bulldog ships copied into bridges/<name>, and its entry no longer naming
+// it.
+func ownCopy(t *testing.T, files map[string]string, name string) map[string]string {
+	t.Helper()
+	tree, _, ok := shipped.Bridge(name)
+	if !ok {
+		t.Fatalf("Bulldog ships no bridge %s", name)
+	}
+	folder := testkit.Files(t, tree)
+	delete(folder, shipped.Settings)
+	return standin.Instead(files, name, folder)
+}
 
 // newOffice writes an office's files into a folder, with what Bulldog
 // ships, makes it a repository with its first commit, and opens its
@@ -89,7 +110,6 @@ func (f *officeAt) open() *Changes {
 		defer f.mu.Unlock()
 		f.told = append(f.told, o)
 	}
-	c.Shipped = shippedBridge
 	return c
 }
 
@@ -287,16 +307,3 @@ func problemLines(ps office.Problems) []string {
 
 // later moves the test's clock on a little.
 func (f *officeAt) later() { f.clock.Move(time.Minute) }
-
-// shippedBridge stands in for the bridges Bulldog ships: the Telegram
-// bridge, as the house has it, with the settings it is shipped with.
-func shippedBridge(name string) (fs.FS, string, bool) {
-	if name != "telegram" {
-		return nil, "", false
-	}
-	tree, err := fs.Sub(examples.House(), "bridges/telegram")
-	if err != nil {
-		panic(err)
-	}
-	return tree, "{ places: { direct: {} } }", true
-}

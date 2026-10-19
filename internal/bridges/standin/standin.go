@@ -5,7 +5,11 @@
 // no service and needs no key.
 package standin
 
-import "fmt"
+import (
+	"fmt"
+	"maps"
+	"strings"
+)
 
 // The tickets the stand-in machines wait on.
 const (
@@ -83,4 +87,26 @@ func In(name string, folder map[string]string) map[string]string {
 		files["bridges/"+name+"/"+file] = text
 	}
 	return files
+}
+
+// Instead gives an office's files with a stand-in in place of a bridge
+// that runs the folder Bulldog ships: its entry in office.yaml no longer
+// names that folder, and its own folder, under bridges/<name>, is the
+// stand-in's.
+func Instead(files map[string]string, name string, folder map[string]string) map[string]string {
+	out := maps.Clone(files)
+	out["office.yaml"] = Unshipped(files["office.yaml"], name)
+	maps.Copy(out, In(name, folder))
+	return out
+}
+
+// Unshipped gives office.yaml with a bridge's entry no longer naming the
+// folder Bulldog ships, on a line of its own as the examples write it, so
+// that the bridge runs its own folder.
+func Unshipped(office, name string) string {
+	from := "    from: ./.bulldog/bridges/" + name + "\n"
+	if !strings.Contains(office, from) {
+		panic("office.yaml does not run the bridge " + name + " from the folder Bulldog ships")
+	}
+	return strings.Replace(office, from, "", 1)
 }

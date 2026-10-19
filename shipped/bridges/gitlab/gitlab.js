@@ -1,7 +1,8 @@
 // The GitLab bridge's script, for both its machines: input.do is hear, for
-// the in machine, or say, for the out machine. It speaks GitLab's REST
-// API with a token, which it holds only as a handle.
-const web = "https://gitlab.com"
+// the in machine, or say, for the out machine. It speaks the REST API of
+// the GitLab at the settings' site with a token, which it holds only as a
+// handle.
+const web = "https://" + input.settings.site
 const api = web + "/api/v4"
 const token = secrets.get("GITLAB_TOKEN")
 

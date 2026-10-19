@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
@@ -210,15 +209,14 @@ func TestServerDraftCheckPut(t *testing.T) {
 		t.Errorf("a put with an old mark answered %d %s", r.status, r.body)
 	}
 
-	// In the house as the server writes it, a bridge Bulldog ships is
-	// added with the settings it is shipped with.
+	// In the house as the server writes it, a bridge Bulldog ships is set
+	// by its entry alone, naming the folder it runs.
 	fresh := newBench(t, newHouse()).serve()
 	var added checkOut
-	fresh.as("sam").post("/api/office/check", map[string]any{"bridge": "telegram"}).is(http.StatusOK).into(&added)
-	office := added.Files[slices.IndexFunc(added.Files, func(f changes.File) bool { return f.Path == "office.yaml" })]
-	if !slices.ContainsFunc(added.Files, func(f changes.File) bool { return strings.HasPrefix(f.Path, "bridges/telegram/") }) ||
-		!strings.Contains(office.Text, "telegram: { places: { direct: {} } }") {
-		t.Errorf("adding Telegram gives %+v", added.Files)
+	entry := map[string]any{"from": "./.bulldog/bridges/telegram", "places": map[string]any{"direct": map[string]any{}}}
+	fresh.as("sam").post("/api/office/check", map[string]any{"set": []any{map[string]any{"path": "office.yaml", "field": []string{"bridges", "telegram"}, "value": entry}}}).is(http.StatusOK).into(&added)
+	if len(added.Files) != 1 || !added.Fit || !strings.Contains(added.Files[0].Text, "telegram: { from: ./.bulldog/bridges/telegram, places: { direct: {} } }") {
+		t.Errorf("setting Telegram gives %+v", added)
 	}
 }
 

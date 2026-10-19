@@ -257,10 +257,14 @@ type Rule struct {
 // problem, and a definition once Corbie has checked it.
 func (r *Rule) Runs() bool { return len(r.Problems) == 0 && (r.Script || r.Draft != nil) }
 
-// A Bridge is a folder under bridges/ named under bridges in the top
-// team's file.
+// A Bridge is named under bridges in the top team's file, and runs a
+// folder: its own under bridges/, or one Bulldog ships, which its entry's
+// from names.
 type Bridge struct {
 	Name string
+	// From is the folder Bulldog ships that it runs, as
+	// .bulldog/bridges/slack, or empty when it runs its own.
+	From string
 	// Settings are as written, handed whole to both machines.
 	Settings any
 	// Places are those it listens in, in the order written.
@@ -277,6 +281,14 @@ type Bridge struct {
 
 // Runs says whether the bridge may carry anything.
 func (b *Bridge) Runs() bool { return b.In != nil && b.Out != nil && len(b.Problems) == 0 }
+
+// Dir gives the folder the bridge runs, by its path in the office.
+func (b *Bridge) Dir() string {
+	if b.From != "" {
+		return b.From
+	}
+	return "bridges/" + b.Name
+}
 
 // A Place is one a bridge listens in, by its name in the bridge's words.
 type Place struct {

@@ -8,6 +8,7 @@ The in machine asks Telegram for what is new since its cursor, waiting up to fif
 
 ## Settings
 
+- `from`: `./.bulldog/bridges/telegram`, the folder it runs, as Bulldog ships it.
 - `places`: `direct`, anything said to the bot in a person's own chat with it, and each group by its chat id, with the `team` asked there, the office when none is named, and whether `guests` may ask.
 
 ## Leaves out
@@ -20,9 +21,10 @@ The in machine asks Telegram for what is new since its cursor, waiting up to fif
 ```yaml
 # in office.yaml
 bridges:
-  telegram: { places: { direct: {} } }
+  telegram: { from: ./.bulldog/bridges/telegram, places: { direct: {} } }
 ```
 
 ## Changed
 
 - 0.1.0: first shipped.
+- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office.

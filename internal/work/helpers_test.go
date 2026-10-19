@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -45,27 +44,12 @@ const identity = "0f4c2a9e"
 // listens and says things to a person directly, the work office's Slack
 // hears and does too, and its GitLab listens and has no direct place.
 func house(t *testing.T) map[string]string {
-	files := without(testkit.Files(t, examples.House()), "bridges/telegram")
-	maps.Copy(files, standin.In("telegram", standin.Folder(false, true)))
-	return files
+	return standin.Instead(testkit.Files(t, examples.House()), "telegram", standin.Folder(false, true))
 }
 
 func work(t *testing.T) map[string]string {
-	files := without(without(testkit.Files(t, examples.Work()), "bridges/slack"), "bridges/gitlab")
-	maps.Copy(files, standin.In("slack", standin.Folder(true, true)))
-	maps.Copy(files, standin.In("gitlab", standin.Folder(false, false)))
-	return files
-}
-
-// without gives files with every file under a folder taken out.
-func without(files map[string]string, dir string) map[string]string {
-	out := map[string]string{}
-	for name, text := range files {
-		if !strings.HasPrefix(name, dir+"/") {
-			out[name] = text
-		}
-	}
-	return out
+	files := standin.Instead(testkit.Files(t, examples.Work()), "slack", standin.Folder(true, true))
+	return standin.Instead(files, "gitlab", standin.Folder(false, false))
 }
 
 // A bench is an office in a folder of the test's own, with a whole Corbie

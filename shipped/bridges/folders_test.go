@@ -1,23 +1,16 @@
 package bridges_test
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"go.yaml.in/yaml/v3"
-	_ "modernc.org/sqlite"
 
 	"github.com/zummed/corbie-bulldog/examples"
-	"github.com/zummed/corbie-bulldog/internal/changes"
 	"github.com/zummed/corbie-bulldog/internal/office"
-	"github.com/zummed/corbie-bulldog/internal/testkit"
 	"github.com/zummed/corbie-bulldog/shipped"
 )
 
@@ -36,9 +29,6 @@ func TestBridgesShippedFoldersAreChecked(t *testing.T) {
 		}
 		flat, _ := json.Marshal(entry)
 		listing += "  " + b + ": " + string(flat) + "\n"
-		for name, text := range folder(t, b) {
-			files["bridges/"+b+"/"+name] = []byte(text)
-		}
 	}
 	files["office.yaml"] = []byte(strings.Replace(string(files["office.yaml"]), "models:", listing+"models:", 1))
 	o, problems := office.Parse(t.TempDir(), files)
@@ -48,7 +38,7 @@ func TestBridgesShippedFoldersAreChecked(t *testing.T) {
 	for name, want := range map[string][3]bool{"telegram": {true, false, true}, "slack": {false, true, true}, "gitlab": {true, false, false}, "jira": {true, false, false}} {
 		b := o.Bridges[name]
 		direct := slices.Contains(b.Out.Definition.Input, "direct")
-		if !b.Runs() || b.Listens != want[0] || b.Hears != want[1] || direct != want[2] {
+		if !b.Runs() || b.Dir() != ".bulldog/bridges/"+name || b.Listens != want[0] || b.Hears != want[1] || direct != want[2] {
 			t.Errorf("%s listens %v, hears %v, says things directly %v", name, b.Listens, b.Hears, direct)
 		}
 	}
@@ -57,114 +47,61 @@ func TestBridgesShippedFoldersAreChecked(t *testing.T) {
 	}
 }
 
-func TestBridgesExamplesHoldTheShippedCopies(t *testing.T) {
+func TestBridgesShippedSiteFromSettings(t *testing.T) {
 	t.Parallel()
-	for office, names := range map[string][]string{"house": {"telegram"}, "work": {"slack", "gitlab"}} {
-		tree := examples.House()
-		if office == "work" {
-			tree = examples.Work()
-		}
-		for _, name := range names {
-			sub, err := fs.Sub(tree, "bridges/"+name)
-			if err != nil {
-				t.Fatal(err)
-			}
-			got := testkit.Files(t, sub)
-			want := folder(t, name)
-			if len(got) != len(want) {
-				t.Errorf("the %s's %s holds %d files", office, name, len(got))
-			}
-			for file, text := range want {
-				if got[file] != text {
-					t.Errorf("the %s's bridges/%s/%s is not the shipped one", office, name, file)
-				}
+	// No machine or script of GitLab's or Jira's names a host: each reaches
+	// the site its settings give, and sends its token there alone.
+	for name, token := range map[string]string{"gitlab": "GITLAB_TOKEN", "jira": "JIRA_TOKEN"} {
+		files := folder(t, name)
+		for _, which := range []string{"in.yaml", "out.yaml"} {
+			text := files[which]
+			if strings.Count(text, `"net:${input.settings.site}"`) != 1 || strings.Count(text, `"secret:`+token+`@net:${input.settings.site}"`) != 1 || strings.Count(text, "net:") != 2 {
+				t.Errorf("%s's %s allows\n%s", name, which, text)
 			}
 		}
+		if script := files[name+".js"]; !strings.Contains(script, `"https://" + input.settings.site`) || strings.Count(script, "://") != 1 {
+			t.Errorf("%s's script names a host of its own", name)
+		}
+	}
+	// Given the stand-in's address as its site, each answers there.
+	gl, s := newGitLabBridge(t)
+	sent(t, s.carry(map[string]any{"to": "platform/api#7", "text": "On it."}))
+	if len(gl.notes) != 1 {
+		t.Errorf("GitLab holds the comments %v", gl.notes)
+	}
+	j, js := newJiraBridge(t)
+	sent(t, js.carry(map[string]any{"settings": jiraSettings, "to": "OPS-12", "text": "On it."}))
+	if len(j.comments) != 1 {
+		t.Errorf("Jira holds the comments %v", j.comments)
+	}
+	// Given no site, nothing is sent, and the failure names it.
+	s.site = ""
+	if r := s.carry(map[string]any{"to": "platform/api#7", "text": "On it."}); r.Status != "failed" || !strings.Contains(r.Error, "input.settings.site") || len(gl.notes) != 1 {
+		t.Errorf("GitLab with no site ends %s: %s", r.Status, r.Error)
 	}
 }
 
-func TestBridgesShippedBridgeIsAddedByAChange(t *testing.T) {
+func TestBridgesShippedReadsAnEarlierCursor(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
-	files := map[string]string{}
-	for name, text := range examples.NewHouse() {
-		files[name] = string(text)
+	// Each listening bridge goes on from a cursor as 0.1.0 gave it,
+	// hearing only what came after it.
+	tg, s := newTelegramBridge(t)
+	tg.says(4471, "sam", "before")
+	after := tg.says(4471, "sam", "after")
+	if things, _ := s.heard(listen(float64(after))); len(things) != 1 || things[0]["text"] != "after" {
+		t.Errorf("Telegram, from the 0.1.0 cursor %d, hears %v", after, things)
 	}
-	dir := testkit.Folder(t, files)
-	if err := shipped.Write(dir); err != nil {
-		t.Fatal(err)
+	gl, g := newGitLabBridge(t)
+	gl.happens(map[string]any{"action_name": "closed", "target_type": "Issue", "target_iid": 7, "author_id": 1187})
+	gl.happens(map[string]any{"action_name": "reopened", "target_type": "Issue", "target_iid": 7, "author_id": 1187})
+	if things, _ := g.heard(map[string]any{"settings": gitlabPlaces, "cursor": map[string]any{"platform/api": 501}}); len(things) != 1 || things[0]["status"] != "reopened" {
+		t.Errorf("GitLab, from the 0.1.0 cursor of event 501, hears %v", things)
 	}
-	clock := testkit.NewClock(testkit.Monday)
-	if _, err := changes.Begin(dir, clock.Now()); err != nil {
-		t.Fatal(err)
-	}
-	db, err := sql.Open("sqlite", filepath.Join(dir, shipped.Dir, "bulldog.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { db.Close() })
-	keeper := office.Keep(dir)
-	c, err := changes.Open(ctx, db, dir, keeper)
-	if err != nil {
-		t.Fatal(err)
-	}
-	c.Now = clock.Now
-	c.Decide = func(changes.Put) error { return nil }
-	c.Told = func(changes.Outcome) {}
-	c.Shipped = shipped.Bridge
-	edited, _, err := c.Edited(changes.Edit{Bridge: "telegram"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var paths []string
-	for _, f := range edited {
-		paths = append(paths, f.Path)
-		if f.Path == "office.yaml" && !strings.Contains(f.Text, "telegram: { places: { direct: {} } }") {
-			t.Errorf("office.yaml would be\n%s", f.Text)
-		}
-	}
-	if !slices.Equal(paths, []string{"bridges/telegram/README.md", "bridges/telegram/in.yaml", "bridges/telegram/out.yaml", "bridges/telegram/telegram.js", "office.yaml"}) {
-		t.Errorf("the draft holds %v", paths)
-	}
-	check, err := c.Check(ctx, edited, changes.Drafter{Name: "sam", Person: true})
-	if err != nil || len(check.Refused) > 0 {
-		t.Fatalf("the change is checked %+v, %v", check, err)
-	}
-	if _, err := c.PutOwn(ctx, "sam", "Telegram, for Sam and Kit", edited, check.Mark); err != nil {
-		t.Fatal(err)
-	}
-	history, err := c.History("sam")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(history) != 2 || history[0].By != "sam" || !slices.Equal(history[0].Files, paths) {
-		t.Errorf("the history is %+v", history)
-	}
-	keeper.Look()
-	if o := keeper.Office(); o == nil || !o.Bridges["telegram"].Runs() {
-		t.Fatalf("the house reads with %v", keeper.Problems())
-	}
-	// From then on the folder is the office's own: an edit to its out
-	// machine is a change like any other, and what Bulldog ships is not
-	// written over it.
-	out := filepath.Join(dir, "bridges", "telegram", "out.yaml")
-	written := testkit.Files(t, os.DirFS(dir))["bridges/telegram/out.yaml"]
-	own := written + "# the house's own\n"
-	edit, _, err := c.Edited(changes.Edit{Files: map[string]*string{"bridges/telegram/out.yaml": &own}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	check, err = c.Check(ctx, edit, changes.Drafter{Name: "sam", Person: true})
-	if err != nil || len(check.Refused) > 0 {
-		t.Fatalf("an edit to the out machine is checked %+v, %v", check, err)
-	}
-	if _, err := c.PutOwn(ctx, "sam", "The house's own words", edit, check.Mark); err != nil {
-		t.Fatal(err)
-	}
-	if err := shipped.Write(dir); err != nil {
-		t.Fatal(err)
-	}
-	if got := testkit.Files(t, os.DirFS(dir))["bridges/telegram/out.yaml"]; !strings.HasSuffix(got, "# the house's own\n") {
-		t.Errorf("%s is\n%s", out, got)
+	j, js := newJiraBridge(t)
+	opened := time.Now().Truncate(time.Millisecond)
+	j.opened(opened, "To Do", "new", []any{map[string]any{"id": "2001", "body": "after", "created": stamp(opened.Add(time.Second)), "author": map[string]any{"accountId": "5b10ac8d82e05b22cc7d4ef5"}}}, nil)
+	cursor := map[string]any{"since": opened.UTC().Format("2006-01-02T15:04:05.000Z"), "seen": []any{"issue:10012"}}
+	if things, _ := js.heard(map[string]any{"settings": jiraSettings, "cursor": cursor}); len(things) != 1 || things[0]["text"] != "after" {
+		t.Errorf("Jira, from the 0.1.0 cursor %v, hears %v", cursor, things)
 	}
 }

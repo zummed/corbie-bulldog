@@ -4,10 +4,12 @@ The in machine asks GitLab what happened on each project since its cursor, resti
 
 ## Needs
 
-- `GITLAB_TOKEN`, a token of the account the bridge speaks as, for `gitlab.com`. For a GitLab of your own, its host is written in place of gitlab.com in the bridge's machines and script, in a copy of its own.
+- `GITLAB_TOKEN`, a token of the account the bridge speaks as, for the host in `site`.
 
 ## Settings
 
+- `from`: `./.bulldog/bridges/gitlab`, the folder it runs, as Bulldog ships it.
+- `site`: the host of the GitLab it speaks to, as `gitlab.com`, or your own. The token is sent there.
 - `places`: each project by its path, as `platform/api`, with the `team` asked there, the office when none is named, and whether `guests` may ask.
 
 ## Leaves out
@@ -20,9 +22,10 @@ The in machine asks GitLab what happened on each project since its cursor, resti
 ```yaml
 # in office.yaml
 bridges:
-  gitlab: { places: { platform/api: { team: platform } } }
+  gitlab: { from: ./.bulldog/bridges/gitlab, site: gitlab.com, places: { platform/api: { team: platform } } }
 ```
 
 ## Changed
 
 - 0.1.0: first shipped.
+- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; reaches the host in `site`, and sends GITLAB_TOKEN there, in place of gitlab.com.

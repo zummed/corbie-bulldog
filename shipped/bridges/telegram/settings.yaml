@@ -1,4 +1,5 @@
 # Telegram's entry under bridges in office.yaml. direct is anything said to
 # the bot in a person's own chat with it; a group is listed by its chat id.
+from: ./.bulldog/bridges/telegram
 places:
   direct: {}

@@ -93,7 +93,9 @@ func (gl *gitlab) serve(w http.ResponseWriter, r *http.Request) {
 
 func newGitLabBridge(t *testing.T) (*gitlab, *service) {
 	gl := newGitLab(t)
-	return gl, newService(t, pointed(t, "gitlab", gl.Server, "gitlab.com"), map[string]string{"GITLAB_TOKEN": gitlabToken})
+	s := newService(t, pointed(t, "gitlab", gl.Server), map[string]string{"GITLAB_TOKEN": gitlabToken})
+	s.site = strings.TrimPrefix(gl.URL, "http://")
+	return gl, s
 }
 
 var gitlabPlaces = map[string]any{"places": map[string]any{"platform/api": map[string]any{"team": "platform"}}}

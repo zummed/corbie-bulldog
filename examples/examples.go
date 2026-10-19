@@ -33,11 +33,11 @@ var telegram = regexp.MustCompile(`, telegram: "[^"]*"`)
 
 // NewHouse gives the files of the office written into an empty folder:
 // the house without its bridge, spoken to in the built-in chat alone. It
-// has no bridges key, no bridges/ folder and no Telegram identities.
+// has no bridges key and no Telegram identities.
 func NewHouse() map[string][]byte {
 	files := map[string][]byte{}
 	err := fs.WalkDir(House(), ".", func(name string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || strings.HasPrefix(name, "bridges/") {
+		if err != nil || d.IsDir() {
 			return err
 		}
 		contents, err := fs.ReadFile(House(), name)

@@ -7,8 +7,10 @@ import (
 	"testing"
 
 	"github.com/zummed/corbie-bulldog/examples"
+	"github.com/zummed/corbie-bulldog/internal/bridges/standin"
 	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
+	"github.com/zummed/corbie-bulldog/shipped"
 )
 
 func TestMain(m *testing.M) { testkit.Main(m) }
@@ -16,6 +18,20 @@ func TestMain(m *testing.M) { testkit.Main(m) }
 // house and work give the files of the two offices the office page shows.
 func house(t *testing.T) map[string]string { return testkit.Files(t, examples.House()) }
 func work(t *testing.T) map[string]string  { return testkit.Files(t, examples.Work()) }
+
+// own gives an office's files with a bridge that runs the folder Bulldog
+// ships copied into bridges/<name>, the office's own, and its entry no
+// longer naming the shipped one, as a person copies a bridge to change it.
+func own(t *testing.T, files map[string]string, name string) map[string]string {
+	t.Helper()
+	tree, _, ok := shipped.Bridge(name)
+	if !ok {
+		t.Fatalf("Bulldog ships no bridge %s", name)
+	}
+	folder := testkit.Files(t, tree)
+	delete(folder, shipped.Settings)
+	return standin.Instead(files, name, folder)
+}
 
 // read writes an office's files into a folder of the test's own and reads
 // it, giving the office, if it reads, and every problem found.

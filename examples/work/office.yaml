@@ -10,9 +10,12 @@ everyone:
   raj:   { name: Raj, title: Backend., slack: U0RAJ000, gitlab: "1187" }
 bridges:
   slack:
+    from: ./.bulldog/bridges/slack
     places:
       "#help": { guests: true }
   gitlab:
+    from: ./.bulldog/bridges/gitlab
+    site: gitlab.com
     places:
       platform/api: { team: platform }
 models:

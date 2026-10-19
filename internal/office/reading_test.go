@@ -17,7 +17,7 @@ func TestTheOfficeIsReadWhole(t *testing.T) {
 	t.Parallel()
 	o := reads(t, house(t))
 	want := []string{"bins.yaml", "builder.yaml", "clerk.yaml", "fixer.yaml", "sparks.yaml", "steward.yaml",
-		"garden/gardener.yaml", "garden/groundsman.yaml", "small-orders.js", "bridges/telegram/in.yaml", "bridges/telegram/out.yaml"}
+		"garden/gardener.yaml", "garden/groundsman.yaml", "small-orders.js", ".bulldog/bridges/telegram/in.yaml", ".bulldog/bridges/telegram/out.yaml"}
 	if got := slices.Sorted(slices.Values(o.Checked)); !slices.Equal(got, slices.Sorted(slices.Values(want))) {
 		t.Errorf("Corbie checked %v", o.Checked)
 	}
@@ -36,7 +36,7 @@ func TestTheOfficeIsReadWhole(t *testing.T) {
 
 func TestOfficeEveryProblemTogether(t *testing.T) {
 	t.Parallel()
-	files := replace(t, house(t), "office.yaml", "people: [sam, kit]", "people: [sam, nobody]")
+	files := replace(t, own(t, house(t), "telegram"), "office.yaml", "people: [sam, kit]", "people: [sam, nobody]")
 	files = replace(t, files, "garden/team.yaml", "lead: gardener", "lead: gardener\nbudget: 3")
 	files = replace(t, files, "clerk.yaml", "model: usual", "model: cheap")
 	files = replace(t, files, "bridges/telegram/in.yaml", "script: ./telegram.js", "script: ./gone.js")
@@ -72,7 +72,7 @@ func TestOfficeChecksOffline(t *testing.T) {
 func TestOfficeBrokenDefinitionStopsItself(t *testing.T) {
 	t.Parallel()
 	// A worker no other runs, a rule and a bridge, each refused by Corbie.
-	files := replace(t, house(t), "bins.yaml", "stages:", "stagse:")
+	files := replace(t, own(t, house(t), "telegram"), "bins.yaml", "stages:", "stagse:")
 	files = replace(t, files, "office.yaml", "[./small-orders.js, sam]", "[./big-orders.yaml, sam]")
 	files = with(files, map[string]string{"big-orders.yaml": "flow: big-orders\nstages: { look: { job: ./nowhere.js } }\n"})
 	files = replace(t, files, "bridges/telegram/out.yaml", "flow: telegram-out", "flw: telegram-out")

@@ -55,9 +55,6 @@ func TestServerEveryRequestOfTheAPI(t *testing.T) {
 	if text := sam.get("/api/office/file?path=office.yaml").is(http.StatusOK).json()["text"]; !strings.Contains(text.(string), "name: The house") {
 		t.Errorf("office.yaml is given as %v", text)
 	}
-	if shipped := sam.get("/api/office/bridges").is(http.StatusOK).json()["bridges"].([]any); len(shipped) != 4 {
-		t.Errorf("the shipped bridges are %v", shipped)
-	}
 	var history struct{ History []struct{ ID string } }
 	sam.get("/api/history").is(http.StatusOK).into(&history)
 	if commit := sam.get("/api/history/" + history.History[0].ID).is(http.StatusOK).json(); commit["commit"] == nil || commit["files"] == nil {

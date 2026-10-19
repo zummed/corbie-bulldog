@@ -156,7 +156,7 @@ func TestServerOnlySignInAndBridgesOpen(t *testing.T) {
 	keyed := []string{
 		"GET /api/me", "POST /api/me/key", "GET /api/requests", "POST /api/requests", "GET /api/requests/1", "POST /api/requests/1/entries",
 		"POST /api/requests/1/decisions/1", "POST /api/requests/1/stop", "GET /api/teams/office", "POST /api/teams/office/routines/now",
-		"GET /api/office/files", "GET /api/office/file?path=office.yaml", "GET /api/office/bridges", "POST /api/office/check", "POST /api/office/put",
+		"GET /api/office/files", "GET /api/office/file?path=office.yaml", "POST /api/office/check", "POST /api/office/put",
 		"GET /api/history", "GET /api/history/abc", "GET /api/events", "GET /api/runs/abc/watch", "GET /files/1-0",
 		"GET /api/nothing", "DELETE /api/me", "PUT /api/requests", "GET /anything/else", "GET /signin", "GET /bridges",
 	}

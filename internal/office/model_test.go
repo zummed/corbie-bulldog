@@ -104,7 +104,7 @@ func TestOfficeUnknownModelNameStopsWorker(t *testing.T) {
 	_, problems = read(t, replace(t, house(t), "clerk.yaml", "model: usual", "model: claude-sonnet-5-5"))
 	says(t, problems.OfWorker("clerk"), "clerk.yaml", "claude-sonnet-5-5", "no model of that name")
 	// The same of a bridge's machine, looked up from the office.
-	files := with(house(t), map[string]string{"bridges/telegram/out.yaml": "agent: telegram-out\ninput: [settings, to, text]\nmodel: quick\nprompt: ${input.text}\n"})
+	files := with(own(t, house(t), "telegram"), map[string]string{"bridges/telegram/out.yaml": "agent: telegram-out\ninput: [settings, to, text]\nmodel: quick\nprompt: ${input.text}\n"})
 	_, problems = read(t, files)
 	if p := says(t, problems.OfBridge("telegram"), "bridges/telegram/out.yaml", `"quick"`); p.Bridge != "telegram" {
 		t.Errorf("the problem is %#v", p)

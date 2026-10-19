@@ -4,9 +4,9 @@
 # rests thirty seconds and asks again, since Jira cannot be asked to wait.
 # It ends with what it heard and the cursor to go on from, or after an
 # hour with nothing. Its first ask, given no cursor, hears nothing. It
+# speaks to the Jira at the settings' site, as example.atlassian.net, and
 # signs in as the settings' email with the API token that is the Corbie
-# secret JIRA_TOKEN; write your own site in place of example.atlassian.net,
-# here, in out.yaml and in jira.js.
+# secret JIRA_TOKEN.
 statechart: jira-in
 input: [settings, cursor]
 initial: listening
@@ -20,7 +20,7 @@ states:
         job:
           script: ./jira.js
           input: { do: hear, settings: "${input.settings}", cursor: "${states.hearing.output ? states.hearing.output.cursor : input.cursor}" }
-          allow: [net:example.atlassian.net, "secret:JIRA_TOKEN@net:example.atlassian.net"]
+          allow: ["net:${input.settings.site}", "secret:JIRA_TOKEN@net:${input.settings.site}"]
         on:
           done:
             - { go: heard, when: "${event.data.heard.length > 0}" }

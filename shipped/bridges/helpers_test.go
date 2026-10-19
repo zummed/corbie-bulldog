@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io/fs"
+	"maps"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -18,7 +19,7 @@ import (
 func TestMain(m *testing.M) { testkit.Main(m) }
 
 // folder gives the files of a bridge Bulldog ships, by their names in its
-// folder, as they are shipped and copied into an office: all but its entry.
+// folder: all but its entry.
 func folder(t *testing.T, name string) map[string]string {
 	t.Helper()
 	tree, _, ok := shipped.Bridge(name)
@@ -42,8 +43,9 @@ func folder(t *testing.T, name string) map[string]string {
 
 // pointed gives a shipped bridge's files with its service's hosts in place
 // of a stand-in's, at an address of the test's own, reached over a plain
-// connection: as a person would point the bridge at a service of their
-// own. Nothing else of them is changed.
+// connection. A bridge that reaches the site its settings give is only
+// told to reach it over a plain connection: the test gives the stand-in's
+// address as its site. Nothing else of them is changed.
 func pointed(t *testing.T, name string, srv *httptest.Server, hosts ...string) map[string]string {
 	t.Helper()
 	addr := strings.TrimPrefix(srv.URL, "http://")
@@ -54,18 +56,22 @@ func pointed(t *testing.T, name string, srv *httptest.Server, hosts ...string) m
 			text = strings.ReplaceAll(text, "net:"+host, "net:"+addr)
 			text = strings.ReplaceAll(text, "https://"+host, "http://"+addr)
 		}
+		text = strings.ReplaceAll(text, "@net:${input.settings.site}", "@net.unencrypted:${input.settings.site}")
+		text = strings.ReplaceAll(text, `"https://" + input.settings.site`, `"http://" + input.settings.site`)
 		files[file] = text
 	}
 	return files
 }
 
 // A service is a whole Corbie in the test's process, with a shipped
-// bridge's machines pointed at a stand-in.
+// bridge's machines pointed at a stand-in. A bridge that reaches the site
+// its settings give is given site, the stand-in's address, among them.
 type service struct {
 	t       *testing.T
 	corbie  *testkit.Corbie
 	files   map[string]string
 	secrets map[string]string
+	site    string
 }
 
 func newService(t *testing.T, files map[string]string, secrets map[string]string) *service {
@@ -86,11 +92,24 @@ func (s *service) draft(which string) *machine.Draft {
 // run.
 func (s *service) start(which string, input map[string]any) string {
 	s.t.Helper()
-	run, err := s.corbie.Start(context.Background(), s.draft(which), client.Start{Input: input, Secrets: s.secrets, Labels: map[string]string{"kind": "test"}})
+	run, err := s.corbie.Start(context.Background(), s.draft(which), client.Start{Input: s.sited(input), Secrets: s.secrets, Labels: map[string]string{"kind": "test"}})
 	if err != nil {
 		s.t.Fatal(err)
 	}
 	return run
+}
+
+// sited gives a machine's input with the service's site among its
+// settings, when it has one.
+func (s *service) sited(input map[string]any) map[string]any {
+	settings, _ := input["settings"].(map[string]any)
+	if s.site == "" || settings == nil {
+		return input
+	}
+	out := maps.Clone(input)
+	out["settings"] = maps.Clone(settings)
+	out["settings"].(map[string]any)["site"] = s.site
+	return out
 }
 
 // run runs one of the bridge's machines to its end.
@@ -137,7 +156,7 @@ func (s *service) carry(input map[string]any) *client.Run {
 		whole["files"] = given
 	}
 	whole["text"] = client.InputFile{Name: "text.txt", Contents: strings.NewReader(whole["text"].(string))}
-	run, err := s.corbie.Start(context.Background(), s.draft("out.yaml"), client.Start{Input: whole, Secrets: s.secrets, Labels: map[string]string{"kind": "test"}})
+	run, err := s.corbie.Start(context.Background(), s.draft("out.yaml"), client.Start{Input: s.sited(whole), Secrets: s.secrets, Labels: map[string]string{"kind": "test"}})
 	if err != nil {
 		s.t.Fatal(err)
 	}

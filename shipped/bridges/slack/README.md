@@ -9,6 +9,7 @@ The in machine hears: Slack calls the office at `/bridges/slack`, for its Event 
 
 ## Settings
 
+- `from`: `./.bulldog/bridges/slack`, the folder it runs, as Bulldog ships it.
 - `places`: `direct`, a person's conversation with the app, and each channel by its name, with the `team` asked there, the office when none is named, and whether `guests` may ask.
 
 ## Leaves out
@@ -23,6 +24,7 @@ The in machine hears: Slack calls the office at `/bridges/slack`, for its Event 
 # in office.yaml
 bridges:
   slack:
+    from: ./.bulldog/bridges/slack
     places:
       direct: {}
       "#help": { guests: true }
@@ -31,3 +33,4 @@ bridges:
 ## Changed
 
 - 0.1.0: first shipped.
+- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office.

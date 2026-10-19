@@ -1,5 +1,5 @@
-/* changes: the files beside the draft, the check, the bridges and the
-   history, and one change with each file before and after. */
+/* changes: the files beside the draft, the check and the history, and
+   one change with each file before and after. */
 .ch .cols > .ch-files { order: -1; flex: 1 1 260px; max-width: 360px; }
 .ch .sect > .search { margin-bottom: 10px; }
 .ch .stack > div:empty { display: none; }
@@ -28,7 +28,6 @@
 .ch-bad, .ch-bad .mono { color: var(--bad); }
 
 /* Bridges and history */
-.row.ch-bridge > .who { width: 120px; flex: none; }
 .row.ch-hist { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 160px) minmax(0, 160px) 96px; gap: 4px 14px; }
 .row.ch-hist.ch-cols { min-height: 0; font-size: var(--small); font-weight: 600; color: var(--ink2); }
 .ch-cell { display: flex; align-items: center; min-width: 0; overflow: hidden; }

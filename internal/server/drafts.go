@@ -9,7 +9,6 @@ import (
 
 	"github.com/zummed/corbie-bulldog/internal/changes"
 	"github.com/zummed/corbie-bulldog/internal/office"
-	"github.com/zummed/corbie-bulldog/shipped"
 )
 
 // decider gives the office for one of the people who decide a change; to
@@ -79,27 +78,6 @@ func (s *site) file(person string, w http.ResponseWriter, r *http.Request) (any,
 		return nil, errNotThere
 	}
 	return map[string]string{"path": path, "text": string(data)}, nil
-}
-
-// shippedBridges gives the bridges Bulldog ships, which a change may add.
-func (s *site) shippedBridges(person string, w http.ResponseWriter, r *http.Request) (any, error) {
-	o, err := s.decider(person)
-	if err != nil {
-		return nil, err
-	}
-	type bridge struct {
-		Name     string `json:"name"`
-		Carries  string `json:"carries"`
-		Settings string `json:"settings"`
-		Added    bool   `json:"added"`
-	}
-	out := []bridge{}
-	for _, name := range shipped.Bridges() {
-		_, settings, _ := shipped.Bridge(name)
-		_, added := o.Bridges[name]
-		out = append(out, bridge{Name: name, Carries: shipped.Summary("bridges/" + name), Settings: settings, Added: added})
-	}
-	return map[string]any{"bridges": out}, nil
 }
 
 // history gives every change to the office's files, newest first.
