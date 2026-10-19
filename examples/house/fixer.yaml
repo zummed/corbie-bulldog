@@ -4,7 +4,7 @@ model: usual
 input: [said]
 prompt: ${input.said}
 system: You do the repairs. Before anything electrical, ask sparks which circuit, and cut it.
-tools_file: [./.bulldog/talk.yaml]
+tools_file: [./.bulldog/tools/talk/talk.yaml]
 tools:
   sparks:    { does: Which circuit is what, args: { question: string },
                job: { machine: ./sparks.yaml, input: { said: "${args.question}" } } }

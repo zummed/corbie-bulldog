@@ -18,9 +18,9 @@ The detailed rules behind the [Office overview](../office.md). Requirements are 
 
 **C-office-01** A `team.yaml` anywhere but directly in a team's folder, an `office.yaml` anywhere but at the top, and a `team.yaml` at the top, are each a problem of the reading. A team file that is not read is a team that silently does not exist. *Test:* `office_stray_team_file_refused`
 
-**C-office-02** Everything a team file names is inside the office folder, and Corbie is given the office's files and Bulldog's own at `.bulldog/`, and nothing else, to read a definition from. A worker or a rule read from outside the folder would run while being in no history and no re-reading. *Test:* `office_nothing_named_outside_folder`
+**C-office-02** Everything a team file names is inside the office folder, and Corbie is given the office's files and what Bulldog ships at `.bulldog/`, as the program holds it, and nothing else, to read a definition from. A worker or a rule read from outside the folder would run while being in no history and no re-reading. *Test:* `office_nothing_named_outside_folder`
 
-**C-office-03** Bulldog's own files are found at `.bulldog/` at the top of the office by their path there, and by nothing else: no folder of the office is ever taken for Bulldog's because of a word in its path. Found by a word, an office file whose path held it would be read from Bulldog's files instead, with no problem said. *Test:* `office_own_files_by_path_only`
+**C-office-03** What Bulldog ships is found at `.bulldog/` at the top of the office by its path there, a file in a shipped thing's folder as one at the top, such as `.bulldog/tools/talk/talk.yaml`, and by nothing else: no folder of the office is ever taken for Bulldog's because of a word in its path. Found by a word, an office file whose path held it would be read from Bulldog's files instead, with no problem said. *Test:* `office_own_files_by_path_only`
 
 ## A team
 
@@ -120,8 +120,8 @@ The detailed rules behind the [Office overview](../office.md). Requirements are 
 **R-office-20** A team's notes are the files in its `notes/` folder, and are read from the folder each time they are needed; a team with no `notes/` has none.
 *Accept:* a file written into `garden/notes/` is in the garden's notes at the next reading of them, with no reading of the office between. The work office's `support` has no notes.
 
-**R-office-31** A team's notes are the team's, the same in the context of every run Bulldog starts of one of its workers and in no other team's runs, and are files of the office like any other: among the office's files, in its history, and not sealed as what a team read is. A worker has the notes tool Bulldog ships, `write_notes` in `notes.yaml`, only when its own definition names that file; writing a team's notes is the one write to the office's files that is not a decided change, and is still a commit with who and why.
-*Accept:* with `garden/notes/beds.md` written, the notes in the context of the gardener's run on a request to the garden and of the gardener's routine run are the same and hold it, those in a steward's run do not, and `garden/notes/beds.md` is among the office's files. Bins, whose definition names no `notes.yaml`, is given the house's notes in its routine's runs and has no notes tool, so cannot write one.
+**R-office-31** A team's notes are the team's, the same in the context of every run Bulldog starts of one of its workers and in no other team's runs, and are files of the office like any other: among the office's files, in its history, and not sealed as what a team read is. A worker has the notes tool Bulldog ships, `write_notes` in `tools/notes/notes.yaml`, only when its own definition names that file; writing a team's notes is the one write to the office's files that is not a decided change, and is still a commit with who and why.
+*Accept:* with `garden/notes/beds.md` written, the notes in the context of the gardener's run on a request to the garden and of the gardener's routine run are the same and hold it, those in a steward's run do not, and `garden/notes/beds.md` is among the office's files. Bins, whose definition names no `tools/notes/notes.yaml`, is given the house's notes in its routine's runs and has no notes tool, so cannot write one.
 
 ## Bridges in the files
 

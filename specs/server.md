@@ -21,7 +21,7 @@ bulldog: kit, open http://127.0.0.1:7410/?key=9a2e…
 | `corbie bulldog check [folder]` | reads the folder as the server would, starts nothing and writes nothing, and says what it found and everything wrong |
 | `corbie bulldog init [folder]` | readies the folder as the server would, without serving it, and says what it did; in an office that was moved, takes the move |
 | `corbie bulldog version` | prints which Bulldog this is, the Corbie it is built on, and the machine types and plugins that Corbie holds, as `corbie version` does |
-| `corbie bulldog manual [page]` | lists the manual's pages, or prints one: Bulldog's, `office` and `bulldog`, then Corbie's and a page for each command |
+| `corbie bulldog manual [page]` | lists the manual's pages, or prints one: Bulldog's, `office`, one for each thing Bulldog ships and `bulldog`, then Corbie's and a page for each command |
 | `corbie bulldog mcp [--allow <command>]…` | serves the manual and the commands allowed to a model, as an MCP server |
 
 With no folder named, it is the folder the program is run in when that holds an `office.yaml`, and otherwise `bulldog` in the person's home. A folder is readied the same way by every command that readies one:
@@ -43,7 +43,7 @@ The example is the house the office page shows, without its bridge: no `bridges`
 
 `corbie bulldog` reads its command line with Corbie's own program for one, so its help, its mistakes and its exit statuses are Corbie's. `check` and `init` are words before they are folders: `./check` names a folder.
 
-`manual` and `mcp` are Corbie's, given to the program, so a model learns to write an office from the one binary. The manual is the one a builder reads with its `manual` tool: Bulldog's page `office`, on how an office is written, and its page `bulldog`, what Bulldog is and how a model writes an office for a person; then Corbie's pages. A model connected to `mcp` is told the page `bulldog`, reads any page with the tool `manual`, and runs the commands it is allowed with the tool `bulldog`:
+`manual` and `mcp` are Corbie's, given to the program, so a model learns to write an office from the one binary. The manual is the one a builder reads with its `manual` tool: Bulldog's page `office`, on how an office is written, the page of each thing Bulldog ships, named by its path, as `tools/talk` or `bridges/slack`, and its page `bulldog`, what Bulldog is and how a model writes an office for a person; then Corbie's pages. A model connected to `mcp` is told the page `bulldog`, reads any page with the tool `manual`, and runs the commands it is allowed with the tool `bulldog`:
 
 ```
 corbie bulldog mcp --allow check --allow init     an assistant may check and ready an office
@@ -79,21 +79,26 @@ A signal stops the server: it stops listening, stops what it started, waits for 
 ~/house/.bulldog/
     identity        the office's identity, and the folder it was made in
     bulldog.db      the store
-    talk.yaml       the talk tools
-    notes.yaml      the notes tool
     ask.yaml        the ask
     call.yaml       the call every tool Bulldog ships runs, which only waits
     live.yaml       the server's own run, which says it is serving
     clock.yaml      a routine's clock, given its time
-    build.yaml      the builder's tools
+    tools/
+      talk/         talk.yaml  README.md      the talk tools
+      notes/        notes.yaml  README.md     the notes tool
+      build/        build.yaml  README.md     the builder's tools
+    bridges/
+      telegram/  slack/  gitlab/  jira/       in.yaml  out.yaml  <name>.js  settings.yaml  README.md
 ```
 
-A worker names what it uses of these by its path here: the talk tools, the notes tool or the builder's tools in its `tools_file:`, and the ask as its `ask:`. A worker Bulldog starts at the top names the ask when anything it runs can be held; a colleague called as a tool uses the nearest ask above it unless it names the ask Bulldog ships itself, and must name it when it can also be started at the top. Every ask a worker names is this one, as the work page says.
+Bulldog's own machines sit flat at the top: those it starts or answers itself, with nothing an office would change. Each other thing it ships is one folder, with its page, `README.md`: its first line says what it is, then what it needs, its settings, what it leaves out, an example of using it and what changed in it with each version of Bulldog. Each page is also a page of the manual, named by the thing's path, as `tools/talk`. A bridge's `settings.yaml` is its entry under `bridges` in `office.yaml`, as it is shipped.
+
+A worker names what it uses of these by its path here: the talk tools, the notes tool or the builder's tools in its `tools_file:`, as `./.bulldog/tools/talk/talk.yaml`, and the ask as its `ask:`. A worker Bulldog starts at the top names the ask when anything it runs can be held; a colleague called as a tool uses the nearest ask above it unless it names the ask Bulldog ships itself, and must name it when it can also be started at the top. Every ask a worker names is this one, as the work page says.
 
 - **The office's identity** is made once, at random, when the folder is first readied. It is how every run of the office is labelled and found, so two offices of one name on one Corbie are two offices, and an office keeps its runs when it is renamed. It is kept beside the store and not in it, so a store made again finds the runs the office still has.
 - **The identity knows the folder it was made in.** A copy of an office made with its `.bulldog/` would be the same office to Corbie, and the two would answer and cancel each other's runs; so a folder whose `.bulldog/` was made in another, by its real path with links followed, is refused before its store is opened, naming both, and saying what to do: remove `.bulldog/` for an office of its own, or run `corbie bulldog init` in it if the office was moved. `init` then takes the folder as the office's, keeping its identity, its store and its runs, and says so. `check` reads such a folder all the same, since it starts nothing.
 - **The store** is one file, and each area keeps its own part of it. A store made by an older Bulldog is refused, saying so, and the server does not start; removing it starts the office again with nothing kept.
-- **The files Bulldog ships** are written at every start, whole, as the program has them, so they always name what the program answers.
+- **The files Bulldog ships** are written at every start, whole, as the program has them, so they always name what the program answers. The folders of the things it ships are written afresh, so no file an earlier version shipped stays in them, and the tools files an earlier version shipped flat at the top are taken away; the identity and the store are never touched.
 - `.bulldog/` is not the office, is never in its history, and no change touches it.
 
 ## Signing in

@@ -2,12 +2,12 @@
 # and drafting a change to it, which a person decides. Each is a run that
 # only waits: Bulldog does what was asked, and its answer is the tool's
 # result. A worker is a builder by naming this file:
-#   tools_file: [./.bulldog/build.yaml]
+#   tools_file: [./.bulldog/tools/build/build.yaml]
 office_files:
   does: List every file of the office, and what your draft does to each, new, changed, removed or left as it is
   args: {}
   job:
-    machine: ./call.yaml
+    machine: ../../call.yaml
     input:
       tool: office_files
       args: "${args}"
@@ -15,24 +15,24 @@ office_files:
 office_read:
   does: Read one file of the office, as your draft has it, or as it is. The path is as office_files gives it, such as office.yaml or garden/gardener.yaml
   args: { path: string }
-  job: { machine: ./call.yaml, input: { tool: office_read, args: "${args}", unanswered: *unanswered } }
+  job: { machine: ../../call.yaml, input: { tool: office_read, args: "${args}", unanswered: *unanswered } }
 office_write:
   does: Put the whole new text of one file into your draft, making the file if it is not there. Nothing changes in the office until a person says yes to the draft
   args: { path: string, text: string }
-  job: { machine: ./call.yaml, input: { tool: office_write, args: "${args}", unanswered: *unanswered } }
+  job: { machine: ../../call.yaml, input: { tool: office_write, args: "${args}", unanswered: *unanswered } }
 office_remove:
   does: Have your draft remove one file
   args: { path: string }
-  job: { machine: ./call.yaml, input: { tool: office_remove, args: "${args}", unanswered: *unanswered } }
+  job: { machine: ../../call.yaml, input: { tool: office_remove, args: "${args}", unanswered: *unanswered } }
 office_check:
   does: Read the office as your draft would make it. Gives every problem, as Corbie and Bulldog say it, and what the change does as whoever decides it will be told. Use it after writing, and mend what it says before you put the draft
   args: {}
-  job: { machine: ./call.yaml, input: { tool: office_check, args: "${args}", unanswered: *unanswered } }
+  job: { machine: ../../call.yaml, input: { tool: office_check, args: "${args}", unanswered: *unanswered } }
 office_put:
   does: Put your draft to be decided, and wait for the decision. Say why in words a person can decide on, its first line saying what it is. Whoever decides is shown every file whole and what the change does. Only a person's yes writes it
   args: { why: string }
-  job: { machine: ./call.yaml, input: { tool: office_put, args: "${args}", unanswered: *unanswered } }
+  job: { machine: ../../call.yaml, input: { tool: office_put, args: "${args}", unanswered: *unanswered } }
 manual:
-  does: Read a page of the manual. The page office says how an office is written, with whole examples of a worker, a rule and a bridge; any other is a page of Corbie's manual. Leave page empty for the list of pages
+  does: Read a page of the manual. The page office says how an office is written, with whole examples of a worker, a rule and a bridge; each thing Bulldog ships has a page named by its path, as tools/talk or bridges/slack; any other is a page of Corbie's manual. Leave page empty for the list of pages
   args: { page: "string?" }
-  job: { machine: ./call.yaml, input: { tool: manual, args: "${args}", unanswered: *unanswered } }
+  job: { machine: ../../call.yaml, input: { tool: manual, args: "${args}", unanswered: *unanswered } }

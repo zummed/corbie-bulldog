@@ -4,7 +4,7 @@ input: [said, context]
 model: usual
 system: You look after the garden for Sam. The groundsman does the heavy work.
 prompt: ${input.context}
-tools_file: [../.bulldog/talk.yaml, ../.bulldog/notes.yaml]
+tools_file: [../.bulldog/tools/talk/talk.yaml, ../.bulldog/tools/notes/notes.yaml]
 tools:
   groundsman: { does: "Heavy work in the garden: digging, mowing and the shed", args: { job: string },
                 job: { machine: ./groundsman.yaml, input: { said: "${args.job}" } } }

@@ -1,0 +1,28 @@
+Telegram: it listens for what is said to the bot, and carries questions and decisions to a person directly, with a button for each choice.
+
+The in machine asks Telegram for what is new since its cursor, waiting up to fifty seconds while nothing is. Its first run hears nothing and marks where Telegram stands. A chat holds no threads, only replies, so everything said is threadless, and a reply to any message of an answer goes on from it.
+
+## Needs
+
+- `TELEGRAM_TOKEN`, the bot's token from @BotFather, for `api.telegram.org`.
+
+## Settings
+
+- `places`: `direct`, anything said to the bot in a person's own chat with it, and each group by its chat id, with the `team` asked there, the office when none is named, and whether `guests` may ask.
+
+## Leaves out
+
+- What the bot said, and what any other bot said.
+- Every kind of update but a message and a press of a button.
+
+## Example
+
+```yaml
+# in office.yaml
+bridges:
+  telegram: { places: { direct: {} } }
+```
+
+## Changed
+
+- 0.1.0: first shipped.

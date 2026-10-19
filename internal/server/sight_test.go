@@ -179,11 +179,13 @@ func TestServerTeamSeenByItsPeople(t *testing.T) {
 func TestServerToolToldByWhereItResolves(t *testing.T) {
 	t.Parallel()
 	files := house(t)
-	// The gardener is given the house's sparks, a machine of another team,
-	// and a tell of its own, written in place, which stands before the
-	// tell of the talk tools Bulldog ships.
+	// The gardener is given the house's sparks, a machine of another team;
+	// a tell of its own, written in place, which stands before the tell of
+	// the talk tools Bulldog ships; and a wait on the clock Bulldog ships,
+	// which is no call, so no tool Bulldog does.
 	files["garden/gardener.yaml"] += `  sparks: { does: Which circuit is what, args: { question: string },
             job: { machine: ../sparks.yaml, input: { said: "${args.question}" } } }
+  wait: { does: Wait until Monday, args: {}, job: { machine: ../.bulldog/clock.yaml, input: { due: "mon 09:00" } } }
   tell:
     does: Chalk it on the shed door
     args: { text: string }
@@ -231,6 +233,7 @@ func TestServerToolToldByWhereItResolves(t *testing.T) {
 			{Name: "groundsman", Does: "Heavy work in the garden: digging, mowing and the shed", Kind: "worker", Worker: "groundsman", File: "garden/groundsman.yaml"},
 			{Name: "sparks", Does: "Which circuit is what", Kind: "machine", File: "sparks.yaml"},
 			{Name: "tell", Does: "Chalk it on the shed door", Kind: "machine"},
+			{Name: "wait", Does: "Wait until Monday", Kind: "machine"},
 			{Name: "ask_team", Does: shippedDoes(shipped.Talk, "ask_team"), Kind: "bulldog"},
 		}},
 	} {

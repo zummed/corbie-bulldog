@@ -2,12 +2,12 @@
 # telling someone something. Each is a run that only waits: Bulldog does
 # what was asked, and its answer is the tool's result. A worker has them by
 # naming this file:
-#   tools_file: [./.bulldog/talk.yaml]
+#   tools_file: [./.bulldog/tools/talk/talk.yaml]
 ask_team:
   does: Ask another team of the office, and wait for its answer. The teams you may ask are in what you were given, each with what it looks after. Never your own team; your colleagues are your tools
   args: { team: string, question: string }
   job:
-    machine: ./call.yaml
+    machine: ../../call.yaml
     input:
       tool: ask_team
       args: "${args}"
@@ -15,8 +15,8 @@ ask_team:
 ask_person:
   does: Ask a person of your team a question, and wait for the answer. Leave who empty for whoever asked what you are working on. Only for what a person alone can answer or choose
   args: { question: string, who: "string?" }
-  job: { machine: ./call.yaml, input: { tool: ask_person, args: "${args}", unanswered: *unanswered } }
+  job: { machine: ../../call.yaml, input: { tool: ask_person, args: "${args}", unanswered: *unanswered } }
 tell:
   does: Tell whoever asked what you are working on, or a person of your team by name, something that needs no answer, and go on
   args: { text: string, who: "string?" }
-  job: { machine: ./call.yaml, input: { tool: tell, args: "${args}", unanswered: *unanswered } }
+  job: { machine: ../../call.yaml, input: { tool: tell, args: "${args}", unanswered: *unanswered } }

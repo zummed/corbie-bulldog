@@ -18,14 +18,14 @@ house/
     team.yaml  gardener.yaml  groundsman.yaml
     notes/
   bridges/
-    telegram/  in.yaml  out.yaml  telegram.js
+    telegram/  in.yaml  out.yaml  telegram.js  README.md
   .bulldog/                    Bulldog's own
 ```
 
 - **The top team's file is `office.yaml`.** A team within is a folder directly inside a team's folder that holds a `team.yaml`, and it may hold teams of its own the same way.
 - **A worker is a machine directly in a team's folder**: a file whose definition is an agent, a flow or a statechart. Its name is its file's name, and its definition carries that name. A machine in any other folder, such as `tools/`, is something workers use, and not a worker.
 - **`notes/`** in a team's folder holds its notes. **`bridges/`**, at the top only, holds a folder for each bridge, `bridges/<name>`, found by the bridge's name alone. The settings `bridges` gives a bridge are handed whole to its machines, and Bulldog reads of them only the places the bridge listens in, whose shape is the bridges page's; the office checks that each team a place names is a team of the office.
-- **`.bulldog/` is Bulldog's, not the office's.** It holds Bulldog's store, the office's identity, and the tools and the ask Bulldog ships, which a worker's definition names by their path there, and Corbie reads them from there as it reads the office's files. No change touches it and it is not in the history. Nothing else whose name starts with a dot is the office either.
+- **`.bulldog/` is Bulldog's, not the office's.** It holds Bulldog's store, the office's identity, and what Bulldog ships, which a definition names by its path there, and Corbie reads it from there as it reads the office's files. What Bulldog ships is its own machines, flat at the top, the ask among them; and one folder for each thing an office uses, a tools file in `tools/<name>/` or a bridge in `bridges/<name>/`, with the thing's page, `README.md`, which is also its page of the manual, named by its path, as `tools/talk`. No change touches it and it is not in the history. Nothing else whose name starts with a dot is the office either.
 
 The office the server writes into an empty folder is this house without the bridge: no `bridges` key, no `bridges/` folder and no Telegram identities under its people, spoken to in the built-in chat alone. It reads with no problem at once; the server page says when it is written.
 
@@ -111,7 +111,7 @@ model: usual
 input: [said]
 prompt: ${input.said}
 system: You do the repairs. Before anything electrical, ask sparks which circuit, and cut it.
-tools_file: [./.bulldog/talk.yaml]
+tools_file: [./.bulldog/tools/talk/talk.yaml]
 tools:
   sparks:    { does: Which circuit is what, args: { question: string },
                job: { machine: ./sparks.yaml, input: { said: "${args.question}" } } }
@@ -121,11 +121,11 @@ tools:
                job: { script: ./tools/order.js, input: { part: "${args.part}", pounds: "${args.pounds}" }, approve: true } }
 ```
 
-Which tools a worker holds, and so what a `decide` key may name, is read from its definition as Corbie's client fills it out. So is what each tool's job is, told from where it resolves from the worker's folder: a worker of the same team, another machine or a script, each a file of the office, a machine written in place, or one of the tools Bulldog ships, whose job is the call in `.bulldog/`. A path in a tools file is read from the tools file's own folder, as Corbie reads every path.
+Which tools a worker holds, and so what a `decide` key may name, is read from its definition as Corbie's client fills it out. So is what each tool's job is, told from where it resolves from the worker's folder: a worker of the same team, another machine or a script, each a file of the office, a machine written in place, or one of the tools Bulldog ships, whose job is the call it ships, `.bulldog/call.yaml`. A path in a tools file is read from the tools file's own folder, as Corbie reads every path.
 
 The fixer's `usual` is the house's; the gardener's `usual` would be the garden's.
 
-Inside a team, workers use each other as ordinary Corbie tools, as the fixer uses sparks. A worker has nothing of Bulldog's that its own definition does not name, each by its path in `.bulldog/`, and Bulldog writes none of it into a definition. A worker that asks or tells another team or a person names the talk tools Bulldog ships, `talk.yaml`, in its `tools_file:`, and one that writes its team's notes names the notes tool, `notes.yaml`, there too. A team's notes are not Bulldog's but the team's, and every run Bulldog starts of one of its workers is given them, whatever its definition names; a colleague called as a tool is given what its caller gives it.
+Inside a team, workers use each other as ordinary Corbie tools, as the fixer uses sparks. A worker has nothing of Bulldog's that its own definition does not name, each by its path in `.bulldog/`, and Bulldog writes none of it into a definition. A worker that asks or tells another team or a person names the talk tools Bulldog ships, `tools/talk/talk.yaml`, in its `tools_file:`, and one that writes its team's notes names the notes tool, `tools/notes/notes.yaml`, there too. A team's notes are not Bulldog's but the team's, and every run Bulldog starts of one of its workers is given them, whatever its definition names; a colleague called as a tool is given what its caller gives it.
 
 Corbie gives a held action to the nearest ask at or above the machine that holds it. So a worker Bulldog starts at the top, a team's lead or a routine's worker, names the ask Bulldog ships, `ask.yaml`, as its `ask:` when anything it runs can be held: an action of its own, or of a colleague or any other machine its tools run, as far down as they go. A colleague called as a tool uses the nearest ask above it unless it names the ask Bulldog ships itself, which it may, and must when it can also be started at the top. In the house the steward names the ask, since the fixer it calls holds `cut_power`; the fixer and sparks, only ever called as tools, name none, and the fixer's held `cut_power` goes to the ask the steward names. A worker that must name the ask and does not, or that names another, is reported as its own problem and given no run.
 
@@ -137,7 +137,7 @@ A routine is something said to one of a team's workers at a set time. `at` is a 
 
 A team's notes are the files in its `notes/` folder: prose the team knows, in Markdown. Notes are the team's, never one worker's. They are read from the folder each time they are needed, and every run Bulldog starts of one of the team's workers is given them in its context, as the work page says. A team that sets a disclosure check may say there, in plain words, what it never lets out.
 
-A worker writes its own team's notes with the notes tool Bulldog ships, `write_notes` in `notes.yaml`, and has it only when its own definition names that file; a team that does not want its workers writing its notes names it in none of their definitions. What a run may write with it is the work page's. Writing a team's notes is the one write to the office's files that is not a decided change: a note is what a team knows, not how the office works. Each write is still a commit that says who wrote it and why, as the changes page says.
+A worker writes its own team's notes with the notes tool Bulldog ships, `write_notes` in `tools/notes/notes.yaml`, and has it only when its own definition names that file; a team that does not want its workers writing its notes names it in none of their definitions. What a run may write with it is the work page's. Writing a team's notes is the one write to the office's files that is not a decided change: a note is what a team knows, not how the office works. Each write is still a commit that says who wrote it and why, as the changes page says.
 
 Notes are files of the office like any other. They are not sealed as what a team read is: they are in the history, and the builder and whoever decides a change read them. On the screens a team's people see its notes and its problems, and the people who decide changes see every file, note and problem of the office, as the server page says. A secret belongs in Corbie's secrets, and what a team read belongs in its runs, never in its notes.
 
@@ -146,8 +146,8 @@ Notes are files of the office like any other. They are not sealed as what a team
 ```
 work/
   office.yaml  bot.yaml
-  bridges/slack/   in.yaml  out.yaml  slack.js
-  bridges/gitlab/  in.yaml  out.yaml  gitlab.js
+  bridges/slack/   in.yaml  out.yaml  slack.js  README.md
+  bridges/gitlab/  in.yaml  out.yaml  gitlab.js  README.md
   platform/  team.yaml  ops.yaml  tools/
   payments/  team.yaml  ledger.yaml  tools/  no-account-numbers.yaml  no-account-numbers.js  notes/
   support/   team.yaml

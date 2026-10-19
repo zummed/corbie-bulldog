@@ -3,6 +3,7 @@ package bridges_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"go.yaml.in/yaml/v3"
 	_ "modernc.org/sqlite"
 
 	"github.com/zummed/corbie-bulldog/examples"
@@ -17,7 +19,6 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 	"github.com/zummed/corbie-bulldog/shipped"
-	"github.com/zummed/corbie-bulldog/shipped/bridges"
 )
 
 func TestBridgesShippedFoldersAreChecked(t *testing.T) {
@@ -27,10 +28,16 @@ func TestBridgesShippedFoldersAreChecked(t *testing.T) {
 		files[name] = text
 	}
 	listing := "bridges:\n"
-	for _, b := range bridges.All {
-		listing += "  " + b.Name + ": " + b.Settings + "\n"
-		for name, text := range folder(t, b.Name) {
-			files["bridges/"+b.Name+"/"+name] = []byte(text)
+	for _, b := range shipped.Bridges() {
+		_, settings, _ := shipped.Bridge(b)
+		var entry map[string]any
+		if err := yaml.Unmarshal([]byte(settings), &entry); err != nil {
+			t.Fatalf("%s's entry cannot be read: %v", b, err)
+		}
+		flat, _ := json.Marshal(entry)
+		listing += "  " + b + ": " + string(flat) + "\n"
+		for name, text := range folder(t, b) {
+			files["bridges/"+b+"/"+name] = []byte(text)
 		}
 	}
 	files["office.yaml"] = []byte(strings.Replace(string(files["office.yaml"]), "models:", listing+"models:", 1))
@@ -104,7 +111,7 @@ func TestBridgesShippedBridgeIsAddedByAChange(t *testing.T) {
 	c.Now = clock.Now
 	c.Decide = func(changes.Put) error { return nil }
 	c.Told = func(changes.Outcome) {}
-	c.Shipped = bridges.Bridge
+	c.Shipped = shipped.Bridge
 	edited, _, err := c.Edited(changes.Edit{Bridge: "telegram"})
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +123,7 @@ func TestBridgesShippedBridgeIsAddedByAChange(t *testing.T) {
 			t.Errorf("office.yaml would be\n%s", f.Text)
 		}
 	}
-	if !slices.Equal(paths, []string{"bridges/telegram/in.yaml", "bridges/telegram/out.yaml", "bridges/telegram/telegram.js", "office.yaml"}) {
+	if !slices.Equal(paths, []string{"bridges/telegram/README.md", "bridges/telegram/in.yaml", "bridges/telegram/out.yaml", "bridges/telegram/telegram.js", "office.yaml"}) {
 		t.Errorf("the draft holds %v", paths)
 	}
 	check, err := c.Check(ctx, edited, changes.Drafter{Name: "sam", Person: true})

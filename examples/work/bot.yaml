@@ -8,4 +8,4 @@ system: |
   and payments about charges and refunds, and put what they say together. Say only what the asker may read.
   When nothing is wanted of you, reply with nothing.
 prompt: ${input.context}
-tools_file: [./.bulldog/talk.yaml]
+tools_file: [./.bulldog/tools/talk/talk.yaml]

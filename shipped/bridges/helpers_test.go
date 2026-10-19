@@ -12,22 +12,22 @@ import (
 	"github.com/zummed/corbie/machine"
 
 	"github.com/zummed/corbie-bulldog/internal/testkit"
-	"github.com/zummed/corbie-bulldog/shipped/bridges"
+	"github.com/zummed/corbie-bulldog/shipped"
 )
 
 func TestMain(m *testing.M) { testkit.Main(m) }
 
 // folder gives the files of a bridge Bulldog ships, by their names in its
-// folder, as they are shipped.
+// folder, as they are shipped and copied into an office: all but its entry.
 func folder(t *testing.T, name string) map[string]string {
 	t.Helper()
-	tree, _, ok := bridges.Bridge(name)
+	tree, _, ok := shipped.Bridge(name)
 	if !ok {
 		t.Fatalf("Bulldog ships no bridge %s", name)
 	}
 	files := map[string]string{}
 	err := fs.WalkDir(tree, ".", func(file string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if err != nil || d.IsDir() || file == shipped.Settings {
 			return err
 		}
 		contents, err := fs.ReadFile(tree, file)

@@ -39,8 +39,8 @@ func (r *reading) loader(dir string, uses *[]string) func(string) ([]byte, error
 			if contents, ok := shipped.File(own); ok {
 				return contents, nil
 			}
-			return nil, fmt.Errorf("Bulldog ships no %s: it ships %s, each named by its path in %s/ at the top of the office, as ./%s/%s", full,
-				strings.Join(shipped.Names(), ", "), shipped.Dir, shipped.Dir, shipped.Talk)
+			return nil, fmt.Errorf("Bulldog ships no %s: its tools files are %s, %s and %s, and its ask %s, each named by its path in %s/ at the top of the office, as ./%s", full,
+				path.Join(shipped.Dir, shipped.Talk), path.Join(shipped.Dir, shipped.Notes), path.Join(shipped.Dir, shipped.Build), path.Join(shipped.Dir, shipped.Ask), shipped.Dir, path.Join(shipped.Dir, shipped.Talk))
 		}
 		switch {
 		case path.IsAbs(full) || full == ".." || strings.HasPrefix(full, "../"):
@@ -378,9 +378,10 @@ func needsAsk(d *machine.Draft) bool {
 // toolsOf gives the tools an agent's definition holds, as Corbie filled it
 // out, but for those every agent has for blobs, in the order of their
 // names. What each tool's job is, is told by where it resolves from the
-// worker's folder: a tool whose job is in .bulldog/ is Bulldog's; a script is a script; a machine that is a file
-// of the office is a worker of the same team, or another machine; and a
-// machine that is no file was written in place.
+// worker's folder: a tool whose job is the call Bulldog ships is Bulldog's;
+// a script is a script; a machine that is a file of the office is a worker
+// of the same team, or another machine; and a machine that is no file was
+// written in place.
 func (r *reading) toolsOf(w *Worker, def *machine.Definition) []Tool {
 	if def.Type != "agent" {
 		return nil
@@ -403,7 +404,7 @@ func (r *reading) toolsOf(w *Worker, def *machine.Definition) []Tool {
 		file := path.Join(dirOf(w.File), script+machine)
 		_, inOffice := r.files[file]
 		switch {
-		case strings.HasPrefix(file, shipped.Dir+"/"):
+		case file == path.Join(shipped.Dir, shipped.Call):
 			tool.Kind = ToolBulldog
 		case script != "":
 			tool.Kind, tool.File = ToolScript, file

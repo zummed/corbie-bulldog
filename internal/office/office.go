@@ -222,7 +222,7 @@ type Tool struct {
 }
 
 // What a tool's job is: a worker of the same team, another machine, a
-// script, or one of the tools Bulldog ships in .bulldog/.
+// script, or one of the tools Bulldog ships, whose job is its call.
 const (
 	ToolWorker  = "worker"
 	ToolMachine = "machine"

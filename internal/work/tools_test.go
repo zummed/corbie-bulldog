@@ -322,7 +322,7 @@ func TestAskTeamIsRefusedEightLevelsDown(t *testing.T) {
 	files := house(t)
 	for i := 1; i <= 9; i++ {
 		files[fmt.Sprintf("a%d/team.yaml", i)] = fmt.Sprintf("name: A%d\npeople: [sam]\nlead: w%d\n", i, i)
-		files[fmt.Sprintf("a%d/w%d.yaml", i, i)] = fmt.Sprintf("agent: w%d\ninput: [said]\nmodel: usual\nprompt: ${input.said}\ntools_file: [../.bulldog/talk.yaml]\n", i)
+		files[fmt.Sprintf("a%d/w%d.yaml", i, i)] = fmt.Sprintf("agent: w%d\ninput: [said]\nmodel: usual\nprompt: ${input.said}\ntools_file: [../.bulldog/tools/talk/talk.yaml]\n", i)
 	}
 	b := newBench(t, files)
 	results := make(chan string, 1)

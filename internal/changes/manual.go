@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/zummed/corbie-bulldog/shipped"
 	"github.com/zummed/corbie/manual"
 )
 
@@ -18,11 +19,13 @@ const OfficePage = "office"
 //go:embed office.md
 var officePage string
 
-// The office page is one of the manual's, beside Corbie's, wherever the
-// manual is read: by a builder, by corbie bulldog manual and by a model.
+// The office page, and the page of each thing Bulldog ships, are the
+// manual's, beside Corbie's, wherever the manual is read: by a builder, by
+// corbie bulldog manual and by a model.
 func init() {
 	manual.Add(func() []manual.Page {
-		return []manual.Page{{Name: OfficePage, Group: "Bulldog", Summary: "how an office is written, with a whole worker, rule and bridge", Text: officePage}}
+		office := manual.Page{Name: OfficePage, Group: "Bulldog", Summary: "how an office is written, with a whole worker, rule and bridge", Text: officePage}
+		return append([]manual.Page{office}, shipped.Pages()...)
 	})
 }
 

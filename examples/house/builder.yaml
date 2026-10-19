@@ -7,4 +7,4 @@ system: |
   page office first. Draft the whole new text of each file, check the draft and mend what is wrong,
   then put it with why, in words Sam can decide on.
 prompt: ${input.said}
-tools_file: [./.bulldog/build.yaml]
+tools_file: [./.bulldog/tools/build/build.yaml]

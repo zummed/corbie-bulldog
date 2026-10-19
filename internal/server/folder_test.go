@@ -238,13 +238,25 @@ func TestServerShippedFilesMatchProgram(t *testing.T) {
 	if err := b.serve().stop(); err != nil {
 		t.Fatal(err)
 	}
-	b.write(map[string]string{".bulldog/talk.yaml": "# changed by hand\n", ".bulldog/ask.yaml": ""})
+	// Changed by hand, or left by an earlier version: its tools files
+	// were flat, and a shipped folder held a file it no longer ships.
+	b.write(map[string]string{".bulldog/tools/talk/talk.yaml": "# changed by hand\n", ".bulldog/ask.yaml": "", ".bulldog/talk.yaml": "# an earlier version's\n", ".bulldog/tools/talk/old.yaml": "# an earlier version's\n"})
 	s := b.serve()
 	s.areasOf()
 	for _, name := range shipped.Names() {
 		want, _ := shipped.File(name)
 		if got, err := os.ReadFile(filepath.Join(b.dir, shipped.Dir, name)); err != nil || !bytes.Equal(got, want) {
 			t.Errorf(".bulldog/%s is not as the program has it: %v", name, err)
+		}
+	}
+	for _, gone := range []string{"talk.yaml", "tools/talk/old.yaml"} {
+		if _, err := os.Stat(filepath.Join(b.dir, shipped.Dir, gone)); !os.IsNotExist(err) {
+			t.Errorf(".bulldog/%s, which the program does not ship, is still there: %v", gone, err)
+		}
+	}
+	for _, kept := range []string{IdentityFile, StoreFile} {
+		if _, err := os.Stat(filepath.Join(b.dir, shipped.Dir, kept)); err != nil {
+			t.Errorf(".bulldog/%s is not kept: %v", kept, err)
 		}
 	}
 }

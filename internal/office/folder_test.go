@@ -145,9 +145,9 @@ func TestOfficeOwnFilesByPathOnly(t *testing.T) {
 		t.Errorf("the clerk holds %v", got)
 	}
 	// .bulldog/ in a team within is no folder of Bulldog's.
-	files = replace(t, house(t), "garden/gardener.yaml", "../.bulldog/talk.yaml", "./.bulldog/talk.yaml")
+	files = replace(t, house(t), "garden/gardener.yaml", "../.bulldog/tools/talk/talk.yaml", "./.bulldog/tools/talk/talk.yaml")
 	o, problems := read(t, files)
-	says(t, problems.OfWorker("gardener"), "garden/.bulldog/talk.yaml", "not a file of the office")
+	says(t, problems.OfWorker("gardener"), "garden/.bulldog/tools/talk/talk.yaml", "not a file of the office")
 	if o.Workers["gardener"].Runs() {
 		t.Error("the gardener runs, naming .bulldog/ within the garden")
 	}

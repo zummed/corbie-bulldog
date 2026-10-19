@@ -77,14 +77,14 @@ func TestEveryShippedFileIsADefinitionCorbieTakes(t *testing.T) {
 			t.Fatal(err)
 		}
 		for tool, written := range tools {
-			if in := written.Job.Input; written.Job.Machine != "./call.yaml" || in["tool"] != tool || in["args"] != "${args}" || in["unanswered"] == "" || in["unanswered"] == nil {
+			if in := written.Job.Input; written.Job.Machine != "../../call.yaml" || in["tool"] != tool || in["args"] != "${args}" || in["unanswered"] == "" || in["unanswered"] == nil {
 				t.Errorf("%s's %s runs %s, given %v", name, tool, written.Job.Machine, in)
 			}
 		}
 	}
 	// A worker in a team within names the files by their path from its own
 	// folder, and its tools wait the same way.
-	files := map[string]string{"garden/gardener.yaml": "agent: gardener\nmodel: { name: claude-sonnet-5-5, secret: KEY }\nprompt: hi\ntools_file: [../.bulldog/talk.yaml]\nask: { machine: ../.bulldog/ask.yaml }\n"}
+	files := map[string]string{"garden/gardener.yaml": "agent: gardener\nmodel: { name: claude-sonnet-5-5, secret: KEY }\nprompt: hi\ntools_file: [../.bulldog/tools/talk/talk.yaml]\nask: { machine: ../.bulldog/ask.yaml }\n"}
 	if _, err := machine.Parse([]byte(files["garden/gardener.yaml"]), func(name string) ([]byte, error) {
 		return load(files)(path.Join("garden", name))
 	}); err != nil {
@@ -106,6 +106,49 @@ func TestToolsNamed(t *testing.T) {
 	}
 	if _, ok := shipped.File("bulldog.db"); ok {
 		t.Error("the store is given as a shipped file")
+	}
+}
+
+func TestEveryShippedThingHasItsPage(t *testing.T) {
+	t.Parallel()
+	things := shipped.Things()
+	if !slices.Equal(things, []string{"tools/build", "tools/notes", "tools/talk", "bridges/gitlab", "bridges/jira", "bridges/slack", "bridges/telegram"}) {
+		t.Errorf("Bulldog ships %v", things)
+	}
+	pages := shipped.Pages()
+	for i, thing := range things {
+		page, ok := shipped.File(path.Join(thing, shipped.Page))
+		if !ok || i >= len(pages) || pages[i].Name != thing || pages[i].Group != "Bulldog" || pages[i].Text != string(page) {
+			t.Errorf("%s has no page of the manual", thing)
+			continue
+		}
+		if summary := pages[i].Summary; summary == "" || strings.HasPrefix(summary, "#") {
+			t.Errorf("%s's page begins %q, not a line saying what it is", thing, summary)
+		}
+		sections := []string{"## Needs", "## Settings", "## Example", "## Changed"}
+		if strings.HasPrefix(thing, "bridges/") {
+			sections = []string{"## Needs", "## Settings", "## Leaves out", "## Example", "## Changed"}
+		}
+		for _, section := range sections {
+			if !strings.Contains(string(page), "\n"+section+"\n") {
+				t.Errorf("%s's page has no %s", thing, section)
+			}
+		}
+	}
+	// A tools file's page shows it named by its path; a bridge's entry is
+	// a mapping that lists its places.
+	for _, file := range []string{shipped.Talk, shipped.Notes, shipped.Build} {
+		page, _ := shipped.File(path.Join(path.Dir(file), shipped.Page))
+		if !strings.Contains(string(page), "./"+path.Join(shipped.Dir, file)) {
+			t.Errorf("the page of %s does not name it by its path", file)
+		}
+	}
+	for _, name := range shipped.Bridges() {
+		_, settings, _ := shipped.Bridge(name)
+		var entry map[string]any
+		if err := yaml.Unmarshal([]byte(settings), &entry); err != nil || entry["places"] == nil {
+			t.Errorf("%s's entry is %q: %v", name, settings, err)
+		}
 	}
 }
 
@@ -173,7 +216,7 @@ func TestAToolWaitsForBulldogsAnswer(t *testing.T) {
 		}
 		return testkit.Say("told: " + turn.Last())
 	})
-	d := parse(t, "agent: fixer\nmodel: "+model.Line()+"\nprompt: go\ntools_file: [./.bulldog/talk.yaml]\n", nil)
+	d := parse(t, "agent: fixer\nmodel: "+model.Line()+"\nprompt: go\ntools_file: [./.bulldog/tools/talk/talk.yaml]\n", nil)
 	run, err := corbie.Start(ctx, d, client.Start{Labels: map[string]string{"test": "tool"}})
 	if err != nil {
 		t.Fatal(err)
@@ -200,7 +243,7 @@ func TestAToolStopsWaitingAfterSevenDays(t *testing.T) {
 		}
 		return testkit.Say("told: " + turn.Last())
 	})
-	d := parse(t, "agent: fixer\nmodel: "+model.Line()+"\nprompt: go\ntools_file: [./.bulldog/talk.yaml]\n", nil)
+	d := parse(t, "agent: fixer\nmodel: "+model.Line()+"\nprompt: go\ntools_file: [./.bulldog/tools/talk/talk.yaml]\n", nil)
 	run, err := corbie.Start(ctx, d, client.Start{Labels: map[string]string{"test": "late"}})
 	if err != nil {
 		t.Fatal(err)
@@ -317,11 +360,15 @@ func TestTheServersRunEndsAMinuteAfterItsLastRenewal(t *testing.T) {
 func TestWriteReplacesWhatIsThere(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, shipped.Dir), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, shipped.Dir, shipped.Talk), []byte("changed by hand"), 0o644); err != nil {
-		t.Fatal(err)
+	// Changed by hand, left by an earlier version, and the office's own.
+	for name, text := range map[string]string{shipped.Talk: "changed by hand", "talk.yaml": "flat, as it once was", "tools/talk/old.yaml": "no longer shipped", "identity": "the office's", "bulldog.db": "the office's"} {
+		file := filepath.Join(dir, shipped.Dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(file, []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err := shipped.Write(dir); err != nil {
 		t.Fatal(err)
@@ -330,6 +377,16 @@ func TestWriteReplacesWhatIsThere(t *testing.T) {
 		written, err := os.ReadFile(filepath.Join(dir, shipped.Dir, name))
 		if want, _ := shipped.File(name); err != nil || string(written) != string(want) {
 			t.Errorf("%s is not as shipped: %v", name, err)
+		}
+	}
+	for _, gone := range []string{"talk.yaml", "tools/talk/old.yaml"} {
+		if _, err := os.Stat(filepath.Join(dir, shipped.Dir, gone)); !os.IsNotExist(err) {
+			t.Errorf("%s is still there: %v", gone, err)
+		}
+	}
+	for _, kept := range []string{"identity", "bulldog.db"} {
+		if got, err := os.ReadFile(filepath.Join(dir, shipped.Dir, kept)); err != nil || string(got) != "the office's" {
+			t.Errorf("%s is not kept: %q, %v", kept, got, err)
 		}
 	}
 }

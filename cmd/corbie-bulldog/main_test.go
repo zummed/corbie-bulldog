@@ -175,7 +175,7 @@ func TestServerInitSaysWhatItDid(t *testing.T) {
 	if status != 0 || !strings.Contains(out, "the example was written there") || !strings.Contains(out, "is a git repository now") {
 		t.Fatalf("init of a folder not there: status %d, printed %q", status, out)
 	}
-	for _, name := range []string{"identity", "bulldog.db", "talk.yaml", "notes.yaml", "ask.yaml", "call.yaml", "live.yaml", "clock.yaml", "build.yaml"} {
+	for _, name := range []string{"identity", "bulldog.db", "ask.yaml", "call.yaml", "live.yaml", "clock.yaml", "tools/talk/talk.yaml", "tools/talk/README.md", "tools/notes/notes.yaml", "tools/build/build.yaml", "bridges/telegram/in.yaml", "bridges/slack/README.md"} {
 		if _, err := os.Stat(filepath.Join(dir, ".bulldog", name)); err != nil {
 			t.Errorf(".bulldog/ holds no %s: %v", name, err)
 		}
@@ -452,13 +452,16 @@ func TestServerRunBesideCorbiesRoles(t *testing.T) {
 func TestServerManualAndModelServer(t *testing.T) {
 	here, _ := isolated(t)
 	status, out, _ := run("manual")
-	for _, page := range []string{"office", "bulldog", "corbie bulldog check", "agent", "corbie run submit"} {
+	for _, page := range []string{"office", "tools/talk", "bridges/slack", "bulldog", "corbie bulldog check", "agent", "corbie run submit"} {
 		if status != 0 || !strings.Contains(out, "  "+page+" ") {
 			t.Fatalf("corbie bulldog manual ended %d and lists no page %s:\n%s", status, page, out)
 		}
 	}
 	if status, out, _ := run("manual", "office"); status != 0 || !strings.Contains(out, "agent: weather") {
 		t.Errorf("corbie bulldog manual office ended %d and printed %q", status, out)
+	}
+	if status, out, _ := run("manual", "tools/talk"); status != 0 || !strings.Contains(out, "tools_file: [./.bulldog/tools/talk/talk.yaml]") {
+		t.Errorf("corbie bulldog manual tools/talk ended %d and printed %q", status, out)
 	}
 	if status, out, _ := run("manual", "bulldog", "check"); status != 0 || !strings.HasPrefix(out, "corbie bulldog check [<folder>]") {
 		t.Errorf("corbie bulldog manual bulldog check ended %d and printed %q", status, out)

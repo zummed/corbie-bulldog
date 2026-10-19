@@ -9,7 +9,7 @@ import (
 
 	"github.com/zummed/corbie-bulldog/internal/changes"
 	"github.com/zummed/corbie-bulldog/internal/office"
-	shippedbridges "github.com/zummed/corbie-bulldog/shipped/bridges"
+	"github.com/zummed/corbie-bulldog/shipped"
 )
 
 // decider gives the office for one of the people who decide a change; to
@@ -87,16 +87,17 @@ func (s *site) shippedBridges(person string, w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		return nil, err
 	}
-	type shipped struct {
+	type bridge struct {
 		Name     string `json:"name"`
 		Carries  string `json:"carries"`
 		Settings string `json:"settings"`
 		Added    bool   `json:"added"`
 	}
-	out := []shipped{}
-	for _, b := range shippedbridges.All {
-		_, added := o.Bridges[b.Name]
-		out = append(out, shipped{Name: b.Name, Carries: b.Carries, Settings: b.Settings, Added: added})
+	out := []bridge{}
+	for _, name := range shipped.Bridges() {
+		_, settings, _ := shipped.Bridge(name)
+		_, added := o.Bridges[name]
+		out = append(out, bridge{Name: name, Carries: shipped.Summary("bridges/" + name), Settings: settings, Added: added})
 	}
 	return map[string]any{"bridges": out}, nil
 }

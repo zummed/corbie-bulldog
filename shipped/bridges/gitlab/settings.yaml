@@ -1,0 +1,3 @@
+# GitLab's entry under bridges in office.yaml. Each place is a project, by
+# its path, as platform/api: { team: platform }.
+places: {}

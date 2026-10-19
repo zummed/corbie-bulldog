@@ -81,7 +81,7 @@ func TestChangesBuilderToolsAreRunsThatWait(t *testing.T) {
 		// The job each tool runs, as the tools file writes it: the call
 		// Bulldog ships, which waits on a ticket that Bulldog answers.
 		job := under(under(doc.Content[0], tool), "job")
-		if got := under(job, "machine").Value; got != "./"+shipped.Call {
+		if got := under(job, "machine").Value; got != "../../"+shipped.Call {
 			t.Errorf("%s's job runs %s", tool, got)
 		}
 		if got := under(under(job, "input"), "tool").Value; got != tool {
@@ -264,16 +264,16 @@ func TestChangesDraftRefusesWhatIsBulldogsOwn(t *testing.T) {
 	t.Parallel()
 	f := newOffice(t, house(t))
 	for file, says := range map[string]string{
-		"../outside.yaml":          "outside the office's folder",
-		"/etc/passwd":              "outside the office's folder",
-		".bulldog/talk.yaml":       "Bulldog's own",
-		".bulldog/bulldog.db":      "Bulldog's own",
-		".git/config":              "repository",
-		"garden/.hidden.yaml":      "starts with a dot",
-		"./steward.yaml":           "written plainly",
-		"garden":                   "is a folder",
-		"steward.yaml/inside.yaml": "is a file",
-		"":                         "no path",
+		"../outside.yaml":               "outside the office's folder",
+		"/etc/passwd":                   "outside the office's folder",
+		".bulldog/tools/talk/talk.yaml": "Bulldog's own",
+		".bulldog/bulldog.db":           "Bulldog's own",
+		".git/config":                   "repository",
+		"garden/.hidden.yaml":           "starts with a dot",
+		"./steward.yaml":                "written plainly",
+		"garden":                        "is a folder",
+		"steward.yaml/inside.yaml":      "is a file",
+		"":                              "no path",
 	} {
 		for _, tool := range []string{ToolWrite, ToolRemove, ToolRead} {
 			got := f.call(1, tool, map[string]any{"path": file, "text": "x"}).Text

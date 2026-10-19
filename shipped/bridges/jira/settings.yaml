@@ -1,0 +1,4 @@
+# Jira's entry under bridges in office.yaml. email is the account the
+# JIRA_TOKEN is of; each place is a project, by its key, as OPS: { team: ops }.
+email: you@example.com
+places: {}

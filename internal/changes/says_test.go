@@ -363,7 +363,7 @@ func TestChangesReachReadThroughCorbie(t *testing.T) {
 	// nothing of what it may reach, and Corbie's reading does.
 	check := saysOf(t, f, map[string]string{
 		"tools/power.yaml": "meter: { does: Read the meter, args: {}, job: { script: ./circuits.js, allow: [net:meter.local] } }\n",
-		"fixer.yaml":       replaced(t, house(t), "fixer.yaml", "tools_file: [./.bulldog/talk.yaml]", "tools_file: [./.bulldog/talk.yaml, ./tools/power.yaml]"),
+		"fixer.yaml":       replaced(t, house(t), "fixer.yaml", "tools_file: [./.bulldog/tools/talk/talk.yaml]", "tools_file: [./.bulldog/tools/talk/talk.yaml, ./tools/power.yaml]"),
 	})
 	has(t, check.LetsMoreBy, "fixer may connect to meter.local")
 	has(t, check.Says, "fixer has the tool meter")

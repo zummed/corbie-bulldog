@@ -140,7 +140,7 @@ The detailed rules behind the [Work overview](../work.md). Requirements are `R-w
 
 **C-work-54** `write_notes` writes only a note of the calling worker's own team: one file directly in that team's `notes/`, named by a plain name with no path in it. Any other name is refused, saying why, and nothing is written. It is the one write to the office's files that is not a decided change, so it must reach nothing but what the worker's own team knows. *Test:* `work_a_note_reaches_only_its_own_team`
 
-**R-work-48** A worker has the notes tool, `write_notes`, only when its own definition names its file, `notes.yaml` in `.bulldog/`, in its `tools_file:`, apart from the talk tools; naming the talk tools gives no notes tool. Not naming it takes nothing from a run Bulldog starts of it: that run is given the team's notes all the same (R-work-24).
+**R-work-48** A worker has the notes tool, `write_notes`, only when its own definition names its file, `tools/notes/notes.yaml` in `.bulldog/`, in its `tools_file:`, apart from the talk tools; naming the talk tools gives no notes tool. Not naming it takes nothing from a run Bulldog starts of it: that run is given the team's notes all the same (R-work-24).
 *Accept:* the steward names the talk tools and the notes tool, and its model is offered `write_notes` with the talk tools. The fixer names only the talk tools, and its model is offered `ask_team`, `ask_person` and `tell`, and no notes tool. No worker of payments names the notes tool, and a request worked in payments from start to end leaves payments' notes as they were, while the ledger's `context` holds them.
 
 **R-work-26** The worker that called a tool is the nearest run above the call that is a worker of the team, and the entry is in its name.
@@ -159,7 +159,7 @@ The detailed rules behind the [Work overview](../work.md). Requirements are `R-w
 
 **C-work-50** Every tool call acts on the request of the run that made it: its thread, its questions and its sub-requests, and no other. A run given its team's open requests could otherwise say into one it was never started on, past that request's one run at a time and its asker's sight. *Test:* `work_tools_act_on_own_request_only`
 
-**C-work-23** Every tool in a tools file Bulldog ships, the talk tools, the notes tool and the builder's, is one Bulldog does, and Bulldog does no tool that is in none of them. A tool in one and not the other would fail only when a model called it. *Test:* `work_every_shipped_tool_is_done`
+**C-work-23** Every tool in a tools file Bulldog ships, the talk tools, the notes tool and the builder's, `tools/talk/talk.yaml`, `tools/notes/notes.yaml` and `tools/build/build.yaml` in `.bulldog/`, is one Bulldog does, and Bulldog does no tool that is in none of them. A tool in one and not the other would fail only when a model called it. *Test:* `work_every_shipped_tool_is_done`
 
 ## A run that waits
 
@@ -190,7 +190,7 @@ The detailed rules behind the [Work overview](../work.md). Requirements are `R-w
 ## Routines
 
 **R-work-34** Each routine has one clock: the clock Bulldog ships, `.bulldog/clock.yaml`, given the routine's `at` as `due`, a time written without a zone being in the office's zone (C-office-12). Its timer is that time, and it waits on a ticket when its time comes. Bulldog writes no definition.
-*Accept:* the house's routine `{ at: "mon 09:00", to: steward, say: … }` has one running clock, labelled `kind=clock`, of the machine `clock`, whose input is `{ due: "mon 09:00 Europe/London" }`. Every other run Bulldog started has as its definition a file of the office as written, with a model named by one word filled in, or a file Bulldog ships.
+*Accept:* the house's routine `{ at: "mon 09:00", to: steward, say: … }` has one running clock, labelled `kind=clock`, of the machine `clock`, whose input is `{ due: "mon 09:00 Europe/London" }`. Every other run Bulldog started has as its definition a file of the office as written, with a model named by one word filled in, or a file Bulldog ships, as the program holds it.
 
 **R-work-35** When a clock waits on its ticket, Bulldog opens the routine's request, asked by the team with the routine as its origin, starts the worker the routine names with its `say`, and answers the ticket.
 *Accept:* the test's clock reaches Monday 09:00. A request of the house's own opens, and a run of the steward starts with `said` "Walk round: what is still open?". The clock is waiting on its timer again.

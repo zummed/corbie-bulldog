@@ -262,10 +262,10 @@ func relative(from, to string) string {
 	return up + rest
 }
 
-// addBridge puts a bridge Bulldog ships into a draft: its folder as
-// Bulldog ships it, under bridges/<name>, and its entry under bridges in
-// office.yaml, with the settings it is shipped with. It says whether
-// office.yaml kept how it was set out.
+// addBridge puts a bridge Bulldog ships into a draft: its machines, its
+// script and its page as Bulldog ships them, under bridges/<name>, and its
+// entry under bridges in office.yaml, with the settings it is shipped with.
+// It says whether office.yaml kept how it was set out.
 func (c *Changes) addBridge(name string, textOf func(string) (string, bool), put func(string, *string) error) (kept bool, err error) {
 	if c.Shipped == nil {
 		return false, refuse("Bulldog ships no bridge %s", name)
@@ -276,7 +276,7 @@ func (c *Changes) addBridge(name string, textOf func(string) (string, bool), put
 	}
 	dir := path.Join("bridges", name)
 	err = fs.WalkDir(tree, ".", func(file string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if err != nil || d.IsDir() || file == shipped.Settings {
 			return err
 		}
 		contents, err := fs.ReadFile(tree, file)
@@ -293,15 +293,15 @@ func (c *Changes) addBridge(name string, textOf func(string) (string, bool), put
 	case err != nil:
 		return false, fmt.Errorf("the shipped bridge %s cannot be read: %w", name, err)
 	}
-	var node yaml.Node
-	if err := yaml.Unmarshal([]byte(settings), &node); err != nil {
+	var entry map[string]any
+	if err := yaml.Unmarshal([]byte(settings), &entry); err != nil {
 		return false, fmt.Errorf("the settings the bridge %s is shipped with cannot be read: %w", name, err)
 	}
-	if len(node.Content) == 0 {
+	if entry == nil {
 		return false, fmt.Errorf("the bridge %s is shipped with no settings", name)
 	}
 	src, _ := textOf(office.OfficeFile)
-	text, kept, err := setField(src, []string{"bridges", name}, node.Content[0])
+	text, kept, err := setField(src, []string{"bridges", name}, entry)
 	if err != nil {
 		return false, fmt.Errorf("%s: %w", office.OfficeFile, err)
 	}

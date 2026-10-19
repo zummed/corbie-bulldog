@@ -91,7 +91,7 @@ func TestChangesAMovedWorkerTakesWhatIsItsAlone(t *testing.T) {
 	if _, ok := does["tools/order.js"]; ok {
 		t.Error("the script the clerk shares moved")
 	}
-	for _, named := range []string{"script: ../tools/order.js", "script: ./tools/cut-power.js", "machine: ../sparks.yaml", "tools_file: [../.bulldog/talk.yaml]"} {
+	for _, named := range []string{"script: ../tools/order.js", "script: ./tools/cut-power.js", "machine: ../sparks.yaml", "tools_file: [../.bulldog/tools/talk/talk.yaml]"} {
 		if !strings.Contains(moved, named) {
 			t.Errorf("the moved fixer does not name %s:\n%s", named, moved)
 		}
@@ -348,7 +348,7 @@ func TestChangesAShippedBridgeIsAdded(t *testing.T) {
 			officeYAML = file.Text
 		}
 	}
-	if !slices.Equal(paths, []string{"bridges/telegram/in.yaml", "bridges/telegram/out.yaml", "bridges/telegram/telegram.js", "office.yaml"}) {
+	if !slices.Equal(paths, []string{"bridges/telegram/README.md", "bridges/telegram/in.yaml", "bridges/telegram/out.yaml", "bridges/telegram/telegram.js", "office.yaml"}) {
 		t.Errorf("the draft holds %v", paths)
 	}
 	if !strings.Contains(officeYAML, "bridges:\n  telegram: { places: { direct: {} } }\n") {
@@ -395,7 +395,7 @@ func TestChangesAPersonsChangeGoesTheOneWay(t *testing.T) {
 	}
 	// It may hold any file a draft may, and nothing of Bulldog's.
 	own := "x"
-	if _, _, err := f.c.Edited(Edit{Files: map[string]*string{".bulldog/talk.yaml": &own}}); err == nil {
+	if _, _, err := f.c.Edited(Edit{Files: map[string]*string{".bulldog/tools/talk/talk.yaml": &own}}); err == nil {
 		t.Error("a person's change holds Bulldog's own")
 	}
 }
