@@ -1,5 +1,5 @@
 // Package examples holds the offices the pages show, as a person writes
-// them: the house, with the Telegram bridge Sam added as its first change,
+// them: the house, with the Telegram bridge Sam sets as its first change,
 // and the work office, one Slack bot over many teams.
 package examples
 

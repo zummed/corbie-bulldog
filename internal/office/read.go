@@ -743,9 +743,8 @@ func (r *reading) readBridges() {
 	stop := func(b *Bridge, line int, file, format string, args ...any) {
 		b.Problems = append(b.Problems, Problem{File: file, Line: line, Team: Top, Bridge: b.Name, Text: fmt.Sprintf(format, args...)})
 	}
-	// froms are the bridges whose entry names a folder Bulldog ships, by
-	// the folder it names.
-	froms := map[string]string{}
+	// froms are the bridges whose entry has a from.
+	froms := map[string]bool{}
 	for k, v := range pairs(node) {
 		b := r.o.Bridges[k.Value]
 		if b == nil {
@@ -759,7 +758,7 @@ func (r *reading) readBridges() {
 		if from := child(v, "from"); from != nil {
 			s, _ := text(from)
 			dir := path.Clean(s)
-			froms[b.Name] = "./" + dir
+			froms[b.Name] = true
 			if name, ok := strings.CutPrefix(dir, shipped.Dir+"/bridges/"); ok && slices.Contains(shipped.Bridges(), name) {
 				b.From = dir
 			} else {
@@ -805,9 +804,9 @@ func (r *reading) readBridges() {
 	folders := r.bridgeFolders()
 	for _, name := range r.o.BridgeOrder {
 		b := r.o.Bridges[name]
-		if from, ok := froms[name]; ok {
+		if froms[name] {
 			if folders[name] {
-				stop(b, 0, "bridges/"+name, "bridges/%s is not run: %s runs %s, which its from names", name, name, from)
+				stop(b, 0, "bridges/"+name, "bridges/%s is not run: %s has a from, and a bridge with a from runs no folder of the office's own", name, name)
 			}
 			continue
 		}

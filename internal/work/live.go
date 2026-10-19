@@ -73,8 +73,8 @@ func waitOnLive(ctx context.Context, c Corbie, clock Clock, log func(format stri
 	}
 	moved, unwatch := clock.Watch()
 	defer unwatch()
-	log("a server of this office has a run going in Corbie, %s: waiting up to a minute to see whether it is still serving the office", id)
 	limit := clock.Now().Add(Quiet + Again)
+	log("a server of this office has a run going in Corbie, %s: waiting up to a minute to see whether it is still serving the office", id)
 	following, stop := context.WithCancel(ctx)
 	defer stop()
 	renewed := false

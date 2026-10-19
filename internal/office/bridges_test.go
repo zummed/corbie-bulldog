@@ -3,6 +3,7 @@ package office_test
 import (
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/zummed/corbie-bulldog/examples"
@@ -83,7 +84,12 @@ func TestABridgeRunsTheShippedFolderItsFromNames(t *testing.T) {
 		says(t, broken(t, replace(t, work(t), "office.yaml", "from: ./.bulldog/bridges/gitlab", "from: "+from), "gitlab", "slack"), "office.yaml", "from", "./.bulldog/bridges/jira")
 	}
 	beside := with(work(t), map[string]string{"bridges/gitlab/in.yaml": "flow: gitlab-in\n"})
-	says(t, broken(t, beside, "gitlab", "slack"), "bridges/gitlab", "bridges/gitlab is not run: gitlab runs ./.bulldog/bridges/gitlab")
+	says(t, broken(t, beside, "gitlab", "slack"), "bridges/gitlab", "bridges/gitlab is not run: gitlab has a from")
+	problems := broken(t, replace(t, beside, "office.yaml", "from: ./.bulldog/bridges/gitlab", "from: ./bridges/gitlab"), "gitlab", "slack")
+	says(t, problems, "office.yaml", "from", "./.bulldog/bridges/jira")
+	if p := says(t, problems, "bridges/gitlab", "bridges/gitlab is not run: gitlab has a from"); strings.Contains(p.Text, "runs ./bridges/gitlab") {
+		t.Errorf("the folder's problem is %q", p.Text)
+	}
 }
 
 func stringsOf(files map[string][]byte) map[string]string {
