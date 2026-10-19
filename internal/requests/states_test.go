@@ -250,7 +250,7 @@ func TestRequestsFailedRunLeavesAnswered(t *testing.T) {
 	}
 }
 
-func TestRequestsEmptyRoutineAnswerSaysNothing(t *testing.T) {
+func TestRequestsEmptyAnswerAtARoutineOrChannelSaysNothing(t *testing.T) {
 	t.Parallel()
 	h := open(t, house(t))
 	monday := got[*requests.Request](t)(h.AskByRoutine(office.Top, h.o.TopTeam().Routines[0], requests.Who{})).Number
@@ -263,10 +263,20 @@ func TestRequestsEmptyRoutineAnswerSaysNothing(t *testing.T) {
 	if shown := h.shows(monday, "sam"); len(shown) != 1 {
 		t.Errorf("Sam is shown %q", shown)
 	}
-	// Any other request's empty answer is an answer all the same.
+	// At a channel place, too.
+	garden := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "4472", "thanks", nil)).Number
+	if e := got[*requests.Entry](t)(h.Answer(garden, h.Worker("gardener"), "", nil)); e != nil || h.state(garden).Is != requests.Answered || len(h.thread(garden)) != 1 {
+		t.Errorf("the garden chat's request is answered with %+v, its thread %+v", e, h.thread(garden))
+	}
+	// Any other request's empty answer is an answer all the same: in the
+	// chat, and in a direct message.
 	kit := got[*requests.Request](t)(h.AskInChat("kit", "", "the socket", nil)).Number
 	if e := got[*requests.Entry](t)(h.Answer(kit, h.Worker("steward"), "", nil)); e == nil || e.Kind != requests.KindAnswer || h.state(kit).Is != requests.Answered {
 		t.Errorf("Kit's request is answered with %+v", e)
+	}
+	direct := got[*requests.Request](t)(h.AskAt("telegram", office.Direct, "4472", "4472", "the socket", nil)).Number
+	if e := got[*requests.Entry](t)(h.Answer(direct, h.Worker("steward"), "", nil)); e == nil || e.Kind != requests.KindAnswer || h.state(direct).Is != requests.Answered {
+		t.Errorf("Kit's direct message is answered with %+v", e)
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zummed/corbie-bulldog/internal/decisions"
+	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/requests"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 )
@@ -86,6 +87,12 @@ func TestAnEmptyAnswerIsTheTeamGivingNone(t *testing.T) {
 	if answers := b.entries(n, requests.KindAnswer); len(answers) != 1 || answers[0].Text != "The house gave no answer." {
 		t.Errorf("the thread is %v", b.thread(n))
 	}
+	// In a direct message, Kit is told so too.
+	direct := must(b.reqs.AskAt("telegram", office.Direct, "4472", "4472", "the boiler is cold", nil)).Number
+	b.settled(direct, requests.Answered)
+	if answers := b.entries(direct, requests.KindAnswer); len(answers) != 1 || answers[0].Text != "The house gave no answer." {
+		t.Errorf("the direct message's thread is %v", b.thread(direct))
+	}
 	// The bins flow says nothing on a Monday night: its routine's request
 	// is answered, and nothing after its asking is said to Sam or Kit.
 	b.waitsForItsTime(whichBin)
@@ -98,6 +105,33 @@ func TestAnEmptyAnswerIsTheTeamGivingNone(t *testing.T) {
 	given := b.input(b.runs(bins)[0].Name)
 	told := given["request"].(map[string]any)["answer_goes_to"].(string)
 	holdsNone(t, "what the bins flow is told", told, "no answer")
+}
+
+func TestAnEmptyAnswerAtAChannelPlaceSaysNothing(t *testing.T) {
+	t.Parallel()
+	files := payments(t)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], `"#help": { guests: true }`,
+		`"#help": { guests: true }`+"\n      \"#refunds\": { team: payments, guests: true }", 1)
+	b := newBench(t, files)
+	b.says(func(testkit.Turn) testkit.Reply { return testkit.Say("") })
+	// Dana says thanks in #help, and the bot replies with nothing: the
+	// request is answered, and nothing is said there.
+	help := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "U0DANA00", "thanks @bot", nil)).Number
+	holds(t, "the bot's context", b.prompt("thanks @bot"), "Your last reply is your answer, said to Dana on slack, in #help/1700.1. An empty reply says nothing.")
+	b.settled(help, requests.Answered)
+	if thread := must(b.reqs.Thread(help)); len(thread) != 1 || thread[0].Kind != requests.KindAsked {
+		t.Errorf("the thread in #help is %v", b.thread(help))
+	}
+	// A guest in #refunds is outside payments, yet the ledger's empty
+	// answer is asked of no disclosure.
+	refunds := must(b.reqs.AskAt("slack", "#refunds", "#refunds/1700.2", "U0GUEST1", "ok", nil)).Number
+	b.settled(refunds, requests.Answered)
+	if thread := must(b.reqs.Thread(refunds)); len(thread) != 1 {
+		t.Errorf("the thread in #refunds is %v", b.thread(refunds))
+	}
+	if decs := must(b.d.OfRequest(refunds)); len(decs) != 0 {
+		t.Errorf("the empty answer was asked of %+v", decs)
+	}
 }
 
 // payments is the work office with a disclosure check that is a bare

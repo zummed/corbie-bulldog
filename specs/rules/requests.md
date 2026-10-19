@@ -70,8 +70,8 @@ The detailed rules behind the [Requests overview](../requests.md). Requirements 
 ## States
 
 **R-requests-16** A request whose origin keeps no status of its own is working while its team is on it and nothing in it waits on a person; waiting on someone while something in it waits on a person; and answered once its lead has answered and nothing has been said in it since.
-An empty answer to a routine's request says nothing: the request is answered with no entry, and nothing goes to the team's people. An empty answer to any other request is an entry like any answer.
-*Accept:* Kit's request is working while the steward's run goes on. When the fixer asks Kit, it is waiting on Kit. When Kit answers, it is working. When the steward answers, it is answered. The steward answers the house's Monday routine with nothing: the request is answered, and its thread holds only its asking.
+An empty answer to a request asked by a routine, or at a channel place, any place on a bridge but its direct place, says nothing: the request is answered with no entry, and nothing goes to the team's people or to the place. An empty answer to any other request is an entry like any answer.
+*Accept:* Kit's request is working while the steward's run goes on. When the fixer asks Kit, it is waiting on Kit. When Kit answers, it is working. When the steward answers, it is answered. The steward answers the house's Monday routine with nothing: the request is answered, and its thread holds only its asking. Kit says "thanks" in the garden's Telegram chat, and the gardener answers with nothing: the same. The steward answers Kit's Telegram direct message with nothing: that answer is an entry.
 
 **R-requests-17** Waiting on someone names everyone it waits on: the person a question is put to, the people a decision has reached, or the person who is its lead.
 *Accept:* the refund is put to Lee and Priya: payments' sub-request is waiting on Lee or Priya. Lee says yes: it is working.

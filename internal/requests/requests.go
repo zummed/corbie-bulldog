@@ -94,6 +94,13 @@ type Origin struct {
 	By    Who    `json:"by,omitzero"`
 }
 
+// Quiet says whether an empty answer to a request asked here says
+// nothing: one asked by a routine, or at a channel place, any place on a
+// bridge but what is said to it directly.
+func (o Origin) Quiet() bool {
+	return o.Kind == ByRoutine || o.Kind == AtPlace && o.Heard != office.Direct
+}
+
 // A Where is where an entry came in: a bridge's place, or the screens.
 // What a run said came in nowhere.
 type Where struct {

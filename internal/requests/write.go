@@ -366,8 +366,8 @@ func (s *Store) Reply(entry int64, by Who, text string, files []File, in Where) 
 // Answer writes a request's answer by its lead, a worker, to its asker,
 // and the request is answered, or, while something put to someone in it
 // still waits, waits on them. What is open beneath it goes on. An empty
-// answer to a routine's request says nothing: the request is answered
-// with no entry, and Answer gives none. An answer to a request that was
+// answer to a request asked by a routine or at a channel place says
+// nothing: the request is answered with no entry, and Answer gives none. An answer to a request that was
 // stopped is kept, and opens nothing.
 func (s *Store) Answer(n int64, by Who, text string, files []File) (*Entry, error) {
 	var e *Entry
@@ -379,7 +379,7 @@ func (s *Store) Answer(n int64, by Who, text string, files []File) (*Entry, erro
 		if !c.isLead(r, by) {
 			return refuse("%s does not answer request %d, so its answer was not kept", c.calledOf(by), n)
 		}
-		if r.Origin.Kind != ByRoutine || strings.TrimSpace(text) != "" || len(files) > 0 {
+		if !r.Origin.Quiet() || strings.TrimSpace(text) != "" || len(files) > 0 {
 			e, err = c.add(r, Entry{Kind: KindAnswer, By: by, To: []Who{r.Asker}, Text: text}, files, nil)
 		}
 		if err != nil || r.Stopped {

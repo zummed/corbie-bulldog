@@ -224,6 +224,7 @@ func TestWorkRunToldTrulyWhereItsAnswerGoes(t *testing.T) {
 	b := newBench(t, files)
 	n := b.chat("kit", "", "the kitchen socket sparked")
 	holds(t, "a request's run", b.prompt("socket sparked"), "Your last reply is your answer, said to Kit in the built-in chat.")
+	holdsNone(t, "a request's run", b.prompt("socket sparked"), "An empty reply says nothing.")
 	b.settled(n, requests.Answered)
 	if _, err := b.reqs.Sub(n, b.reqs.Worker("steward"), "garden", "is the shed locked?", "ticket-1"); err != nil {
 		t.Fatal(err)
@@ -233,7 +234,7 @@ func TestWorkRunToldTrulyWhereItsAnswerGoes(t *testing.T) {
 	if _, err := b.reqs.AskByRoutine("garden", routine, requests.Who{}); err != nil {
 		t.Fatal(err)
 	}
-	holds(t, "a routine's run", b.prompt(routine.Say), "Your last reply is your answer, said to the people of The garden: Sam, Kit.")
+	holds(t, "a routine's run", b.prompt(routine.Say), "Your last reply is your answer, said to the people of The garden: Sam, Kit. An empty reply says nothing.")
 }
 
 func TestWorkTimesInTheOfficeZone(t *testing.T) {

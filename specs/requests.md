@@ -24,7 +24,7 @@ A request that began in Bulldog, in the chat, by a routine, as a sub-request, or
 
 - **Working**: its team is on it, and nothing in it waits on a person.
 - **Waiting on someone**: a question put to a person, a decision that has reached people, or a lead who is a person, waits for them. The state names who.
-- **Answered**: its lead's answer has been said, and nothing has been said in it since. An empty answer to a routine says nothing: its request is answered with no entry, and nothing goes to the team's people.
+- **Answered**: its lead's answer has been said, and nothing has been said in it since. An empty answer to a routine, or at a channel place, any place on a bridge but its direct place, says nothing: its request is answered with no entry, and nothing goes to the team's people or to the place. This holds for the first thing said there as for any after it.
 
 Something said in a request by someone who may say more in it is an entry in it, whether the request is open or answered, and makes an answered request working again. An answer held by its team's disclosure check is not yet said: until it is let go the request is working, or waiting on the people the disclosure has reached.
 

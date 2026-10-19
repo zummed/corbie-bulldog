@@ -350,10 +350,11 @@ func (w *Work) said(ctx context.Context, n *note, run *client.Run, e ending) err
 }
 
 // answer says a run's answer: through the team's disclosure check where it
-// leaves the team, and otherwise at once. An empty answer to a routine
-// says nothing, and its request is answered; any other is said as the
-// team having given none, or, from a lead started again on a refusal, as
-// the team not disclosing its answer. Nothing leaves a team whose request
+// leaves the team, and otherwise at once. An empty answer from a lead
+// started again on a refusal is said as the team not disclosing its
+// answer; to a routine or at a channel place, it says nothing and is
+// asked of no disclosure, and its request is answered; any other is said
+// as the team having given none. Nothing leaves a team whose request
 // was stopped: the answer is kept as what was read of it. What a team
 // that has gone answers is said nowhere.
 func (w *Work) answer(ctx context.Context, n *note, text string) error {
@@ -381,10 +382,14 @@ func (w *Work) answer(ctx context.Context, n *note, text string) error {
 			return w.notDisclosed(ctx, r, line)
 		}
 	}
-	if empty && r.Origin.Kind != requests.ByRoutine {
+	by := w.requests.Worker(n.Worker)
+	if empty && r.Origin.Quiet() {
+		_, err := w.requests.Answer(r.Number, by, "", nil)
+		return err
+	}
+	if empty {
 		text = team.Called + " gave no answer."
 	}
-	by := w.requests.Worker(n.Worker)
 	if w.leaves(team, r.Asker) {
 		_, err := w.decide.Disclose(ctx, decisions.Said{What: decisions.SaysAnswer, Request: r.Number, By: by, Text: text})
 		return err

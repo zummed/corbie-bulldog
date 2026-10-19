@@ -174,15 +174,20 @@ func (g *giving) whereText() string {
 	return fmt.Sprintf("It was asked %s. Who will read the answer: %s.", originText(g.r.Origin), readers)
 }
 
-// answerText says where the run's answer goes.
+// answerText says where the run's answer goes, and when an empty one
+// says nothing.
 func (g *giving) answerText() string {
+	text := fmt.Sprintf("Your last reply is your answer, said to %s %s.", partyText(g.asker), originText(g.r.Origin))
 	switch {
 	case g.r.Parent != 0:
 		return fmt.Sprintf("Your last reply is your answer, given to %s of %s.", g.asker.Name, calledTeam(g.o, g.asker.Team))
 	case g.r.Origin.Kind == requests.ByRoutine:
-		return fmt.Sprintf("Your last reply is your answer, said to the people of %s: %s.", g.team.Called, partiesText(g.readers))
+		text = fmt.Sprintf("Your last reply is your answer, said to the people of %s: %s.", g.team.Called, partiesText(g.readers))
 	}
-	return fmt.Sprintf("Your last reply is your answer, said to %s %s.", partyText(g.asker), originText(g.r.Origin))
+	if g.r.Origin.Quiet() {
+		text += " An empty reply says nothing."
+	}
+	return text
 }
 
 // entryText gives an entry of the thread as a line.
