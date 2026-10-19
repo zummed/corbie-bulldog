@@ -109,11 +109,61 @@ func TestReadThreadGivesTheThreadFromAnEntryOn(t *testing.T) {
 
 func TestReadThreadWithPlaceOnlyWhereAsked(t *testing.T) {
 	t.Parallel()
-	b := newBench(t, work(t))
-	b.says(reading("before?", map[string]any{"place": true}))
+	files := payments(t)
+	files["payments/team.yaml"] += "routines:\n  - { at: \"07:00\", to: ledger, say: \"what was said before?\" }\n"
+	b := newBench(t, files)
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		switch prompt := turn.Prompt(); {
+		case turn.Number == 1 && strings.Contains(prompt, "ask payments"):
+			return testkit.Use("ask_team", map[string]any{"team": "payments", "question": "what was said before you?"})
+		case turn.Number == 1 && strings.Contains(prompt, "what was said before"):
+			return testkit.Use("read_thread", map[string]any{"place": true})
+		}
+		return testkit.Say("heard: " + turn.Last())
+	})
 	n := b.chat("al", "", "what was said before?")
 	holds(t, "the bot's answer in the chat", b.lastAnswer(n),
 		fmt.Sprintf("Request %d was asked in the built-in chat, at no place, so nothing was said before it there", n))
+
+	n = b.chat("al", "", "ask payments")
+	sub := b.waitsOn(n, requests.KindSub).Sub
+	holds(t, "the ledger's answer to the bot", b.lastAnswer(sub),
+		fmt.Sprintf("Request %d is a request from another team, asked at no place, so nothing was said before it there", sub))
+
+	r, err := b.reqs.AskByRoutine("payments", b.office().Teams["payments"].Routines[0], requests.Who{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holds(t, "the ledger's answer to its routine", b.lastAnswer(r.Number),
+		fmt.Sprintf("Request %d was asked by a routine, at no place, so nothing was said before it there", r.Number))
+}
+
+func TestReadThreadWithPlaceIsNewestFirstByEntry(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, heeding(t, "./for-us.js", map[string]string{"for-us.js": forUs}))
+	b.says(reading("@bot what was said", map[string]any{"place": true}))
+	everyone := []string{"U0DANA00", "U0AL0000"}
+	asked := func(place, text string) int64 {
+		t.Helper()
+		if err := b.reqs.Readers("slack", place, everyone); err != nil {
+			t.Fatal(err)
+		}
+		n := must(b.reqs.AskAt("slack", "#help", place, "", "U0DANA00", text, nil)).Number
+		b.heeded(n, 1)
+		b.settled(n, requests.Answered)
+		return n
+	}
+	// An older thread is said in after a newer one is asked.
+	first := asked("#help/1", "the first thread")
+	asked("#help/2", "the second thread")
+	b.inThread(first, "slack", "U0DANA00", "more in the first")
+	b.heeded(first, 2)
+
+	read := b.lastAnswer(asked("#help/3", "@bot what was said before?"))
+	more, second, one := strings.Index(read, "more in the first"), strings.Index(read, "the second thread"), strings.Index(read, "the first thread")
+	if more < 0 || second < more || one < second {
+		t.Errorf("what was said before is given as %q", read)
+	}
 }
 
 func TestWorkReadThreadReadsOnlyWhatItsReadersMay(t *testing.T) {

@@ -1,6 +1,7 @@
 package requests
 
 import (
+	"cmp"
 	"slices"
 
 	"github.com/zummed/corbie-bulldog/internal/office"
@@ -204,8 +205,8 @@ func (s *Store) OpenOf(team string) ([]Summary, error) {
 // SaidBefore gives what was said before a request where it was asked: in
 // its team's other requests asked before it at the same listed place of
 // the same bridge, each read by every reader of it, their messages, noted
-// or not, and the team's answers, newest first. A request asked at no
-// place gives nothing.
+// or not, and the team's answers, newest first by entry, whichever request
+// each is in. A request asked at no place gives nothing.
 func (s *Store) SaidBefore(n int64) ([]Entry, error) {
 	l, err := s.look(s.db)
 	if err != nil {
@@ -220,7 +221,7 @@ func (s *Store) SaidBefore(n int64) ([]Entry, error) {
 		return nil, err
 	}
 	var said []Entry
-	for _, o := range slices.Backward(rs) {
+	for _, o := range rs {
 		if o.Number >= n || o.Team != r.Team || o.TeamKnown != r.TeamKnown || o.Origin.Kind != AtPlace ||
 			o.Origin.Bridge != r.Origin.Bridge || o.Origin.Heard != r.Origin.Heard {
 			continue
@@ -236,7 +237,7 @@ func (s *Store) SaidBefore(n int64) ([]Entry, error) {
 		if err != nil {
 			return nil, err
 		}
-		for _, e := range slices.Backward(es) {
+		for _, e := range es {
 			switch e.Kind {
 			case KindAsked, KindSaid, KindAnswer:
 				if e.Read == "" {
@@ -245,6 +246,7 @@ func (s *Store) SaidBefore(n int64) ([]Entry, error) {
 			}
 		}
 	}
+	slices.SortFunc(said, func(a, b Entry) int { return cmp.Compare(b.ID, a.ID) })
 	return said, nil
 }
 

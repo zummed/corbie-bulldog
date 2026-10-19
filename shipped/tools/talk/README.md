@@ -20,5 +20,4 @@ From a team within, the path begins `../.bulldog/`.
 
 ## Changed
 
-- 0.2.0: moved here from `.bulldog/talk.yaml`.
-- 0.2.0: `read_thread`.
+- 0.2.0: moved here from `.bulldog/talk.yaml`; `read_thread`.
