@@ -309,3 +309,19 @@ func (s *Store) ReadBy(n int64) ([]Party, error) {
 	}
 	return readers, nil
 }
+
+// GuestsReading gives how many who read the answer of a request asked at
+// a place the office names as no person, of those its bridge last
+// reported as reading the place, and whether any guest at all may read
+// it, at a place guests may ask in whose readers it never reported.
+func (s *Store) GuestsReading(n int64) (int, bool, error) {
+	l, err := s.look(s.db)
+	if err != nil {
+		return 0, false, err
+	}
+	r, err := l.req(n)
+	if err != nil {
+		return 0, false, err
+	}
+	return l.guestsAt(r)
+}

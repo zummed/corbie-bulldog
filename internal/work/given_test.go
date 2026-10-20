@@ -263,6 +263,7 @@ func TestWorkRunToldTrulyWhereItsAnswerGoes(t *testing.T) {
 	refunds := must(b.reqs.AskAt("slack", "#refunds", "#refunds/1700.2", "", "U0GUEST1", "was 4411 charged twice?", nil, false)).Number
 	again := b.prompt("never the card ending 1111")
 	holds(t, "a run started again on a refusal", again, "Your last reply is your answer, said to a guest (U0GUEST1 on slack) on slack, in #refunds/1700.2.")
+	holds(t, "a run where nobody reported who reads", again, "Who will read the answer: a guest (U0GUEST1 on slack), and any guest there.")
 	holdsNone(t, "a run started again on a refusal", again, "An empty reply says nothing.")
 	b.settled(refunds, requests.Answered)
 	if told := b.toldAsker(refunds); !slices.Equal(told, []string{"payments did not disclose its answer (refuse-all.js)"}) {

@@ -159,14 +159,17 @@ func TestRequestsRefusedDisclosure(t *testing.T) {
 func TestRequestsAnswerReadInsideItsTeamNotHeld(t *testing.T) {
 	t.Parallel()
 	files := replace(t, work(t), "payments/team.yaml", "lead: ledger", "lead: lee")
-	d := open(t, replace(t, files, "office.yaml", `"#help": { guests: true }`, `"#help": { guests: true }`+"\n      \"#refunds\": { team: payments }"))
-	// Priya asks payments in the chat, and in a thread of #refunds only
-	// payments reads: Lee's answer is read only inside payments, and is
+	d := open(t, replace(t, files, "office.yaml", `"#help": { guests: true }`,
+		`"#help": { guests: true }`+"\n      \"#refunds\": { team: payments }\n      \"#cards\": { team: payments, guests: true }"))
+	// Priya asks payments in the chat, in a thread of #refunds only
+	// payments reads, and in one whose readers were never reported, where
+	// no guest may ask: Lee's answer is read only inside payments, and is
 	// its answer at once.
 	must(t, d.Readers("slack", "#refunds/1", []string{slackPriya, slackLee}))
 	chat := got[*requests.Request](t)(d.AskInChat("priya", "payments", "was 4411 charged twice?", nil)).Number
 	inside := got[*requests.Request](t)(d.AskAt("slack", "#refunds", "#refunds/1", "", slackPriya, "was 4412 charged twice?", nil, false)).Number
-	for _, n := range []int64{chat, inside} {
+	unreported := got[*requests.Request](t)(d.AskAt("slack", "#refunds", "#refunds/3", "", slackPriya, "was 4414 charged twice?", nil, false)).Number
+	for _, n := range []int64{chat, inside, unreported} {
 		if e := got[*requests.Entry](t)(d.Say(n, d.Person("lee"), "yes, on card 4111", nil, requests.Screens, false)); e.Kind != requests.KindAnswer {
 			t.Errorf("Lee's answer in request %d is %+v", n, e)
 		}
@@ -177,6 +180,12 @@ func TestRequestsAnswerReadInsideItsTeamNotHeld(t *testing.T) {
 	outside := got[*requests.Request](t)(d.AskAt("slack", "#refunds", "#refunds/2", "", slackPriya, "was 4413 charged twice?", nil, false)).Number
 	if e := got[*requests.Entry](t)(d.Say(outside, d.Person("lee"), "yes, on card 4111", nil, requests.Screens, false)); e.Kind != requests.KindHeld {
 		t.Errorf("Lee's answer read outside payments is %+v", e)
+	}
+	// In a thread of #cards, where guests may ask, whose readers were
+	// never reported, any guest may read Lee's answer, and it is held.
+	anyone := got[*requests.Request](t)(d.AskAt("slack", "#cards", "#cards/1", "", slackPriya, "was 4415 charged twice?", nil, false)).Number
+	if e := got[*requests.Entry](t)(d.Say(anyone, d.Person("lee"), "yes, on card 4111", nil, requests.Screens, false)); e.Kind != requests.KindHeld {
+		t.Errorf("Lee's answer where any guest may read it is %+v", e)
 	}
 }
 

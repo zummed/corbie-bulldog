@@ -200,12 +200,14 @@ func (s *Store) say(n int64, by Who, text string, files []File, in Where, mentio
 		}
 		if p := c.personOf(by); p != "" && c.leadPerson(r) == p {
 			answer := Entry{Kind: KindAnswer, By: by, To: []Who{r.Asker}, Text: text, In: in, Mentioned: mentioned}
-			leaves, err := c.leaves(r, r.Asker)
-			if err != nil {
-				return err
-			}
-			if leaves && c.o.Teams[r.Team].HasDisclosure {
-				answer = Entry{Kind: KindHeld, By: by, To: []Who{teamOf(r)}, Text: text, In: in, Read: r.Team, ReadKnown: r.TeamKnown, Mentioned: mentioned}
+			if c.o.Teams[r.Team].HasDisclosure {
+				leaves, err := c.leaves(r, r.Asker)
+				if err != nil {
+					return err
+				}
+				if leaves {
+					answer = Entry{Kind: KindHeld, By: by, To: []Who{teamOf(r)}, Text: text, In: in, Read: r.Team, ReadKnown: r.TeamKnown, Mentioned: mentioned}
+				}
 			}
 			if e, err = c.add(r, answer, files, nil); err != nil {
 				return err

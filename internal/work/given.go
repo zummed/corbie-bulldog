@@ -45,6 +45,10 @@ func (w *Work) giving(o *office.Office, rd ready) (*giving, error) {
 	if err != nil {
 		return nil, err
 	}
+	guests, anyGuest, err := w.requests.GuestsReading(top.Number)
+	if err != nil {
+		return nil, err
+	}
 	subs, err := w.requests.Tree(r.Number)
 	if err != nil {
 		return nil, err
@@ -66,7 +70,7 @@ func (w *Work) giving(o *office.Office, rd ready) (*giving, error) {
 		}
 	}
 	return &giving{o: o, now: w.clock.Now().In(o.Zone), r: r, team: team, worker: rd.worker.Name, asker: asker, top: top, above: above,
-		mayAsk: MayAsk(o, team.Name, rd.worker.Name, above), readers: readers, subs: subs, notes: notes, open: open, thread: rd.thread,
+		mayAsk: MayAsk(o, team.Name, rd.worker.Name, above), readers: readers, guests: guests, anyGuest: anyGuest, subs: subs, notes: notes, open: open, thread: rd.thread,
 		fresh: rd.fresh, again: rd.again}, nil
 }
 
@@ -82,12 +86,16 @@ type giving struct {
 	above   []*requests.Request
 	mayAsk  []*office.Team
 	readers []requests.Party
-	subs    []requests.Sub
-	notes   []office.Note
-	open    []requests.Summary
-	thread  []requests.Entry
-	fresh   []requests.Entry
-	again   bool
+	// guests is how many who read the answer the office cannot name, and
+	// anyGuest whether any guest may read it.
+	guests   int
+	anyGuest bool
+	subs     []requests.Sub
+	notes    []office.Note
+	open     []requests.Summary
+	thread   []requests.Entry
+	fresh    []requests.Entry
+	again    bool
 }
 
 // said gives what is new for the run: one thing as it was said, and more
@@ -184,7 +192,7 @@ func (g *giving) askedText() string {
 // whereText says where the request was asked, and who will read its
 // answer at the end.
 func (g *giving) whereText() string {
-	readers := partiesText(g.readers)
+	readers := g.readersText()
 	if g.r.Parent != 0 {
 		var from []string
 		for _, a := range g.above {
@@ -195,6 +203,27 @@ func (g *giving) whereText() string {
 			originText(g.top.Origin), readers)
 	}
 	return fmt.Sprintf("It was asked %s. Who will read the answer: %s.", originText(g.r.Origin), readers)
+}
+
+// readersText says who will read the answer at the end: the people
+// named, with how many guests read it too, or any guest at all.
+func (g *giving) readersText() string {
+	guests := ""
+	switch {
+	case g.anyGuest:
+		guests = "any guest there"
+	case g.guests == 1:
+		guests = "a guest"
+	case g.guests > 1:
+		guests = fmt.Sprintf("%d guests", g.guests)
+	}
+	switch {
+	case guests == "":
+		return partiesText(g.readers)
+	case len(g.readers) == 0:
+		return guests
+	}
+	return partiesText(g.readers) + ", and " + guests
 }
 
 // answerText says where the run's answer goes, and when an empty one
@@ -352,6 +381,7 @@ func (g *giving) data() map[string]any {
 		"asker":          partyData(g.asker),
 		"origin":         originData(g.r, g.top, g.above),
 		"readers":        readers,
+		"guests_reading": g.guests, "any_guest_reading": g.anyGuest,
 		"answer_goes_to": g.answerText(),
 		"entries":        entries, "entries_not_shown": left,
 		"new":   fresh,

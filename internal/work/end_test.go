@@ -173,7 +173,7 @@ func TestWorkAReaderTheOfficeCannotNameIsOutside(t *testing.T) {
 	t.Parallel()
 	files := payments(t)
 	files["office.yaml"] = strings.Replace(files["office.yaml"], `"#help": { guests: true }`,
-		`"#help": { guests: true }`+"\n      \"#refunds\": { team: payments }", 1)
+		`"#help": { guests: true }`+"\n      \"#refunds\": { team: payments }\n      \"#cards\": { team: payments, guests: true }", 1)
 	b := newBench(t, files)
 	b.says(func(turn testkit.Turn) testkit.Reply {
 		if turn.Number == 1 {
@@ -204,6 +204,13 @@ func TestWorkAReaderTheOfficeCannotNameIsOutside(t *testing.T) {
 	b.disclosing(outside, decisions.SaysTell)
 	if told := b.entries(outside, requests.KindTold); len(told) != 0 {
 		t.Errorf("the tell was said before it was disclosed: %v", b.thread(outside))
+	}
+	// In a thread of #cards, where guests may ask, whose readers were
+	// never reported, any guest may read the tell, and it waits too.
+	anyone := must(b.reqs.AskAt("slack", "#cards", "#cards/1700.3", "", "U0LEE000", "was 4413 charged twice?", nil, false)).Number
+	b.disclosing(anyone, decisions.SaysTell)
+	if told := b.entries(anyone, requests.KindTold); len(told) != 0 {
+		t.Errorf("the tell was said before it was disclosed: %v", b.thread(anyone))
 	}
 }
 

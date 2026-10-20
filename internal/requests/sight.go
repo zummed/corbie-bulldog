@@ -5,6 +5,8 @@ import (
 	"errors"
 	"slices"
 	"strconv"
+
+	"github.com/zummed/corbie-bulldog/internal/office"
 )
 
 // seesDone says whether a person sees what was done of a request: its
@@ -87,11 +89,16 @@ func (l *look) readersAt(r *Request) ([]Who, error) {
 // leaves says whether what a request's team says in it to someone is read
 // by anyone outside the team. What is said to the asker of a request
 // asked at a place is read by everyone who reads the place, an identity
-// the office names as no person among them, who is outside every team;
-// anything else is read by whom it is said to alone.
+// the office names as no person among them, who is outside every team,
+// and by any guest at all where guests may read it unreported; anything
+// else is read by whom it is said to alone.
 func (l *look) leaves(r *Request, to Who) (bool, error) {
 	readers := []Who{to}
 	if r.Parent == 0 && r.Origin.Kind == AtPlace && l.same(to, r.Asker) {
+		_, anyone, err := l.guestsAt(r)
+		if err != nil || anyone {
+			return anyone, err
+		}
 		at, err := l.readersAt(r)
 		if err != nil {
 			return false, err
@@ -99,6 +106,32 @@ func (l *look) leaves(r *Request, to Who) (bool, error) {
 		readers = append(readers, at...)
 	}
 	return slices.ContainsFunc(readers, func(w Who) bool { return !l.inside(r.Team, r.TeamKnown, w) }), nil
+}
+
+// guestsAt gives how many of the identities a bridge last reported as
+// reading a request's place the office names as no person, and whether
+// any guest at all may read it: where the bridge never reported who
+// reads a place guests may ask in, but its direct place, which only the
+// asker reads.
+func (l *look) guestsAt(r *Request) (int, bool, error) {
+	if r.Origin.Kind != AtPlace {
+		return 0, false, nil
+	}
+	ids, reported, err := l.readersOf(r.Origin.Bridge, r.Origin.Place)
+	if err != nil {
+		return 0, false, err
+	}
+	if !reported {
+		p, _ := l.o.Place(r.Origin.Bridge, r.Origin.Heard)
+		return 0, p.Guests && r.Origin.Heard != office.Direct, nil
+	}
+	guests := 0
+	for _, id := range ids {
+		if l.personOf(Identity(r.Origin.Bridge, id)) == "" {
+			guests++
+		}
+	}
+	return guests, false, nil
 }
 
 // Leaves says whether what a request's team says in it to someone is read
