@@ -260,6 +260,8 @@ func TestChangesWhatLetsMoreBy(t *testing.T) {
 	waiting["bins.yaml"] = replaced(t, waiting, "bins.yaml", "\"${input.request}\" } } }", "\"${input.request}\" }, approve: true } }", "output: ${stages.which.output}\n", "output: ${stages.which.output}\nask: { machine: ./.bulldog/ask.yaml }\n")
 	waiting["porch.yaml"] = porch(true)
 	bridgeless["office.yaml"] = replaced(t, bridgeless, "office.yaml", "bridges:\n  telegram:\n    places:\n      direct: {}                   # as Bulldog ships it: Sam and Kit may ask the house in a direct message\n", "")
+	advising := house(t)
+	advising["office.yaml"] = replaced(t, advising, "office.yaml", "  everything: [sam]\n", "  everything: [sam]\n  cut_power: [clerk: advise, sam]\n")
 	for _, c := range []struct {
 		files  map[string]string
 		change map[string]string
@@ -277,6 +279,7 @@ func TestChangesWhatLetsMoreBy(t *testing.T) {
 		{house(t), map[string]string{"office.yaml": replaced(t, house(t), "office.yaml", "order_part: [./small-orders.js, sam]", "order_part: [sam]")}, "decides order_part by sam, where it was ./small-orders.js, sam"},
 		{house(t), map[string]string{"office.yaml": replaced(t, house(t), "office.yaml", "  everything: [sam]\n", "  everything: [./small-orders.js, sam]\n")}, "decides everything by ./small-orders.js, sam"},
 		{house(t), map[string]string{"office.yaml": replaced(t, house(t), "office.yaml", "  order_part: [./small-orders.js, sam]\n", "")}, "order_part list is taken away"},
+		{advising, map[string]string{"office.yaml": replaced(t, advising, "office.yaml", "cut_power: [clerk: advise, sam]", "cut_power: [clerk, sam]")}, "decides cut_power by clerk, sam, where it was clerk: advise, sam"},
 		{house(t), map[string]string{"small-orders.js": house(t)["small-orders.js"] + "\n"}, "rule small-orders.js is changed"},
 		{house(t), map[string]string{"sparks.yaml": replaced(t, house(t), "sparks.yaml", "model: { name: haiku, service: claude-code }", `model: { name: haiku, service: claude-code, secret: K }`)}, "sparks' model is now haiku (claude-code), with the secret K"},
 		{house(t), map[string]string{"bridges/telegram/out.yaml": house(t)["bridges/telegram/out.yaml"] + "# x\n"}, "telegram's out machine is changed"},
@@ -367,13 +370,15 @@ func TestChangesANarrowingIsNotSetApart(t *testing.T) {
 	files := house(t)
 	files["fixer.yaml"] = replaced(t, files, "fixer.yaml", `input: { part: "${args.part}", pounds: "${args.pounds}" }, approve: true }`, `input: { part: "${args.part}", pounds: "${args.pounds}" } }`)
 	files["sparks.yaml"] = replaced(t, files, "sparks.yaml", "job: { script: ./tools/circuits.js }", "job: { script: ./tools/circuits.js, allow: [network], deny: [fs.read:/etc] }")
+	files["office.yaml"] = replaced(t, files, "office.yaml", "  everything: [sam]\n", "  everything: [sam]\n  cut_power: [clerk, sam]\n")
 	f := newOffice(t, files)
 	for change, says := range map[string]map[string]string{
-		"decides everything by sam, kit":               {"office.yaml": replaced(t, files, "office.yaml", "  everything: [sam]\n", "  everything: [sam, kit]\n")},
-		"telegram's out machine may no longer connect": {"bridges/telegram/out.yaml": replaced(t, files, "bridges/telegram/out.yaml", `allow: [net:api.telegram.org, "secret:TELEGRAM_TOKEN@net:api.telegram.org"]`, `allow: ["secret:TELEGRAM_TOKEN@net:api.telegram.org"]`)},
-		"order_part now waits for a yes":               {"fixer.yaml": house(t)["fixer.yaml"]},
-		"kit is no longer named in the house":          {"office.yaml": replaced(t, files, "office.yaml", "people: [sam, kit]", "people: [sam]")},
-		"bins' stage which now waits for a yes":        {"bins.yaml": replaced(t, files, "bins.yaml", "\"${input.request}\" } } }", "\"${input.request}\" }, approve: true } }", "output: ${stages.which.output}\n", "output: ${stages.which.output}\nask: { machine: ./.bulldog/ask.yaml }\n")},
+		"decides cut_power by clerk: advise, sam, where it was clerk, sam": {"office.yaml": replaced(t, files, "office.yaml", "cut_power: [clerk, sam]", "cut_power: [clerk: advise, sam]")},
+		"decides everything by sam, kit":                                   {"office.yaml": replaced(t, files, "office.yaml", "  everything: [sam]\n", "  everything: [sam, kit]\n")},
+		"telegram's out machine may no longer connect":                     {"bridges/telegram/out.yaml": replaced(t, files, "bridges/telegram/out.yaml", `allow: [net:api.telegram.org, "secret:TELEGRAM_TOKEN@net:api.telegram.org"]`, `allow: ["secret:TELEGRAM_TOKEN@net:api.telegram.org"]`)},
+		"order_part now waits for a yes":                                   {"fixer.yaml": house(t)["fixer.yaml"]},
+		"kit is no longer named in the house":                              {"office.yaml": replaced(t, files, "office.yaml", "people: [sam, kit]", "people: [sam]")},
+		"bins' stage which now waits for a yes":                            {"bins.yaml": replaced(t, files, "bins.yaml", "\"${input.request}\" } } }", "\"${input.request}\" }, approve: true } }", "output: ${stages.which.output}\n", "output: ${stages.which.output}\nask: { machine: ./.bulldog/ask.yaml }\n")},
 		// A refusal added, at a job or for the whole definition; one taken
 		// away of what nothing is allowed; and a list of what is asked
 		// about that comes to hold a tool.

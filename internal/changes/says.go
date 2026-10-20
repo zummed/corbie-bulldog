@@ -246,6 +246,10 @@ func tellList(t *telling, files []string, decides, list string, a, b []office.De
 	written := func(ds []office.Decider) string {
 		var out []string
 		for _, d := range ds {
+			if d.Advises {
+				out = append(out, d.Written+": advise")
+				continue
+			}
 			out = append(out, d.Written)
 		}
 		if len(out) == 0 {
@@ -283,6 +287,12 @@ func tellList(t *telling, files []string, decides, list string, a, b []office.De
 	}
 	for _, name := range before(b) {
 		if !slices.Contains(before(a), name) {
+			more = true
+		}
+	}
+	// One that advised and now decides may say a yes that ends it.
+	for _, d := range b {
+		if !d.Advises && slices.ContainsFunc(a, func(x office.Decider) bool { return x.Name == d.Name && x.Advises }) {
 			more = true
 		}
 	}
