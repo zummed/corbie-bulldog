@@ -88,11 +88,13 @@
     return [list.slice(0, FEW).map(one), more];
   }
 
-  function word(w, team, cls) {
+  // On a card, a recommendation's note is left to the recommendations
+  // above its Approve and Refuse.
+  function word(w, team, cls, card) {
     return B.el("span", {class: "rq-word " + (cls || "")},
       B.deciderEl(w, team),
       w.recommends ? B.el("span", {class: "rq-rec"}, "recommends yes") : null,
-      w.note ? B.el("span", {class: "rq-note"}, w.note) : null,
+      w.note && !(card && w.recommends) ? B.el("span", {class: "rq-note"}, w.note) : null,
       B.whenEl(w.at));
   }
 
@@ -100,9 +102,9 @@
   // those asked it, its walk, each who referred it with their note, whoever
   // ended it, and those it waits on marked; to anyone else, whoever ended
   // it, or those it waits on, the one looking first.
-  function chain(d) {
-    if (d.stages && d.stages.length) return walked(d);
-    const links = (d.referrals || []).map((w) => word(w, d.team, "past"));
+  function chain(d, card) {
+    if (d.stages && d.stages.length) return walked(d, card);
+    const links = (d.referrals || []).map((w) => word(w, d.team, "past", card));
     if (d.ended && d.by) links.push(word(d.by, d.team, "rq-by"));
     else if (!d.ended && d.asked && d.asked.length) {
       const asked = d.asked.filter(B.isMe).concat(d.asked.filter((a) => !B.isMe(a)));
@@ -114,13 +116,13 @@
 
   // walked gives a decision's walk: each decider that referred it faint,
   // with its note; whoever ended it, with theirs; each asked now marked.
-  function walked(d) {
+  function walked(d, card) {
     const same = (w, s) => w && w.kind === s.kind && w.name === s.name;
     return B.el("span", {class: "chain"}, d.stages.map((s, i) => {
       const referred = (d.referrals || []).find((w) => same(w, s));
       const by = d.ended && same(d.by, s);
       const now = !d.ended && s.kind === "person" && (d.asked || []).includes(s.name);
-      const shown = referred || by ? word(referred || d.by, d.team, by ? "rq-by" : "past")
+      const shown = referred || by ? word(referred || d.by, d.team, by ? "rq-by" : "past", card)
         : B.el("span", {class: "rq-word"}, B.deciderOn(s, d.team));
       return [i ? B.el("span", {class: "then", "aria-hidden": "true"}, "›") : null, shown,
         now ? B.el("span", {class: "rq-now", "aria-label": "asked now"}, "◂") : null];
@@ -150,7 +152,7 @@
       bare ? null : B.el("div", {class: "what"}, d.does),
       d.leaving ? leaving(d.leaving) : null,
       d.kind === "action" && args(d.args) ? B.el("div", {class: "mono small"}, args(d.args)) : null,
-      chain(d),
+      chain(d, true),
       recommended(d),
       B.el("div", {class: "act"}, B.field("Note", note), yes, no));
   };
@@ -515,8 +517,10 @@
         const rec = recs.get(r.name);
         if (r.kind === "decide") {
           if (decisions.some((d) => deciderOf(d, r.worker))) continue; // beneath its decision
-          out.push(step({key: key("run:" + r.name), at: at(r.started), depth: depth + 1, kind: "Rule", check: true, now: r.status === "going" && working ? "working" : "",
-            what: B.ruleEl(r.worker), meta: runMeta(r, working), more: rec ? record(rec) : null}));
+          // A rule is named by its path, a worker by a name with no dot.
+          const rule = r.worker.includes(".");
+          out.push(step({key: key("run:" + r.name), at: at(r.started), depth: depth + 1, kind: rule ? "Rule" : "Worker", check: true, now: r.status === "going" && working ? "working" : "",
+            what: rule ? B.ruleEl(r.worker) : B.workerEl(r.worker, v.team, {bare: true}), meta: runMeta(r, working), more: rec ? record(rec) : null}));
           continue;
         }
         const going = r.status === "going";
@@ -590,9 +594,10 @@
             e.by && e.by.kind !== "bulldog" ? B.party(e.by) : null, B.el("span", {class: "small"}, e.text))))) : null]});
   }
 
-  // deciderOf says whether a rule is among a decision's deciders.
-  function deciderOf(d, rule) {
-    const is = (w) => w && w.kind === "rule" && w.name === rule;
+  // deciderOf says whether a rule or a worker is among a decision's
+  // deciders.
+  function deciderOf(d, name) {
+    const is = (w) => w && (w.kind === "rule" || w.kind === "worker") && w.name === name;
     return (d.stages || []).some(is) || (d.referrals || []).some(is) || is(d.by);
   }
 
