@@ -102,5 +102,5 @@
           B.label(label, B.el("span", {class: "count"}, String(things.length))),
           things.map(thing));
       }));
-  }, "office", (what) => what === "office" || what === "runs");
+  }, "office", (what) => what === "office");
 })();

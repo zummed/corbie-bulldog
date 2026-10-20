@@ -66,14 +66,17 @@
     const discloses = teams.some((t) => t && t.discloses !== undefined);
     const head = ["Place", "Team", "Heed", "Lead"].concat(discloses ? ["Disclosure"] : [],
       [B.el("span", {class: "line br-th"}, "Guests", ...B.info("About guests", "People the office does not name. They may ask only where a place lets them, are answered there, and nothing more.")), "Requests"]);
+    // Each cell carries its column's word, which a narrow screen, drawing
+    // each place on its own, puts beside it.
+    const td = (k, ...what) => B.el("td", {"data-k": k}, ...what);
     const rows = b.places.map((p, i) => B.el("tr", {},
-      B.el("td", {}, p.name),
-      B.el("td", {}, B.teamEl(p.team)),
-      B.el("td", {}, heedEl(p, teams[i])),
-      B.el("td", {}, leadEl(teams[i])),
-      discloses ? B.el("td", {}, disclosureEl(teams[i])) : null,
-      B.el("td", {}, p.guests ? "Yes" : B.el("span", {class: "faint"}, "No")),
-      B.el("td", {}, B.el("a", {href: "#/requests?" + new URLSearchParams({bridge: b.name, place: p.name})}, "Requests"))));
+      td("Place", p.name),
+      td("Team", B.teamEl(p.team)),
+      td("Heed", heedEl(p, teams[i])),
+      td("Lead", leadEl(teams[i])),
+      discloses ? td("Disclosure", disclosureEl(teams[i])) : null,
+      td("Guests", p.guests ? "Yes" : B.el("span", {class: "faint"}, "No")),
+      td("", B.el("a", {href: "#/requests?" + new URLSearchParams({bridge: b.name, place: p.name})}, "Requests"))));
     const rest = B.el("tr", {class: "br-rest"}, B.el("td", {colspan: head.length},
       B.el("span", {class: "line"}, "Everything else",
         ...B.info("About everything else", "Left out: an unlisted place, a guest where guests may not ask, a choice on nothing waiting."))));
@@ -150,5 +153,5 @@
     return B.el("div", {class: "brs"},
       B.officeHead("bridges"),
       all.length ? all.map(bridge) : B.empty());
-  }, "office", (what) => what === "office" || what === "runs");
+  }, "office", (what) => what === "office");
 })();

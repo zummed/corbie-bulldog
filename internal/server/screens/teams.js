@@ -143,9 +143,9 @@
         around.length ? B.el("span", {class: "mono faint small tm-path"}, around.map((u) => u.called).join(" / ") + " /") : "",
         open(t)),
       B.el("span", {class: "tm-about muted clip small", title: t.about || null}, t.about || ""),
-      B.el("span", {class: "tm-cut"}, placesCell(t)),
-      B.el("span", {}, people(o, t.people, t.reached)),
-      B.el("span", {class: "tm-cut"}, leadEl(o, t)),
+      B.el("span", {class: "tm-cut tm-at"}, placesCell(t)),
+      B.el("span", {class: "tm-who"}, people(o, t.people, t.reached)),
+      B.el("span", {class: "tm-cut tm-lead"}, leadEl(o, t)),
       B.el("span", {class: "tm-mine"}, yours(o, t)));
   }
 

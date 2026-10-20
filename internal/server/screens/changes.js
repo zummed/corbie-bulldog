@@ -385,7 +385,7 @@
           B.sect(B.label("Draft"), B.el("div", {class: "stack"}, editorBox, newFile(), workers(update), partsBox, B.el("div", {}, check), resultBox)),
           history(lists.history)),
         B.el("div", {class: "side ch-files"}, filesTree(lists.files, selected))));
-  }, "office", (what) => what === "office" || what === "runs");
+  }, "office", (what) => what === "office");
 
   // One change of the history, each file it touched before and after. A
   // file's texts are drawn when it is opened; a change of a few files has

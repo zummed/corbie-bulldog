@@ -25,6 +25,13 @@
 .br-table td { vertical-align: middle; }
 .br-rest td { font-family: var(--sans); font-size: var(--small); color: var(--ink3); border-bottom: none; }
 
+/* Narrow, each place is drawn on its own, each cell beside its word */
 @media (max-width: 640px) {
   .br-body { margin-left: 0; padding-left: 12px; }
+  .br-table thead { display: none; }
+  .br-table, .br-table tbody, .br-table tr { display: block; }
+  .br-table tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .br-table td { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; align-items: center; padding: 2px 0; border-bottom: 0; }
+  .br-table td::before { content: attr(data-k); font-size: var(--small); color: var(--ink2); }
+  .br-table .br-rest td { display: block; }
 }
