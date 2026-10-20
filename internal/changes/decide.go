@@ -558,9 +558,7 @@ func (c *Changes) writeChange(ctx context.Context, p Put, d Decision) (commit st
 			troubles = append(troubles, fmt.Errorf("the change is written as %s, but its draft could not be cleared: %w", id, err))
 		}
 	}
-	if c.keeper != nil {
-		c.keeper.Look()
-	}
+	c.keeper.Look()
 	return id, check.Gone, "", errors.Join(troubles...)
 }
 

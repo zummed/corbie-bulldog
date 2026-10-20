@@ -45,11 +45,11 @@ func TestChangesAStandingProblemDoesNotRefuse(t *testing.T) {
 	if f.check(2).Fit() {
 		t.Error("a change that brings a problem is fit")
 	}
-	// Where the office cannot be read at all, only a change after which it
-	// reads is accepted.
-	files = house(t)
-	files["garden/team.yaml"] = strings.Replace(files["garden/team.yaml"], "people: [sam]", "people: [jo]", 1)
-	g := newOffice(t, files)
+	// Where the office, edited by hand, cannot be read at all, only a
+	// change after which it reads is accepted.
+	g := newOffice(t, house(t))
+	g.edit(map[string]string{"garden/team.yaml": strings.Replace(house(t)["garden/team.yaml"], "people: [sam]", "people: [jo]", 1)})
+	g.commitByHand("Jo in the garden")
 	g.write(1, "notes/fuses.md", "Breaker 4.\n")
 	if g.check(1).Fit() {
 		t.Error("a change that leaves the office unread is fit")

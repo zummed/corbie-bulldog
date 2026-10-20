@@ -52,8 +52,9 @@ type Changes struct {
 }
 
 // Open readies an office's changes in the store, refusing a store whose
-// changes another Bulldog kept. The keeper, where there is one, is told to
-// read the office again once a change is written, before anyone is told.
+// changes another Bulldog kept. The keeper's office is the one a worker's
+// call is answered in, and the keeper is told to read the office again
+// once a change is written, before anyone is told.
 func Open(ctx context.Context, db *sql.DB, dir string, keeper *office.Keeper) (*Changes, error) {
 	if err := ready(ctx, db); err != nil {
 		return nil, err
@@ -118,9 +119,10 @@ func (c *Changes) Answer(ctx context.Context, call Call) (Answer, error) {
 		}
 	}
 	said := func(text string, err error) (Answer, error) { return Answer{Text: text}, err }
-	o, err := c.office()
-	if err != nil {
-		return Answer{}, err
+	// The office as last read well is the one the worker runs in.
+	o := c.keeper.Office()
+	if o == nil {
+		return Answer{}, errors.New("the office has never read well, so no office tool is answered")
 	}
 	team := ""
 	if w := o.Workers[call.Worker]; w != nil {
@@ -134,14 +136,14 @@ func (c *Changes) Answer(ctx context.Context, call Call) (Answer, error) {
 	}
 	switch call.Tool {
 	case ToolFiles:
-		return said(c.files(ctx, call.Request, team))
+		return said(c.files(ctx, call.Request, o, team))
 	case ToolRead:
 		if problem := reach(args.Path); problem != "" {
 			return said(problem, nil)
 		}
 		return said(c.read(ctx, call.Request, args.Path))
 	case ToolSearch:
-		return said(c.search(ctx, call.Request, team, args.Words))
+		return said(c.search(ctx, call.Request, o, team, args.Words))
 	case ToolWrite, ToolRemove:
 		if problem := reach(args.Path); problem != "" {
 			return said(problem, nil)
@@ -185,16 +187,12 @@ func (c *Changes) folder() (map[string][]byte, office.Problems, error) {
 
 // files lists every file of the office a team's worker reaches, and what
 // the draft does to each.
-func (c *Changes) files(ctx context.Context, request int64, team string) (string, error) {
+func (c *Changes) files(ctx context.Context, request int64, o *office.Office, team string) (string, error) {
 	draft, err := drafted(ctx, c.db, request)
 	if err != nil {
 		return "", err
 	}
 	folder, _, err := c.folder()
-	if err != nil {
-		return "", err
-	}
-	o, err := c.office()
 	if err != nil {
 		return "", err
 	}
@@ -250,7 +248,7 @@ func (c *Changes) read(ctx context.Context, request int64, file string) (string,
 // reaches that hold the words asked for, in any case, each with its file
 // and its line, as the draft has them, or as they are, as many as fit in
 // SearchLimit characters.
-func (c *Changes) search(ctx context.Context, request int64, team, words string) (string, error) {
+func (c *Changes) search(ctx context.Context, request int64, o *office.Office, team, words string) (string, error) {
 	words = strings.TrimSpace(words)
 	if words == "" {
 		return "A search needs words, and this one had none, so nothing was searched.", nil
@@ -260,10 +258,6 @@ func (c *Changes) search(ctx context.Context, request int64, team, words string)
 		return "", err
 	}
 	folder, _, err := c.folder()
-	if err != nil {
-		return "", err
-	}
-	o, err := c.office()
 	if err != nil {
 		return "", err
 	}

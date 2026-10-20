@@ -172,7 +172,7 @@ func TestServerOfficeInNoRepositoryMadeOne(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	c, err := changes.Open(ctx, db, dir, nil)
+	c, err := changes.Open(ctx, db, dir, office.Keep(dir))
 	if err != nil {
 		t.Fatal(err)
 	}

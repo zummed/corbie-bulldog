@@ -93,8 +93,6 @@ func (c *Changes) WriteNote(ctx context.Context, n Note) (string, error) {
 		}
 		return "", fmt.Errorf("the note could not be committed, so it was put back as it was: %w", err)
 	}
-	if c.keeper != nil {
-		c.keeper.Look()
-	}
+	c.keeper.Look()
 	return id, errors.Join(after, err)
 }

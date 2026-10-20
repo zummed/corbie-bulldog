@@ -13,6 +13,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 
+	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 )
 
@@ -237,7 +238,7 @@ func TestChangesOfficeWithinALargerRepository(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	c, err := Open(ctx, db, dir, nil)
+	c, err := Open(ctx, db, dir, office.Keep(dir))
 	if err != nil {
 		t.Fatal(err)
 	}
