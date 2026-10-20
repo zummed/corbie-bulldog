@@ -1,6 +1,7 @@
 package work
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -318,6 +319,37 @@ func TestWorkBrokenLeadAnswersWithItsProblem(t *testing.T) {
 	b.until("Kit is told again", func() bool { return told() == 2 })
 	if runs := b.runs(n); len(runs) != 1 {
 		t.Errorf("the broken steward was given a run: %+v", runs)
+	}
+}
+
+func TestWorkGivenNewSinceWhatWasDealtWith(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	n := b.chat("kit", "", "the kitchen socket sparked")
+	b.started(n, 1)
+	b.answered(n)
+	files := house(t)
+	files["steward.yaml"] = strings.Replace(files["steward.yaml"], "model: usual", "model: nowhere", 1)
+	b.rewrite(files)
+	b.say(n, "kit", "it sparked again")
+	b.until("Kit is told the house cannot answer", func() bool {
+		return slices.ContainsFunc(b.thread(n), func(l string) bool { return strings.Contains(l, "The house could not answer.") })
+	})
+	// What was said while the steward could not run was dealt with then:
+	// once it runs again, only what is said after is new for it, as shown
+	// too.
+	b.rewrite(house(t))
+	b.say(n, "kit", "the one by the kettle")
+	run := b.started(n, 2)
+	if said := fmt.Sprint(b.input(run.Name)["said"]); said != "the one by the kettle" {
+		t.Errorf("the run is given %q", said)
+	}
+	given, err := b.w.Given(context.Background(), run.Name, "kit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(given.New) != 1 || given.New[0].Text != "the one by the kettle" {
+		t.Errorf("the run is shown given %+v as new", given.New)
 	}
 }
 

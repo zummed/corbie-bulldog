@@ -48,9 +48,11 @@ type Given struct {
 // Given gives what a lead's run on a request was given, to a person who
 // may watch it, worked out again from its request and the office as they
 // are now and kept nowhere: the thread as it stood when the run was
-// noted, and what was new for it since the run before. Any other run,
-// and one of a team no longer in the office, was given nothing to show.
-func (w *Work) Given(run, person string) (*Given, error) {
+// noted, and what was new for it since what its request was dealt with up
+// to then. Any other run, and one of a team no longer in the office, was
+// given nothing to show, and so is one whose docs or record could not be
+// read, which is said in the log.
+func (w *Work) Given(ctx context.Context, run, person string) (*Given, error) {
 	n, err := w.watchable(run, person)
 	if err != nil {
 		return nil, err
@@ -71,24 +73,11 @@ func (w *Work) Given(run, person string) (*Given, error) {
 		return nil, err
 	}
 	thread = slices.DeleteFunc(thread, func(e requests.Entry) bool { return e.ID > n.Seen })
-	runs, err := w.notesOf(n.Request, KindWork)
-	if err != nil {
-		return nil, err
-	}
-	var mark int64
-	for _, before := range runs {
-		if before.Name == n.Name {
-			break
-		}
-		if before.Status != unsent {
-			mark = max(mark, before.Seen)
-		}
-	}
 	tools, err := w.givenTo(n.Request)
 	if err != nil {
 		return nil, err
 	}
-	g, err := w.giving(o, ready{r: r, fresh: fresh(r, thread, mark, n.Again, tools), thread: thread, again: n.Again}, n.Worker)
+	g, err := w.giving(o, ready{r: r, fresh: fresh(r, thread, n.Since, n.Again, tools), thread: thread, again: n.Again}, n.Worker)
 	if err != nil {
 		return nil, err
 	}
@@ -97,20 +86,26 @@ func (w *Work) Given(run, person string) (*Given, error) {
 	for _, t := range g.mayAsk {
 		given.MayAsk = append(given.MayAsk, t.Name)
 	}
-	given.Docs, given.RecordGone, err = w.docsRead(o, n)
-	return given, err
+	given.Docs, given.RecordGone, err = w.docsRead(ctx, o, n)
+	if err != nil {
+		if ctx.Err() == nil {
+			w.Log("what %s was given is not shown: %v", run, err)
+		}
+		return nil, nil
+	}
+	return given, nil
 }
 
 // docsRead gives the docs a run read with read_doc, it or anything below
 // it, in the order first read, each a doc its team reads now; and whether
 // Corbie keeps its record no more.
-func (w *Work) docsRead(o *office.Office, n *note) ([]office.Doc, bool, error) {
+func (w *Work) docsRead(ctx context.Context, o *office.Office, n *note) ([]office.Doc, bool, error) {
 	docs, err := o.DocsFor(n.Team)
 	if err != nil {
 		return nil, false, err
 	}
 	var read []office.Doc
-	_, err = w.corbie.Record(context.Background(), n.Name, func(e client.Entry) {
+	_, err = w.corbie.Record(ctx, n.Name, func(e client.Entry) {
 		for _, ask := range e.Asks {
 			if ask.Job == nil {
 				continue
@@ -120,8 +115,7 @@ func (w *Work) docsRead(o *office.Office, n *note) ([]office.Doc, bool, error) {
 			if in["tool"] != toolReadDoc {
 				continue
 			}
-			name := strings.TrimSuffix(strings.TrimSpace(str(args["name"])), ".md")
-			if i := slices.IndexFunc(docs, func(d office.Doc) bool { return d.Name == name }); i >= 0 && !slices.Contains(read, docs[i]) {
+			if _, i := docNamed(docs, args["name"]); i >= 0 && !slices.Contains(read, docs[i]) {
 				read = append(read, docs[i])
 			}
 		}

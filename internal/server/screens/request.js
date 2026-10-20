@@ -7,7 +7,6 @@
 (function () {
   "use strict";
 
-  const KIND = {action: "Authorisation", disclosure: "Disclosure", change: "Change"};
   const ENDED = {yes: "approved", refused: "refused", withdrawn: "withdrawn"};
   const WHAT = {answer: "Answer", question: "Question", tell: "Tell", sub: "Sub-request"};
   const RUN_KIND = {work: "Work", heed: "Heed", decide: "Decide"};
@@ -138,7 +137,7 @@
     yes.addEventListener("click", () => say("yes"));
     no.addEventListener("click", () => say("refuse"));
     return B.el("section", {class: "ask-card rq-card"},
-      B.el("div", {class: "line"}, B.el("span", {class: "rq-kind"}, KIND[d.kind] || d.kind), B.teamEl(d.team)),
+      B.el("div", {class: "line"}, B.el("span", {class: "rq-kind"}, B.decisionWord(d.kind)), B.teamEl(d.team)),
       B.el("div", {class: "what"}, d.does),
       d.leaving ? leaving(d.leaving) : null,
       d.kind === "action" && args(d.args) ? B.el("div", {class: "mono small"}, args(d.args)) : null,
@@ -208,13 +207,6 @@
   // whom it waits on.
   function waitsOn(w) { return w.kind === "person" ? "p:" + w.name : w.kind === "guest" ? "g:" + w.id : ""; }
 
-  // An entry of a decision is named by the decision's kind.
-  function labelOf(v, e) {
-    if (e.kind !== "decision") return B.entryWord(e.kind);
-    const d = (v.decisions || []).find((x) => x.id === e.decision);
-    return d ? KIND[d.kind] || d.kind : "Decision";
-  }
-
   // about says what each label of a thread is, and whether anything waits
   // on it.
   function about(lead) {
@@ -244,7 +236,7 @@
   // show is behind its (i).
   function threadLabel(v) {
     const lines = about(B.leadCalled(B.team(v.team)));
-    const shown = new Set(v.entries.map((e) => labelOf(v, e)));
+    const shown = new Set(v.entries.map((e) => B.entryLabel(v.decisions || [], e)));
     if (v.entries.some((e) => e.noted)) shown.add("Noted");
     const said = [...shown].filter((l) => lines[l]);
     return B.label("Thread", said.length ? B.info("About the thread", said.map((l) => B.el("div", {}, B.el("b", {}, l), " " + lines[l]))) : null);
@@ -266,7 +258,7 @@
     const to = e.to || [];
     const div = B.el("article", {class: cls},
       B.el("div", {class: "hd"},
-        B.el("span", {class: "k"}, labelOf(v, e)),
+        B.el("span", {class: "k"}, B.entryLabel(v.decisions || [], e)),
         B.party(e.by),
         to.length ? [arrow(), few(to, B.party, true)] : null,
         where(e.in),
@@ -409,7 +401,7 @@
   function authorisation(d, kindless) {
     const why = d.why && !(d.by && d.by.note === d.why) ? d.why : null;
     return B.el("div", {class: "rq-auth"},
-      B.el("div", {class: "line"}, kindless === true ? null : B.el("span", {class: "rq-kind"}, KIND[d.kind] || d.kind), B.el("span", {class: "rq-does"}, d.does), B.el("span", {class: "rq-end"}, ending(d))),
+      B.el("div", {class: "line"}, kindless === true ? null : B.el("span", {class: "rq-kind"}, B.decisionWord(d.kind)), B.el("span", {class: "rq-does"}, d.does), B.el("span", {class: "rq-end"}, ending(d))),
       chain(d),
       why ? B.el("div", {class: "mono small muted"}, why) : null);
   }

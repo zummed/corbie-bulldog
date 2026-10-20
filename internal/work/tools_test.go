@@ -1,6 +1,7 @@
 package work
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -110,7 +111,7 @@ func TestWorkAnswerGoesToOnePlace(t *testing.T) {
 		t.Errorf("the second run is given %q", said)
 	}
 	// Worked out again when shown, it was new for that run all the same.
-	given, err := b.w.Given(run.Name, "kit")
+	given, err := b.w.Given(context.Background(), run.Name, "kit")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -230,13 +230,18 @@ func (s *site) run(person string, w http.ResponseWriter, r *http.Request) (any, 
 		return nil, err
 	}
 	out := runOf(kept)
-	given, err := s.Work.Given(name, person)
+	given, err := s.Work.Given(r.Context(), name, person)
 	if err != nil {
 		return nil, err
 	}
-	if given != nil {
-		out.Given = givenOf(given, s.Requests.Party)
+	if given == nil {
+		return out, nil
 	}
+	ds, err := s.Decisions.OfRequest(kept.Request)
+	if err != nil {
+		return nil, err
+	}
+	out.Given = givenOf(given, s.Requests.Party, ds)
 	return out, nil
 }
 

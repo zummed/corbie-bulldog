@@ -43,17 +43,23 @@ func (w *Work) listDocs(c *calling) (string, bool, error) {
 	return text, false, nil
 }
 
+// docNamed gives the name a worker gave read_doc, as a doc is named, and
+// where the doc of that name is among docs, or -1.
+func docNamed(docs []office.Doc, given any) (string, int) {
+	name := strings.TrimSuffix(strings.TrimSpace(str(given)), ".md")
+	return name, slices.IndexFunc(docs, func(d office.Doc) bool { return d.Name == name })
+}
+
 // readDoc gives one doc the calling worker's team reads, by its name,
 // from a line on, as many whole lines as fit in DocsLimit characters, and
 // how to read on.
 func (w *Work) readDoc(c *calling) (string, bool, error) {
-	name := strings.TrimSuffix(strings.TrimSpace(str(c.args["name"])), ".md")
 	from, _ := c.args["from"].(float64)
 	docs, err := w.office.DocsFor(c.team.Name)
 	if err != nil {
 		return "", false, err
 	}
-	i := slices.IndexFunc(docs, func(d office.Doc) bool { return d.Name == name })
+	name, i := docNamed(docs, c.args["name"])
 	if i < 0 {
 		return fmt.Sprintf("No doc you may read is called %q, so nothing was read: docs lists those you may.", name), false, nil
 	}

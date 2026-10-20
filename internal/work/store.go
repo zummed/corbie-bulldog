@@ -15,7 +15,7 @@ import (
 // tables.
 const (
 	Area    = "work"
-	Version = 6
+	Version = 7
 )
 
 // How a run noted in the store stands.
@@ -37,7 +37,7 @@ CREATE TABLE work_runs(
 	name TEXT PRIMARY KEY,
 	kind TEXT NOT NULL, team TEXT NOT NULL, request INTEGER NOT NULL DEFAULT 0,
 	worker TEXT NOT NULL DEFAULT '', labels TEXT NOT NULL,
-	seen INTEGER NOT NULL DEFAULT 0,
+	seen INTEGER NOT NULL DEFAULT 0, since INTEGER NOT NULL DEFAULT 0,
 	noted TEXT NOT NULL, started TEXT NOT NULL DEFAULT '', ended TEXT NOT NULL DEFAULT '',
 	status TEXT NOT NULL, how TEXT NOT NULL DEFAULT '',
 	stop TEXT NOT NULL DEFAULT '', cancel_sent INTEGER NOT NULL DEFAULT 0,
@@ -126,7 +126,10 @@ type note struct {
 	Labels map[string]string
 	// Seen is the last entry of its request's thread when it was noted:
 	// what came after is new to the next run.
-	Seen    int64
+	Seen int64
+	// Since is what its request was dealt with up to when it was noted:
+	// what came after was new to it.
+	Since   int64
 	Noted   time.Time
 	Started time.Time
 	Ended   time.Time
@@ -177,8 +180,8 @@ func storeFailed(err error) error { return fmt.Errorf("the work's part of the st
 
 // keep notes a run before its start is sent.
 func (w *Work) keep(n *note) error {
-	_, err := w.db.Exec(`INSERT INTO work_runs(name, kind, team, request, worker, labels, seen, noted, status, again)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, n.Name, n.Kind, n.Team, n.Request, n.Worker, labelsKey(n.Labels), n.Seen, stamp(n.Noted), going, n.Again)
+	_, err := w.db.Exec(`INSERT INTO work_runs(name, kind, team, request, worker, labels, seen, since, noted, status, again)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, n.Name, n.Kind, n.Team, n.Request, n.Worker, labelsKey(n.Labels), n.Seen, n.Since, stamp(n.Noted), going, n.Again)
 	if err != nil {
 		return storeFailed(err)
 	}
@@ -197,7 +200,7 @@ func (w *Work) sent(n *note) error {
 	return nil
 }
 
-const noteColumns = `SELECT name, kind, team, request, worker, labels, seen, noted, started, ended, status, how, stop, cancel_sent, tokens, again FROM work_runs`
+const noteColumns = `SELECT name, kind, team, request, worker, labels, seen, since, noted, started, ended, status, how, stop, cancel_sent, tokens, again FROM work_runs`
 
 func scanNotes(rows *sql.Rows, err error) ([]*note, error) {
 	if err != nil {
@@ -208,7 +211,7 @@ func scanNotes(rows *sql.Rows, err error) ([]*note, error) {
 	for rows.Next() {
 		n := &note{}
 		var labels, noted, started, ended string
-		if err := rows.Scan(&n.Name, &n.Kind, &n.Team, &n.Request, &n.Worker, &labels, &n.Seen, &noted, &started, &ended,
+		if err := rows.Scan(&n.Name, &n.Kind, &n.Team, &n.Request, &n.Worker, &labels, &n.Seen, &n.Since, &noted, &started, &ended,
 			&n.Status, &n.How, &n.Stop, &n.CancelSent, &n.Tokens, &n.Again); err != nil {
 			return nil, storeFailed(err)
 		}

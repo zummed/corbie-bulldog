@@ -159,8 +159,8 @@ type (
 	// the team's notes, each with its size and how much of it a run is
 	// given, in characters; the docs it read, each with its team, unless
 	// Corbie keeps its record no more; the teams it may ask; the thread
-	// it was shown, with how many entries were not shown; and what was
-	// new for it.
+	// it was shown, with how many entries were not shown; what was new
+	// for it; and the kind of each decision its entries are of.
 	givenOut struct {
 		Notes      []noteGivenOut `json:"notes"`
 		Docs       []docReadOut   `json:"docs"`
@@ -169,6 +169,11 @@ type (
 		Thread     []entryOut     `json:"thread"`
 		NotShown   int            `json:"not_shown"`
 		New        []entryOut     `json:"new"`
+		Decisions  []kindOut      `json:"decisions"`
+	}
+	kindOut struct {
+		ID   int64  `json:"id"`
+		Kind string `json:"kind"`
 	}
 	noteGivenOut struct {
 		Name  string `json:"name"`
@@ -708,10 +713,11 @@ func runOf(r work.KeptRun) runOut {
 }
 
 // givenOf gives what a lead's run was given, each entry by and put to
-// whoever the office names now.
-func givenOf(g *work.Given, party func(requests.Who) requests.Party) *givenOut {
+// whoever the office names now, and each of ds its entries are of by its
+// kind.
+func givenOf(g *work.Given, party func(requests.Who) requests.Party, ds []*decisions.Decision) *givenOut {
 	out := &givenOut{Notes: []noteGivenOut{}, Docs: []docReadOut{}, RecordGone: g.RecordGone, MayAsk: orEmpty(g.MayAsk),
-		Thread: []entryOut{}, NotShown: g.NotShown, New: []entryOut{}}
+		Thread: []entryOut{}, NotShown: g.NotShown, New: []entryOut{}, Decisions: []kindOut{}}
 	for _, n := range g.Notes {
 		out.Notes = append(out.Notes, noteGivenOut{Name: n.Name, Size: n.Size, Given: n.Given})
 	}
@@ -723,6 +729,12 @@ func givenOf(g *work.Given, party func(requests.Who) requests.Party) *givenOut {
 	}
 	for _, e := range g.New {
 		out.New = append(out.New, entryOf(e, nil, party))
+	}
+	entries := append(slices.Clone(g.Thread), g.New...)
+	for _, d := range ds {
+		if slices.ContainsFunc(entries, func(e requests.Entry) bool { return e.Decision == d.ID }) {
+			out.Decisions = append(out.Decisions, kindOut{ID: d.ID, Kind: d.Kind})
+		}
 	}
 	return out
 }

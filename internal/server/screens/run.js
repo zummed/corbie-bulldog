@@ -82,12 +82,13 @@
   }
 
   // entriesEl gives entries of a thread as a run was given them: each by
-  // its word, who said it and to whom, when, and its text.
-  function entriesEl(entries) {
+  // its word, an entry of a decision by the decision's kind, who said it
+  // and to whom, when, and its text.
+  function entriesEl(entries, decisions) {
     if (!entries.length) return B.el("span", {class: "faint"}, "None");
     return B.el("div", {class: "thread"}, entries.map((e) => B.el("article", {class: "entry " + e.kind},
       B.el("div", {class: "hd"},
-        B.el("span", {class: "k"}, B.entryWord(e.kind)),
+        B.el("span", {class: "k"}, B.entryLabel(decisions, e)),
         B.party(e.by),
         e.to.length ? [B.el("span", {class: "faint", "aria-hidden": "true"}, "→"), e.to.map(B.party)] : null,
         e.noted ? B.el("span", {class: "tag"}, "Noted") : null,
@@ -111,13 +112,13 @@
     const thread = g.thread.length ? B.el("details", {},
       B.el("summary", {}, B.el("span", {class: "mono"}, String(g.thread.length)),
         g.not_shown ? B.el("span", {class: "status cut"}, g.not_shown + " not shown") : null),
-      entriesEl(g.thread)) : none();
+      entriesEl(g.thread, g.decisions)) : none();
     return B.band("Given", [
       [B.el("span", {class: "line"}, "Notes", ...B.notesInfo()), notes],
       ["Docs", docs],
       ["Can ask", asks],
       ["Thread", thread],
-      ["New", entriesEl(g.new)],
+      ["New", entriesEl(g.new, g.decisions)],
     ], ...B.info("About given", "Worked out again from the request and the office's files as they are now."));
   }
 

@@ -21,6 +21,9 @@ type ready struct {
 	worker *office.Worker
 	fresh  []requests.Entry
 	thread []requests.Entry
+	// mark is what the request was dealt with up to: what came after is
+	// new to the run.
+	mark int64
 	// again says it starts on a decider's refusal of what the team
 	// would have said.
 	again bool
@@ -202,7 +205,7 @@ func (w *Work) consider(ctx context.Context, n int64) *ready {
 		w.atLimit(ctx, r, last, again)
 		return nil
 	}
-	rd := ready{r: r, worker: worker, fresh: said, thread: thread, again: again}
+	rd := ready{r: r, worker: worker, fresh: said, thread: thread, mark: mark, again: again}
 	if heed, rule := heedOf(w.office, rd); heed != nil && !acted {
 		w.weigh(ctx, rd, heed, rule)
 		return nil
@@ -394,7 +397,7 @@ func (w *Work) start(ctx context.Context, rd ready) bool {
 	labels := w.labels(requests.Labels(r))
 	labels[LabelKind] = KindWork
 	n := &note{Name: name, Kind: KindWork, Team: r.Team, Request: r.Number, Worker: rd.worker.Name, Labels: labels,
-		Seen: rd.thread[len(rd.thread)-1].ID, Noted: w.clock.Now(), Again: rd.again}
+		Seen: rd.thread[len(rd.thread)-1].ID, Since: rd.mark, Noted: w.clock.Now(), Again: rd.again}
 	if err := w.keep(n); err != nil {
 		return fail("its run could not be noted", err)
 	}

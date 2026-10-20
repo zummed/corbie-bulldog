@@ -213,6 +213,17 @@ const ENTRY = {asked: "Asked", said: "Said", question: "Question", told: "Told",
   notice: "Notice", noted: "Noted", decision: "Decision", bulldog: ""};
 B.entryWord = function (kind) { return kind in ENTRY ? ENTRY[kind] : kind; };
 
+// The words decisions are read by, for their kinds.
+const DECISION = {action: "Authorisation", disclosure: "Disclosure", change: "Change"};
+B.decisionWord = function (kind) { return DECISION[kind] || kind; };
+
+// entryLabel gives the word an entry is read by: an entry of a decision
+// by the decision's kind, of those given.
+B.entryLabel = function (decisions, e) {
+  const d = e.kind === "decision" && decisions.find((x) => x.id === e.decision);
+  return d ? B.decisionWord(d.kind) : B.entryWord(e.kind);
+};
+
 // heedEl gives a team's heed: its rule, a rule Bulldog ships linked to
 // Shipped, and whether a problem stops it, to those who see it; else Set,
 // or None when it names none.
