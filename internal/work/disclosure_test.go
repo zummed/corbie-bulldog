@@ -226,6 +226,11 @@ func TestAnAnswerRefusedToTheLimitIsNotDisclosed(t *testing.T) {
 	})
 	n := b.chat("dana", "", "customer 4411 was charged twice")
 	sub := b.waitsOn(n, requests.KindSub).Sub
+	// Each of the ledger's runs, and its refusal, is waited for in turn:
+	// all of them at once take longer than a wait is given.
+	for i := 1; i <= RunsInARow; i++ {
+		b.until(fmt.Sprintf("the ledger has been started %d times", i), func() bool { return len(b.runs(sub)) >= i })
+	}
 	a := b.answered(n)
 	if a.Text != "bot heard: payments did not disclose its answer (refuse-all.js)" {
 		t.Errorf("the bot was given %q", a.Text)
