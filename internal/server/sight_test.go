@@ -305,8 +305,51 @@ func TestServerTeamSeenByItsPeople(t *testing.T) {
 	if len(al.Workers) != 1 || len(al.Notes) != 1 || al.Problems == nil || al.Routines == nil {
 		t.Errorf("Al sees payments as %+v", al)
 	}
-	if al.AtWork != nil || strings.Contains(string(r.body), "at_work") {
+	if al.AtWork != nil || al.Now != nil || strings.Contains(string(r.body), "at_work") || strings.Contains(string(r.body), `"now"`) {
 		t.Errorf("Al sees payments' workers at work: %s", r.body)
+	}
+}
+
+func TestServerTeamSeesWhereItsRequestsStandNow(t *testing.T) {
+	t.Parallel()
+	d := refundDay(t, refundOffice(t))
+	// Lee sees payments' sub-request waiting on the refund, which waits on
+	// Lee and Priya.
+	var lee teamWhole
+	d.s.as("lee").get("/api/teams/payments").is(http.StatusOK).into(&lee)
+	i := slices.IndexFunc(lee.Now, func(n nowOut) bool { return n.Kind == decisions.OfAction })
+	if i < 0 {
+		t.Fatalf("Lee sees going on in payments %+v", lee.Now)
+	}
+	if refund := lee.Now[i]; refund.Request != d.payments || refund.Decision != d.refund || !strings.Contains(refund.Does, "Refund") ||
+		!slices.Equal(refund.Asked, []string{"lee", "priya"}) || refund.First == "" {
+		t.Errorf("Lee sees the refund as %+v", refund)
+	}
+	// Al, of the office, sees Dana's request waiting on payments, whose
+	// refund waits on Lee and Priya; and platform's answer is no part of
+	// it, since platform answered.
+	var al teamWhole
+	d.s.as("al").get("/api/teams/office").is(http.StatusOK).into(&al)
+	var subs []nowOut
+	for _, n := range al.Now {
+		if n.Kind == nowSub {
+			subs = append(subs, n)
+		}
+	}
+	if len(subs) != 1 || subs[0].Request != d.n || subs[0].Sub != d.payments || subs[0].Team != "payments" || subs[0].State != requests.Waiting || len(subs[0].On) != 2 {
+		t.Errorf("Al sees the sub-requests open %+v, of %+v", subs, al.Now)
+	}
+	// Once the refund is decided and Dana answered, the office holds her
+	// request as answered last, and payments nothing waiting.
+	d.decided()
+	d.s.as("al").get("/api/teams/office").is(http.StatusOK).into(&al)
+	if len(al.Now) != 1 || al.Now[0].Kind != nowAnswered || al.Now[0].Request != d.n || al.Now[0].Label != "" {
+		t.Errorf("Al sees going on in the office %+v", al.Now)
+	}
+	lee = teamWhole{}
+	d.s.as("lee").get("/api/teams/payments").is(http.StatusOK).into(&lee)
+	if slices.ContainsFunc(lee.Now, func(n nowOut) bool { return n.Kind != nowAnswered }) {
+		t.Errorf("Lee sees going on in payments, all of it answered, %+v", lee.Now)
 	}
 }
 
@@ -455,6 +498,9 @@ func TestServerBusyWorkerShownToItsTeam(t *testing.T) {
 		if strings.Contains(body, `"at_work"`) != shown {
 			t.Errorf("%s is shown the ledger at work: %v", person, !shown)
 		}
+		if strings.Contains(body, `"now"`) != shown {
+			t.Errorf("%s is shown what is going on in payments: %v", person, !shown)
+		}
 	}
 	// Platform has no people; Al, whom its decisions reach, sees its
 	// workers at work, and nobody else does.
@@ -474,8 +520,8 @@ func TestServerBusyWorkerShownToItsTeam(t *testing.T) {
 		t.Fatal("ops was never asked")
 	}
 	for _, person := range []string{"dana", "raj"} {
-		if strings.Contains(string(d.s.as(person).get("/api/teams/platform").body), "at_work") {
-			t.Errorf("%s is shown platform's workers at work", person)
+		if body := string(d.s.as(person).get("/api/teams/platform").body); strings.Contains(body, "at_work") || strings.Contains(body, `"now"`) {
+			t.Errorf("%s is shown platform's workers at work: %s", person, body)
 		}
 	}
 	if !strings.Contains(string(d.s.as("al").get("/api/teams/platform").body), `"worker":"ops"`) {
@@ -563,6 +609,17 @@ func TestServerRequestWaitingItsTurnShownQueued(t *testing.T) {
 	}
 	if v := sam.view(first); v.Queued != 0 {
 		t.Errorf("Sam is shown the first request queued %d", v.Queued)
+	}
+	var house teamWhole
+	sam.get("/api/teams/office").is(http.StatusOK).into(&house)
+	var queued []nowOut
+	for _, n := range house.Now {
+		if n.Kind == nowQueued {
+			queued = append(queued, nowOut{Request: n.Request, Queued: n.Queued})
+		}
+	}
+	if want := []nowOut{{Request: third, Queued: 2}, {Request: second, Queued: 1}}; !reflect.DeepEqual(queued, want) {
+		t.Errorf("Sam sees waiting their turn in the house %+v", queued)
 	}
 	let()
 	s.answered(third)

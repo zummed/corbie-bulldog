@@ -18,6 +18,7 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/changes"
 	"github.com/zummed/corbie-bulldog/internal/decisions"
 	"github.com/zummed/corbie-bulldog/internal/office"
+	"github.com/zummed/corbie-bulldog/internal/requests"
 	"github.com/zummed/corbie-bulldog/internal/work"
 	"github.com/zummed/corbie-bulldog/shipped"
 )
@@ -527,10 +528,12 @@ type (
 		// write any of its notes.
 		Writers  []string     `json:"writers"`
 		Problems []problemOut `json:"problems"`
-		// In says the one looking is among its people, and AtWork, to
-		// them alone, are its workers at work, and on what.
+		// In says the one looking is among its people, and AtWork and
+		// Now, to them alone, are its workers at work, and on what, and
+		// what is going on in its requests now.
 		In     bool     `json:"in"`
 		AtWork []atWork `json:"at_work,omitempty"`
+		Now    []nowOut `json:"now,omitempty"`
 	}
 	listOut struct {
 		Key      string       `json:"key"`
@@ -649,12 +652,59 @@ type (
 		Request int64  `json:"request"`
 		Run     string `json:"run"`
 	}
+	// nowOut is one thing going on now in one of a team's open requests,
+	// with the request's first line, by its kind: queued, with its place
+	// in the queue; heed, its heed's rule weighing it in a run; question,
+	// put by a worker to people it waits on; a decision of it waiting, by
+	// the decision's own kind, action, disclosure or change, with what it
+	// is and whom it waits on; sub, a sub-request it asked that is open,
+	// with its team and where it stands; or lead, waiting on its lead who
+	// is a person. Or it is one the team answered last, answered, with its
+	// label.
+	nowOut struct {
+		Request  int64      `json:"request"`
+		First    string     `json:"first,omitempty"`
+		Kind     string     `json:"kind"`
+		Queued   int        `json:"queued,omitempty"`
+		Rule     string     `json:"rule,omitempty"`
+		Run      string     `json:"run,omitempty"`
+		Entry    int64      `json:"entry,omitempty"`
+		By       *partyOut  `json:"by,omitempty"`
+		To       []partyOut `json:"to,omitempty"`
+		Decision int64      `json:"decision,omitempty"`
+		Does     string     `json:"does,omitempty"`
+		What     string     `json:"what,omitempty"`
+		Asked    []string   `json:"asked,omitempty"`
+		Sub      int64      `json:"sub,omitempty"`
+		Team     string     `json:"team,omitempty"`
+		State    string     `json:"state,omitempty"`
+		On       []partyOut `json:"on,omitempty"`
+		Label    string     `json:"label,omitempty"`
+	}
+)
+
+// The kinds of what is going on now in a team's requests, beside a
+// decision's own kind.
+const (
+	nowQueued   = "queued"
+	nowHeed     = "heed"
+	nowQuestion = "question"
+	nowSub      = "sub"
+	nowLead     = "lead"
+	nowAnswered = "answered"
+)
+
+// How many of a team's open requests are told where they stand now, the
+// newest; and how many it answered are told, those it answered last.
+const (
+	NowOpen     = 50
+	NowAnswered = 3
 )
 
 // team gives one team as the one looking may see it: as everyone sees it,
 // and to its people and the people who decide a change, how it is
-// written; which of its workers are at work, and on what, only to its
-// people.
+// written; which of its workers are at work, and on what, and what is
+// going on in its requests now, only to its people.
 func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any, error) {
 	o, err := s.office()
 	if err != nil {
@@ -710,6 +760,9 @@ func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any,
 	}
 	if out.In = in; in {
 		if out.AtWork, err = s.atWork(t.Name); err != nil {
+			return nil, err
+		}
+		if out.Now, err = s.nowOf(o, t.Name, person); err != nil {
 			return nil, err
 		}
 	}
@@ -975,6 +1028,99 @@ func (s *site) atWork(team string) ([]atWork, error) {
 		}
 	}
 	return out, nil
+}
+
+// nowOf gives what is going on now in the newest NowOpen of a team's open
+// requests, as one of its people sees them, and the NowAnswered it
+// answered last, leaving out those its heed noted, as a list does: each
+// as the requests, the decisions and the work give it.
+func (s *site) nowOf(o *office.Office, team, person string) ([]nowOut, error) {
+	open, err := s.Requests.OpenOf(team)
+	if err != nil {
+		return nil, err
+	}
+	queue := s.Work.Queue()
+	out := []nowOut{}
+	for _, sum := range open[:min(len(open), NowOpen)] {
+		of := func(kind string) nowOut { return nowOut{Request: sum.Number, First: sum.First, Kind: kind} }
+		if place := queuedAt(queue, sum); place != 0 {
+			now := of(nowQueued)
+			now.Queued = place
+			out = append(out, now)
+		}
+		runs, err := s.Work.Runs(sum.Number)
+		if err != nil {
+			return nil, err
+		}
+		for _, run := range runs {
+			if run.Ended.IsZero() && run.Kind == work.KindHeed {
+				now := of(nowHeed)
+				now.Rule, now.Run = run.Worker, run.Name
+				out = append(out, now)
+			}
+		}
+		v, err := s.Requests.View(sum.Number, person)
+		if err != nil {
+			return nil, err
+		}
+		for _, q := range questionsOf(v.Entries, s.Requests.Party) {
+			if !q.Answered && waitsOnAny(v.State.On, q.To) {
+				now := of(nowQuestion)
+				now.Entry, now.By, now.To = q.Entry, &q.By, q.To
+				out = append(out, now)
+			}
+		}
+		ds, err := s.decisionsOf(o, sum.Number, person, true)
+		if err != nil {
+			return nil, err
+		}
+		for _, d := range ds {
+			if d.Ended == "" {
+				now := of(d.Kind)
+				now.Decision, now.Does, now.What, now.Asked = d.ID, d.Does, d.What, d.Asked
+				out = append(out, now)
+			}
+		}
+		for _, sub := range v.Subs {
+			if sub.State.Is != requests.Answered {
+				now := of(nowSub)
+				now.Sub, now.Team, now.State, now.On = sub.Number, sub.Team, sub.State.Is, partiesOf(sub.State.On)
+				now.Queued = queuedAt(queue, requests.Summary{Number: sub.Number, State: sub.State})
+				out = append(out, now)
+			}
+		}
+		lead, isPerson, err := s.Requests.Lead(sum.Number)
+		if err != nil {
+			return nil, err
+		}
+		if i := slices.IndexFunc(v.State.On, func(p requests.Party) bool { return p.Kind == requests.IsPerson && p.Name == lead }); isPerson && i >= 0 {
+			now := of(nowLead)
+			now.On = []partyOut{partyOf(v.State.On[i])}
+			out = append(out, now)
+		}
+	}
+	answered, err := s.Requests.List(person, requests.Filter{Team: team, State: requests.Answered})
+	if err != nil {
+		return nil, err
+	}
+	// The requests keep no time a request was answered: the newest
+	// answered stand for those answered last.
+	answered = slices.DeleteFunc(answered, func(sum requests.Summary) bool { return sum.State.Noted })
+	for _, sum := range answered[:min(len(answered), NowAnswered)] {
+		out = append(out, nowOut{Request: sum.Number, First: sum.First, Kind: nowAnswered, Label: labelOf(sum.State)})
+	}
+	return out, nil
+}
+
+// waitsOnAny says whether a request waits on any of those something was
+// put to: a person by name, and a guest by the identity its bridge
+// vouched for.
+func waitsOnAny(on []requests.Party, to []partyOut) bool {
+	return slices.ContainsFunc(to, func(p partyOut) bool {
+		return slices.ContainsFunc(on, func(w requests.Party) bool {
+			return w.Kind == p.Kind && w.Name == p.Name && (w.Kind != requests.IsGuest || w.Bridge == p.Bridge && w.ID == p.ID)
+		})
+	})
 }
 
 // walked gives who decides a key of a team, in the order the walk asks

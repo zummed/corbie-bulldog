@@ -178,6 +178,34 @@ func TestDemoServesTheHouseWithNothingSetUp(t *testing.T) {
 		t.Errorf("Sam is shown the fan's order as %+v", d)
 	}
 
+	// Sam's house shows where each request stands now: the socket's
+	// question waits on Kit, the fan's order on Sam, and the lawn and the
+	// bins are answered last.
+	var house struct {
+		Now []struct {
+			Request int64
+			Kind    string
+			Does    string
+			Asked   []string
+			To      []struct{ Name string }
+		}
+	}
+	sam.do(t, http.MethodGet, "/api/teams/office", "", &house)
+	now := map[string]bool{}
+	for _, n := range house.Now {
+		switch {
+		case n.Request == asked[Socket] && n.Kind == "question" && len(n.To) == 1 && n.To[0].Name == "kit":
+			now["socket"] = true
+		case n.Request == asked[Fan] && n.Kind == "action" && strings.Contains(n.Does, "Order a part") && slices.Equal(n.Asked, []string{"sam"}):
+			now["fan"] = true
+		case n.Request == asked[Lawn] && n.Kind == "answered":
+			now["lawn"] = true
+		}
+	}
+	if len(now) != 3 {
+		t.Errorf("Sam's house is going on with %+v", house.Now)
+	}
+
 	// Kit asked after the lawn: the house asked the garden, a
 	// sub-request, whose gardener had the groundsman look, and the
 	// garden's answer is passed on to Kit.
