@@ -13,7 +13,7 @@
 .row.tm-team { display: grid; grid-template-columns: 22px fit-content(30%) minmax(0, 1fr) minmax(0, 150px) 118px minmax(0, 150px) 52px; gap: 4px 14px; align-items: center; }
 .row.tm-team.tm-flat { grid-template-columns: fit-content(40%) minmax(0, 1fr) minmax(0, 150px) 118px minmax(0, 150px) 52px; }
 .tm-places { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; max-width: 100%; }
-.tm-places > .who { min-width: 0; overflow: hidden; white-space: nowrap; }
+.tm-places > .who { min-width: 0; max-width: 100%; overflow: hidden; white-space: nowrap; }
 .tm-mine { text-align: right; }
 
 /* A name too long for its column ends in an ellipsis */
