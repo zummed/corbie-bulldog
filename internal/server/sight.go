@@ -242,13 +242,13 @@ type (
 		Runs   bool     `json:"runs"`
 	}
 	// toolOut is a tool, a flow's stage or a statechart's job, with what
-	// it does and what its job is: a worker
-	// of the same team, named; another machine or a script, by its file;
-	// or one of the tools Bulldog ships. One that waits for a yes gives
-	// who decides it, in the order its walk asks them, and none when
-	// nobody does and what waits on it is refused; one that does not wait
-	// gives no list at all. A listed tool is a list: entry, which
-	// stands for the tools its server lists.
+	// it does and what its job is: a worker of the same team, named;
+	// another machine or a script, by its file; or one of the tools
+	// Bulldog ships. One that waits for a yes gives who decides it, in the
+	// order its walk asks them, and none when nobody does and what waits
+	// on it is refused; one that does not wait gives no list at all. A
+	// listed tool is a list: entry, which stands for the tools its server
+	// lists.
 	toolOut struct {
 		Name     string       `json:"name"`
 		Does     string       `json:"does"`

@@ -116,6 +116,16 @@ func TestChangesSayWhatChangesInWorkers(t *testing.T) {
 	has(t, check.LetsMoreBy, "fixer may send the secret BOARD_KEY to board.local")
 	has(t, check.Says, "fixer has the tool lights")
 	has(t, check.LetsMoreBy, "fixer's tool order_part no longer waits for a yes")
+	// A flow's stages and a statechart's jobs are said as an agent's tools
+	// are.
+	check = saysOf(t, f, map[string]string{
+		"bins.yaml":  replaced(t, house(t), "bins.yaml", "  which: { job: { script: ./tools/bins.js, input: { request: \"${input.request}\" } } }", "  sort: { job: { script: ./tools/bins.js, input: { request: \"${input.request}\" }, approve: true } }", "output: ${stages.which.output}\n", "output: ${stages.sort.output}\nask: { machine: ./.bulldog/ask.yaml }\n"),
+		"porch.yaml": porch(true),
+	})
+	has(t, check.Says, "bins has the stage sort, which waits for a yes")
+	has(t, check.Says, "bins no longer has the stage which")
+	has(t, check.Says, "porch has the job asking")
+	has(t, check.Says, "porch has the job lock, which waits for a yes")
 	// The house's usual at a new address is said for each worker of the
 	// house that names it, and for no garden worker, whose usual is the
 	// garden's.
@@ -127,6 +137,19 @@ func TestChangesSayWhatChangesInWorkers(t *testing.T) {
 	hasNo(t, append(check.Says, check.LetsMoreBy...), "gardener")
 	hasNo(t, append(check.Says, check.LetsMoreBy...), "groundsman")
 	hasNo(t, append(check.Says, check.LetsMoreBy...), "sparks' model")
+}
+
+// porch is a statechart that asks sparks which circuit is the porch's, then
+// cuts it, waiting for a yes or not.
+func porch(waits bool) string {
+	approve := ""
+	if waits {
+		approve = ", approve: true"
+	}
+	return "statechart: porch\ninput: [said]\ninitial: asking\nstates:\n" +
+		"  asking:\n    job: { machine: ./sparks.yaml, input: { said: \"Which circuit is the porch?\" } }\n    on: { done: locking }\n" +
+		"  locking:\n    jobs:\n      lock: { script: ./tools/cut-power.js, input: { circuit: porch }" + approve + " }\n    on: { done: locked }\n" +
+		"  locked: { end: done }\n"
 }
 
 func TestChangesSayWhatChangesInRulesAndBridges(t *testing.T) {
@@ -232,6 +255,10 @@ func TestChangesWhatLetsMoreBy(t *testing.T) {
 			bridgeless[file] = text
 		}
 	}
+	// The house with a flow's stage and a statechart's job that wait.
+	waiting := house(t)
+	waiting["bins.yaml"] = replaced(t, waiting, "bins.yaml", "\"${input.request}\" } } }", "\"${input.request}\" }, approve: true } }", "output: ${stages.which.output}\n", "output: ${stages.which.output}\nask: { machine: ./.bulldog/ask.yaml }\n")
+	waiting["porch.yaml"] = porch(true)
 	bridgeless["office.yaml"] = replaced(t, bridgeless, "office.yaml", "bridges:\n  telegram:\n    places:\n      direct: {}                   # as Bulldog ships it: Sam and Kit may ask the house in a direct message\n", "")
 	for _, c := range []struct {
 		files  map[string]string
@@ -242,6 +269,8 @@ func TestChangesWhatLetsMoreBy(t *testing.T) {
 		{house(t), map[string]string{"sparks.yaml": replaced(t, house(t), "sparks.yaml", "job: { script: ./tools/circuits.js }", `job: { script: ./tools/circuits.js, allow: ["secret:K@net:x.example"] }`)}, "sparks may send the secret K to x.example"},
 		{house(t), map[string]string{"sparks.yaml": replaced(t, house(t), "sparks.yaml", "model: { name: haiku, service: claude-code }", `model: { name: haiku, service: anthropic, address: "http://localhost:9" }`)}, "sparks' model is now"},
 		{house(t), map[string]string{"fixer.yaml": replaced(t, house(t), "fixer.yaml", `"${args.circuit}" }, approve: true }`, `"${args.circuit}" } }`)}, "cut_power no longer waits"},
+		{waiting, map[string]string{"bins.yaml": house(t)["bins.yaml"]}, "bins' stage which no longer waits for a yes"},
+		{waiting, map[string]string{"porch.yaml": porch(false)}, "porch's job lock no longer waits for a yes"},
 		{house(t), map[string]string{"garden/team.yaml": replaced(t, house(t), "garden/team.yaml", "people: [sam]", "people: [sam, kit]")}, "kit is named in the garden"},
 		{w, map[string]string{"platform/team.yaml": w["platform/team.yaml"] + "decide: { everything: [raj] }\n"}, "raj now stands as one of Platform's people"},
 		{house(t), map[string]string{"office.yaml": replaced(t, house(t), "office.yaml", `"4472"`, `"4473"`)}, "kit is now 4473 on telegram"},
@@ -344,6 +373,7 @@ func TestChangesANarrowingIsNotSetApart(t *testing.T) {
 		"telegram's out machine may no longer connect": {"bridges/telegram/out.yaml": replaced(t, files, "bridges/telegram/out.yaml", `allow: [net:api.telegram.org, "secret:TELEGRAM_TOKEN@net:api.telegram.org"]`, `allow: ["secret:TELEGRAM_TOKEN@net:api.telegram.org"]`)},
 		"order_part now waits for a yes":               {"fixer.yaml": house(t)["fixer.yaml"]},
 		"kit is no longer named in the house":          {"office.yaml": replaced(t, files, "office.yaml", "people: [sam, kit]", "people: [sam]")},
+		"bins' stage which now waits for a yes":        {"bins.yaml": replaced(t, files, "bins.yaml", "\"${input.request}\" } } }", "\"${input.request}\" }, approve: true } }", "output: ${stages.which.output}\n", "output: ${stages.which.output}\nask: { machine: ./.bulldog/ask.yaml }\n")},
 		// A refusal added, at a job or for the whole definition; one taken
 		// away of what nothing is allowed; and a list of what is asked
 		// about that comes to hold a tool.
