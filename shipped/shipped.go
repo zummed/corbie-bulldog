@@ -2,8 +2,8 @@
 // .bulldog/ in every office: its own machines, flat at the top, the ask, a
 // tool's call, a routine's clock and the server's own run; and one folder
 // for each thing an office uses by its path there, a tools file, a bridge,
-// a rule or a way to sign in, with the thing's page as its README.md. Each tool is a run that
-// only waits on a ticket, which Bulldog answers.
+// a rule or a sign-in method, with the thing's page as its README.md.
+// Each tool is a run that only waits on a ticket, which Bulldog answers.
 package shipped
 
 import (
@@ -44,7 +44,7 @@ var ToolsFiles = []string{Talk, Notes, Docs, Build}
 // Page is the file of a shipped folder that is its page of the manual, its
 // first line saying what the thing is; Settings is a bridge's entry under
 // bridges in office.yaml, as it is shipped; SignIn is the machine of a
-// way to sign in, in its folder.
+// sign-in method, in its folder.
 const (
 	Page     = "README.md"
 	Settings = "settings.yaml"
@@ -165,7 +165,7 @@ func Bridges() []string {
 	return names
 }
 
-// SignIns lists the names of the ways to sign in Bulldog ships.
+// SignIns lists the names of the sign-in methods Bulldog ships.
 func SignIns() []string {
 	var names []string
 	for _, thing := range Things() {

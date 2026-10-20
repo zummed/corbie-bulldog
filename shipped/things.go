@@ -18,7 +18,7 @@ import (
 )
 
 // Kind gives what a shipped thing is, by its folder: a bridge, a tools
-// file, a rule or a way to sign in.
+// file, a rule or a sign-in method.
 func Kind(thing string) string {
 	kind, _, _ := strings.Cut(thing, "/")
 	switch kind {
