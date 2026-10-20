@@ -615,8 +615,9 @@
   const ANSWER = {waits: "waiting", held: "held", said: "", quiet: "quiet", "not delivered": "failed"};
 
   // outBand gives what a request asked of other teams and of people, its
-  // decisions, to its team's people its disclosure, and where its answer
-  // goes and how it stands.
+  // decisions but those waiting on the one looking, which are shown above
+  // it, to its team's people its disclosure when its team sets one, and
+  // where its answer goes and how it stands; each when there is any.
   function outBand(v) {
     if (v.label === "noted") return null;
     const ds = v.decisions || [];
@@ -629,28 +630,27 @@
     const people = questions.length ? B.el("div", {class: "rq-asks"}, questions.map((q) => B.el("div", {class: "line"},
       B.party(q.by), arrow(), few(q.to, B.party, true),
       B.el("a", {class: "rq-end status" + (q.answered ? "" : " waiting"), href: "#/r/" + v.number, onclick: (ev) => { ev.preventDefault(); scrollTo(q.entry); }}, q.answered ? "answered" : "open")))) : null;
-    const decs = ds.filter((d) => d.kind !== "disclosure");
-    const disclosure = v.disclosure ? disclosureOf(v, ds.filter((d) => d.kind === "disclosure" && d.what !== "sub")) : null;
+    const decs = ds.filter((d) => d.kind !== "disclosure" && !(d.mine && !d.ended));
+    const disclosure = v.disclosure && v.disclosure.set ? disclosureOf(v, ds.filter((d) => d.kind === "disclosure" && d.what !== "sub")) : null;
     const a = v.answer;
     const answer = a ? B.el("span", {class: "line"}, answerTo(v),
       a.entry ? B.el("a", {class: "status " + ANSWER[a.state], href: "#/r/" + v.number, onclick: (ev) => { ev.preventDefault(); scrollTo(a.entry); }}, a.state)
         : B.el("span", {class: "status " + ANSWER[a.state]}, a.state),
       a.why ? B.el("span", {class: "mono small muted"}, a.why) : null) : null;
     return B.band("Out", [
-      ["Teams", teams ? B.el("span", {class: "count"}, subs.length + held.length) : B.el("span", {class: "faint"}, "None"), teams],
-      ["People", people ? B.el("span", {class: "count"}, questions.length) : B.el("span", {class: "faint"}, "None"), people],
+      teams ? ["Teams", B.el("span", {class: "count"}, subs.length + held.length), teams] : null,
+      people ? ["People", B.el("span", {class: "count"}, questions.length), people] : null,
       decs.length ? ["Authorisation", B.el("span", {class: "count"}, decs.length), paged(B.el("div", {class: "rq-list"}), decs, 6, (d) => authorisation(d, true), "auths")] : null,
       disclosure,
       answer ? ["Answer", answer] : null]);
   }
 
-  // disclosureOf gives a request's Disclosure row: None when its team sets
-  // none, Not needed when only the team reads the answer, or who decides
+  // disclosureOf gives a request's Disclosure row, of a team that sets
+  // one: Not needed when only the team reads the answer, or who decides
   // it; with the disclosures of what it said beneath.
   function disclosureOf(v, ds) {
     const d = v.disclosure;
-    const value = !d.set ? B.el("span", {class: "faint"}, "None")
-      : !d.needed ? B.el("span", {class: "line"}, "Not needed", B.info("About Not needed", "Read only by people of " + B.teamCalled(v.team) + "."))
+    const value = !d.needed ? B.el("span", {class: "line"}, "Not needed", B.info("About Not needed", "Read only by people of " + B.teamCalled(v.team) + "."))
       : B.chain(d.deciders || [], v.team);
     return [B.disclosureLabel(B.team(v.team) || {called: B.teamCalled(v.team)}), value, ds.length ? B.el("div", {class: "rq-list"}, ds.map((d) => authorisation(d, true))) : null];
   }

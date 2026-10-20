@@ -132,15 +132,14 @@
   // Ask
 
   // strip gives the way a request to a team goes: its lead, and whether it
-  // can be started; to those who see it, whether the team sets a
-  // disclosure; and where the answer is said.
+  // can be started; and, to those who see it, that the team sets a
+  // disclosure, when it does.
   function strip(t) {
     if (!t) return [];
     const lead = B.person(t.lead) ? B.personEl(t.lead) : B.workerEl(t.lead, t.name, {bare: true});
     return [
       ["Lead", B.el("span", {class: "line"}, lead, t.lead_runs ? null : B.el("span", {class: "status failed"}, "cannot run"))],
-      t.discloses === undefined ? null : ["Disclosure", t.discloses ? "Set" : B.el("span", {class: "faint"}, "None")],
-      ["Answer", B.el("span", {class: "line"}, B.way({kind: "chat"}), B.el("span", {class: "faint"}, "›"), "screens")],
+      t.discloses ? [B.disclosureLabel(t), "Set"] : null,
     ];
   }
 

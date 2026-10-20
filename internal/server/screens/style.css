@@ -69,8 +69,9 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: var(--data
 
 /* The header */
 .top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 24px; padding: 0 24px; min-height: 56px; border-bottom: var(--wall) solid var(--ink); background: var(--paper); position: sticky; top: 0; z-index: 10; }
-.brand { font-weight: 700; font-size: 17px; color: var(--ink); }
-.brand:hover { text-decoration: none; color: var(--plan); }
+.brand { display: inline-flex; align-items: center; min-height: 54px; font-weight: 700; font-size: 17px; color: var(--ink); border-bottom: 3px solid transparent; margin-bottom: -2px; }
+.brand:hover, .brand:focus-visible { text-decoration: none; border-bottom-color: var(--line); }
+.brand[aria-current="page"] { border-bottom-color: var(--plan); }
 .nav { display: flex; flex-wrap: wrap; gap: 2px; flex: 1 1 280px; }
 .nav a { display: inline-flex; align-items: center; min-height: 54px; padding: 0 12px; color: var(--ink); font-weight: 500; border-bottom: 3px solid transparent; margin-bottom: -2px; }
 .nav a:hover { text-decoration: none; border-bottom-color: var(--line); }

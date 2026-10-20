@@ -223,14 +223,12 @@
       B.el("tbody", {}, rows)));
   }
 
-  const kinds = {script: "Script", machine: "Machine", tools: "Tools"};
-
   function defined(d) {
     const groups = [
       d.tools.length ? B.el("div", {class: "group"}, B.label("Tools", B.el("span", {class: "count"}, String(d.tools.length))),
         table(["Name", "Kind", "Teams"], d.tools.map((x) => B.el("tr", {},
-          B.el("td", {}, x.shipped ? B.el("span", {class: "line"}, B.el("a", {href: "#/office/bulldog"}, x.shipped), B.el("span", {class: "faint"}, x.name)) : x.name),
-          B.el("td", {}, B.el("span", {class: "tag"}, kinds[x.kind] || x.kind)),
+          B.el("td", {}, x.shipped ? B.el("a", {class: "tm-kit", href: "#/office/bulldog", title: x.name}, B.KITS[x.shipped.split("/").pop()] || x.shipped) : B.el("span", {class: "mono"}, x.name)),
+          B.el("td", {class: "faint small"}, x.shipped ? "From Bulldog" : x.kind),
           B.el("td", {}, teamsCell(x.teams)))))) : null,
       d.models.length ? B.el("div", {class: "group"}, B.label("Models", B.el("span", {class: "count"}, String(d.models.length))),
         table(["Model", "Teams"], d.models.map((x) => B.el("tr", {},

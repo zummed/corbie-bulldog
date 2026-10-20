@@ -1,8 +1,8 @@
-// Changes, a part of the office's page: the office's files, a change of one's own drafted and checked
-// and put to be decided, and the history. An
-// office may have hundreds of files and thousands of changes, so a folder
-// is drawn only when it is opened, lists are paged, and the lists are
-// fetched again only when the office changed.
+// Changes, a part of the office's page: the office's files, a change of
+// one's own drafted and checked and put to be decided, and the history.
+// An office may have hundreds of files and thousands of changes, so a
+// folder is drawn only when it is opened, lists are paged, and the lists
+// are fetched again only when the office changed.
 (function () {
   "use strict";
 
@@ -49,9 +49,9 @@
     update();
   }
 
-  // B.drafting adds a draft another screen made, as Use and Copy on
-  // what comes with Bulldog do, to the draft, a field set again taking the place of the
-  // one before, and opens Changes on it.
+  // B.drafting adds a draft another screen made, as Use and Copy on what
+  // comes with Bulldog do, to the draft, a field set again taking the
+  // place of the one before, and opens Changes on it.
   B.drafting = function (edit) {
     const same = (a, b) => a.path === b.path && a.field.join("\n") === b.field.join("\n");
     Object.assign(draft.files, edit.files || {});
@@ -391,6 +391,10 @@
   // file's texts are drawn when it is opened; a change of a few files has
   // them open.
   B.route(/^#\/history\/(.+)$/, async function (m) {
+    if (!B.me.me.decides_changes) {
+      location.replace("#/office");
+      return B.el("div", {});
+    }
     const out = await B.api("/api/history/" + encodeURIComponent(decodeURIComponent(m[1])));
     const c = out.commit;
     const few = out.files.length <= 3;

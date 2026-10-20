@@ -4,6 +4,7 @@
 /* A bridge: a ruled head with its name and status, then what it runs and
    its places on a guide line beneath */
 .br { border-top: var(--wall) solid var(--ink); }
+.of-head + .br { border-top: 0; }
 .br-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; padding: 10px 0; }
 .br-head h2 { gap: 8px; }
 .br-body { display: flex; flex-direction: column; gap: var(--gap); margin-left: 9px; padding-left: 18px; border-left: 1.5px solid var(--line); }

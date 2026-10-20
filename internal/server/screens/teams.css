@@ -41,6 +41,7 @@
 .tm-groups { gap: var(--gap); }
 .tm-defined td { vertical-align: middle; }
 .tm-defined td.clip { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-kit { font-family: var(--sans); }
 
 @media (max-width: 720px) {
   .row.tm-team, .row.tm-team.tm-flat, .row.tm-person { display: flex; }
