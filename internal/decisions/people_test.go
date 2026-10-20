@@ -56,11 +56,12 @@ func TestDecisionsPersonAlwaysAskedOnScreens(t *testing.T) {
 		t.Fatal("the Telegram bridge runs from a folder Bulldog does not ship")
 	}
 	n := b.chat("kit", office.Top, "the kitchen socket sparked")
-	b.one("ask-1", office.Top, n, fixerUp, cutPower("4"))
+	dec := b.one("ask-1", office.Top, n, fixerUp, cutPower("4"))
 	if len(b.waitingFor("sam")) != 1 {
 		t.Fatal("Sam is not asked on the screens")
 	}
 	has(t, b.thread(n), "notice by bulldog", "could not be sent on Telegram", "Sam is asked on the screens")
+	b.ofDecision(n, dec.ID, decisions.KindNotice, decisions.KindDecide)
 }
 
 func TestDecisionsAnswerOnlyFromCheckedIdentity(t *testing.T) {
@@ -138,6 +139,7 @@ func TestEveryoneElseAskedIsToldItIsDecided(t *testing.T) {
 	if last.Text != "Refund one charge: approved by Lee, 10:00" || last.Decision != dec.ID || len(last.To) != 1 || last.To[0].Name != "priya" {
 		t.Fatalf("the last record is %+v", last)
 	}
+	b.ofDecision(sub, dec.ID, decisions.KindDecide, decisions.KindDecided, decisions.KindDecision)
 	ds, err := b.reqs.Deliveries(last.ID)
 	if err != nil {
 		t.Fatal(err)

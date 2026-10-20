@@ -215,6 +215,7 @@ func TestDecisionWalksOnAtAReading(t *testing.T) {
 	if got := b.entries(sub, decisions.KindNotice); len(got) != 2 || got[1].To[0].Name != "priya" {
 		t.Fatalf("the notices are %+v", got)
 	}
+	b.ofDecision(sub, dec.ID, decisions.KindNotice)
 	ds, err := b.reqs.Deliveries(b.get(dec.ID).Entry)
 	if err != nil || len(ds) != 1 || ds[0].Person != "raj" {
 		t.Fatalf("the decision is carried to %+v, %v", ds, err)

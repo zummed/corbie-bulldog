@@ -310,6 +310,7 @@ func TestDecisionsARuleDecidesAsTheTeamWhoseDecisionItIs(t *testing.T) {
 			t.Errorf("a rule's referral on the garden's decision is by %+v, read by %q", e.By, e.Read)
 		}
 	}
+	b.ofDecision(g, dec.ID, decisions.KindReferred)
 }
 
 // The walk is given by team and key with no decision, as each decision

@@ -224,8 +224,8 @@
   // on it.
   function about(lead) {
     return {
-      Asked: "What was asked, first in every request. It waits on " + lead + "'s answer.",
-      Said: "More said in the request. It makes an answered request working again.",
+      Asked: "What was asked, first in every request. It waits on " + lead + "'s answer; noted by the team's heed, it waits on nobody.",
+      Said: "More said in the request. It makes an answered request working again; noted by the team's heed, it starts nothing.",
       Question: "A worker's question to a person. It waits on them until they reply.",
       Told: "A worker telling someone something. Nothing waits on it.",
       Reply: "A person's reply to what was put to them. It ends their wait.",

@@ -386,6 +386,23 @@ func (b *bench) entries(n int64, kind string) []requests.Entry {
 	return slices.DeleteFunc(es, func(e requests.Entry) bool { return e.Kind != kind })
 }
 
+// ofDecision fails unless a request holds entries of each of the kinds,
+// and every one of them names the decision.
+func (b *bench) ofDecision(n, id int64, kinds ...string) {
+	b.t.Helper()
+	for _, kind := range kinds {
+		es := b.entries(n, kind)
+		if len(es) == 0 {
+			b.t.Errorf("request %d holds no %s entry", n, kind)
+		}
+		for _, e := range es {
+			if e.Decision != id {
+				b.t.Errorf("the %s entry %q names decision %d, not %d", kind, e.Text, e.Decision, id)
+			}
+		}
+	}
+}
+
 // seen gives what a person sees of a request as lines.
 func (b *bench) seen(n int64, person string) []string {
 	b.t.Helper()
