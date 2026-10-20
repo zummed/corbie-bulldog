@@ -511,14 +511,41 @@ func (r *reading) ruleEntries(team string) []string {
 		lists = append(lists, v)
 	}
 	for _, list := range lists {
-		items, _ := words(list)
-		for _, item := range items {
-			if isPath(item) {
-				entries = append(entries, item)
+		if list == nil || list.Kind != yaml.SequenceNode {
+			continue
+		}
+		for _, item := range list.Content {
+			if entry, _, problem := listEntry(item); problem == "" && isPath(entry) {
+				entries = append(entries, entry)
 			}
 		}
 	}
 	return entries
+}
+
+// listEntry reads one entry of a list of deciders: a name or a path, or a
+// rule or a worker marked to advise, as { reviewer: advise }. Its problem
+// says what is wrong with an entry that is neither.
+func listEntry(item *yaml.Node) (entry string, advises bool, problem string) {
+	if s, ok := text(item); ok {
+		return s, false, ""
+	}
+	if item.Kind != yaml.MappingNode || len(item.Content) != 2 {
+		return "", false, fmt.Sprintf("an entry is a decider, as sam, or a rule or worker marked to advise, as reviewer: advise, and this is %s", describe(item))
+	}
+	k, v := item.Content[0], item.Content[1]
+	name, ok := text(k)
+	if !ok {
+		return "", false, fmt.Sprintf("an entry is a decider, as sam, or a rule or worker marked to advise, as reviewer: advise, and this is %s", describe(item))
+	}
+	if word, _ := text(v); word != "advise" {
+		marked := describe(v)
+		if v.Kind == yaml.ScalarNode && v.Tag != "!!null" {
+			marked = v.Value
+		}
+		return name, false, fmt.Sprintf("%s is marked %s, and advise is the one word a decider is marked with, as reviewer: advise", name, marked)
+	}
+	return name, true, ""
 }
 
 // isPath says whether a list's entry is a path, which names a rule.
@@ -561,17 +588,21 @@ func (r *reading) readLists() {
 
 // readList reads one list of deciders.
 func (r *reading) readList(t *Team, what string, node *yaml.Node) ([]Decider, bool) {
-	entries, ok := words(node)
-	if !ok {
+	if node == nil || node.Kind != yaml.SequenceNode {
 		r.teamFile(t, node, "%s is a list of deciders, as [./a-rule.js, sam], and this is %s", what, describe(node))
 		return nil, false
 	}
 	var deciders []Decider
 	person := ""
 	good := true
-	for i, entry := range entries {
-		at := node.Content[i]
-		d := Decider{Written: entry}
+	for _, at := range node.Content {
+		entry, advises, problem := listEntry(at)
+		if problem != "" {
+			r.teamFile(t, at, "%s: %s", what, problem)
+			good = false
+			continue
+		}
+		d := Decider{Written: entry, Advises: advises}
 		switch {
 		case isPath(entry):
 			d.Kind, d.Name = IsRule, path.Join(t.Dir, entry)
@@ -586,6 +617,11 @@ func (r *reading) readList(t *Team, what string, node *yaml.Node) ([]Decider, bo
 			d.Kind, d.Name = IsWorker, entry
 		default:
 			r.teamFile(t, at, "%s: %s is nobody: a decider is a person under everyone, a worker of the office, or a rule, in %s's folder or among those Bulldog ships in %s/rules/, by its path, as ./a-rule.js", what, entry, called(t), shipped.Dir)
+			good = false
+			continue
+		}
+		if d.Kind == IsPerson && d.Advises {
+			r.teamFile(t, at, "%s: %s is a person, who says yes or refuses and never refers, so does not advise: only a rule or a worker advises", what, entry)
 			good = false
 			continue
 		}

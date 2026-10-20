@@ -179,6 +179,39 @@ func TestADeciderIsAPersonAWorkerOrARule(t *testing.T) {
 	}
 }
 
+func TestARuleOrAWorkerMayBeMarkedToAdvise(t *testing.T) {
+	t.Parallel()
+	o := reads(t, replace(t, house(t), "office.yaml", "[./small-orders.js, sam]", "[./small-orders.js, clerk: advise, sam]"))
+	d := o.TopTeam().Decide[1].Deciders
+	if len(d) != 3 || d[0].Advises || d[1].Kind != office.IsWorker || d[1].Name != "clerk" || !d[1].Advises || d[2].Advises {
+		t.Errorf("order_part is decided by %#v", d)
+	}
+	// A rule may advise, by its path, and a definition that advises is a
+	// rule all the same, and no worker; the same worker may advise on one
+	// list and decide plainly on another.
+	o = reads(t, replace(t, work(t), "payments/team.yaml", "[./no-account-numbers.yaml]", "[./no-account-numbers.yaml: advise]"))
+	if p := o.Teams["payments"]; len(p.Disclosure) != 1 || p.Disclosure[0].Kind != office.IsRule || !p.Disclosure[0].Advises || o.Workers["no-account-numbers"] != nil {
+		t.Errorf("payments discloses by %#v", p.Disclosure)
+	}
+	o = reads(t, replace(t, house(t), "office.yaml", "  order_part: [./small-orders.js, sam]", "  order_part: [clerk: advise, sam]\n  cut_power: [clerk, sam]"))
+	if a, b := o.TopTeam().Decide[1].Deciders[0], o.TopTeam().Decide[2].Deciders[0]; !a.Advises || b.Advises {
+		t.Errorf("the clerk is %#v on order_part and %#v on cut_power", a, b)
+	}
+	// Any other marking, a person marked to advise, and a mapping of more
+	// than one decider are each a problem of the file, at its line.
+	for list, words := range map[string][]string{
+		"[clerk: yes, sam]":                       {"clerk is marked yes", "advise"},
+		"[clerk: { advise: true }, sam]":          {"clerk is marked a mapping"},
+		"[./small-orders.js, sam: advise]":        {"sam is a person", "does not advise"},
+		"[{ clerk: advise, sparks: advise }, sam]": {"this is a mapping"},
+	} {
+		problems := refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, sam]", list))
+		if p := says(t, problems, append([]string{"office.yaml", "order_part"}, words...)...); p.Line == 0 || len(problems) != 1 {
+			t.Errorf("%s gives %v, not its own problem at its line: %v", list, p, problems)
+		}
+	}
+}
+
 func TestARuleMayBeOneBulldogShips(t *testing.T) {
 	t.Parallel()
 	for _, entry := range []string{"./.bulldog/rules/none/none.js", "./.bulldog/tools/talk/talk.yaml"} {

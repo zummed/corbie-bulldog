@@ -129,6 +129,9 @@ type Decider struct {
 	// Name is the person's or the worker's name, or the rule's path in the
 	// office.
 	Name string
+	// Advises is whether a rule or a worker is marked to advise: its
+	// refusal ends a decision, and its yes goes on as a recommendation.
+	Advises bool
 }
 
 // A Heed is the one rule a team names, by its path, to weigh what is said
