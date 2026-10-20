@@ -100,16 +100,41 @@ func (d day) decided() {
 	d.s.answered(d.n)
 }
 
+// meOf gives what a person's /api/me holds.
+func (s *serving) meOf(person string) meOut {
+	s.b.t.Helper()
+	var me meOut
+	s.as(person).get("/api/me").is(http.StatusOK).into(&me)
+	return me
+}
+
+// bridgeIn gives the bridge of a name as /api/me gives it.
+func bridgeIn(t *testing.T, me meOut, name string) bridgeOut {
+	t.Helper()
+	i := slices.IndexFunc(me.Office.Bridges, func(b bridgeOut) bool { return b.Name == name })
+	if i < 0 {
+		t.Fatalf("%s is given no bridge %s: %+v", me.Me.Name, name, me.Office.Bridges)
+	}
+	return me.Office.Bridges[i]
+}
+
+// teamIn gives the team of a name as /api/me gives it.
+func teamIn(t *testing.T, me meOut, name string) teamOut {
+	t.Helper()
+	i := slices.IndexFunc(me.Teams, func(u teamOut) bool { return u.Name == name })
+	if i < 0 {
+		t.Fatalf("%s is given no team %s", me.Me.Name, name)
+	}
+	return me.Teams[i]
+}
+
 func TestServerEveryoneSeesTheOffice(t *testing.T) {
 	t.Parallel()
-	s := newBench(t, workOffice(t)).serve()
+	files := workOffice(t)
+	files["office.yaml"] += "heed: ./.bulldog/rules/mentioned/mentioned.js\n"
+	s := newBench(t, files).serve()
 	r := s.as("dana").get("/api/me").is(http.StatusOK)
-	var me struct {
-		Me     personOut   `json:"me"`
-		Office officeOut   `json:"office"`
-		Teams  []teamOut   `json:"teams"`
-		People []personOut `json:"people"`
-	}
+	var me meOut
 	r.into(&me)
 	if me.Me.Name != "dana" || !slices.Equal(me.Me.Teams, []string{"support"}) || me.Me.Decides || me.Office.Name != "Platform support" || me.Office.Zone != "Europe/London" {
 		t.Errorf("Dana is told she is %+v, in %+v", me.Me, me.Office)
@@ -117,19 +142,64 @@ func TestServerEveryoneSeesTheOffice(t *testing.T) {
 	if len(me.Teams) != 4 {
 		t.Fatalf("Dana sees the teams %+v", me.Teams)
 	}
-	payments := me.Teams[slices.IndexFunc(me.Teams, func(t teamOut) bool { return t.Name == "payments" })]
+	payments := teamIn(t, me, "payments")
 	if payments.About != "Charges, refunds and the ledger. Holds customer data." || !slices.Equal(payments.People, []string{"lee", "priya"}) ||
-		payments.Lead != "ledger" || payments.Within != "office" {
+		payments.Lead != "ledger" || payments.Within != "office" || payments.Reached != nil || payments.Discloses != nil {
 		t.Errorf("Dana sees payments as %+v", payments)
+	}
+	if platform := teamIn(t, me, "platform"); len(platform.People) != 0 || !slices.Equal(platform.Reached, []string{"al"}) {
+		t.Errorf("Dana sees platform, which has no people, as %+v", platform)
+	}
+	if heed := teamIn(t, me, "office").Heed; heed == nil || heed.Rule != "" {
+		t.Errorf("Dana sees the office's heed as %+v", heed)
 	}
 	raj := me.People[slices.IndexFunc(me.People, func(p personOut) bool { return p.Name == "raj" })]
 	if raj.Title != "Backend." || !slices.Equal(raj.Bridges, []string{"slack", "gitlab"}) {
 		t.Errorf("Dana sees Raj as %+v", raj)
 	}
-	for _, hidden := range []string{"U0RAJ000", "1187", "You keep the ledger", "A charge taken twice", "ledger.yaml"} {
+	if want := []deciderOut{{Kind: "person", Name: "al"}}; !reflect.DeepEqual(me.Office.Change, want) {
+		t.Errorf("Dana is told a change is decided by %+v", me.Office.Change)
+	}
+	if me.Office.Runs != (runsOut{Limit: 3}) {
+		t.Errorf("Dana is told the runs are %+v", me.Office.Runs)
+	}
+	// The tests' office runs stand-ins for the bridges, in folders of its
+	// own.
+	slack, gitlab := bridgeIn(t, me, "slack"), bridgeIn(t, me, "gitlab")
+	if slack.Folder != "bridges/slack" || slack.Shipped || !slack.Hears || slack.Listens || !strings.HasSuffix(slack.Address, "/bridges/slack") ||
+		slack.Status != "running" || !reflect.DeepEqual(slack.Places, []placeOut{{Name: "#help", Team: "office", Guests: true}}) {
+		t.Errorf("Dana sees the Slack bridge as %+v", slack)
+	}
+	if gitlab.Folder != "bridges/gitlab" || !gitlab.Listens || gitlab.Hears || gitlab.Address != "" ||
+		!reflect.DeepEqual(gitlab.Places, []placeOut{{Name: "platform/api", Team: "platform"}}) {
+		t.Errorf("Dana sees the GitLab bridge as %+v", gitlab)
+	}
+	for _, hidden := range []string{"U0RAJ000", "1187", "You keep the ledger", "A charge taken twice", "ledger.yaml", "mentioned.js", "gitlab.com"} {
 		if strings.Contains(string(r.body), hidden) {
 			t.Errorf("Dana's /api/me holds %q", hidden)
 		}
+	}
+	// The people of a team, and the people who decide a change, see its
+	// heed's rule and whether it sets a disclosure.
+	al := s.meOf("al")
+	if heed := teamIn(t, al, "office").Heed; heed == nil || heed.Rule != ".bulldog/rules/mentioned/mentioned.js" {
+		t.Errorf("Al sees the office's heed as %+v", heed)
+	}
+	if d := teamIn(t, al, "payments").Discloses; d == nil || !*d {
+		t.Errorf("Al, who decides a change, is told payments discloses %v", d)
+	}
+	lee := s.meOf("lee")
+	if d := teamIn(t, lee, "payments").Discloses; d == nil || !*d {
+		t.Errorf("Lee is told payments discloses %v", d)
+	}
+	if u := teamIn(t, lee, "support"); u.Discloses != nil {
+		t.Errorf("Lee sees support as %+v", u)
+	}
+	// The house's Telegram bridge listens in its direct messages, which
+	// ask the house.
+	house := newBench(t, house(t)).serve().meOf("sam")
+	if telegram := bridgeIn(t, house, "telegram"); !telegram.Listens || !reflect.DeepEqual(telegram.Places, []placeOut{{Name: "direct", Team: "office"}}) {
+		t.Errorf("Sam sees the Telegram bridge as %+v", telegram)
 	}
 }
 
@@ -439,12 +509,11 @@ func TestServerFailingBridgeShownToTopTeam(t *testing.T) {
 		troubles, err := s.areasOf().Bridges.Troubles()
 		return err == nil && len(troubles) == 1
 	})
-	al := s.as("al").get("/api/me").is(http.StatusOK)
-	if !strings.Contains(string(al.body), "Slack's signature does not match") {
-		t.Errorf("Al is not shown the failing bridge: %s", al.body)
+	if slack := bridgeIn(t, s.meOf("al"), "slack"); slack.Status != "failing" || slack.Failing == nil || !strings.Contains(slack.Failing.Error, "Slack's signature does not match") {
+		t.Errorf("Al is shown the failing bridge as %+v", slack)
 	}
-	if failing := s.as("dana").get("/api/me").json()["failing"]; len(failing.([]any)) != 0 {
-		t.Errorf("Dana is shown %v", failing)
+	if slack := bridgeIn(t, s.meOf("dana"), "slack"); slack.Status != "running" || slack.Failing != nil {
+		t.Errorf("Dana is shown the failing bridge as %+v", slack)
 	}
 }
 

@@ -122,7 +122,8 @@ func Serve(ctx context.Context, opt Options) error {
 	say("listening on %s", listener.Addr())
 	s := &site{Areas: areas, db: db, clock: opt.Clock, url: r.url, say: say, screens: &screens{}, asked: make(chan string, Asked)}
 	areas.Bridges.SignedIn = s.signedIn
-	r.changed = s.screens.office
+	r.changed = func() { s.screens.tell(Office) }
+	areas.Work.Counted = func() { s.screens.tell(Runs) }
 	serving, stopServing := context.WithCancel(ctx)
 	defer stopServing()
 	h := &http.Server{Handler: routes(s), BaseContext: func(net.Listener) context.Context { return serving }}

@@ -144,6 +144,9 @@ main { max-width: var(--page); margin: 0 auto; padding: var(--space) 24px 64px; 
 .status.working { color: var(--plan); } .status.working::before { background: var(--plan); }
 .status.waiting { color: var(--wait); } .status.waiting::before { background: var(--wait); }
 .status.failed { color: var(--bad); } .status.failed::before { background: var(--bad); border-radius: 1px; }
+.status.running { color: var(--good); } .status.running::before { background: var(--good); }
+.status.stopped { color: var(--ink3); } .status.stopped::before { background: transparent; border: 1.5px solid var(--ink3); }
+.status.failing { color: var(--bad); } .status.failing::before { background: var(--bad); border-radius: 1px; }
 .status.live::before { animation: pulse 2.4s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) { .status.live::before { animation: none; } }

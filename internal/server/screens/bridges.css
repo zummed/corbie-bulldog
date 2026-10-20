@@ -1,0 +1,23 @@
+/* bridges: each bridge a block, its places nested beneath it. */
+.brs { display: flex; flex-direction: column; gap: var(--space); }
+.brs .head { margin-bottom: 0; }
+
+/* A bridge: a ruled head with its name and status, then what it runs and
+   its places on a guide line beneath */
+.br { border-top: var(--wall) solid var(--ink); }
+.br-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; padding: 10px 0; }
+.br-head h2 { gap: 8px; }
+.br-body { display: flex; flex-direction: column; gap: var(--gap); margin-left: 9px; padding-left: 18px; border-left: 1.5px solid var(--line); }
+.br-bad { color: var(--bad); }
+.br-problems { gap: 4px; }
+
+/* Places: one row each, the way a thing said there goes; what is left out
+   is the faint last row */
+.br-places > .label { margin-bottom: 4px; }
+.br-th { gap: 6px; flex-wrap: nowrap; }
+.br-table td { vertical-align: middle; }
+.br-rest td { font-family: var(--sans); font-size: var(--small); color: var(--ink3); border-bottom: none; }
+
+@media (max-width: 640px) {
+  .br-body { margin-left: 0; padding-left: 12px; }
+}

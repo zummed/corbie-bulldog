@@ -18,10 +18,7 @@
             ["Changes", me.decides_changes ? B.el("a", {href: "#/changes"}, "decides") : null],
           ])),
           B.me.problems.length ? B.sect("Problems", B.el("div", {class: "rows"}, B.me.problems.map((p) =>
-            B.el("div", {class: "row"}, B.teamEl(p.team), B.el("span", {class: "grow"}, p.said))))) : null,
-          B.me.failing && B.me.failing.length ? B.sect("Bridges failing", B.el("div", {class: "rows"}, B.me.failing.map((f) =>
-            B.el("div", {class: "row"}, B.el("span", {class: "who"}, B.icon("bridge"), f.bridge), B.el("span", {class: "status failed"}, f.failures + " in a row"),
-              B.el("span", {class: "grow mono small"}, f.error), B.whenEl(f.since))))) : null),
+            B.el("div", {class: "row"}, B.teamEl(p.team), B.el("span", {class: "grow"}, p.said))))) : null),
         B.el("div", {class: "side"},
           B.sect(B.label("Key", ...B.info("About the key", "Replacing it signs out every browser that holds it.")),
             B.el("button", {class: "btn ghost", onclick: () => B.act(B.post("/api/me/key"))}, "Replace key")))));

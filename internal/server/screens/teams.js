@@ -95,14 +95,15 @@
   }
 
   // people gives a team's people as up to four faces and how many more,
-  // the one looking first.
-  function people(o, names) {
-    const list = names || [];
+  // the one looking first; for a team with none, the people its decisions
+  // reach, drawn apart.
+  function people(o, names, reached) {
+    const list = names && names.length ? names : reached || [];
     if (!list.length) return "";
     const me = B.me.me.name, shown = list.includes(me) ? [me] : [];
     for (const n of list) { if (shown.length >= 4) break; if (n !== me) shown.push(n); }
     const left = list.length - shown.length;
-    return B.el("span", {class: "tm-ppl", title: shown.map(o.called).join(", ") + (left ? ", +" + left : "")},
+    return B.el("span", {class: "tm-ppl" + (list === names ? "" : " tm-reached"), title: shown.map(o.called).join(", ") + (left ? ", +" + left : "")},
       shown.map((n) => { const e = B.personEl(n); e.classList.add("tm-face"); return e; }),
       left ? B.el("span", {class: "mono faint tm-more"}, "+" + left) : "");
   }
@@ -126,7 +127,7 @@
         around.length ? B.el("span", {class: "mono faint small tm-path"}, around.map((u) => u.called).join(" / ") + " /") : "",
         B.teamEl(t.name)),
       B.el("span", {class: "tm-about muted clip small", title: t.about || null}, t.about || ""),
-      B.el("span", {}, people(o, t.people)),
+      B.el("span", {}, people(o, t.people, t.reached)),
       B.el("span", {class: "tm-cut"}, leadEl(o, t)),
       B.el("span", {class: "tm-mine"}, yours(o, t)));
   }
@@ -154,9 +155,33 @@
     return li;
   }
 
+  // officeRows gives what the top team's room says of the whole office: how
+  // many runs are at work out of as many as it lets work, and how many
+  // wait their turn; who decides a change, in order; and each bridge with
+  // its one status.
+  function officeRows(t) {
+    if (t.within) return [];
+    const runs = B.me.office.runs;
+    const change = B.me.office.change || [];
+    const bridges = B.me.office.bridges || [];
+    return [
+      ["Runs", B.el("span", {class: "line"}, B.el("span", {class: "mono"}, runs.working + " / " + runs.limit),
+        runs.queued ? B.el("span", {class: "tag"}, "Queued " + runs.queued) : null)],
+      ["Change", change.length ? B.el("span", {class: "chain"}, change.flatMap((d, i) => [i ? B.el("span", {class: "then"}, "›") : null, B.deciderEl(d, t.name)])) : ""],
+      ["Bridges", bridges.length ? B.el("span", {class: "line"}, bridges.map((b) =>
+        B.el("span", {class: "line tm-bridge"}, B.el("a", {class: "who", href: "#/bridges"}, B.icon("bridge"), b.name), B.bridgeStatus(b)))) : ""],
+    ];
+  }
+
   // room draws a top team as a room holding the tree of its teams.
   function room(o, t) {
-    const own = [["People", people(o, t.people)], ["Lead", leadEl(o, t)]].filter((p) => p[1] !== "");
+    const own = [
+      t.people && t.people.length ? ["People", people(o, t.people)] : null,
+      !(t.people && t.people.length) && t.reached && t.reached.length
+        ? [[B.el("span", {}, "Reached"), ...B.info("About reached", "The people this team's decisions reach. They stand as its people.")], people(o, null, t.reached)] : null,
+      ["Lead", leadEl(o, t)],
+      ...officeRows(t),
+    ].filter((p) => p && p[1] !== "");
     return B.el("section", {class: "room tm-room", "aria-label": t.called},
       B.el("div", {class: "plate"}, B.el("a", {href: B.teamHref(t.name)}, t.called),
         t.about ? B.el("span", {class: "about"}, t.about) : null, yours(o, t) || null),
@@ -227,11 +252,11 @@
   B.route(/^#\/teams$/, async function () {
     const f = focused();
     if (!drawn || drawn.me !== B.me) {
-      const sig = JSON.stringify([B.me.me.name, B.me.me.teams, B.me.teams, B.me.people]);
+      const sig = JSON.stringify([B.me.me.name, B.me.me.teams, B.me.teams, B.me.people, B.me.office]);
       if (!drawn || drawn.sig !== sig) drawn = {sig, el: view()};
       drawn.me = B.me;
     }
     again(drawn.el, f);
     return drawn.el;
-  }, "teams", (what) => what === "office");
+  }, "teams", (what) => what === "office" || what === "runs");
 })();

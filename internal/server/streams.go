@@ -17,6 +17,7 @@ const (
 	Hello   = "hello"
 	Waiting = "waiting"
 	Office  = "office"
+	Runs    = "runs"
 )
 
 // StreamQuiet is how long a stream goes with nothing sent before it is sent a
@@ -85,12 +86,13 @@ func (ss *screens) remove(sc *screen) {
 	delete(ss.all, sc)
 }
 
-// office tells every screen the office was read again.
-func (ss *screens) office() {
+// tell tells every screen what changed that everyone sees: the office
+// read again, or how many runs are at work or wait their turn.
+func (ss *screens) tell(what string) {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 	for sc := range ss.all {
-		sc.put(Office)
+		sc.put(what)
 	}
 }
 
@@ -110,8 +112,9 @@ func streaming(w http.ResponseWriter) http.Flusher {
 
 // events is the stream of changes a person may see: hello when it
 // connects, then each change naming a request they may see, what waits on
-// them, or the office read again, as it is judged when it changes; and a
-// comment when nothing has been sent for StreamQuiet.
+// them, the office read again, or how many runs are at work or wait their
+// turn, as it is judged when it changes; and a comment when nothing has
+// been sent for StreamQuiet.
 func (s *site) events(person string, w http.ResponseWriter, r *http.Request) {
 	sc := newScreen()
 	sc.put(Hello)

@@ -23,6 +23,9 @@
 .tm-face + .tm-face { margin-left: -5px; }
 .tm-face > span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .tm-more { margin-left: 6px; }
+/* The people a team's decisions reach, for a team with none: drawn apart */
+.tm-reached .ic.person { border-style: dashed; border-color: var(--ink3); color: var(--ink2); }
+.tm-bridge { gap: 6px; }
 
 /* People: name, title, teams, bridges */
 .row.tm-person { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 160px); gap: 4px 14px; }

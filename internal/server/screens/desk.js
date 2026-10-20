@@ -237,11 +237,12 @@
   }
 
   function failing() {
-    if (!B.me.failing || !B.me.failing.length) return null;
-    return B.sect("Bridges failing", B.el("div", {class: "rows"}, B.me.failing.map((f) =>
-      B.el("div", {class: "row"}, B.el("span", {class: "who"}, B.icon("bridge"), f.bridge),
-        B.el("span", {class: "status failed"}, "failing"), B.el("span", {class: "mono faint"}, "×" + f.failures),
-        B.el("span", {class: "grow mono small"}, f.error), B.whenEl(f.since)))));
+    const all = (B.me.office.bridges || []).filter((b) => b.failing);
+    if (!all.length) return null;
+    return B.sect("Bridges failing", B.el("div", {class: "rows"}, all.map((b) =>
+      B.el("div", {class: "row"}, B.el("a", {class: "who", href: "#/bridges"}, B.icon("bridge"), b.name),
+        B.bridgeStatus(b), B.el("span", {class: "mono faint"}, "×" + b.failing.failures),
+        B.el("span", {class: "grow mono small"}, b.failing.error), B.whenEl(b.failing.since)))));
   }
 
   B.desk = async function () {

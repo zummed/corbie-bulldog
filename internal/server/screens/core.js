@@ -188,6 +188,10 @@ B.status = function (r) {
   return B.el("span", {class: "status " + r.state + (r.state === "working" ? " live" : "")}, r.state + (r.state === "waiting" ? on : ""));
 };
 
+// bridgeStatus gives a bridge's one status: running, stopped, or, to the
+// top team's people, failing.
+B.bridgeStatus = function (b) { return B.el("span", {class: "status " + b.status}, b.status); };
+
 // size gives a size in bytes as a person reads one.
 B.size = function (n) {
   if (typeof n !== "number") return "";
@@ -298,12 +302,12 @@ B.show = async function () {
   } catch (err) { B.trouble(err); }
 };
 
-// changed is what the stream of changes names: the office read again
-// fetches /api/me again; the view is drawn again, unless it streams itself
-// or something is being written in it, when the one looking is told and
-// shows it when they choose.
+// changed is what the stream of changes names: the office read again, or
+// the runs at work, fetches /api/me again; the view is drawn again, unless
+// it streams itself or something is being written in it, when the one
+// looking is told and shows it when they choose.
 B.changed = async function (what) {
-  if (what === "office" || what === "waiting" || what === "" || what === undefined) {
+  if (what === "office" || what === "runs" || what === "waiting" || what === "" || what === undefined) {
     try { B.me = await B.api("/api/me"); } catch (err) { B.trouble(err); return; }
   }
   if (B.streaming || !caresFor(what)) { header(B.navOf()); return; }

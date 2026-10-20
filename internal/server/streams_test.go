@@ -35,6 +35,10 @@ func TestServerEventsStream(t *testing.T) {
 	}
 	n := numbered(s.as("kit").post("/api/requests", map[string]string{"text": "is the kettle on?"}))
 	kit.until("Kit's request is named", changed(n))
+	// A run at work is told to every stream.
+	for _, st := range []*stream{kit, sam} {
+		st.until("the runs at work", func(e event) bool { return e.name == "change" && e.data == Runs })
+	}
 	s.answered(n)
 	// The office read again is told to every stream.
 	b.write(map[string]string{"notes/rooms.md": "# rooms\n\nThe kitchen has a new socket.\n"})

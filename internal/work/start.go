@@ -30,14 +30,16 @@ type ready struct {
 // touched, written to or whose run ended, those waiting their turn once a
 // run began to wait or ended, and, after the office is read or Bulldog is
 // back, every open one. Those ready start oldest first, while the office
-// has room for them; the rest wait their turn.
+// has room for them; the rest wait their turn. How many are at work, and
+// how many wait, is kept for Load.
 func (w *Work) starts(ctx context.Context, touched map[int64]bool) bool {
 	scan := w.scan && !w.held("scan")
 	if len(touched) == 0 && !w.freed && !scan {
 		return false
 	}
 	w.freed = false
-	room := w.office.Runs - w.working()
+	working := w.working()
+	room := w.office.Runs - working
 	candidates := maps.Clone(touched)
 	if room > 0 {
 		maps.Copy(candidates, w.queued)
@@ -65,8 +67,10 @@ func (w *Work) starts(ctx context.Context, touched map[int64]bool) bool {
 		}
 		if w.start(ctx, r) {
 			room--
+			working++
 		}
 	}
+	w.count(Load{Working: working, Queued: len(w.queued)})
 	return did
 }
 

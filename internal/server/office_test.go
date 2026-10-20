@@ -373,6 +373,9 @@ func TestServerBrokenBridgeStopsOnlyItself(t *testing.T) {
 	if runs := b.listed(b.identity(), map[string]string{"bridge": "telegram"}); len(runs) != 0 {
 		t.Errorf("the broken bridge was run: %v", kinds(runs))
 	}
+	if telegram := bridgeIn(t, s.meOf("kit"), "telegram"); telegram.Status != "stopped" {
+		t.Errorf("Kit is shown the broken bridge as %+v", telegram)
+	}
 }
 
 func TestServerBadEditKeepsServing(t *testing.T) {

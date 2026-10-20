@@ -20,12 +20,44 @@ type (
 		People   []personOut  `json:"people"`
 		Waiting  int          `json:"waiting"`
 		Problems []problemOut `json:"problems"`
-		Failing  []failingOut `json:"failing"`
 	}
 	officeOut struct {
 		Name  string `json:"name"`
 		About string `json:"about,omitempty"`
 		Zone  string `json:"zone"`
+		// Runs are how many runs it lets work at once, how many are at
+		// work and how many requests wait their turn.
+		Runs runsOut `json:"runs"`
+		// Change is who decides a change, in the order the walk asks them.
+		Change  []deciderOut `json:"change"`
+		Bridges []bridgeOut  `json:"bridges"`
+	}
+	runsOut struct {
+		Limit   int `json:"limit"`
+		Working int `json:"working"`
+		Queued  int `json:"queued"`
+	}
+	// bridgeOut is a bridge: the folder it runs, one Bulldog ships or its
+	// own; whether it listens, or hears, at its address; its status,
+	// running or stopped, and failing to the top team's people alone, with
+	// what Corbie said; and the places it listens in.
+	bridgeOut struct {
+		Name    string      `json:"name"`
+		Folder  string      `json:"folder"`
+		Shipped bool        `json:"shipped"`
+		Listens bool        `json:"listens"`
+		Hears   bool        `json:"hears"`
+		Address string      `json:"address,omitempty"`
+		Status  string      `json:"status"`
+		Failing *failingOut `json:"failing,omitempty"`
+		Places  []placeOut  `json:"places"`
+	}
+	// placeOut is a place a bridge listens in, the team asked there, the
+	// office when it names none, and whether guests may ask there.
+	placeOut struct {
+		Name   string `json:"name"`
+		Team   string `json:"team"`
+		Guests bool   `json:"guests"`
 	}
 	teamOut struct {
 		Name   string   `json:"name"`
@@ -34,9 +66,20 @@ type (
 		People []string `json:"people"`
 		Lead   string   `json:"lead"`
 		Within string   `json:"within,omitempty"`
+		// Reached are the people its decisions reach, who stand as its
+		// people, for a team with none of its own.
+		Reached []string `json:"reached,omitempty"`
+		// Heed is there when it names one, with its rule's path only to
+		// its people and the people who decide a change; Discloses, to
+		// them alone, says whether it sets a disclosure.
+		Heed      *heedOut `json:"heed,omitempty"`
+		Discloses *bool    `json:"discloses,omitempty"`
 		// Docs are given only to those who may open them, in the one
 		// team's answer.
 		Docs []docOut `json:"docs,omitempty"`
+	}
+	heedOut struct {
+		Rule string `json:"rule,omitempty"`
 	}
 	// docOut is one of a team's docs: its name, the path of its file in
 	// the team's docs folder without .md, and its size in bytes.
@@ -66,7 +109,6 @@ type (
 		Said   string `json:"said"`
 	}
 	failingOut struct {
-		Bridge   string    `json:"bridge"`
 		Error    string    `json:"error"`
 		Since    time.Time `json:"since"`
 		Failures int       `json:"failures"`
@@ -84,8 +126,9 @@ func (s *site) office() (*office.Office, error) {
 }
 
 // me gives who is looking, the office as everyone sees it, how much
-// waits on them, the problems they may see and, to the top team's
-// people, the bridges that are failing.
+// waits on them and the problems they may see; to a team's people and the
+// people who decide a change, its heed's rule and whether it sets a
+// disclosure; and, to the top team's people, the bridges that are failing.
 func (s *site) me(person string, w http.ResponseWriter, r *http.Request) (any, error) {
 	o, err := s.office()
 	if err != nil {
@@ -102,10 +145,17 @@ func (s *site) me(person string, w http.ResponseWriter, r *http.Request) (any, e
 	me := personOf(o, person)
 	me.Teams = o.TeamsOf(person)
 	me.Decides = slices.Contains(changes.Deciders(o), person)
-	out := meOut{Me: me, Office: officeOut{Name: o.Name(), About: o.TopTeam().About, Zone: o.Zone.String()},
-		Teams: []teamOut{}, People: []personOut{}, Waiting: len(waits), Problems: problems, Failing: []failingOut{}}
+	load := s.Work.Load()
+	out := meOut{Me: me, Teams: []teamOut{}, People: []personOut{}, Waiting: len(waits), Problems: problems,
+		Office: officeOut{Name: o.Name(), About: o.TopTeam().About, Zone: o.Zone.String(),
+			Runs:   runsOut{Limit: o.Runs, Working: load.Working, Queued: load.Queued},
+			Change: walked(o, office.Top, "change")}}
 	for _, name := range o.Order {
-		out.Teams = append(out.Teams, teamOf(o.Teams[name]))
+		people, err := s.Requests.People(name)
+		if err != nil {
+			return nil, err
+		}
+		out.Teams = append(out.Teams, teamOf(o.Teams[name], people, me.Decides || slices.Contains(people, person)))
 	}
 	for _, name := range o.Everyone {
 		out.People = append(out.People, personOf(o, name))
@@ -114,20 +164,63 @@ func (s *site) me(person string, w http.ResponseWriter, r *http.Request) (any, e
 	if err != nil {
 		return nil, err
 	}
+	failing := map[string]*failingOut{}
 	if slices.Contains(top, person) {
 		troubles, err := s.Bridges.Troubles()
 		if err != nil {
 			return nil, err
 		}
 		for _, t := range troubles {
-			out.Failing = append(out.Failing, failingOut{Bridge: t.Bridge, Error: t.Error, Since: t.Since.In(o.Zone), Failures: t.Failures})
+			failing[t.Bridge] = &failingOut{Error: t.Error, Since: t.Since.In(o.Zone), Failures: t.Failures}
 		}
+	}
+	out.Office.Bridges = []bridgeOut{}
+	for _, name := range o.BridgeOrder {
+		out.Office.Bridges = append(out.Office.Bridges, s.bridgeOf(o.Bridges[name], failing[name]))
 	}
 	return out, nil
 }
 
-func teamOf(t *office.Team) teamOut {
-	return teamOut{Name: t.Name, Called: t.Called, About: t.About, People: orEmpty(t.People), Lead: t.Lead, Within: t.Within}
+// bridgeOf gives a bridge as everyone sees it: stopped while it has a
+// problem, failing when the one looking is told it is, and otherwise
+// running.
+func (s *site) bridgeOf(b *office.Bridge, failing *failingOut) bridgeOut {
+	out := bridgeOut{Name: b.Name, Folder: b.Dir(), Shipped: b.From != "", Listens: b.Listens, Hears: b.Hears, Status: "running", Places: []placeOut{}}
+	if b.Hears {
+		out.Address = s.url + "/bridges/" + b.Name
+	}
+	switch {
+	case !b.Runs():
+		out.Status = "stopped"
+	case failing != nil:
+		out.Status, out.Failing = "failing", failing
+	}
+	for _, p := range b.Places {
+		out.Places = append(out.Places, placeOut{Name: p.Name, Team: p.Team, Guests: p.Guests})
+	}
+	return out
+}
+
+// teamOf gives a team as everyone sees it, with the people that stand as
+// its people, as the requests area gives them; and, to whole, one of its
+// people or of the people who decide a change, its heed's rule and
+// whether it sets a disclosure.
+func teamOf(t *office.Team, people []string, whole bool) teamOut {
+	out := teamOut{Name: t.Name, Called: t.Called, About: t.About, People: orEmpty(t.People), Lead: t.Lead, Within: t.Within}
+	if len(t.People) == 0 {
+		out.Reached = people
+	}
+	if t.Heed != nil {
+		out.Heed = &heedOut{}
+	}
+	if whole {
+		if t.Heed != nil {
+			out.Heed.Rule = t.Heed.Rule
+		}
+		discloses := t.HasDisclosure
+		out.Discloses = &discloses
+	}
+	return out
 }
 
 // personOf gives a person as everyone sees them: the bridges that reach
@@ -287,12 +380,13 @@ func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any,
 	if err != nil {
 		return nil, err
 	}
-	seen := teamOf(t)
+	in := slices.Contains(people, person)
+	whole := in || slices.Contains(changes.Deciders(o), person)
+	seen := teamOf(t, people, whole)
 	if seen.Docs, err = s.docs(o, person, t.Name); err != nil {
 		return nil, err
 	}
-	in := slices.Contains(people, person)
-	if !in && !slices.Contains(changes.Deciders(o), person) {
+	if !whole {
 		return seen, nil
 	}
 	out := teamWhole{teamOut: seen, File: t.File, Decide: []listOut{}, Routines: []routineOut{}, Models: []modelOut{}, Workers: []workerOut{}, Notes: []noteOut{}}

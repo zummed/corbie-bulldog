@@ -125,7 +125,7 @@ What each person may see is read from the files each time it is shown: being nam
 
 | Everyone signed in | |
 |---|---|
-| sees | the office's name; each team with what it is called, its `about`, its people and its lead; each person with their name, their title and the bridges that reach them |
+| sees | the office's name; how many runs it lets work at once, how many are at work and how many requests wait their turn; who decides a change, in the order the walk asks them; each bridge with the folder it runs, whether it listens or hears, and where, whether it is running or stopped, and each place it listens in, with the team asked there and whether guests may ask there; each team with what it is called, its `about`, its people, or, for a team with none, the people its decisions reach, its lead and whether it names a heed; each person with their name, their title and the bridges that reach them |
 | sees | the requests they may see, by team and by state; those they asked; what waits on them, and how much |
 | asks | in the chat, of the office or of any team |
 | says more | on the screens, in a request they asked, one whose team they are in, one whose origin they can read, or a sub-request asked by a team they are in |
@@ -136,7 +136,7 @@ What each person may see is read from the files each time it is shown: being nam
 
 | The people of a team | |
 |---|---|
-| see | its team file as read; each of its workers with its type, its model as it is sent, a model named by one word shown filled in from the nearest team that gives it, and its tools, a flow's stages or a statechart's jobs, each with what it does and what its job is: a worker of the team, by name, another machine or a script, by its file, or one of the tools Bulldog ships; a `list:` entry as the tools its server lists, named after it; which of them wait for a yes and who decides, in the order the walk asks them out to the people it ends at, a rule by its path in the office and a worker with the team it is of; the teams it may ask, as the work page says; its routines; its notes; its problems; which of its workers are at work, and on what; what was read in it, and its runs as they happen |
+| see | its team file as read, its heed's rule and whether it sets a disclosure among it; each of its workers with its type, its model as it is sent, a model named by one word shown filled in from the nearest team that gives it, and its tools, a flow's stages or a statechart's jobs, each with what it does and what its job is: a worker of the team, by name, another machine or a script, by its file, or one of the tools Bulldog ships; a `list:` entry as the tools its server lists, named after it; which of them wait for a yes and who decides, in the order the walk asks them out to the people it ends at, a rule by its path in the office and a worker with the team it is of; the teams it may ask, as the work page says; its routines; its notes; its problems; which of its workers are at work, and on what; what was read in it, and its runs as they happen |
 | run | one of its routines now |
 
 A run is the team's its labels name. A worker of one team asked to decide for another runs as the team it decides for, labelled with it, as the decisions area says, and is watched by that team's people, not its own team's. A run of a team that has gone, or has been renamed, is watched by nobody, and so is a bridge's run, whose record holds what was said in every place it listens in.
@@ -152,7 +152,7 @@ A team's docs, each by its name with its size, and each opened whole, are seen b
 
 Who may say more is one rule, the same on the screens as through a bridge, and the requests area's. A sub-request is asked at no place, so nobody says more in it from an origin. A guest says more only at the origin, through the bridge, and never signs in. Seeing a sub-request from the request it was asked from gives no voice in it.
 
-The top team's people also see a bridge that is failing. A worker at work on something a person may not see is not shown at work to them.
+The top team's people also see a bridge that is failing, with what Corbie said; to anyone else it is running. A worker at work on something a person may not see is not shown at work to them.
 
 ## The API
 
@@ -160,14 +160,14 @@ JSON in and out, with the key in its cookie. `/api/me` gives the office's `zone`
 
 | Request | Gives or does |
 |---|---|
-| `GET /api/me` | who is looking, the office as everyone sees it, what waits on them and how much, the problems they may see, and, to the top team's people, the bridges that are failing |
+| `GET /api/me` | who is looking, the office as everyone sees it, its runs, who decides a change and its bridges with their places, with a team's heed's rule and whether it sets a disclosure to those who see how it is written, what waits on them and how much, the problems they may see, and, to the top team's people, which bridges are failing |
 | `GET /api/requests` | the requests the one looking may see, newest first; by `team`, by `state`, those they `asked`, or those `waiting` on them; each with its state, or, for one from an issue, its source's status as last reported, with when, and whether its work is going or waits on someone; in part, 100 at a time unless a `limit` asks for more or fewer, and no more than 500, with `before` a request's number for those numbered below it, and the `before` to give for the next part when more are left |
 | `GET /api/requests/{n}` | one request: what was done, and what was read of each team the one looking is in; its thread in part, with `before` to reach further back, each entry by and put to whoever the office names now, a person's words on a bridge shown as theirs; the decisions they were asked, each named as it is built when shown, a worker who referred or decided one with the team it is of |
 | `GET /api/teams/{team}` | one team: everyone sees it as in `/api/me`, and its people see the rest of it, each worker's tools, a flow's stages or a statechart's jobs, with what each does, what its job is and, for one that waits for a yes, its deciders in the order the walk asks them, each a person, a rule or a worker, and a worker with the team it is of, and each worker's teams it may ask; and its docs, by name and size, to those who may open them |
 | `GET /api/teams/{team}/docs/{doc}` | one doc of the team, whole, by its name, a path in its `docs/` folder without `.md`, to those who may open it |
 | `GET /api/office/files`, `GET /api/office/file?path=` | the office's files, to the people who decide a change |
 | `GET /api/history`, `GET /api/history/{id}` | every change to the office's files, newest first, and one change with each file before and after, to the people who decide a change |
-| `GET /api/events` | a stream: `hello` when a screen connects, then `change` naming what changed |
+| `GET /api/events` | a stream: `hello` when a screen connects, then `change` naming what changed, how many runs are at work among it |
 | `GET /api/runs/{run}/watch` | a stream of what one run does, as it does it |
 | `GET /files/{id}` | a file on an entry |
 | `POST /api/requests` | asks in the chat |
@@ -200,8 +200,8 @@ The screens are in the program and load nothing from any other site. Besides the
 
 - **Office** is read from the folder the server readies, gives each worker's model with a one-word name filled in, which the server shows, and reports its problems, which the server shows in the log and to those who may see them.
 - **Requests** keeps its part of the store the server opens, says who sees each request and each layer of it, who may say more in it, and what waits on whom, and says who stands as the people of a team with no people; the server shows what it says.
-- **Work** looks in Corbie for another server of the office before the server opens anything of it, is started by the server once it listens, labels every run with the office's identity the server holds, starts and renews the server's own run for it and otherwise leaves that run alone, stops a request when a person who may stop it asks, and says which teams each worker may ask.
+- **Work** looks in Corbie for another server of the office before the server opens anything of it, is started by the server once it listens, labels every run with the office's identity the server holds, starts and renews the server's own run for it and otherwise leaves that run alone, stops a request when a person who may stop it asks, says which teams each worker may ask, and gives how many runs are at work and how many requests wait their turn, saying when either changes.
 - **Decisions** is given a person's answer from the screens, as that person, and says that a worker asked to decide for a team runs as that team's; it builds each decision's line when it is shown, and gives the walk for a team and a key, by which the screens show and `check` lists who decides a tool.
-- **Bridges** carry a one-time sign-in link to a person's direct place, one out run at a time, telling the server how it ended, and are called at an address the server serves without a key.
+- **Bridges** carry a one-time sign-in link to a person's direct place, one out run at a time, telling the server how it ended, give each bridge whose runs are failing, and are called at an address the server serves without a key.
 - **Changes** is given a person's draft to check and put, and names the people who decide a change, to whom the server shows the office's files and the history; the server makes the repository of a folder that has none, and the office's first commit is the one commit Bulldog makes that is neither a decided change nor a team's note.
 - **Corbie** is reached as a client, named as `corbie` itself is told.

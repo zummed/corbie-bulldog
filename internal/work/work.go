@@ -139,6 +139,11 @@ type Work struct {
 	// reading of the office, which Read then gives. It is told on the
 	// driving goroutine, so it only marks or wakes.
 	Took func()
+	// Counted, when it is set, is told each time how many runs are at
+	// work, or how many requests wait their turn, changes, which Load then
+	// gives. It is told on the driving goroutine, so it only marks or
+	// wakes.
+	Counted func()
 
 	db       *sql.DB
 	corbie   Corbie
@@ -188,6 +193,9 @@ type Work struct {
 	running atomic.Bool
 	// taken is the latest reading every area has taken.
 	taken atomic.Pointer[office.Office]
+	// load is how many runs were at work, and how many requests waited
+	// their turn, when the runs were last started.
+	load atomic.Pointer[Load]
 
 	// mu guards what other goroutines hand the driving one.
 	mu      sync.Mutex
@@ -267,6 +275,29 @@ func (w *Work) touch(n int64) {
 // any. What another part does by the bridges as the office is read, such
 // as sending a person a link where their entry says, is done by it.
 func (w *Work) Read() *office.Office { return w.taken.Load() }
+
+// A Load is how many runs are at work in the office, out of as many as it
+// lets work at once, and how many requests wait their turn.
+type Load struct {
+	Working int
+	Queued  int
+}
+
+// Load gives how many runs were at work, and how many requests waited
+// their turn, when the runs were last started: none before then.
+func (w *Work) Load() Load {
+	if l := w.load.Load(); l != nil {
+		return *l
+	}
+	return Load{}
+}
+
+// count keeps the load, and tells Counted when it changed.
+func (w *Work) count(l Load) {
+	if old := w.load.Swap(&l); (old == nil || *old != l) && w.Counted != nil {
+		w.Counted()
+	}
+}
 
 // Poke has the office's folder looked at again, and whatever waits on it
 // done.
