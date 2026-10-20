@@ -168,7 +168,7 @@ The detailed rules behind the [Work overview](../work.md). Requirements are `R-w
 
 **C-work-54** `write_notes` writes only a note of the calling worker's own team: one file directly in that team's `notes/`, named by a plain name with no path in it. Any other name is refused, saying why, and nothing is written. As shipped it waits for no yes, so it must reach nothing but what the worker's own team knows. *Test:* `work_a_note_reaches_only_its_own_team`
 
-**R-work-48** A worker has the notes kit, `write_notes` and its team's notes given at each run's start, only when its own definition names its file, `tools/notes/notes.yaml` in `.bulldog/`, in its `tools_file:`, apart from the talk tools; naming the talk tools gives neither (R-work-24).
+**R-work-48** A worker has the notes kit, `write_notes` and its team's notes given at each run's start, only when its own definition names its file, `tools/notes/notes.yaml` in `.bulldog/`, in its `tools_file:`, apart from the talk tools; naming the talk tools gives neither (R-work-24). A decider of a disclosure is shown its team's notes as part of the decision (R-decisions-23), whatever kits it names.
 *Accept:* the steward names the talk tools and the notes kit, and its model is offered `write_notes` with the talk tools, and its `context` holds the house's notes. The fixer names only the talk tools, and its model is offered `ask_team`, `ask_person` and `tell`, and no notes tool. The ledger names the notes kit, so a request worked in payments holds payments' notes in the ledger's `context`.
 
 **R-work-26** The worker that called a tool is the nearest run above the call that is a worker of the team, and the entry is in its name.

@@ -358,7 +358,6 @@ func (w *Work) outcomes(ctx context.Context) bool {
 	return did
 }
 
-
 // stopWorkers stops the runs on requests of workers a change took out of
 // the office.
 func (w *Work) stopWorkers(workers []string) error {
