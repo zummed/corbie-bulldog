@@ -307,10 +307,10 @@ const (
 	ToolBulldog = "bulldog"
 )
 
-// Writes are the tools of the kits Bulldog ships that write into a team's
+// Writes are the tools Bulldog ships that write into a team's
 // folder. A team decides the writes into its folder whoever makes them,
 // so a list named for one is read in any team.
-var Writes = []string{"office_put", "write_doc", "write_notes"}
+var Writes = []string{"put_draft", "write_doc", "write_note"}
 
 // Whose gives the team whose decision a write of files is: the innermost
 // team whose folder holds every one of them, but the team around a team
@@ -359,7 +359,7 @@ func (o *Office) around(a, b string) string {
 }
 
 // Reaches says whether a team's worker reaches a path of the office with
-// the kits Bulldog ships: one in its own team's folder or in that of a
+// the tools Bulldog ships: one in its own team's folder or in that of a
 // team within it, every path for the top team's.
 func (o *Office) Reaches(team, p string) bool {
 	t := o.Teams[team]

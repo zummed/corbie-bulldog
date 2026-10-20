@@ -26,8 +26,8 @@ type Put struct {
 	// person's own change, put by By from the screens.
 	By     string `json:"by"`
 	Person bool   `json:"person,omitzero"`
-	// Tool is the tool that put it, office_put or write_doc; a person's
-	// own change is put as office_put. Team is the team whose decision it
+	// Tool is the tool that put it, put_draft or write_doc; a person's
+	// own change is put as put_draft. Team is the team whose decision it
 	// is, read from its files.
 	Tool  string `json:"tool"`
 	Team  string `json:"team"`
@@ -116,7 +116,7 @@ func noted(note string) string {
 func isPerson(d office.Decider) bool { return d.Kind == office.IsPerson }
 
 // Deciders gives the people who decide a change: those the top team's
-// office_put list names; where it names no person, those its everything
+// put_draft list names; where it names no person, those its everything
 // names; where neither names a person, the top team's people. They alone
 // put a change from the screens and read the history.
 func Deciders(o *office.Office) []string {
@@ -142,7 +142,7 @@ func Deciders(o *office.Office) []string {
 // Corbie holds its job, to be decided.
 func Holds(tool string) bool { return tool == ToolPut || tool == ToolWriteDoc }
 
-// A Hold is a held office_put or write_doc, as Decisions hands it here:
+// A Hold is a held put_draft or write_doc, as Decisions hands it here:
 // the request, the worker whose job it is, the tool and what the model
 // gave it.
 type Hold struct {
@@ -170,7 +170,7 @@ func (c *Changes) Held(ctx context.Context, h Hold) (Put, string, *Outcome, erro
 	return p, "", withdrawn, nil
 }
 
-// toWrite reads what a call of office_put or write_doc would write: why,
+// toWrite reads what a call of put_draft or write_doc would write: why,
 // and the request's draft or the one doc. What cannot be written is said,
 // with nothing to write.
 func (c *Changes) toWrite(ctx context.Context, call Call) (string, []File, string, error) {
@@ -239,7 +239,7 @@ func docName(name string) string {
 // exactly what they were shown: the mark of their check must be that of
 // the change as it is now, or nothing is put and they are told to look
 // again; a change put with no mark was shown to nobody, and is not put.
-// It is decided as an office_put of theirs would be, and one asked of
+// It is decided as an put_draft of theirs would be, and one asked of
 // nobody before them is written as it is put, with their yes. It gives
 // the change put, or why it was not; an error beside a change put is what
 // went wrong in deciding or writing it.
@@ -249,7 +249,7 @@ func (c *Changes) PutOwn(ctx context.Context, person, why string, files []File, 
 		return Put{}, err
 	}
 	if !slices.Contains(Deciders(o), person) {
-		return Put{}, refuse("%s does not decide changes to the office, so cannot put one: ask for it in a request, and a builder drafts it", person)
+		return Put{}, refuse("%s does not decide changes to the office, so cannot put one: ask for it in a request, and a worker drafts it", person)
 	}
 	if c.Decide == nil {
 		return Put{}, errNoDecide
@@ -448,7 +448,7 @@ func (c *Changes) end(ctx context.Context, p Put, d Decision) (Outcome, error) {
 	return o, err
 }
 
-// written does a call of office_put or write_doc once its job runs: it
+// written does a call of put_draft or write_doc once its job runs: it
 // writes the change its yes was kept for, the one held from the same
 // request with the same why, and writes nothing for one held with no yes
 // kept; or, where none was held, its job waiting for no yes, it puts what

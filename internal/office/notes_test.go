@@ -48,10 +48,10 @@ func TestNotesAreTheTeamsAndFilesOfTheOffice(t *testing.T) {
 		t.Error("a note is not among the office's files")
 	}
 	// The notes tool is had only by naming it.
-	if slices.Contains(o.Workers["bins"].Tools, "write_notes") || slices.Contains(o.Workers["fixer"].Tools, "write_notes") {
+	if slices.Contains(o.Workers["bins"].Tools, "write_note") || slices.Contains(o.Workers["fixer"].Tools, "write_note") {
 		t.Error("a worker that names no notes.yaml has the notes tool")
 	}
-	if !slices.Contains(o.Workers["steward"].Tools, "write_notes") || !slices.Contains(o.Workers["gardener"].Tools, "write_notes") {
+	if !slices.Contains(o.Workers["steward"].Tools, "write_note") || !slices.Contains(o.Workers["gardener"].Tools, "write_note") {
 		t.Error("a worker that names notes.yaml has no notes tool")
 	}
 }

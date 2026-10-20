@@ -135,8 +135,10 @@ B.ruleShortEl = function (path) {
     B.el("span", {class: "mono"}, path.split("/").pop().replace(/\.[^.]+$/, "")));
 };
 
-// The kits Bulldog's tools come in, by what they let a worker do.
-B.KITS = {talk: "Talks to people and teams", docs: "Reads and writes docs", notes: "Keeps notes", build: "Drafts changes to the office"};
+// The tools files Bulldog ships, by their paths in tools/ without .yaml,
+// each by what it lets a worker do.
+B.KITS = {"talk/talk": "Talks to people and teams", "notes/notes": "Keeps notes", "docs/read": "Reads docs", "docs/write": "Writes docs",
+  "office/read": "Reads the office's files", "office/write": "Drafts changes to the office"};
 // deciderEl gives one decider: a person, a worker with the team it is of,
 // a rule by its path, or Bulldog. A worker of another team than here is
 // given with its team.
@@ -189,7 +191,7 @@ B.band = function (label, rows, ...more) {
 
 // notesInfo gives the (i) of a team's notes.
 B.notesInfo = function () {
-  return B.info("About notes", "Given whole to each run of a worker of this team that names the notes kit, up to 50,000 characters, in name order.");
+  return B.info("About notes", "Given whole to each run of a worker of this team that names the notes tools, up to 50,000 characters, in name order.");
 };
 
 // givenEl gives how much of a note a run is given, when not all of it.

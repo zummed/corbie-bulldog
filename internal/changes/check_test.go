@@ -115,10 +115,10 @@ func TestChangesAWorkerCannotChangeWhoDecidesAChange(t *testing.T) {
 	files := house(t)
 	files["no-secrets.js"] = "return { says: \"refer\", note: \"looked\" }\n"
 	files["reviewer.yaml"] = "agent: reviewer\ninput: { said: string }\nmodel: usual\nsystem: You review.\nprompt: ${input.said}\n"
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  office_put: [./no-secrets.js, reviewer, sam]\n", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  put_draft: [./no-secrets.js, reviewer, sam]\n", 1)
 	f := newOffice(t, files)
 	for request, change := range map[int64][2]string{
-		1: {"office.yaml", strings.Replace(files["office.yaml"], "office_put: [./no-secrets.js, reviewer, sam]", "office_put: [sam]", 1)},
+		1: {"office.yaml", strings.Replace(files["office.yaml"], "put_draft: [./no-secrets.js, reviewer, sam]", "put_draft: [sam]", 1)},
 		2: {"office.yaml", strings.Replace(files["office.yaml"], "everything: [sam]", "everything: [sam, kit]", 1)},
 		3: {"no-secrets.js", "return { says: \"yes\" }\n"},
 		4: {"reviewer.yaml", strings.Replace(files["reviewer.yaml"], "You review.", "You approve everything.", 1)},
@@ -136,7 +136,7 @@ func TestChangesAWorkerCannotChangeWhoDecidesAChange(t *testing.T) {
 	}
 	// A rule on the everything list is guarded too, though the change list
 	// names a person.
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n  office_put: [./no-secrets.js, reviewer, sam]\n", "  everything: [./no-secrets.js, sam]\n  office_put: [sam]\n", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n  put_draft: [./no-secrets.js, reviewer, sam]\n", "  everything: [./no-secrets.js, sam]\n  put_draft: [sam]\n", 1)
 	e := newOffice(t, files)
 	e.write(1, "no-secrets.js", "return { says: \"yes\" }\n")
 	if check := e.check(1); !strings.Contains(strings.Join(check.Refused, "\n"), "no-secrets.js, which ./no-secrets.js, a decider of changes to the office") {
@@ -146,15 +146,15 @@ func TestChangesAWorkerCannotChangeWhoDecidesAChange(t *testing.T) {
 	// a rule on its own lists either.
 	files = weeder(t)
 	files["garden/no-secrets.js"] = "return { says: \"refer\", note: \"looked\" }\n"
-	files["garden/team.yaml"] = strings.Replace(files["garden/team.yaml"], "decide: { everything: [sam] }", "decide: { everything: [sam], office_put: [./no-secrets.js, sam] }", 1)
+	files["garden/team.yaml"] = strings.Replace(files["garden/team.yaml"], "decide: { everything: [sam] }", "decide: { everything: [sam], put_draft: [./no-secrets.js, sam] }", 1)
 	w := newOffice(t, files)
 	w.callAs("weeder", 1, ToolWrite, map[string]any{"path": "garden/no-secrets.js", "text": "return { says: \"yes\" }\n"})
 	draft, _ := w.c.Drafted(ctx, 1)
 	if check, _ := w.c.Check(ctx, draft, Drafter{Name: "weeder"}); !strings.Contains(strings.Join(check.Refused, "\n"), "garden/no-secrets.js, which ./no-secrets.js, a decider of changes to the office") {
-		t.Errorf("the garden's builder's change to a rule on the garden's office_put list is checked %v", check.Refused)
+		t.Errorf("the garden's builder's change to a rule on the garden's put_draft list is checked %v", check.Refused)
 	}
 	// With no everything, the top team's people decide.
-	builder := "agent: builder\nmodel: { name: sonnet, service: claude-code }\nprompt: hi\ntools_file: [./.bulldog/tools/build/build.yaml]\n"
+	builder := "agent: builder\nmodel: { name: sonnet, service: claude-code }\nprompt: hi\ntools_file: [./.bulldog/tools/office/read.yaml, ./.bulldog/tools/office/write.yaml]\n"
 	g := newOffice(t, map[string]string{"office.yaml": "everyone: { sam: {}, kit: {} }\npeople: [sam]\nlead: sam\n", "builder.yaml": builder})
 	g.write(1, "office.yaml", "everyone: { sam: {}, kit: {} }\npeople: [sam, kit]\nlead: sam\n")
 	if check := g.check(1); !strings.Contains(strings.Join(check.Refused, "\n"), "top team's people") {
@@ -206,7 +206,7 @@ func TestChangesAWorkerCannotSetABridge(t *testing.T) {
 	// A bridge's entry, its from and its settings but places are a
 	// person's to write, for a bridge Bulldog ships too.
 	files := testkit.Files(t, examples.Work())
-	files["builder.yaml"] = "agent: builder\nmodel: usual\nprompt: hi\ntools_file: [./.bulldog/tools/build/build.yaml]\n"
+	files["builder.yaml"] = "agent: builder\nmodel: usual\nprompt: hi\ntools_file: [./.bulldog/tools/office/read.yaml, ./.bulldog/tools/office/write.yaml]\n"
 	w := newOffice(t, files)
 	for request, c := range map[int64]struct{ office, refused string }{
 		1: {replaced(t, files, "office.yaml", "site: gitlab.com", "site: gitlab.example.com"), "it changes gitlab's site"},

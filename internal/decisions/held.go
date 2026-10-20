@@ -87,8 +87,8 @@ type write struct {
 	refused string
 }
 
-// writes has Changes fix each held job that is a write of the kits
-// Bulldog ships, office_put or write_doc of a worker that holds it from
+// writes has Changes fix each held job that is a write of the tools
+// Bulldog ships, put_draft or write_doc of a worker that holds it from
 // them, by its job's name.
 func (d *Decisions) writes(o *office.Office, a Ask, whose requests.Who, fx *effects) (map[string]write, error) {
 	out := map[string]write{}

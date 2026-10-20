@@ -15,7 +15,7 @@ import (
 )
 
 // draft has the builder write files into a request's draft and call
-// office_put, which the build kit has Corbie hold, and gives the held
+// put_draft, which the office tools have Corbie hold, and gives the held
 // put's decision.
 func (b *bench) draft(n int64, why string, files map[string]string) *decisions.Decision {
 	b.t.Helper()
@@ -169,7 +169,7 @@ func TestRefusedChangeNotWritten(t *testing.T) {
 func TestAHeldPutIsWalkedOverItsList(t *testing.T) {
 	t.Parallel()
 	files := house(t)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  office_put: [./no-secrets.js, sam]\n", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  put_draft: [./no-secrets.js, sam]\n", 1)
 	files["no-secrets.js"] = `return { says: "yes" }`
 	b := newBench(t, files)
 	n := b.chat("kit", office.Top, "let me into the garden")
@@ -185,7 +185,7 @@ func TestAHeldPutIsWalkedOverItsList(t *testing.T) {
 		t.Fatalf("the change ended %+v", o)
 	}
 	other := b.chat("kit", office.Top, "and the shed")
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "office_put: [./no-secrets.js, sam]", "office_put: [./no-secrets.js: advise, sam]", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "put_draft: [./no-secrets.js, sam]", "put_draft: [./no-secrets.js: advise, sam]", 1)
 	b.rewrite(files)
 	dec = b.draft(other, "Name Kit in the shed", map[string]string{"notes/shed.md": "# The shed\n\nKit has a key.\n"})
 	b.runner.next(t).says(decisions.SaysYes, "looks fine")
@@ -208,7 +208,7 @@ func TestPersonsOwnChangeDecidedByTheirYes(t *testing.T) {
 		t.Fatalf("Sam's own change in the house ended %+v", o)
 	}
 	files := house(t)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  office_put: [./no-secrets.js, sam]\n", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  put_draft: [./no-secrets.js, sam]\n", 1)
 	files["no-secrets.js"] = `return { says: "refer" }`
 	b := newBench(t, files)
 	p = b.putOwn("sam", "Kit helps in the garden")

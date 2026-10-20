@@ -89,7 +89,7 @@ func TestServerHeldHereAreTheColleaguesThatUseTheAsk(t *testing.T) {
 		held[w.Name] = w.HeldHere
 	}
 	// The steward calls the fixer, whose cut and order wait for a yes, and
-	// the builder, whose office_put does, and they go to the steward's ask,
+	// the builder, whose put_draft does, and they go to the steward's ask,
 	// since neither names one.
 	if !slices.Equal(held["steward"], []string{"builder", "fixer"}) || len(held["fixer"]) != 0 {
 		t.Errorf("Sam sees the held jobs of colleagues as %v", held)
@@ -259,13 +259,13 @@ func TestServerTeamWritesDecidedAsItsLists(t *testing.T) {
 	// The bot holds write_doc, and the office writes no list of either, so
 	// its everything decides both.
 	al := []deciderOut{{Kind: "person", Name: "al"}}
-	want := []listOut{{Key: "office_put", Deciders: al}, {Key: "write_doc", Deciders: al}}
+	want := []listOut{{Key: "put_draft", Deciders: al}, {Key: "write_doc", Deciders: al}}
 	if !slices.Equal(office.DocWriters, []string{"bot"}) || !reflect.DeepEqual(office.Writes, want) {
 		t.Errorf("Al sees the office's docs written by %v, and its writes decided as %+v", office.DocWriters, office.Writes)
 	}
 	var payments teamWhole
 	s.as("lee").get("/api/teams/payments").is(http.StatusOK).into(&payments)
-	if len(payments.DocWriters) != 0 || len(payments.Writes) != 1 || payments.Writes[0].Key != "office_put" {
+	if len(payments.DocWriters) != 0 || len(payments.Writes) != 1 || payments.Writes[0].Key != "put_draft" {
 		t.Errorf("Lee sees payments' docs written by %v, and its writes decided as %+v", payments.DocWriters, payments.Writes)
 	}
 }

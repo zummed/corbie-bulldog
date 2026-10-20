@@ -113,7 +113,7 @@ func (f *officeAt) open() *Changes {
 	return c
 }
 
-// call calls a builder's tool as the builder, on a request, and gives
+// call calls an office tool as the builder, on a request, and gives
 // its answer.
 func (f *officeAt) call(request int64, tool string, args map[string]any) Answer {
 	f.t.Helper()
@@ -139,7 +139,7 @@ func (f *officeAt) write(request int64, file, text string) {
 	}
 }
 
-// put has the builder's office_put held, as the build kit ships it: the
+// put has the builder's put_draft held, as Bulldog ships it: the
 // request's draft is fixed as Decisions has it fixed when Corbie holds
 // the job, and the change put is given.
 func (f *officeAt) put(request int64, why string) Put {

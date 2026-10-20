@@ -25,21 +25,24 @@ const Dir = ".bulldog"
 
 // The files Bulldog ships, by their paths in Dir.
 const (
-	Ask   = "ask.yaml"
-	Call  = "call.yaml"
-	Live  = "live.yaml"
-	Clock = "clock.yaml"
-	Talk  = "tools/talk/talk.yaml"
-	Notes = "tools/notes/notes.yaml"
-	Docs  = "tools/docs/docs.yaml"
-	Build = "tools/build/build.yaml"
+	Ask         = "ask.yaml"
+	Call        = "call.yaml"
+	Live        = "live.yaml"
+	Clock       = "clock.yaml"
+	Talk        = "tools/talk/talk.yaml"
+	Notes       = "tools/notes/notes.yaml"
+	DocsRead    = "tools/docs/read.yaml"
+	DocsWrite   = "tools/docs/write.yaml"
+	OfficeRead  = "tools/office/read.yaml"
+	OfficeWrite = "tools/office/write.yaml"
 
 	Mentioned = "rules/mentioned/mentioned.js"
 	ForUs     = "rules/for-us/for-us.yaml"
 )
 
-// ToolsFiles are the tools files Bulldog ships, each in its folder.
-var ToolsFiles = []string{Talk, Notes, Docs, Build}
+// ToolsFiles are the tools files Bulldog ships, each in its folder, a
+// folder holding one for each part of what its tools do.
+var ToolsFiles = []string{Talk, Notes, DocsRead, DocsWrite, OfficeRead, OfficeWrite}
 
 // Page is the file of a shipped folder that is its page of the manual, its
 // first line saying what the thing is; Settings is a bridge's entry under

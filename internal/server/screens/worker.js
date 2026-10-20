@@ -1,7 +1,7 @@
 // Worker: one worker of a team, what it is, how it is started and who
 // calls it, its definition folded, and a drawing of what it can do, with
 // what each tool reaches and who decides it, the colleagues it calls,
-// what it does with Bulldog's tools, by their kits, and the colleagues
+// what it does with Bulldog's tools, by their tools files, and the colleagues
 // whose held jobs come to its ask. A worker may have hundreds of tools
 // and callers, so each list shows a few and More the rest.
 (function () {
@@ -51,11 +51,11 @@
   }
 
   // toolName gives a tool by its name, which shows what it does and, of
-  // one of Bulldog's, the kit it comes in; a listed one stands for each
+  // one of Bulldog's, the tools file it comes in; a listed one stands for each
   // tool its server lists, named after it.
   function toolName(tool) {
     if (tool.listed) return pop(["Each tool the server of " + tool.name + " lists, as " + tool.name + "_<tool>"], B.el("span", {class: "mono"}, tool.name + "_*"));
-    const from = tool.kind === "bulldog" ? B.el("div", {class: "wk-does faint"}, "Built-in" + (tool.kit ? ", in the " + tool.kit + " tools" : "")) : null;
+    const from = tool.kind === "bulldog" ? B.el("div", {class: "wk-does faint"}, "Built-in" + (tool.kit ? ", in tools/" + tool.kit + ".yaml" : "")) : null;
     return tool.does || from ? pop([tool.does, from], tool.name) : B.el("span", {class: "mono wk-name"}, tool.name);
   }
 
@@ -163,16 +163,16 @@
     ];
   }
 
-  // kitReach gives whom or what a kit of Bulldog's tools reaches: the
+  // kitReach gives whom or what a tools file of Bulldog's reaches: the
   // talk tools the team's people and the teams it may ask, the notes tools
   // the team's notes, and the docs tools the team's docs, when it has any.
   function kitReach(kit, list, w, t) {
     const has = (name) => list.some((tool) => tool.name === name);
-    if (kit === "talk") return B.el("span", {class: "line"},
+    if (kit === "talk/talk") return B.el("span", {class: "line"},
       PEOPLE_TOOLS.some(has) && (t.people || []).length ? faces(t.people, t) : null,
       has(TEAMS_TOOL) && w.may_ask.length ? inline("teams", w.may_ask.map(B.teamEl)) : null);
-    if (kit === "notes") return B.el("a", {href: B.teamHref(t.name)}, "Notes");
-    if (kit === "docs" && (t.docs || []).length) return B.el("a", {href: B.teamHref(t.name)}, "Docs");
+    if (kit === "notes/notes") return B.el("a", {href: B.teamHref(t.name)}, "Notes");
+    if (kit.startsWith("docs/") && (t.docs || []).length) return B.el("a", {href: B.teamHref(t.name)}, "Docs");
     return null;
   }
 

@@ -20,7 +20,7 @@ const OfficePage = "office"
 var officePage string
 
 // The office page, and the page of each thing Bulldog ships, are the
-// manual's, beside Corbie's, wherever the manual is read: by a builder, by
+// manual's, beside Corbie's, wherever the manual is read: by a worker, by
 // corbie bulldog manual and by a model.
 func init() {
 	manual.Add(func() []manual.Page {

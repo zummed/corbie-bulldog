@@ -44,9 +44,9 @@ type (
 		// Runs are how many runs it lets work at once, how many are at
 		// work and how many requests wait their turn.
 		Runs runsOut `json:"runs"`
-		// OfficePut is who decides an office_put of the top team's own
+		// OfficePut is who decides an put_draft of the top team's own
 		// files, in the order the walk asks them.
-		OfficePut []deciderOut `json:"office_put"`
+		OfficePut []deciderOut `json:"put_draft"`
 		Bridges   []bridgeOut  `json:"bridges"`
 	}
 	runsOut struct {
@@ -537,12 +537,12 @@ type (
 		Rules      []ruleOut    `json:"rules"`
 		Workers    []workerOut  `json:"workers"`
 		Notes      []noteOut    `json:"notes"`
-		// Writers are its workers that name the notes kit, and so are given
+		// Writers are its workers that name the notes tools, and so are given
 		// its notes and may write them; DocWriters those that hold
 		// write_doc, and so may write its docs.
 		Writers    []string `json:"writers"`
 		DocWriters []string `json:"doc_writers"`
-		// Writes are office_put, and write_doc where a worker holds it,
+		// Writes are put_draft, and write_doc where a worker holds it,
 		// when it writes no list of their own, with who decides each as
 		// its everything does.
 		Writes   []listOut    `json:"writes"`
@@ -624,7 +624,7 @@ type (
 	// toolOut is a tool, a flow's stage or a statechart's job, with what
 	// it does and what its job is: a worker of the same team, named;
 	// another machine or a script, by its file; or one of the tools
-	// Bulldog ships, with the kit it comes in. One that waits for a yes
+	// Bulldog ships, with the tools file it comes in. One that waits for a yes
 	// gives who decides it, in the order its walk asks them, and none when
 	// nobody does and what waits on it is refused; one that does not wait
 	// gives no list at all. A listed tool is a list: entry, which stands
@@ -968,14 +968,11 @@ func workerOf(o *office.Office, w *office.Worker) workerOut {
 	return out
 }
 
-// kitOf gives the kit one of Bulldog's tools comes in, by the folder of
-// the tools file Bulldog ships that holds it: talk, notes, docs or build;
-// or none for a tool of the call that no file Bulldog ships holds.
+// kitOf gives the tools file Bulldog ships that holds one of its tools,
+// by its path in tools/ without .yaml, as talk/talk or office/write; or
+// none for a tool of the call that no file Bulldog ships holds.
 func kitOf(name string) string {
-	if file := toolsFileOf(name); file != "" {
-		return path.Base(path.Dir(file))
-	}
-	return ""
+	return strings.TrimSuffix(strings.TrimPrefix(toolsFileOf(name), "tools/"), ".yaml")
 }
 
 // definitionOf gives what a worker's file writes of how it runs, as it is

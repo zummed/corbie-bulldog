@@ -435,7 +435,7 @@ func TestServerNotesShownWithWhatARunIsGiven(t *testing.T) {
 	if lee.Notes[1].Text != files["payments/notes/b.md"] {
 		t.Errorf("Lee is not given b whole")
 	}
-	// The ledger names the notes kit.
+	// The ledger names the notes tools.
 	if !slices.Equal(lee.Writers, []string{"ledger"}) {
 		t.Errorf("Lee sees payments' notes written by %#v", lee.Writers)
 	}
@@ -459,7 +459,7 @@ func TestServerToolToldByWhereItResolves(t *testing.T) {
 	t.Parallel()
 	files := house(t)
 	// The fixer is given the docs tools too.
-	files["fixer.yaml"] = strings.Replace(files["fixer.yaml"], "tools_file: [./.bulldog/tools/talk/talk.yaml]", "tools_file: [./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/docs/docs.yaml]", 1)
+	files["fixer.yaml"] = strings.Replace(files["fixer.yaml"], "tools_file: [./.bulldog/tools/talk/talk.yaml]", "tools_file: [./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/docs/read.yaml]", 1)
 	// The gardener is given the house's sparks, a machine of another team;
 	// a tell of its own, written in place, which stands before the tell of
 	// the talk tools Bulldog ships; and a wait on the clock Bulldog ships,
@@ -502,24 +502,24 @@ func TestServerToolToldByWhereItResolves(t *testing.T) {
 	}{
 		{"office", "steward", []toolOut{
 			{Name: "fixer", Does: "Mend something in the house. Say what is wrong and where", Kind: "worker", Worker: "fixer", File: "fixer.yaml"},
-			{Name: "ask_team", Does: shippedDoes(shipped.Talk, "ask_team"), Kind: "bulldog", Kit: "talk"},
-			{Name: "write_notes", Does: shippedDoes(shipped.Notes, "write_notes"), Kind: "bulldog", Kit: "notes"},
+			{Name: "ask_team", Does: shippedDoes(shipped.Talk, "ask_team"), Kind: "bulldog", Kit: "talk/talk"},
+			{Name: "write_note", Does: shippedDoes(shipped.Notes, "write_note"), Kind: "bulldog", Kit: "notes/notes"},
 		}},
 		{"office", "fixer", []toolOut{
 			{Name: "sparks", Does: "Which circuit is what", Kind: "worker", Worker: "sparks", File: "sparks.yaml"},
 			{Name: "cut_power", Does: "Turn one circuit off", Kind: "script", File: "tools/cut-power.js", Waits: true, Deciders: []deciderOut{{Kind: "person", Name: "sam"}}},
 			{Name: "order_part", Does: "Order a part", Kind: "script", File: "tools/order.js", Waits: true, Deciders: []deciderOut{{Kind: "rule", Name: "small-orders.js"}, {Kind: "worker", Name: "clerk", Team: "office", Advises: true}, {Kind: "person", Name: "sam"}}},
-			{Name: "read_doc", Does: shippedDoes(shipped.Docs, "read_doc"), Kind: "bulldog", Kit: "docs"},
+			{Name: "read_doc", Does: shippedDoes(shipped.DocsRead, "read_doc"), Kind: "bulldog", Kit: "docs/read"},
 		}},
 		{"office", "builder", []toolOut{
-			{Name: "office_put", Does: shippedDoes(shipped.Build, "office_put"), Kind: "bulldog", Kit: "build", Waits: true, Deciders: []deciderOut{{Kind: "person", Name: "sam"}}},
+			{Name: "put_draft", Does: shippedDoes(shipped.OfficeWrite, "put_draft"), Kind: "bulldog", Kit: "office/write", Waits: true, Deciders: []deciderOut{{Kind: "person", Name: "sam"}}},
 		}},
 		{"garden", "gardener", []toolOut{
 			{Name: "groundsman", Does: "Heavy work in the garden: digging, mowing and the shed", Kind: "worker", Worker: "groundsman", File: "garden/groundsman.yaml"},
 			{Name: "sparks", Does: "Which circuit is what", Kind: "machine", File: "sparks.yaml"},
 			{Name: "tell", Does: "Chalk it on the shed door", Kind: "machine"},
 			{Name: "wait", Does: "Wait until Monday", Kind: "machine"},
-			{Name: "ask_team", Does: shippedDoes(shipped.Talk, "ask_team"), Kind: "bulldog", Kit: "talk"},
+			{Name: "ask_team", Does: shippedDoes(shipped.Talk, "ask_team"), Kind: "bulldog", Kit: "talk/talk"},
 		}},
 		{"office", "bins", []toolOut{
 			{Name: "which", Kind: "script", File: "tools/bins.js"},
@@ -752,9 +752,9 @@ func TestServerRunGivenWorkedOutWhenShown(t *testing.T) {
 	t.Parallel()
 	files := workOffice(t)
 	files["notes/hours.md"] = "Support answers from nine to five.\n"
-	// The bot names the notes kit, so each of its runs is given the
+	// The bot names the notes tools, so each of its runs is given the
 	// office's notes.
-	files["bot.yaml"] = strings.Replace(files["bot.yaml"], "./.bulldog/tools/docs/docs.yaml]", "./.bulldog/tools/docs/docs.yaml, ./.bulldog/tools/notes/notes.yaml]", 1)
+	files["bot.yaml"] = strings.Replace(files["bot.yaml"], "./.bulldog/tools/docs/write.yaml]", "./.bulldog/tools/docs/write.yaml, ./.bulldog/tools/notes/notes.yaml]", 1)
 	b := newBench(t, files)
 	b.says(func(turn testkit.Turn) testkit.Reply {
 		switch {

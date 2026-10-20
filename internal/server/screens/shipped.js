@@ -1,7 +1,7 @@
 // Built-in, a part of the office's page: what Bulldog ships that the
 // office uses, each by who uses it and the line that does, the office's
 // own copies marked; and folded beneath it, the rest, each by what it is
-// for and the line one writes to use it. Opened, a thing gives its page,
+// for and the lines one writes to use it. Opened, a thing gives its page,
 // what it reaches, its settings and what changed in each version. The
 // people who decide a change also see what changed since the version that
 // ran before, and Use and Copy, which open a draft on Changes.
@@ -137,12 +137,13 @@
   }
 
   // availableRow gives a thing the office does not use: what it is for,
-  // the line that would use it, and what it is when opened.
+  // the lines that would use it, one for each tools file, and what it is
+  // when opened.
   function availableRow(t) {
     return B.el("details", {class: "bi", id: "built-in-" + t.path.replace("/", "-")},
       B.el("summary", {class: "bi-row"}, nameEl(t),
         B.el("span", {class: "bi-for muted"}, t.summary.replace(/^[^:]*:\s*/, "")),
-        lineEl(t.line),
+        B.el("span", {class: "stack bi-lines"}, t.lines.map(lineEl)),
         changedEl(t)),
       detailEl(t));
   }

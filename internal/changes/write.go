@@ -20,7 +20,7 @@ type File struct {
 	Had  bool   `json:"had,omitzero"`
 }
 
-// What a change does to a file, as office_files and the screens say it.
+// What a change does to a file, as list_files and the screens say it.
 const (
 	IsNew     = "new"
 	IsChanged = "changed"

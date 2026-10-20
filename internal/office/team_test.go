@@ -24,8 +24,8 @@ func TestTheKeysATeamFileTakes(t *testing.T) {
 	for key, line := range map[string]string{"zone": "zone: Europe/London", "everyone": "everyone: {}", "bridges": "bridges: {}", "runs": "runs: 2"} {
 		says(t, refused(t, replace(t, house(t), "garden/team.yaml", "lead: gardener", "lead: gardener\n"+line)), "garden/team.yaml", key)
 	}
-	// A team decides the kits' writes into its folder, whoever makes them.
-	reads(t, replace(t, house(t), "garden/team.yaml", "decide: { everything: [sam] }", "decide: { everything: [sam], office_put: [sam], write_doc: [sam], write_notes: [sam] }"))
+	// A team decides the writes of Bulldog's tools into its folder, whoever makes them.
+	reads(t, replace(t, house(t), "garden/team.yaml", "decide: { everything: [sam] }", "decide: { everything: [sam], put_draft: [sam], write_doc: [sam], write_note: [sam] }"))
 }
 
 func TestOfficeUnknownKeyRefused(t *testing.T) {
@@ -387,12 +387,12 @@ func TestOfficeToolsFromFilledDefinition(t *testing.T) {
 	t.Parallel()
 	o := reads(t, house(t))
 	steward := o.Workers["steward"].Tools
-	for _, tool := range []string{"fixer", "clerk", "builder", "ask_team", "ask_person", "tell", "write_notes"} {
+	for _, tool := range []string{"fixer", "clerk", "builder", "ask_team", "ask_person", "tell", "write_note"} {
 		if !slices.Contains(steward, tool) {
 			t.Errorf("the steward holds %v, without %s", steward, tool)
 		}
 	}
-	if slices.Contains(o.Workers["fixer"].Tools, "write_notes") || !slices.Contains(o.Workers["fixer"].Tools, "order_part") {
+	if slices.Contains(o.Workers["fixer"].Tools, "write_note") || !slices.Contains(o.Workers["fixer"].Tools, "order_part") {
 		t.Errorf("the fixer holds %v", o.Workers["fixer"].Tools)
 	}
 	// A tool given only by a tools file may be decided on.
@@ -409,9 +409,9 @@ func TestOfficeToolsFromFilledDefinition(t *testing.T) {
 func TestOfficeABulldogToolIsNamedAsItsCall(t *testing.T) {
 	t.Parallel()
 	files := house(t)
-	files["proposer.yaml"] = "agent: proposer\nmodel: usual\nprompt: hi\nask: { machine: ./.bulldog/ask.yaml }\ntools:\n  propose:\n    does: Put a change\n    args: { why: string }\n    job: { machine: ./.bulldog/call.yaml, input: { tool: office_put, args: \"${args}\" }, approve: true }\n"
+	files["proposer.yaml"] = "agent: proposer\nmodel: usual\nprompt: hi\nask: { machine: ./.bulldog/ask.yaml }\ntools:\n  propose:\n    does: Put a change\n    args: { why: string }\n    job: { machine: ./.bulldog/call.yaml, input: { tool: put_draft, args: \"${args}\" }, approve: true }\n"
 	_, problems := read(t, files)
-	says(t, problems, "proposer.yaml", "propose runs the call Bulldog ships with the tool \"office_put\"")
+	says(t, problems, "proposer.yaml", "propose runs the call Bulldog ships with the tool \"put_draft\"")
 }
 
 func TestOfficeWhatAFlowsStagesAndAStatechartsJobsRun(t *testing.T) {

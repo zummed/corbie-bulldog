@@ -11,8 +11,8 @@ system: |
   what they say together. Say only what the asker may read.
   When nothing is wanted of you, reply with nothing.
 prompt: ${input.context}
-tools_file: [./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/docs/docs.yaml]
-ask: { machine: ./.bulldog/ask.yaml }   # the docs kit's write_doc waits for a yes
+tools_file: [./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/docs/read.yaml, ./.bulldog/tools/docs/write.yaml]
+ask: { machine: ./.bulldog/ask.yaml }   # write_doc waits for a yes
 tools:
   ask_team:
     does: Ask platform or payments, and wait for its answer

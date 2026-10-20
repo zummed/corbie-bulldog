@@ -1,5 +1,5 @@
 // Package changes is the one way the office's files change. A change is
-// drafted, by a builder with the builder's tools or by a person on the
+// drafted, by a worker with the office tools or by a person on the
 // screens, as the whole new text of each file it touches; checked, by
 // reading the office as it would make it; put to be decided, and approved
 // only by a person; written, every file or none; and kept, as a commit in
@@ -61,7 +61,7 @@ func Open(ctx context.Context, db *sql.DB, dir string, keeper *office.Keeper) (*
 	return &Changes{dir: dir, db: db, keeper: keeper, Now: time.Now}, nil
 }
 
-// A Call is one call of a builder's tool: the tool, what the model gave
+// A Call is one call of an office tool: the tool, what the model gave
 // it, the worker that called it and the request it works on.
 type Call struct {
 	Request int64
@@ -75,36 +75,42 @@ type Answer struct {
 	Text string
 }
 
-// The builder's tools, as the tools file Bulldog ships writes them.
+// SearchLimit is how many characters search_files gives.
+const SearchLimit = 20_000
+
+// The office tools, as the tools files Bulldog ships write them, those
+// that read and those that write.
 const (
-	ToolFiles  = "office_files"
-	ToolRead   = "office_read"
-	ToolWrite  = "office_write"
-	ToolRemove = "office_remove"
-	ToolCheck  = "office_check"
-	ToolPut    = "office_put"
+	ToolFiles  = "list_files"
+	ToolRead   = "read_file"
+	ToolSearch = "search_files"
 	ToolManual = "manual"
-	// ToolWriteDoc is the docs kit's write, which this area writes as a
+	ToolWrite  = "write_file"
+	ToolRemove = "remove_file"
+	ToolCheck  = "check_draft"
+	ToolPut    = "put_draft"
+	// ToolWriteDoc is the docs tools' write, which this area writes as a
 	// change of one file.
 	ToolWriteDoc = "write_doc"
 )
 
-// Tools are the builder's tools this area answers, in the order they sort.
+// Tools are the office tools this area answers, in the order they sort.
 func Tools() []string {
-	tools := []string{ToolFiles, ToolRead, ToolWrite, ToolRemove, ToolCheck, ToolPut, ToolManual}
+	tools := []string{ToolFiles, ToolRead, ToolSearch, ToolManual, ToolWrite, ToolRemove, ToolCheck, ToolPut}
 	slices.Sort(tools)
 	return tools
 }
 
-// Answer does one call of a builder's tool and gives its result. What the
-// builder did wrong is said in the result, for it to mend; an error is
+// Answer does one call of an office tool and gives its result. What the
+// worker did wrong is said in the result, for it to mend; an error is
 // what went wrong in Bulldog, for a person to read.
 func (c *Changes) Answer(ctx context.Context, call Call) (Answer, error) {
 	var args struct {
-		Path string `json:"path"`
-		Text string `json:"text"`
-		Why  string `json:"why"`
-		Page string `json:"page"`
+		Path  string `json:"path"`
+		Text  string `json:"text"`
+		Why   string `json:"why"`
+		Page  string `json:"page"`
+		Words string `json:"words"`
 	}
 	if len(call.Args) > 0 && string(call.Args) != "null" {
 		if err := json.Unmarshal(call.Args, &args); err != nil {
@@ -134,6 +140,8 @@ func (c *Changes) Answer(ctx context.Context, call Call) (Answer, error) {
 			return said(problem, nil)
 		}
 		return said(c.read(ctx, call.Request, args.Path))
+	case ToolSearch:
+		return said(c.search(ctx, call.Request, team, args.Words))
 	case ToolWrite, ToolRemove:
 		if problem := reach(args.Path); problem != "" {
 			return said(problem, nil)
@@ -160,7 +168,7 @@ func (c *Changes) Answer(ctx context.Context, call Call) (Answer, error) {
 	case ToolManual:
 		return Answer{Text: Manual(args.Page)}, nil
 	}
-	return Answer{Text: fmt.Sprintf("there is no builder's tool %s: they are %s", call.Tool, strings.Join(Tools(), ", "))}, nil
+	return Answer{Text: fmt.Sprintf("there is no office tool %s: they are %s", call.Tool, strings.Join(Tools(), ", "))}, nil
 }
 
 // Drafted gives a request's draft, a file to each path, in the order of
@@ -231,11 +239,66 @@ func (c *Changes) read(ctx context.Context, request int64, file string) (string,
 	contents, ok := folder[file]
 	switch {
 	case !ok:
-		return fmt.Sprintf("there is no file %s in the office or in your draft: office_files lists them", file), nil
+		return fmt.Sprintf("there is no file %s in the office or in your draft: list_files lists them", file), nil
 	case !utf8.Valid(contents):
 		return fmt.Sprintf("%s is not text, and cannot be read here", file), nil
 	}
 	return string(contents), nil
+}
+
+// search gives the lines of the files of the office a team's worker
+// reaches that hold the words asked for, in any case, each with its file
+// and its line, as the draft has them, or as they are, as many as fit in
+// SearchLimit characters.
+func (c *Changes) search(ctx context.Context, request int64, team, words string) (string, error) {
+	words = strings.TrimSpace(words)
+	if words == "" {
+		return "A search needs words, and this one had none, so nothing was searched.", nil
+	}
+	draft, err := drafted(ctx, c.db, request)
+	if err != nil {
+		return "", err
+	}
+	folder, _, err := c.folder()
+	if err != nil {
+		return "", err
+	}
+	o, err := c.office()
+	if err != nil {
+		return "", err
+	}
+	files := overlay(folder, draft)
+	var lines []string
+	for _, name := range sortedKeys(files) {
+		if !o.Reaches(team, name) || refusedPath(name) != "" || !utf8.Valid(files[name]) {
+			continue
+		}
+		for i, line := range strings.Split(string(files[name]), "\n") {
+			if strings.Contains(strings.ToLower(line), strings.ToLower(words)) {
+				lines = append(lines, fmt.Sprintf("%s:%d: %s", name, i+1, line))
+			}
+		}
+	}
+	if len(lines) == 0 {
+		return fmt.Sprintf("No line of the files you reach holds %q.", words), nil
+	}
+	var b strings.Builder
+	shown := 0
+	for room := SearchLimit; shown < len(lines); shown++ {
+		line := []rune(lines[shown] + "\n")
+		if len(line) > room && shown > 0 {
+			break
+		}
+		if len(line) > room {
+			line = append(line[:room-1], '\n')
+		}
+		b.WriteString(string(line))
+		room -= len(line)
+	}
+	if left := len(lines) - shown; left > 0 {
+		fmt.Fprintf(&b, "%d more lines hold it; search for something narrower, or read a file with read_file.", left)
+	}
+	return b.String(), nil
 }
 
 // write puts the whole new text of a file into a request's draft, or that
@@ -284,7 +347,7 @@ func (c *Changes) write(ctx context.Context, request int64, file string, text *s
 		err, said = dropDraft(ctx, tx, request, file), fmt.Sprintf("that is %s as it is, so your draft leaves it as it is", file)
 	default:
 		f.Text = *text
-		said = anew + fmt.Sprintf("%s is in your draft, %s. Nothing changes in the office until a person says yes to the draft: office_check reads the office as it would make it", file, f.Does())
+		said = anew + fmt.Sprintf("%s is in your draft, %s. Nothing changes in the office until a person says yes to the draft: check_draft reads the office as it would make it", file, f.Does())
 		err = keepDraft(ctx, tx, request, f)
 	}
 	if err != nil {

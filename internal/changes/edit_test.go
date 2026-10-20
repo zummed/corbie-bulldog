@@ -237,7 +237,7 @@ func TestChangesAWorkerGoesWithWhatItAloneUses(t *testing.T) {
 
 func TestChangesAPersonPutsTheirOwn(t *testing.T) {
 	t.Parallel()
-	// Sam's own change is handed on to be decided as an office_put of his
+	// Sam's own change is handed on to be decided as an put_draft of his
 	// would be, of the team whose folder holds it; whom it is asked of is
 	// Decisions'. His yes writes it, by him.
 	h := newOffice(t, house(t))
@@ -380,7 +380,7 @@ func TestChangesAPersonWritesWhatTheyWereShown(t *testing.T) {
 	// written.
 	ruled := house(t)
 	ruled["no-secrets.js"] = "return { says: \"refer\" }\n"
-	ruled["office.yaml"] = replaced(t, ruled, "office.yaml", "  everything: [sam]\n", "  everything: [sam]\n  office_put: [./no-secrets.js, sam]\n")
+	ruled["office.yaml"] = replaced(t, ruled, "office.yaml", "  everything: [sam]\n", "  everything: [sam]\n  put_draft: [./no-secrets.js, sam]\n")
 	g := newOffice(t, ruled)
 	p, err := g.own("sam", "Clerk", Edit{Files: map[string]*string{"clerk.yaml": &text}})
 	if err != nil {

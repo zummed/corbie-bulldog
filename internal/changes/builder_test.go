@@ -2,6 +2,7 @@ package changes
 
 import (
 	"encoding/json"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -18,8 +19,8 @@ func TestBuilderAnswersEveryTool(t *testing.T) {
 	t.Parallel()
 	f := newOffice(t, house(t))
 	o := f.keeper.Office()
-	// The builder names the builder's tools file, and is offered all seven;
-	// the clerk beside it names none of it, and is offered none.
+	// The builder names both office tools files, and is offered all eight;
+	// the clerk beside it names neither, and is offered none.
 	for _, tool := range Tools() {
 		if !slices.Contains(o.Workers["builder"].Tools, tool) {
 			t.Errorf("the builder is not offered %s: it holds %v", tool, o.Workers["builder"].Tools)
@@ -28,8 +29,9 @@ func TestBuilderAnswersEveryTool(t *testing.T) {
 			t.Errorf("the clerk is offered %s", tool)
 		}
 	}
-	if !slices.Equal(Tools(), shipped.Tools(shipped.Build)) {
-		t.Errorf("Changes answers %v, and the builder's tools file holds %v", Tools(), shipped.Tools(shipped.Build))
+	files := slices.Sorted(slices.Values(append(shipped.Tools(shipped.OfficeRead), shipped.Tools(shipped.OfficeWrite)...)))
+	if !slices.Equal(Tools(), files) {
+		t.Errorf("Changes answers %v, and the office tools files hold %v", Tools(), files)
 	}
 	calls := []struct {
 		tool string
@@ -37,6 +39,7 @@ func TestBuilderAnswersEveryTool(t *testing.T) {
 	}{
 		{ToolFiles, nil},
 		{ToolRead, map[string]any{"path": "office.yaml"}},
+		{ToolSearch, map[string]any{"words": "steward"}},
 		{ToolWrite, map[string]any{"path": "notes/fuses.md", "text": "Breaker 4 is the kitchen.\n"}},
 		{ToolRemove, map[string]any{"path": "clerk.yaml"}},
 		{ToolCheck, nil},
@@ -50,14 +53,20 @@ func TestBuilderAnswersEveryTool(t *testing.T) {
 	}
 }
 
-func TestChangesBuilderToolsAreRunsThatWait(t *testing.T) {
+func TestChangesOfficeToolsAreRunsThatWait(t *testing.T) {
 	t.Parallel()
 	f := newOffice(t, house(t))
 	corbie := testkit.NewCorbie(t, testkit.NewClock(testkit.Monday))
-	var doc yaml.Node
-	contents, _ := shipped.File(shipped.Build)
-	if err := yaml.Unmarshal(contents, &doc); err != nil {
-		t.Fatal(err)
+	written := map[string]*yaml.Node{}
+	for _, file := range []string{shipped.OfficeRead, shipped.OfficeWrite} {
+		var doc yaml.Node
+		contents, _ := shipped.File(file)
+		if err := yaml.Unmarshal(contents, &doc); err != nil {
+			t.Fatal(err)
+		}
+		for i := 0; i+1 < len(doc.Content[0].Content); i += 2 {
+			written[doc.Content[0].Content[i].Value] = doc.Content[0].Content[i+1]
+		}
 	}
 	under := func(n *yaml.Node, key string) *yaml.Node {
 		for i := 0; i+1 < len(n.Content); i += 2 {
@@ -79,7 +88,10 @@ func TestChangesBuilderToolsAreRunsThatWait(t *testing.T) {
 	for _, tool := range Tools() {
 		// The job each tool runs, as the tools file writes it: the call
 		// Bulldog ships, which waits on a ticket that Bulldog answers.
-		job := under(under(doc.Content[0], tool), "job")
+		if written[tool] == nil {
+			t.Fatalf("no office tools file writes %s", tool)
+		}
+		job := under(written[tool], "job")
 		if got := under(job, "machine").Value; got != "../../"+shipped.Call {
 			t.Errorf("%s's job runs %s", tool, got)
 		}
@@ -139,6 +151,36 @@ func TestBuilderReadsDraftOrFolder(t *testing.T) {
 	}
 	if got := read("bins.yaml"); !strings.Contains(got, "your draft removes bins.yaml") {
 		t.Errorf("a removed file reads %q", got)
+	}
+}
+
+func TestBuilderSearchesTheFilesItReaches(t *testing.T) {
+	t.Parallel()
+	f := newOffice(t, weeder(t))
+	clerk := house(t)["clerk.yaml"] + "# Lead: drafted\n"
+	f.write(1, "clerk.yaml", clerk)
+	search := func(worker, words string) []string {
+		return strings.Split(f.callAs(worker, 1, ToolSearch, map[string]any{"words": words}).Text, "\n")
+	}
+	// Any case, the draft as it would be, and every team's file for the
+	// house's builder.
+	found := search("builder", "LEAD:")
+	has(t, found, "office.yaml:", ": lead: steward")
+	has(t, found, "garden/team.yaml:5: lead: gardener")
+	has(t, found, fmt.Sprintf("clerk.yaml:%d: # Lead: drafted", strings.Count(clerk, "\n")))
+	// Nothing of Bulldog's own, though its files hold the words.
+	for _, line := range search("builder", "machine") {
+		if strings.HasPrefix(line, ".") {
+			t.Errorf("a search finds %s", line)
+		}
+	}
+	// The garden's own files alone for the garden's.
+	found = search("weeder", "lead:")
+	has(t, found, "garden/team.yaml:5:")
+	hasNo(t, found, "office.yaml")
+	hasNo(t, found, "clerk.yaml")
+	if got := search("builder", " "); !strings.Contains(got[0], "needs words") {
+		t.Errorf("a search of no words gives %q", got)
 	}
 }
 
@@ -310,16 +352,16 @@ func TestChangesDraftsAreKeptApart(t *testing.T) {
 	}
 }
 
-// weeder is a builder of the garden: it names the build kit, and its
-// tools reach the garden's files alone.
+// weeder drafts changes to the garden: it names the office tools, and
+// they reach the garden's files alone.
 func weeder(t *testing.T) map[string]string {
 	files := house(t)
 	files["garden/weeder.yaml"] = "agent: weeder\ninput: { said: string }\nmodel: usual\nsystem: You change how the garden is run.\nprompt: ${input.said}\n" +
-		"tools_file: [../.bulldog/tools/build/build.yaml]\n"
+		"tools_file: [../.bulldog/tools/office/read.yaml, ../.bulldog/tools/office/write.yaml]\n"
 	return files
 }
 
-func TestChangesABuilderReachesItsOwnTeamAndWithin(t *testing.T) {
+func TestChangesOfficeToolsReachOwnTeamAndWithin(t *testing.T) {
 	t.Parallel()
 	f := newOffice(t, weeder(t))
 	listed := f.callAs("weeder", 1, ToolFiles, nil).Text

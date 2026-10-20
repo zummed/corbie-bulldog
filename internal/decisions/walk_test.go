@@ -461,7 +461,7 @@ func TestDecisionsDeciderToldTruthAboutAfter(t *testing.T) {
 	// A person's own change: its last rule is told its referral is taken as
 	// the person's yes, and it is.
 	files := house(t)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  office_put: [./no-secrets.js, sam]\n", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  put_draft: [./no-secrets.js, sam]\n", 1)
 	files["no-secrets.js"] = `return { says: "refer" }`
 	own := newBench(t, files)
 	p := own.putOwn("sam", "Kit helps in the garden")

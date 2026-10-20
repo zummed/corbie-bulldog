@@ -61,7 +61,7 @@ func (w *Work) readDoc(c *calling) (string, bool, error) {
 	}
 	name, i := docNamed(docs, c.args["name"])
 	if i < 0 {
-		return fmt.Sprintf("No doc you may read is called %q, so nothing was read: docs lists those you may.", name), false, nil
+		return fmt.Sprintf("No doc you may read is called %q, so nothing was read: list_docs gives those you may.", name), false, nil
 	}
 	d := docs[i]
 	text, err := w.office.DocText(d)

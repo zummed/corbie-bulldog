@@ -114,9 +114,9 @@ func toolsFileOf(tool string) string {
 }
 
 // readersOf gives the teams whose workers read a team's docs: it and each
-// team within it that has a worker holding the docs tools.
+// team within it that has a worker naming the docs tools that read.
 func readersOf(o *office.Office, team string) []string {
-	docs := shipped.Tools(shipped.Docs)
+	docs := shipped.Tools(shipped.DocsRead)
 	out := []string{}
 	for _, name := range o.Order {
 		within := false

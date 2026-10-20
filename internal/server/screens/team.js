@@ -121,7 +121,7 @@
 
   // The tree of workers: the lead at its root, beneath each worker the
   // colleagues it calls, folded, then what it does with Bulldog's tools,
-  // by their kits, and the names of its own tools, each leading to it on
+  // by their tools files, and the names of its own tools, each leading to it on
   // the worker's page; workers the lead does not reach stand beside it as
   // roots of their own. Each tool's kind, what it does and its file are
   // on the worker's own page.
@@ -363,7 +363,7 @@
         ["Lead", leadEl(t)],
         ["Teams inside", inside(t)],
         whole && (t.notes.length || t.writers.length) ? ["Notes", B.el("span", {class: "line"}, String(t.notes.length),
-          t.writers.length ? [B.el("span", {class: "faint small"}, "notes kit"), t.writers.map((w) => worker(t, w))] : null)] : null,
+          t.writers.length ? [B.el("span", {class: "faint small"}, "Notes tools"), t.writers.map((w) => worker(t, w))] : null)] : null,
         t.docs && t.docs.length ? ["Docs", String(t.docs.length)] : null,
         whole && t.file ? ["File", B.el("span", {class: "mono"}, t.file)] : null,
       ])});
@@ -570,8 +570,8 @@
     if (!(t.notes && t.notes.length) && !writers.length) return null;
     return folded("notes", B.label("Notes", B.el("span", {class: "count"}, String(t.notes.length)),
       ...B.notesInfo()), B.el("div", {},
-    writers.length ? B.el("span", {class: "line te-writers"}, B.el("span", {class: "faint small"}, "Notes kit"),
-      writers.map((w) => worker(t, w)), ...B.info("About the notes kit", "The workers of this team that name the notes kit. Each is given these notes at the start of each run, and may write them; a worker that does not name it is given none.")) : null,
+    writers.length ? B.el("span", {class: "line te-writers"}, B.el("span", {class: "faint small"}, "Notes tools"),
+      writers.map((w) => worker(t, w)), ...B.info("About the notes tools", "The workers of this team that name the notes tools. Each is given these notes at the start of each run, and may write them; a worker that does not name it is given none.")) : null,
     t.notes.length ? rows("notes", t.notes, (n) => {
       const d = B.el("details", {open: state.open.has(n.name)},
         B.el("summary", {}, B.el("span", {class: "mono"}, n.name),
@@ -641,9 +641,9 @@
     const writers = t.doc_writers || [];
     if (!(t.docs && t.docs.length) && !writers.length) return null;
     return folded("docs", B.label("Docs", B.el("span", {class: "count"}, String((t.docs || []).length)),
-      ...B.info("About docs", "Read by the workers of this team and of the teams within, when they ask, through the docs kit.")), B.el("div", {},
+      ...B.info("About docs", "Read by the workers of this team and of the teams within, when they ask, through the docs tools.")), B.el("div", {},
     writers.length ? B.el("span", {class: "line te-writers"}, B.el("span", {class: "faint small"}, "write_doc"),
-      writers.map((w) => worker(t, w)), ...B.info("About write_doc", "The workers of this team that hold write_doc, of the docs kit. Each may write or replace one of these docs, decided as this team's write_doc is.")) : null,
+      writers.map((w) => worker(t, w)), ...B.info("About write_doc", "The workers of this team that hold write_doc, of the docs tools. Each may write or replace one of these docs, decided as this team's write_doc is.")) : null,
     t.docs && t.docs.length ? B.el("div", {class: "te-docs"}, folderEls(t, folders(t.docs), "")) : null));
   }
 

@@ -14,7 +14,7 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/office"
 )
 
-// A Drafter is whoever drafted a change: a worker, with the builder's
+// A Drafter is whoever drafted a change: a worker, with the office
 // tools, or a person, on the screens.
 type Drafter struct {
 	Name   string
@@ -68,7 +68,7 @@ func (c Check) Text() string {
 	list("What it does, as whoever decides is told:", c.Says)
 	list("What it lets more by, set apart for whoever decides:", c.LetsMoreBy)
 	if c.Fit() {
-		b.WriteString("It reads well, and may be put with office_put.\n")
+		b.WriteString("It reads well, and may be put with put_draft.\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
@@ -261,7 +261,7 @@ func paths(files []File) []string {
 
 // guard says what in a worker's draft is a person's to write: the people
 // of the office and how each is reached; who decides the draft, on the
-// office_put and everything lists of the team whose decision it is and of
+// put_draft and everything lists of the team whose decision it is and of
 // each team around it, the files of the rules and workers on them and the
 // models those workers take; a bridge's in
 // machine and the files it uses; and which bridges the office has, with
@@ -315,7 +315,7 @@ func guard(was, now *office.Office, folder, laid map[string][]byte, files []File
 		if wasTeam, nowTeam := was.Teams[team], now.Teams[team]; (!hadEverything || !hasEverything) && wasTeam != nil && nowTeam != nil && !slices.Equal(wasTeam.People, nowTeam.People) {
 			out = append(out, fmt.Sprintf("it changes %s people, who decide what its everything list does not name: who decides a change to the office is a person's to write", whose))
 		}
-		// The deciders on the office_put list and on the everything list,
+		// The deciders on the put_draft list and on the everything list,
 		// each once.
 		change, _ := was.List(team, ToolPut)
 		var deciders []office.Decider

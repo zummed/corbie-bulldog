@@ -98,7 +98,7 @@ func TestChangesATeamFileIsDecidedAroundIt(t *testing.T) {
 	// The garden's builder rewrites the garden's deciders: the house
 	// decides it, never the garden.
 	f.callAs("weeder", 1, ToolWrite, map[string]any{"path": "garden/team.yaml",
-		"text": strings.Replace(house(t)["garden/team.yaml"], "decide: { everything: [sam] }", "decide: { everything: [sam], office_put: [] }", 1)})
+		"text": strings.Replace(house(t)["garden/team.yaml"], "decide: { everything: [sam] }", "decide: { everything: [sam], put_draft: [] }", 1)})
 	if p := f.hold("weeder", 1, ToolPut, map[string]any{"why": "Let the garden write"}); p.Team != office.Top {
 		t.Errorf("a change to the garden's team file is %s's to decide", p.Team)
 	}
@@ -118,8 +118,8 @@ func TestChangesWhoDecidesAChange(t *testing.T) {
 		decide string
 		who    []string
 	}{
-		{"decide: { everything: [kit], office_put: [./small-orders.js, sam] }", []string{"sam"}},
-		{"decide: { everything: [kit], office_put: [./small-orders.js] }", []string{"kit"}},
+		{"decide: { everything: [kit], put_draft: [./small-orders.js, sam] }", []string{"sam"}},
+		{"decide: { everything: [kit], put_draft: [./small-orders.js] }", []string{"kit"}},
 		{"", []string{"sam", "kit"}},
 	} {
 		files := house(t)
@@ -256,11 +256,11 @@ func TestChangesAHeldWriteIsWrittenWhenItsJobRuns(t *testing.T) {
 func TestChangesJudgedByTheOfficeAsItIs(t *testing.T) {
 	t.Parallel()
 	files := house(t)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  office_put: [./small-orders.js, sam]\n", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  put_draft: [./small-orders.js, sam]\n", 1)
 	f := newOffice(t, files)
-	// Sam's own change takes the rule off the office_put list: it is still
+	// Sam's own change takes the rule off the put_draft list: it is still
 	// asked of the rule, as the office is now.
-	edited := strings.Replace(files["office.yaml"], "  office_put: [./small-orders.js, sam]\n", "  office_put: [sam]\n", 1)
+	edited := strings.Replace(files["office.yaml"], "  put_draft: [./small-orders.js, sam]\n", "  put_draft: [sam]\n", 1)
 	changed, _, err := f.c.Edited(Edit{Files: map[string]*string{"office.yaml": &edited}})
 	if err != nil {
 		t.Fatal(err)

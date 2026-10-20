@@ -55,18 +55,21 @@ func TestServerShippedSeenAsItsUsesAre(t *testing.T) {
 	needs := reachOut{Hosts: []string{"api.typesafe.ai"}, Secrets: []secretOut{{Name: "TYPESAFE_KEY", To: []string{"api.typesafe.ai"}}}}
 	if forUs.Kind != "rule" || forUs.Status != "used" || len(forUs.Uses) != 0 || !reflect.DeepEqual(forUs.Needs, needs) ||
 		settings["timeout"] != "10s" || settings["threshold"] != 0.5 || !strings.HasPrefix(forUs.Page, forUs.Summary) ||
-		forUs.Line != "heed: ./.bulldog/rules/for-us/for-us.yaml" || !slices.Equal(forUs.Versions, shipped.Changed("rules/for-us")) || len(forUs.Versions) == 0 {
+		!slices.Equal(forUs.Lines, []string{"heed: ./.bulldog/rules/for-us/for-us.yaml"}) || !slices.Equal(forUs.Versions, shipped.Changed("rules/for-us")) || len(forUs.Versions) == 0 {
 		t.Errorf("Dana is given for-us as %+v", forUs)
 	}
 	talk := thingIn(t, dana, "tools/talk")
-	if talk.Status != "used" || len(talk.Uses) != 0 || talk.Line != "tools_file: [./.bulldog/tools/talk/talk.yaml]" {
+	if talk.Status != "used" || len(talk.Uses) != 0 || !slices.Equal(talk.Lines, []string{"tools_file: ./.bulldog/tools/talk/talk.yaml"}) {
 		t.Errorf("Dana is given the talk tools as %+v", talk)
 	}
-	if mentioned := thingIn(t, dana, "rules/mentioned"); mentioned.Line != "heed: ./.bulldog/rules/mentioned/mentioned.js" {
-		t.Errorf("Dana is given mentioned's line as %q", mentioned.Line)
+	if mentioned := thingIn(t, dana, "rules/mentioned"); !slices.Equal(mentioned.Lines, []string{"heed: ./.bulldog/rules/mentioned/mentioned.js"}) {
+		t.Errorf("Dana is given mentioned's lines as %q", mentioned.Lines)
+	}
+	if docs := thingIn(t, dana, "tools/docs"); docs.Kind != "tools" || !slices.Equal(docs.Lines, []string{"tools_file: ./.bulldog/tools/docs/read.yaml", "tools_file: ./.bulldog/tools/docs/write.yaml"}) {
+		t.Errorf("Dana is given the docs tools as %+v", docs)
 	}
 	gitlab := thingIn(t, dana, "bridges/gitlab")
-	if gitlab.Status != "unused" || gitlab.Needs.Hosts[0] != "${input.settings.site}" || gitlab.Line != "from: ./.bulldog/bridges/gitlab" {
+	if gitlab.Status != "unused" || gitlab.Needs.Hosts[0] != "${input.settings.site}" || !slices.Equal(gitlab.Lines, []string{"from: ./.bulldog/bridges/gitlab"}) {
 		t.Errorf("Dana is given GitLab as %+v", gitlab)
 	}
 	for _, th := range dana.Things {
@@ -88,6 +91,11 @@ func TestServerShippedSeenAsItsUsesAre(t *testing.T) {
 		{Team: "office", Worker: "bot", Line: "tools_file: ./.bulldog/tools/talk/talk.yaml"},
 		{Team: "payments", Worker: "ledger", Line: "tools_file: ../.bulldog/tools/talk/talk.yaml"}}) {
 		t.Errorf("Al is given the talk tools' uses as %+v", uses)
+	}
+	if uses := thingIn(t, al, "tools/docs").Uses; !reflect.DeepEqual(uses, []useOut{
+		{Team: "office", Worker: "bot", Line: "tools_file: ./.bulldog/tools/docs/read.yaml"},
+		{Team: "office", Worker: "bot", Line: "tools_file: ./.bulldog/tools/docs/write.yaml"}}) {
+		t.Errorf("Al is given the docs tools' uses as %+v", uses)
 	}
 	forUs = thingIn(t, al, "rules/for-us")
 	if !reflect.DeepEqual(forUs.Uses, []useOut{{Team: "office", As: "heed", Line: "heed: ./.bulldog/rules/for-us/for-us.yaml"}}) || forUs.Use != nil || forUs.Copy == nil {
@@ -152,7 +160,7 @@ func TestServerShippedChangedLinesAfterUpgrade(t *testing.T) {
 			t.Errorf("the start after the upgrade does not say %q", said)
 		}
 	}
-	if upgraded.logged("bridges/jira changed") || upgraded.logged("tools/build changed") {
+	if upgraded.logged("bridges/jira changed") || upgraded.logged("tools/office changed") {
 		t.Error("the start after the upgrade says what changed in what the office does not use")
 	}
 	changed := func(s *serving, person string) []shipped.Change {

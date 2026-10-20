@@ -29,30 +29,30 @@ import (
 // made it and the run Bulldog started at the top.
 const Climb = 16
 
-// The tools Bulldog ships whose calls it does itself; the builder's are
-// handed to Changes.
+// The tools Bulldog ships whose calls it does itself; the office tools
+// are handed to Changes.
 const (
 	toolAskTeam    = "ask_team"
 	toolAskPerson  = "ask_person"
 	toolTell       = "tell"
 	toolReadThread = "read_thread"
-	toolWriteNotes = "write_notes"
-	toolDocs       = "docs"
+	toolWriteNote  = "write_note"
+	toolListDocs   = "list_docs"
 	toolReadDoc    = "read_doc"
 	toolSearchDocs = "search_docs"
-	toolOfficePut  = "office_put"
+	toolPutDraft   = "put_draft"
 	toolWriteDoc   = "write_doc"
 	// askTool is what an ask's run is kept as among the calls.
 	askTool = "ask"
 )
 
-// WritesNotes says whether a worker names the notes kit Bulldog ships, and
-// so is given its team's notes and may write them.
+// WritesNotes says whether a worker names the notes tools Bulldog ships,
+// and so is given its team's notes and may write them.
 func WritesNotes(w *office.Worker) bool {
-	return slices.ContainsFunc(w.Held, func(t office.Tool) bool { return t.Kind == office.ToolBulldog && t.Name == toolWriteNotes })
+	return slices.ContainsFunc(w.Held, func(t office.Tool) bool { return t.Kind == office.ToolBulldog && t.Name == toolWriteNote })
 }
 
-// WritesDocs says whether a worker holds write_doc, of the docs kit
+// WritesDocs says whether a worker holds write_doc, of the docs tools
 // Bulldog ships, and so may write its team's docs.
 func WritesDocs(w *office.Worker) bool {
 	return slices.ContainsFunc(w.Held, func(t office.Tool) bool { return t.Kind == office.ToolBulldog && t.Name == toolWriteDoc })
@@ -65,10 +65,10 @@ var errGone = errors.New("it no longer waits on its ticket")
 // ships, and no other.
 func does(tool string) bool {
 	switch tool {
-	case toolAskTeam, toolAskPerson, toolTell, toolReadThread, toolWriteNotes, toolDocs, toolReadDoc, toolSearchDocs, toolWriteDoc:
+	case toolAskTeam, toolAskPerson, toolTell, toolReadThread, toolWriteNote, toolListDocs, toolReadDoc, toolSearchDocs, toolWriteDoc:
 		return true
 	}
-	return slices.Contains(shipped.Tools(shipped.Build), tool)
+	return slices.Contains(changes.Tools(), tool)
 }
 
 // A calling is one call being done: what is kept of it, the request of
@@ -301,9 +301,9 @@ func (w *Work) doing(ctx context.Context, c *calling) (string, bool, error) {
 		return w.askTeam(ctx, c)
 	case tool == toolReadThread:
 		return w.readThread(c)
-	case tool == toolWriteNotes:
-		return w.writeNotes(ctx, c)
-	case tool == toolDocs:
+	case tool == toolWriteNote:
+		return w.writeNote(ctx, c)
+	case tool == toolListDocs:
 		return w.listDocs(c)
 	case tool == toolReadDoc:
 		return w.readDoc(c)
@@ -430,9 +430,9 @@ func (w *Work) sub(row *callRow, n int64, by requests.Who, team, question string
 // path in it.
 var noteName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
-// writeNotes writes one of the worker's own team's notes, which Changes
+// writeNote writes one of the worker's own team's notes, which Changes
 // commits.
-func (w *Work) writeNotes(ctx context.Context, c *calling) (string, bool, error) {
+func (w *Work) writeNote(ctx context.Context, c *calling) (string, bool, error) {
 	name, text, why := str(c.args["name"]), str(c.args["text"]), str(c.args["why"])
 	switch {
 	case !noteName.MatchString(name):
@@ -459,11 +459,11 @@ func (w *Work) writeNotes(ctx context.Context, c *calling) (string, bool, error)
 	return written, false, nil
 }
 
-// build hands a call of the builder's tools, or of write_doc, to Changes.
+// build hands a call of the office tools, or of write_doc, to Changes.
 // Its job has run, after its yes where it was held, so a write is
 // written as Changes answers it.
 func (w *Work) build(ctx context.Context, c *calling) (string, bool, error) {
-	if c.again && (c.row.Tool == toolOfficePut || c.row.Tool == toolWriteDoc) {
+	if c.again && (c.row.Tool == toolPutDraft || c.row.Tool == toolWriteDoc) {
 		// Bulldog stopped while it was being written: it is not written
 		// twice.
 		return "Bulldog stopped while your change was being written, and cannot tell whether it was: look at the office's files before putting it again.",

@@ -33,7 +33,7 @@
 
   function mine() {
     const me = B.me.me;
-    const change = B.me.office.office_put || [];
+    const change = B.me.office.put_draft || [];
     return B.el("div", {},
       B.head(null, B.personEl(me.name, {title: true})),
       B.el("div", {class: "cols"},
@@ -44,7 +44,7 @@
           ])),
           B.sect(B.label("Reached", ...B.info("About reached", "A one-time link goes to the first of these, in order, that has a direct place and sends it.")), reachedEl(me)),
           B.sect("Decides", decidesEl(me)),
-          B.sect("office_put · office", B.kv([
+          B.sect("put_draft · office", B.kv([
             ["Decided by", change.length ? B.chain(change, "office") : B.empty()],
             ["You", me.decides_changes ? B.el("a", {href: "#/office/changes"}, "Decide") : B.el("span", {class: "faint"}, "No")],
           ])),

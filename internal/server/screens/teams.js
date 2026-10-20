@@ -189,7 +189,7 @@
     const groups = [
       d.tools.length ? B.el("div", {class: "group"}, B.label("Tools", B.el("span", {class: "count"}, String(d.tools.length))),
         table(["Name", "Kind", "Teams"], d.tools.map((x) => B.el("tr", {},
-          B.el("td", {}, x.shipped ? B.el("a", {class: "tm-kit", href: "#/office/built-in", title: x.name}, B.KITS[x.shipped.split("/").pop()] || x.shipped) : B.el("span", {class: "mono"}, x.name)),
+          B.el("td", {}, x.shipped ? B.el("a", {class: "tm-kit", href: "#/office/built-in", title: x.name}, B.KITS[x.name.replace(/^\.bulldog\/tools\//, "").replace(/\.yaml$/, "")] || x.name) : B.el("span", {class: "mono"}, x.name)),
           B.el("td", {class: "faint small"}, x.shipped ? "Built-in" : x.kind),
           B.el("td", {}, teamsCell(x.teams)))))) : null,
       d.models.length ? B.el("div", {class: "group"}, B.label("Models", B.el("span", {class: "count"}, String(d.models.length))),

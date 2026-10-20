@@ -1,6 +1,7 @@
-# The builder drafts changes to how the house is run. It names the build
-# kit, whose office_put waits for a yes: the house's everything, Sam,
-# decides each, or the garden's for a change to the garden alone.
+# The builder drafts changes to how the house is run. It names the office
+# tools that read and those that write, whose put_draft waits for a yes:
+# the house's everything, Sam, decides each, or the garden's for a change
+# to the garden alone.
 agent: builder
 input: { said: string }
 model: usual
@@ -9,4 +10,4 @@ system: |
   page office first. Draft the whole new text of each file, check the draft and mend what is wrong,
   then put it with why, in words Sam can decide on.
 prompt: ${input.said}
-tools_file: [./.bulldog/tools/build/build.yaml]
+tools_file: [./.bulldog/tools/office/read.yaml, ./.bulldog/tools/office/write.yaml]

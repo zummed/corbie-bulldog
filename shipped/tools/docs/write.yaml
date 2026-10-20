@@ -1,0 +1,17 @@
+# The docs tool Bulldog ships, to write: mend one of the team's own docs.
+# It is a run that only waits: Bulldog does what was asked, and its answer
+# is the tool's result. write_doc is marked approve, so Corbie holds it for
+# the team's yes, and the worker started at the top names the ask Bulldog
+# ships; a copy without approve writes the doc at once. A worker that
+# writes docs reads them too, so it names this file beside read.yaml:
+#   tools_file: [./.bulldog/tools/docs/read.yaml, ./.bulldog/tools/docs/write.yaml]
+write_doc:
+  does: Write one of your own team's docs, whole, in place of what it held, when you find it wrong or out of date. name is a doc's name as list_docs gives it, such as rooms/kitchen; text is all of it in Markdown; why says why, in a line. Your team's deciders are shown it beside what it replaces, and it is written once they say yes
+  args: { name: string, text: string, why: string }
+  job:
+    machine: ../../call.yaml
+    input:
+      tool: write_doc
+      args: "${args}"
+      unanswered: The doc was not written within 7 days. Write it again if it is still wanted.
+    approve: true

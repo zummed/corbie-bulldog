@@ -32,8 +32,8 @@ func building(calls ...testkit.Reply) func(testkit.Turn) testkit.Reply {
 }
 
 var (
-	writeFuses = testkit.Use("office_write", map[string]any{"path": "notes/fuses.md", "text": "The fuse board is in the hall.\n"})
-	putFuses   = testkit.Use("office_put", map[string]any{"why": "Remember where the fuse board is"})
+	writeFuses = testkit.Use("write_file", map[string]any{"path": "notes/fuses.md", "text": "The fuse board is in the hall.\n"})
+	putFuses   = testkit.Use("put_draft", map[string]any{"why": "Remember where the fuse board is"})
 )
 
 // asked waits until a held action in a request waits on people, and
@@ -55,7 +55,7 @@ func (b *bench) asked(n int64) *decisions.Decision {
 func TestTheBuildersToolsAreHandedToChanges(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, house(t))
-	b.says(building(testkit.Use("office_files", map[string]any{})))
+	b.says(building(testkit.Use("list_files", map[string]any{})))
 	n := b.chat("kit", "", "remember the fuses")
 	holds(t, "the steward's answer", b.answered(n).Text, "steward heard: builder heard:", "office.yaml", "steward.yaml")
 }
@@ -66,7 +66,7 @@ func TestAHeldPutIsWrittenOnceItsJobRuns(t *testing.T) {
 	b.says(building(writeFuses, putFuses))
 	n := b.chat("kit", "", "remember the fuses")
 	dec := b.asked(n)
-	if dec.Put == nil || dec.Put.By != "builder" || dec.Put.Request != n || dec.Team != "office" || dec.Job.Name != "office_put" || strings.Join(dec.Asked, ",") != "sam" {
+	if dec.Put == nil || dec.Put.By != "builder" || dec.Put.Request != n || dec.Team != "office" || dec.Job.Name != "put_draft" || strings.Join(dec.Asked, ",") != "sam" {
 		t.Fatalf("the put is held as %+v", dec)
 	}
 	if _, err := os.Stat(filepath.Join(b.dir, "notes", "fuses.md")); err == nil {
@@ -99,11 +99,12 @@ func TestAHeldPutRefusedIsDenied(t *testing.T) {
 	}
 }
 
-// unheld gives a kit Bulldog ships as an office's own copy at tools/, its
-// call named from there, with a tool's approve taken away or given.
-func unheld(t *testing.T, kit, tool string, approve bool) string {
+// unheld gives a tools file Bulldog ships as an office's own copy at
+// tools/, its call named from there, with a tool's approve taken away or
+// given.
+func unheld(t *testing.T, file, tool string, approve bool) string {
 	t.Helper()
-	contents, _ := shipped.File(kit)
+	contents, _ := shipped.File(file)
 	text := strings.ReplaceAll(string(contents), "../../call.yaml", "../.bulldog/call.yaml")
 	var tools yaml.Node
 	if err := yaml.Unmarshal([]byte(text), &tools); err != nil {
@@ -136,12 +137,12 @@ func unheld(t *testing.T, kit, tool string, approve bool) string {
 
 func TestChangesAWriteWaitsByItsToolsFileAlone(t *testing.T) {
 	t.Parallel()
-	// As the build kit ships it, the builder's put is held, and written
+	// As Bulldog ships it, the builder's put is held, and written
 	// only on Sam's yes: TestAHeldPutIsWrittenOnceItsJobRuns. The house's
 	// own copy without approve has it written at once, with no decision.
 	files := house(t)
-	files["tools/build.yaml"] = unheld(t, shipped.Build, "office_put", false)
-	files["builder.yaml"] = strings.Replace(files["builder.yaml"], "./.bulldog/tools/build/build.yaml", "./tools/build.yaml", 1)
+	files["tools/write.yaml"] = unheld(t, shipped.OfficeWrite, "put_draft", false)
+	files["builder.yaml"] = strings.Replace(files["builder.yaml"], "./.bulldog/tools/office/write.yaml", "./tools/write.yaml", 1)
 	b := newBench(t, files)
 	b.says(building(writeFuses, putFuses))
 	n := b.chat("kit", "", "remember the fuses")
@@ -152,10 +153,10 @@ func TestChangesAWriteWaitsByItsToolsFileAlone(t *testing.T) {
 	if decs := must(b.d.OfRequest(n)); len(decs) != 0 {
 		t.Errorf("an unheld put was decided: %+v", decs)
 	}
-	// As the notes kit ships it, the steward's note is written at once;
+	// As Bulldog ships the notes tools, the steward's note is written at once;
 	// the house's copy that marks it approve has it held for the house's
-	// write_notes list, and written on Sam's yes.
-	note := testkit.Use("write_notes", map[string]any{"name": "fuses", "text": "In the hall.\n", "why": "Where the fuses are"})
+	// write_note list, and written on Sam's yes.
+	note := testkit.Use("write_note", map[string]any{"name": "fuses", "text": "In the hall.\n", "why": "Where the fuses are"})
 	noting := func(turn testkit.Turn) testkit.Reply {
 		if turn.Number == 1 {
 			return note
@@ -167,14 +168,14 @@ func TestChangesAWriteWaitsByItsToolsFileAlone(t *testing.T) {
 	m := plain.chat("kit", "", "note the fuses")
 	holds(t, "the steward's answer", plain.answered(m).Text, "steward heard: The note fuses of the house is written")
 	files = house(t)
-	files["tools/notes.yaml"] = unheld(t, "tools/notes/notes.yaml", "write_notes", true)
+	files["tools/notes.yaml"] = unheld(t, "tools/notes/notes.yaml", "write_note", true)
 	files["steward.yaml"] = strings.Replace(files["steward.yaml"], "./.bulldog/tools/notes/notes.yaml", "./tools/notes.yaml", 1)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  write_notes: [kit]\n", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  write_note: [kit]\n", 1)
 	held := newBench(t, files)
 	held.says(noting)
 	m = held.chat("sam", "", "note the fuses")
 	dec := held.asked(m)
-	if dec.Job.Name != "write_notes" || dec.Put != nil || strings.Join(dec.Asked, ",") != "kit" {
+	if dec.Job.Name != "write_note" || dec.Put != nil || strings.Join(dec.Asked, ",") != "kit" {
 		t.Fatalf("the note is held as %+v", dec)
 	}
 	if _, err := os.Stat(filepath.Join(held.dir, "notes", "fuses.md")); err == nil {

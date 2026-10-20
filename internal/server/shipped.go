@@ -25,9 +25,9 @@ type (
 		Version string     `json:"version"`
 		Things  []thingOut `json:"things"`
 	}
-	// thingOut is one thing Bulldog ships: a bridge, a tools file or a
-	// rule, by its folder in .bulldog/, with its page, the line that uses
-	// it, what it reaches as shipped, its settings, what changed in it in
+	// thingOut is one thing Bulldog ships: a bridge, a folder of tools
+	// files or a rule, by its folder in .bulldog/, with its page, the lines
+	// that use it, one for each tools file, what it reaches as shipped, its settings, what changed in it in
 	// each version, whether the office uses it and where. The people who
 	// decide a change also see whether the office holds a copy of it, what
 	// changed in it since the version that ran before, and the drafts that
@@ -38,7 +38,7 @@ type (
 		Name     string            `json:"name"`
 		Summary  string            `json:"summary"`
 		Page     string            `json:"page"`
-		Line     string            `json:"line"`
+		Lines    []string          `json:"lines"`
 		Needs    reachOut          `json:"needs"`
 		Settings []shipped.Setting `json:"settings"`
 		Versions []shipped.Change  `json:"versions"`
@@ -52,8 +52,9 @@ type (
 	// useOut is where the office names a shipped thing, with the line
 	// there that names it, as written: a bridge's entry, with what it
 	// reaches as its settings fill it to the people who decide a change; a
-	// worker of a team that holds its tools; or a team's heed or list of
-	// deciders, as its key.
+	// worker of a team that holds the tools of one of its tools files, with
+	// the entry that names that file; or a team's heed or list of deciders,
+	// as its key.
 	useOut struct {
 		Bridge string    `json:"bridge,omitempty"`
 		Team   string    `json:"team,omitempty"`
@@ -106,7 +107,7 @@ func (s *site) shipped(person string, w http.ResponseWriter, r *http.Request) (a
 	out := shippedOut{Version: s.version, Things: []thingOut{}}
 	for _, thing := range shipped.Things() {
 		page, _ := shipped.File(path.Join(thing, shipped.Page))
-		t := thingOut{Path: thing, Kind: shipped.Kind(thing), Name: path.Base(thing), Summary: shipped.Summary(thing), Page: string(page), Line: lineOf(thing),
+		t := thingOut{Path: thing, Kind: shipped.Kind(thing), Name: path.Base(thing), Summary: shipped.Summary(thing), Page: string(page), Lines: linesOf(thing),
 			Needs: reachOf(shipped.Reach(thing)), Settings: orEmpty(shipped.SettingsOf(thing)), Versions: orEmpty(shipped.Changed(thing)),
 			Status: "unused", Uses: []useOut{}}
 		uses := usesOf(o, thing)
@@ -145,9 +146,9 @@ func (s *site) shipped(person string, w http.ResponseWriter, r *http.Request) (a
 
 // usesOf gives where the office names a shipped thing, each with the
 // line that names it as written: each bridge whose entry runs its folder,
-// by its from; each worker that holds a tool of a tools file, by the
-// tools Bulldog answers for it, with its tools_file entry that names the
-// file; each team whose heed, disclosure or list of deciders names a rule
+// by its from; for each tools file in its folder, each worker that holds a
+// tool of it, by the tools Bulldog answers for it, with its tools_file
+// entry that names the file; each team whose heed, disclosure or list of deciders names a rule
 // in its folder, by the entry that names it.
 func usesOf(o *office.Office, thing string) []use {
 	if o == nil {
@@ -165,16 +166,17 @@ func usesOf(o *office.Office, thing string) []use {
 			}
 		}
 	case "tools":
-		file := namedFile(thing)
-		tools := shipped.Tools(file)
-		for _, team := range o.Order {
-			t := o.Teams[team]
-			for _, name := range t.Workers {
-				w := o.Workers[name]
-				if slices.ContainsFunc(w.Held, func(tool office.Tool) bool {
-					return tool.Kind == office.ToolBulldog && slices.Contains(tools, tool.Name)
-				}) {
-					out = append(out, use{team: t, worker: name, line: toolsLine(w, path.Join(shipped.Dir, file))})
+		for _, file := range namedFiles(thing) {
+			tools := shipped.Tools(file)
+			for _, team := range o.Order {
+				t := o.Teams[team]
+				for _, name := range t.Workers {
+					w := o.Workers[name]
+					if slices.ContainsFunc(w.Held, func(tool office.Tool) bool {
+						return tool.Kind == office.ToolBulldog && slices.Contains(tools, tool.Name)
+					}) {
+						out = append(out, use{team: t, worker: name, line: toolsLine(w, path.Join(shipped.Dir, file))})
+					}
 				}
 			}
 		}
@@ -205,38 +207,47 @@ func usesOf(o *office.Office, thing string) []use {
 	return out
 }
 
-// namedFile gives the file of a shipped thing that the office names, by its
-// path in .bulldog/: a bridge's folder, a tools file, or a rule's
-// definition, or its script when it is a bare one.
-func namedFile(thing string) string {
+// namedFiles gives the files of a shipped thing that the office names, by
+// their paths in .bulldog/: a bridge's folder, each tools file in a
+// folder of them, or a rule's definition, or its script when it is a bare
+// one.
+func namedFiles(thing string) []string {
 	switch shipped.Kind(thing) {
 	case "tools":
+		var files []string
 		for _, file := range shipped.ToolsFiles {
 			if path.Dir(file) == thing {
-				return file
+				files = append(files, file)
 			}
 		}
+		return files
 	case "rule":
 		name := path.Base(thing)
 		if slices.Contains(shipped.Files(thing), name+".yaml") {
-			return path.Join(thing, name+".yaml")
+			return []string{path.Join(thing, name+".yaml")}
 		}
-		return path.Join(thing, name+".js")
+		return []string{path.Join(thing, name+".js")}
 	}
-	return thing
+	return []string{thing}
 }
 
-// lineOf gives the line that uses a shipped thing, written at the top of
-// the office: a bridge's from, a worker's tools_file, or a team's heed.
-func lineOf(thing string) string {
-	at := "./" + path.Join(shipped.Dir, namedFile(thing))
-	switch shipped.Kind(thing) {
-	case "bridge":
-		return "from: " + at
-	case "tools":
-		return "tools_file: [" + at + "]"
+// linesOf gives the lines that use a shipped thing, written at the top of
+// the office, each as a use of it is written: a bridge's from, a worker's
+// tools_file entry for each tools file, or a team's heed.
+func linesOf(thing string) []string {
+	var lines []string
+	for _, file := range namedFiles(thing) {
+		at := "./" + path.Join(shipped.Dir, file)
+		switch shipped.Kind(thing) {
+		case "bridge":
+			lines = append(lines, "from: "+at)
+		case "tools":
+			lines = append(lines, "tools_file: "+at)
+		default:
+			lines = append(lines, "heed: "+at)
+		}
 	}
-	return "heed: " + at
+	return lines
 }
 
 // toolsLine gives the entry of a worker's tools_file that names a tools

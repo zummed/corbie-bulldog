@@ -1,6 +1,6 @@
-The notes kit: the team's notes, given to each run at its start, and `write_notes`, a run that waits on Bulldog.
+The notes tools: the team's notes, given to each run at its start, and `write_note`, a run that waits on Bulldog.
 
-A worker that names this file is given its team's notes at the start of each run; one that names it not is given none. `write_notes(name, text, why)` writes the note whole, in place of what it held, as a commit that says who wrote it and why, at once: it is not marked `approve`. To have notes decided, copy this file into the office with `approve: true` on its job, and name the copy; the note is then held, and decided by the team's `write_notes` list, or else its `everything`. Notes are not private: a worker that names the build kit, of the team or one around it, reads them, and so does whoever decides a change. Naming the talk tools gives no notes.
+A worker that names this file is given its team's notes at the start of each run; one that names it not is given none. `write_note(name, text, why)` writes the note whole, in place of what it held, as a commit that says who wrote it and why, at once: it is not marked `approve`. To have notes decided, copy this file into the office with `approve: true` on its job, and name the copy; the note is then held, and decided by the team's `write_note` list, or else its `everything`. Notes are not private: a worker that reads the office's files with `tools/office/read.yaml`, of the team or one around it, reads them, and so does whoever decides a change. Naming the talk tools gives no notes.
 
 ## Needs
 
@@ -21,4 +21,4 @@ From a team within, the paths begin `../.bulldog/`.
 ## Changed
 
 - 0.2.0: moved here from `.bulldog/notes.yaml`.
-- 0.3.0: a worker is given its team's notes only when it names this file.
+- 0.3.0: a worker is given its team's notes only when it names this file. `write_note` is now `write_note`, and a team's `write_note` list is its `write_note` list.

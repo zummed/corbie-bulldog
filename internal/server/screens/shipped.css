@@ -17,6 +17,7 @@
 .bi-use { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 4px 16px; align-items: baseline; }
 .bi-who { gap: 4px 12px; }
 .bi-written { font-size: var(--data); color: var(--ink); overflow-wrap: anywhere; }
+.bi-lines { gap: 2px; }
 .bi-copy { gap: 8px; }
 .bi-for { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bi[open] .bi-for { visibility: hidden; }

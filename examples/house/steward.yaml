@@ -10,4 +10,4 @@ system: |
   What the house should remember, write in its notes.
 prompt: ${input.context}
 tools_file: [./crew.yaml, ./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/notes/notes.yaml]
-ask: { machine: ./.bulldog/ask.yaml }   # the fixer it calls holds cut_power, and the builder office_put, which wait for a yes
+ask: { machine: ./.bulldog/ask.yaml }   # the fixer it calls holds cut_power, and the builder's put_draft, which wait for a yes

@@ -23,7 +23,7 @@ func noting(word string, writes ...map[string]any) (func(testkit.Turn) testkit.R
 			results = append(results, turn.Last())
 		}
 		if turn.Number <= len(writes) {
-			return testkit.Use("write_notes", writes[turn.Number-1])
+			return testkit.Use("write_note", writes[turn.Number-1])
 		}
 		return testkit.Say(strings.Join(results, "\n"))
 	}, &results
@@ -50,12 +50,12 @@ func TestWriteNotesWritesTheTeamsOwnNote(t *testing.T) {
 	var described string
 	for _, turn := range b.model.Turns() {
 		for _, tool := range turn.ToolsGiven {
-			if tool.Name == "write_notes" {
+			if tool.Name == "write_note" {
 				described = tool.Description
 			}
 		}
 	}
-	holds(t, "write_notes as the model is given it", described, "a worker that names the build kit, of your team or one around it, reads them", "whoever decides a change", "Never put a secret")
+	holds(t, "write_note as the model is given it", described, "a worker that reads the office's files, of your team or one around it, reads them", "whoever decides a change", "Never put a secret")
 
 	// The garden's gardener writes the garden's note, never the house's.
 	answer, _ = noting("shed key", map[string]any{"name": "fuses", "text": "The shed has no power.\n", "why": "Sam said so"})
@@ -119,7 +119,7 @@ func TestOnlyAWorkerThatNamesTheNotesToolHasIt(t *testing.T) {
 			offered["fixer"] = turn.Tools
 		}
 	}
-	for _, tool := range []string{"write_notes", "ask_team", "ask_person", "tell"} {
+	for _, tool := range []string{"write_note", "ask_team", "ask_person", "tell"} {
 		if !slices.Contains(offered["steward"], tool) {
 			t.Errorf("the steward is not offered %s: %v", tool, offered["steward"])
 		}
@@ -129,8 +129,8 @@ func TestOnlyAWorkerThatNamesTheNotesToolHasIt(t *testing.T) {
 			t.Errorf("the fixer is not offered %s: %v", tool, offered["fixer"])
 		}
 	}
-	if slices.Contains(offered["fixer"], "write_notes") {
-		t.Errorf("the fixer, which names only the talk tools, is offered write_notes")
+	if slices.Contains(offered["fixer"], "write_note") {
+		t.Errorf("the fixer, which names only the talk tools, is offered write_note")
 	}
 
 	// Payments names the notes tool nowhere: its notes stay as they were,

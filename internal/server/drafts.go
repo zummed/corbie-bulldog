@@ -143,7 +143,7 @@ func (s *site) edited(person string, w http.ResponseWriter, r *http.Request, put
 	}
 	switch {
 	case !slices.Contains(changes.Deciders(o), person):
-		return d, nil, nil, refusal("You do not decide changes to the office, so you may not draft one here: ask for it in a request, and a builder drafts it.")
+		return d, nil, nil, refusal("You do not decide changes to the office, so you may not draft one here: ask for it in a request, and a worker drafts it.")
 	case put && (d.Why == nil || strings.TrimSpace(*d.Why) == ""):
 		return d, nil, nil, unreadable("The body gives no why: say why the change is made.")
 	case put && d.Mark == nil:

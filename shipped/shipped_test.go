@@ -93,7 +93,7 @@ func TestEveryShippedFileIsADefinitionCorbieTakes(t *testing.T) {
 	}
 }
 
-func TestKitsMarkTheirWritesForAYes(t *testing.T) {
+func TestToolsFilesMarkTheirWritesForAYes(t *testing.T) {
 	t.Parallel()
 	for _, name := range shipped.ToolsFiles {
 		contents, _ := shipped.File(name)
@@ -104,7 +104,7 @@ func TestKitsMarkTheirWritesForAYes(t *testing.T) {
 			t.Fatal(err)
 		}
 		for tool, written := range tools {
-			if want := tool == "write_doc" || tool == "office_put"; written.Job.Approve != want {
+			if want := tool == "write_doc" || tool == "put_draft"; written.Job.Approve != want {
 				t.Errorf("%s's %s is marked approve %v", name, tool, written.Job.Approve)
 			}
 		}
@@ -114,11 +114,13 @@ func TestKitsMarkTheirWritesForAYes(t *testing.T) {
 func TestToolsNamed(t *testing.T) {
 	t.Parallel()
 	for name, want := range map[string][]string{
-		shipped.Talk:  {"ask_person", "ask_team", "read_thread", "tell"},
-		shipped.Notes: {"write_notes"},
-		shipped.Docs:  {"docs", "read_doc", "search_docs", "write_doc"},
-		shipped.Build: {"manual", "office_check", "office_files", "office_put", "office_read", "office_remove", "office_write"},
-		shipped.Ask:   nil,
+		shipped.Talk:        {"ask_person", "ask_team", "read_thread", "tell"},
+		shipped.Notes:       {"write_note"},
+		shipped.DocsRead:    {"list_docs", "read_doc", "search_docs"},
+		shipped.DocsWrite:   {"write_doc"},
+		shipped.OfficeRead:  {"list_files", "manual", "read_file", "search_files"},
+		shipped.OfficeWrite: {"check_draft", "put_draft", "remove_file", "write_file"},
+		shipped.Ask:         nil,
 	} {
 		if got := shipped.Tools(name); !slices.Equal(got, want) {
 			t.Errorf("%s holds %v, not %v", name, got, want)
@@ -132,7 +134,7 @@ func TestToolsNamed(t *testing.T) {
 func TestEveryShippedThingHasItsPage(t *testing.T) {
 	t.Parallel()
 	things := shipped.Things()
-	if !slices.Equal(things, []string{"tools/build", "tools/docs", "tools/notes", "tools/talk", "bridges/gitlab", "bridges/jira", "bridges/slack", "bridges/telegram", "rules/for-us", "rules/mentioned"}) {
+	if !slices.Equal(things, []string{"tools/docs", "tools/notes", "tools/office", "tools/talk", "bridges/gitlab", "bridges/jira", "bridges/slack", "bridges/telegram", "rules/for-us", "rules/mentioned"}) {
 		t.Errorf("Bulldog ships %v", things)
 	}
 	pages := shipped.Pages()
@@ -180,9 +182,9 @@ var reaches = map[string]struct {
 	version string
 	reach   []string
 }{
-	"tools/build":      {"0.2.0", nil},
 	"tools/docs":       {"0.2.0", nil},
 	"tools/notes":      {"0.2.0", nil},
+	"tools/office":     {"0.3.0", nil},
 	"tools/talk":       {"0.2.0", nil},
 	"bridges/gitlab":   {"0.2.0", []string{"net:${input.settings.site}", "secret:GITLAB_TOKEN@net:${input.settings.site}"}},
 	"bridges/jira":     {"0.2.0", []string{"net:${input.settings.site}", "secret:JIRA_TOKEN@net:${input.settings.site}"}},
@@ -258,7 +260,7 @@ func TestShippedSettingsAndChangesReadFromTheFiles(t *testing.T) {
 func TestNotesToolSaysWhoReadsNotes(t *testing.T) {
 	t.Parallel()
 	contents, _ := shipped.File(shipped.Notes)
-	for _, said := range []string{"names the build kit", "whoever decides a change", "secret"} {
+	for _, said := range []string{"reads the office's files", "whoever decides a change", "secret"} {
 		if !strings.Contains(string(contents), said) {
 			t.Errorf("the notes tool does not say %q", said)
 		}
@@ -464,7 +466,7 @@ func TestWriteReplacesWhatIsThere(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	// Changed by hand, left by an earlier version, and the office's own.
-	for name, text := range map[string]string{shipped.Talk: "changed by hand", "talk.yaml": "flat, as it once was", "tools/talk/old.yaml": "no longer shipped", "identity": "the office's", "bulldog.db": "the office's"} {
+	for name, text := range map[string]string{shipped.Talk: "changed by hand", "talk.yaml": "flat, as it once was", "tools/talk/old.yaml": "no longer shipped", "tools/build/build.yaml": "a folder no longer shipped", "identity": "the office's", "bulldog.db": "the office's"} {
 		file := filepath.Join(dir, shipped.Dir, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
 			t.Fatal(err)
@@ -482,7 +484,7 @@ func TestWriteReplacesWhatIsThere(t *testing.T) {
 			t.Errorf("%s is not as shipped: %v", name, err)
 		}
 	}
-	for _, gone := range []string{"talk.yaml", "tools/talk/old.yaml"} {
+	for _, gone := range []string{"talk.yaml", "tools/talk/old.yaml", "tools/build"} {
 		if _, err := os.Stat(filepath.Join(dir, shipped.Dir, gone)); !os.IsNotExist(err) {
 			t.Errorf("%s is still there: %v", gone, err)
 		}

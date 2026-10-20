@@ -37,9 +37,9 @@ func withDocs(t *testing.T) map[string]string {
 	files["garden/docs/boiler.md"] = "# The shed's heater\nOil, not gas.\n"
 	files["garden/docs/tools/mowers.md"] = "Mowers are serviced in March.\n"
 	files["steward.yaml"] = strings.Replace(files["steward.yaml"], "./.bulldog/tools/notes/notes.yaml]",
-		"./.bulldog/tools/notes/notes.yaml, ./.bulldog/tools/docs/docs.yaml]", 1)
+		"./.bulldog/tools/notes/notes.yaml, ./.bulldog/tools/docs/read.yaml, ./.bulldog/tools/docs/write.yaml]", 1)
 	files["garden/gardener.yaml"] = strings.Replace(files["garden/gardener.yaml"], "../.bulldog/tools/notes/notes.yaml]",
-		"../.bulldog/tools/notes/notes.yaml, ../.bulldog/tools/docs/docs.yaml]\nask: { machine: ../.bulldog/ask.yaml }", 1)
+		"../.bulldog/tools/notes/notes.yaml, ../.bulldog/tools/docs/read.yaml, ../.bulldog/tools/docs/write.yaml]\nask: { machine: ../.bulldog/ask.yaml }", 1)
 	return files
 }
 
@@ -49,11 +49,11 @@ func TestDocsToolsReadTheTeamsThenThoseAroundIt(t *testing.T) {
 	if tools := b.office().Workers["gardener"].Tools; !slices.Contains(tools, "read_doc") {
 		t.Fatalf("the gardener, naming the docs tools, holds %v", tools)
 	}
-	if tools := b.office().Workers["fixer"].Tools; slices.Contains(tools, "docs") {
+	if tools := b.office().Workers["fixer"].Tools; slices.Contains(tools, "list_docs") {
 		t.Errorf("the fixer, naming no docs tools, holds %v", tools)
 	}
 	b.says(looking("heater",
-		testkit.Use("docs", map[string]any{}),
+		testkit.Use("list_docs", map[string]any{}),
 		testkit.Use("read_doc", map[string]any{"name": "boiler"}),
 		testkit.Use("search_docs", map[string]any{"words": "FUSE"}),
 		testkit.Use("read_doc", map[string]any{"name": "rooms/kitchen.md", "from": 2}),
@@ -79,7 +79,7 @@ func TestDocsToolsReadTheTeamsThenThoseAroundIt(t *testing.T) {
 	holds(t, "read_doc past the end", parts[4], "rooms/kitchen, of The house, has 2 lines, so nothing is from line 9 on.")
 
 	// The steward reads the house's boiler, and nothing of the garden's.
-	b.says(looking("boiler", testkit.Use("docs", map[string]any{}), testkit.Use("read_doc", map[string]any{"name": "boiler"})))
+	b.says(looking("boiler", testkit.Use("list_docs", map[string]any{}), testkit.Use("read_doc", map[string]any{"name": "boiler"})))
 	h := b.chat("kit", "", "when is the boiler serviced?")
 	parts = strings.Split(b.answered(h).Text, "\n---\n")
 	if want := "boiler, of The house, 57 characters: The boiler\nrooms/kitchen, of The house, 29 characters: The kitchen\n"; parts[0] != want {

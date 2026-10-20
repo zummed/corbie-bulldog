@@ -182,7 +182,7 @@ func TestTheRequestAsData(t *testing.T) {
 	if len(subs) != 1 || subs[0].(map[string]any)["team"] != "garden" || subs[0].(map[string]any)["state"] == "" {
 		t.Errorf("the sub-requests are %v", subs)
 	}
-	// The flow names no notes kit, so it is given none of the desk's.
+	// The flow names no notes tools, so it is given none of the desk's.
 	if notes, _ := d["notes"].([]any); len(notes) != 0 {
 		t.Errorf("the notes are %v", notes)
 	}
@@ -389,7 +389,7 @@ func TestWorkTextNeverCutInsideACharacter(t *testing.T) {
 	}
 }
 
-func TestARunOfAWorkerNamingTheNotesKitIsGivenItsNotes(t *testing.T) {
+func TestARunOfAWorkerNamingTheNotesToolsIsGivenItsNotes(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, house(t))
 	g := b.chat("sam", "garden", "how is the lawn?")
@@ -405,7 +405,7 @@ func TestARunOfAWorkerNamingTheNotesKitIsGivenItsNotes(t *testing.T) {
 	holdsNone(t, "the gardener's context", prompt, "The fuse board is under the stairs.")
 	b.settled(g, requests.Answered)
 
-	// Bins names no notes kit, and is given no notes on its routine.
+	// Bins names no notes tools, and is given no notes on its routine.
 	var bins office.Routine
 	for _, r := range b.office().TopTeam().Routines {
 		if r.To == "bins" {
