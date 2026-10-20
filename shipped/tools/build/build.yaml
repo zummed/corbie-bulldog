@@ -4,7 +4,7 @@
 # and its answer is the tool's result. office_put is marked approve, so
 # Corbie holds it for a yes, and the worker started at the top names the
 # ask Bulldog ships; a copy without approve writes the draft at once. A
-# worker is a builder by naming this file:
+# worker has these tools by naming this file, whatever it is called:
 #   tools_file: [./.bulldog/tools/build/build.yaml]
 office_files:
   does: List every file you may draft, your team's and those of the teams within it, and what your draft does to each, new, changed, removed or left as it is

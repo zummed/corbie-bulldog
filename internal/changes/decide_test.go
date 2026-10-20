@@ -226,6 +226,14 @@ func TestChangesAHeldWriteIsWrittenWhenItsJobRuns(t *testing.T) {
 	if f.text("clerk.yaml") != clerkAgain(t, "at once") || strings.Contains(f.head().Message, "Decided-by") || !strings.Contains(a.Text, "written, and is kept as the commit "+f.head().Hash.String()) {
 		t.Errorf("an unheld put gave %q:\n%s", a.Text, f.head().Message)
 	}
+	// Held with no yes kept, as where keeping it failed: its job's call
+	// writes nothing.
+	f.write(6, "clerk.yaml", clerkAgain(t, "unkept"))
+	f.put(6, "Unkept")
+	before = f.head().Hash
+	if a := f.call(6, ToolPut, map[string]any{"why": "Unkept"}); f.head().Hash != before || !strings.Contains(a.Text, "not written") {
+		t.Errorf("a held put with no yes kept gave %q", a.Text)
+	}
 	// A held write_doc is one doc of the worker's own team, fixed when
 	// held; written at once where it is not held.
 	d := f.hold("steward", 3, ToolWriteDoc, map[string]any{"name": "rooms/kitchen", "text": "The fuse is 5.\n", "why": "The fuse moved"})

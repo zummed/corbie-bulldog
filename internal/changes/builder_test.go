@@ -339,6 +339,13 @@ func TestChangesABuilderReachesItsOwnTeamAndWithin(t *testing.T) {
 	if got := f.callAs("weeder", 1, ToolWrite, map[string]any{"path": "garden/notes/shed.md", "text": "Tidy.\n"}).Text; !strings.Contains(got, "in your draft") {
 		t.Errorf("the garden's builder could not draft its own team's file: %s", got)
 	}
+	// A draft that holds a file outside its reach, as one drafted before
+	// its team moved, is never put.
+	f.write(3, "clerk.yaml", house(t)["clerk.yaml"]+"# moved\n")
+	raw, _ := json.Marshal(map[string]any{"why": "Moved"})
+	if p, refused, _, err := f.c.Held(ctx, Hold{Request: 3, Worker: "weeder", Tool: ToolPut, Args: raw}); err != nil || p.ID != 0 || !strings.Contains(refused, "outside what you reach") {
+		t.Errorf("the garden's builder's put of clerk.yaml is %+v, %q, %v", p, refused, err)
+	}
 	// The house's builder reaches everything.
 	if listed := f.call(2, ToolFiles, nil).Text; !strings.Contains(listed, "office.yaml") || !strings.Contains(listed, "garden/weeder.yaml") {
 		t.Errorf("the house's builder lists:\n%s", listed)

@@ -2,7 +2,7 @@
 
 An office is a folder of files, and the files are the office. It is the top team; every team inside it is a folder inside it. What runs is what is in the files, and nothing about the office is kept anywhere else.
 
-There are two ways to write it. From outside, with nothing running, write the files in the folder: `corbie bulldog init <folder>` makes an office, and gives an empty folder the example house; `corbie bulldog check <folder>` reads it as the server would, and says every problem with its file; `corbie bulldog <folder>` serves it, and a served office reads a file again as soon as it changes. What is written this way is an edit by hand, the person's to commit. From inside, a builder in a served office drafts the whole new text of each file it touches, checks the draft and puts it to be decided, as the last section says; only a person's yes writes it.
+There are two ways to write it. From outside, with nothing running, write the files in the folder: `corbie bulldog init <folder>` makes an office, and gives an empty folder the example house; `corbie bulldog check <folder>` reads it as the server would, and says every problem with its file; `corbie bulldog <folder>` serves it, and a served office reads a file again as soon as it changes. What is written this way is an edit by hand, the person's to commit. From inside, a builder in a served office drafts the whole new text of each file it touches, checks the draft and puts it, and it is written once its job runs: after the yes of the team whose folder holds it where the tools file marks `office_put` approve, as the build kit ships it, and at once where it does not.
 
 ```
 house/
@@ -265,7 +265,7 @@ The in machine says who a person is, and so is a person's to write. So is a brid
 
 ## Notes
 
-A team's notes are the files in its `notes/` folder, prose in Markdown. Each run of a team's worker that names the notes kit is given them, and one that names it not is given none. They are not private: the builder reads them, and so does whoever decides a change. A secret belongs in Corbie's secrets, never in a note.
+A team's notes are the files in its `notes/` folder, prose in Markdown. Each run of a team's worker that names the notes kit is given them, and one that names it not is given none. They are not private: a worker that names the build kit, of the team or one around it, reads them, and so does whoever decides a change. A secret belongs in Corbie's secrets, never in a note.
 
 ## Docs
 

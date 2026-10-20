@@ -223,7 +223,7 @@ func (f File) Lines() []string {
 		switch {
 		case i < len(was) && j < len(now) && was[i] == now[j]:
 			i, j = i+1, j+1
-		case j < len(now) && (i == len(was) || kept[i][j+1] >= kept[i+1][j]):
+		case j < len(now) && (i == len(was) || kept[i][j+1] > kept[i+1][j]):
 			out = append(out, "+ "+now[j])
 			j++
 		default:

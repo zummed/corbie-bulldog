@@ -4,7 +4,7 @@
 # worker has it only by naming this file:
 #   tools_file: [./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/notes/notes.yaml]
 write_notes:
-  does: Write one of your team's notes, whole. name is a plain name, such as fuses, and text is all of the note in Markdown, in place of what it held; why says why, in a line. Every run of your team's workers that name the notes kit is given its notes. Notes are not private; the builder reads them, and so does whoever decides a change to the office. Never put a secret, or what you read in your work, in a note
+  does: Write one of your team's notes, whole. name is a plain name, such as fuses, and text is all of the note in Markdown, in place of what it held; why says why, in a line. Every run of your team's workers that name the notes kit is given its notes. Notes are not private; a worker that names the build kit, of your team or one around it, reads them, and so does whoever decides a change to the office. Never put a secret, or what you read in your work, in a note
   args: { name: string, text: string, why: string }
   job:
     machine: ../../call.yaml

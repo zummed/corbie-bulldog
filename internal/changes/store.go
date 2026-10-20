@@ -200,9 +200,9 @@ func keepYes(ctx context.Context, q querier, id int64, d Decision) error {
 }
 
 // approved gives the held write of a tool from a request, with a why,
-// whose yes is kept and that is not yet written, or nothing.
+// that is not yet written, with its yes where it is kept, or nothing.
 func approved(ctx context.Context, q querier, request int64, tool, why string) (*Put, *Decision, error) {
-	rows, err := q.QueryContext(ctx, `SELECT id, put, yes FROM changes_puts WHERE request = ? AND tool = ? AND ended = '' AND yes != '' ORDER BY id DESC`,
+	rows, err := q.QueryContext(ctx, `SELECT id, put, yes FROM changes_puts WHERE request = ? AND tool = ? AND ended = '' ORDER BY id DESC`,
 		request, tool)
 	if err != nil {
 		return nil, nil, err

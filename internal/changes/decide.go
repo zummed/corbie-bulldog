@@ -184,17 +184,22 @@ func (c *Changes) toWrite(ctx context.Context, call Call) (string, []File, strin
 			return "", nil, fmt.Sprintf("%s could not read what it was given: %v", call.Tool, err), nil
 		}
 	}
-	if call.Tool == ToolPut {
-		files, err := drafted(ctx, c.db, call.Request)
-		return args.Why, files, "", err
-	}
 	o, err := c.office()
 	if err != nil {
 		return "", nil, "", err
 	}
 	w := o.Workers[call.Worker]
 	if w == nil {
-		return "", nil, fmt.Sprintf("%s is no longer a worker of the office, so its doc is not written", call.Worker), nil
+		return "", nil, fmt.Sprintf("%s is no longer a worker of the office, so what it would write is not written", call.Worker), nil
+	}
+	if call.Tool == ToolPut {
+		files, err := drafted(ctx, c.db, call.Request)
+		for _, f := range files {
+			if !o.Reaches(w.Team, f.Path) {
+				return "", nil, fmt.Sprintf("the draft holds %s, outside what you reach, the files of your own team's folder and of the teams within it, so it is not put", f.Path), nil
+			}
+		}
+		return args.Why, files, "", err
 	}
 	name := strings.TrimSuffix(strings.TrimSpace(args.Name), ".md")
 	if problem := docName(name); problem != "" {
@@ -445,9 +450,9 @@ func (c *Changes) end(ctx context.Context, p Put, d Decision) (Outcome, error) {
 
 // written does a call of office_put or write_doc once its job runs: it
 // writes the change its yes was kept for, the one held from the same
-// request with the same why; or, where none was held, its job waiting for
-// no yes, it puts what the call would write and writes it at once. Its
-// answer is the outcome.
+// request with the same why, and writes nothing for one held with no yes
+// kept; or, where none was held, its job waiting for no yes, it puts what
+// the call would write and writes it at once. Its answer is the outcome.
 func (c *Changes) written(ctx context.Context, call Call) (Answer, error) {
 	var args struct {
 		Why string `json:"why"`
@@ -458,6 +463,9 @@ func (c *Changes) written(ctx context.Context, call Call) (Answer, error) {
 	c.deciding.Unlock()
 	if err != nil {
 		return Answer{}, err
+	}
+	if p != nil && yes == nil {
+		return Answer{Text: "It was not written: it was held, and no yes is kept for it."}, nil
 	}
 	d := Decision{}
 	if p == nil {

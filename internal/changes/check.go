@@ -260,9 +260,10 @@ func paths(files []File) []string {
 }
 
 // guard says what in a worker's draft is a person's to write: the people
-// of the office and how each is reached; who decides a change to the
-// office, the files of the rules and workers on the top team's change and
-// everything lists and the models those workers take; a bridge's in
+// of the office and how each is reached; who decides the draft, on the
+// office_put and everything lists of the team whose decision it is and of
+// each team around it, the files of the rules and workers on them and the
+// models those workers take; a bridge's in
 // machine and the files it uses; and which bridges the office has, with
 // every setting of each but its places.
 func guard(was, now *office.Office, folder, laid map[string][]byte, files []File) []string {
@@ -282,58 +283,70 @@ func guard(was, now *office.Office, folder, laid map[string][]byte, files []File
 			out = append(out, fmt.Sprintf("it changes how %s is reached: who a person is on each bridge is a person's to write, since a yes is taken from it", name))
 		}
 	}
-	written := func(o *office.Office, key string) string {
-		ds, ok := o.List(office.Top, key)
-		if !ok {
-			return "\x00none"
-		}
-		var names []string
-		for _, d := range ds {
-			names = append(names, d.Written)
-		}
-		return strings.Join(names, ",")
+	// The teams whose lists decide the draft: the team whose decision it
+	// is, and each team around it, which its everything reaches.
+	var teams []string
+	for t := was.Teams[was.Whose(paths(files))]; t != nil; t = was.Teams[t.Within] {
+		teams = append(teams, t.Name)
 	}
-	for _, key := range []string{ToolPut, "everything"} {
-		if written(was, key) != written(now, key) {
-			out = append(out, fmt.Sprintf("it changes the office's %s list: who decides a change to the office is a person's to write", key))
+	for _, team := range teams {
+		called, whose := "the office's", "the top team's"
+		if team != office.Top {
+			called, whose = team+"'s", team+"'s"
 		}
-	}
-	_, hadEverything := was.List(office.Top, "everything")
-	_, hasEverything := now.List(office.Top, "everything")
-	if (!hadEverything || !hasEverything) && was.TopTeam() != nil && now.TopTeam() != nil && !slices.Equal(was.TopTeam().People, now.TopTeam().People) {
-		out = append(out, "it changes the top team's people, who decide what its everything list does not name: who decides a change to the office is a person's to write")
-	}
-	// The deciders on the office_put list and on the everything list, each
-	// once.
-	change, _ := was.List(office.Top, ToolPut)
-	var deciders []office.Decider
-	for _, d := range append(slices.Clone(change), was.Everything(office.Top)...) {
-		if !slices.ContainsFunc(deciders, func(x office.Decider) bool { return x.Kind == d.Kind && x.Name == d.Name }) {
-			deciders = append(deciders, d)
-		}
-	}
-	for _, d := range deciders {
-		var theirs []string
-		switch d.Kind {
-		case office.IsRule:
-			if r := was.Rules[d.Name]; r != nil {
-				theirs = uses(d.Name, r.Draft)
-			} else {
-				theirs = []string{d.Name}
+		written := func(o *office.Office, key string) string {
+			ds, ok := o.List(team, key)
+			if !ok {
+				return "\x00none"
 			}
-		case office.IsWorker:
-			w := was.Workers[d.Name]
-			if w == nil {
-				continue
+			var names []string
+			for _, d := range ds {
+				names = append(names, d.Written)
 			}
-			theirs = append([]string{w.File}, w.Uses...)
-			if b := now.Workers[d.Name]; b != nil && b.Model != w.Model {
-				out = append(out, fmt.Sprintf("it changes the model %s takes, and %s decides changes to the office: who decides a change to the office is a person's to write", d.Name, d.Name))
+			return strings.Join(names, ",")
+		}
+		for _, key := range []string{ToolPut, "everything"} {
+			if written(was, key) != written(now, key) {
+				out = append(out, fmt.Sprintf("it changes %s %s list: who decides a change to the office is a person's to write", called, key))
 			}
 		}
-		for _, f := range slices.Compact(slices.Sorted(slices.Values(theirs))) {
-			if touched[f] {
-				out = append(out, fmt.Sprintf("it changes %s, which %s, a decider of changes to the office, is or uses: who decides a change to the office is a person's to write", f, d.Written))
+		_, hadEverything := was.List(team, "everything")
+		_, hasEverything := now.List(team, "everything")
+		if wasTeam, nowTeam := was.Teams[team], now.Teams[team]; (!hadEverything || !hasEverything) && wasTeam != nil && nowTeam != nil && !slices.Equal(wasTeam.People, nowTeam.People) {
+			out = append(out, fmt.Sprintf("it changes %s people, who decide what its everything list does not name: who decides a change to the office is a person's to write", whose))
+		}
+		// The deciders on the office_put list and on the everything list,
+		// each once.
+		change, _ := was.List(team, ToolPut)
+		var deciders []office.Decider
+		for _, d := range append(slices.Clone(change), was.Everything(team)...) {
+			if !slices.ContainsFunc(deciders, func(x office.Decider) bool { return x.Kind == d.Kind && x.Name == d.Name }) {
+				deciders = append(deciders, d)
+			}
+		}
+		for _, d := range deciders {
+			var theirs []string
+			switch d.Kind {
+			case office.IsRule:
+				if r := was.Rules[d.Name]; r != nil {
+					theirs = uses(d.Name, r.Draft)
+				} else {
+					theirs = []string{d.Name}
+				}
+			case office.IsWorker:
+				w := was.Workers[d.Name]
+				if w == nil {
+					continue
+				}
+				theirs = append([]string{w.File}, w.Uses...)
+				if b := now.Workers[d.Name]; b != nil && b.Model != w.Model {
+					out = append(out, fmt.Sprintf("it changes the model %s takes, and %s decides changes to the office: who decides a change to the office is a person's to write", d.Name, d.Name))
+				}
+			}
+			for _, f := range slices.Compact(slices.Sorted(slices.Values(theirs))) {
+				if touched[f] {
+					out = append(out, fmt.Sprintf("it changes %s, which %s, a decider of changes to the office, is or uses: who decides a change to the office is a person's to write", f, d.Written))
+				}
 			}
 		}
 	}

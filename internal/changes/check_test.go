@@ -142,6 +142,17 @@ func TestChangesAWorkerCannotChangeWhoDecidesAChange(t *testing.T) {
 	if check := e.check(1); !strings.Contains(strings.Join(check.Refused, "\n"), "no-secrets.js, which ./no-secrets.js, a decider of changes to the office") {
 		t.Errorf("a worker's change to a rule on the everything list is checked %v", check.Refused)
 	}
+	// A team within decides its own writes, so its builder cannot rewrite
+	// a rule on its own lists either.
+	files = weeder(t)
+	files["garden/no-secrets.js"] = "return { says: \"refer\", note: \"looked\" }\n"
+	files["garden/team.yaml"] = strings.Replace(files["garden/team.yaml"], "decide: { everything: [sam] }", "decide: { everything: [sam], office_put: [./no-secrets.js, sam] }", 1)
+	w := newOffice(t, files)
+	w.callAs("weeder", 1, ToolWrite, map[string]any{"path": "garden/no-secrets.js", "text": "return { says: \"yes\" }\n"})
+	draft, _ := w.c.Drafted(ctx, 1)
+	if check, _ := w.c.Check(ctx, draft, Drafter{Name: "weeder"}); !strings.Contains(strings.Join(check.Refused, "\n"), "garden/no-secrets.js, which ./no-secrets.js, a decider of changes to the office") {
+		t.Errorf("the garden's builder's change to a rule on the garden's office_put list is checked %v", check.Refused)
+	}
 	// With no everything, the top team's people decide.
 	builder := "agent: builder\nmodel: { name: sonnet, service: claude-code }\nprompt: hi\ntools_file: [./.bulldog/tools/build/build.yaml]\n"
 	g := newOffice(t, map[string]string{"office.yaml": "everyone: { sam: {}, kit: {} }\npeople: [sam]\nlead: sam\n", "builder.yaml": builder})

@@ -55,7 +55,7 @@ func TestWriteNotesWritesTheTeamsOwnNote(t *testing.T) {
 			}
 		}
 	}
-	holds(t, "write_notes as the model is given it", described, "the builder reads them", "whoever decides a change", "Never put a secret")
+	holds(t, "write_notes as the model is given it", described, "a worker that names the build kit, of your team or one around it, reads them", "whoever decides a change", "Never put a secret")
 
 	// The garden's gardener writes the garden's note, never the house's.
 	answer, _ = noting("shed key", map[string]any{"name": "fuses", "text": "The shed has no power.\n", "why": "Sam said so"})
