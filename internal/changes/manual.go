@@ -24,9 +24,24 @@ var officePage string
 // corbie bulldog manual and by a model.
 func init() {
 	manual.Add(func() []manual.Page {
-		office := manual.Page{Name: OfficePage, Group: "Bulldog", Summary: "how an office is written, with a whole worker, rule and bridge", Text: officePage}
+		office := manual.Page{Name: OfficePage, Group: Group, Summary: "how an office is written, with a whole worker, rule and bridge", Text: officePage}
 		return append([]manual.Page{office}, shipped.Pages()...)
 	})
+}
+
+// Group is the group of Bulldog's own pages of the manual.
+const Group = "Bulldog"
+
+// Pages gives Bulldog's pages of the manual, in the manual's order: the
+// office page, the page of each thing Bulldog ships and the program's.
+func Pages() []manual.Page {
+	var out []manual.Page
+	for _, p := range manual.Pages() {
+		if p.Group == Group {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // Manual gives a page of the manual by its name, as corbie manual prints

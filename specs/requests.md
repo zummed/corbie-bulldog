@@ -70,7 +70,7 @@ A guest is someone a bridge names who matches no person. A guest may ask only in
 
 ## The store
 
-Requests are kept in one store, in Bulldog's one file, and only this area reads or writes them. It keeps requests, their entries and the files on entries, and nothing of any other area. What waits on a person is worked out here, once, and the screens and the bridges read it here. A person can list the requests they may see, by team and by state, those that wait on them, and those they asked.
+Requests are kept in one store, in Bulldog's one file, and only this area reads or writes them. It keeps requests, their entries and the files on entries, and nothing of any other area. What waits on a person is worked out here, once, and the screens and the bridges read it here. A person can list the requests they may see, by team, by state and by the bridge and listed place they were asked at, those that wait on them, and those they asked.
 
 Each thing done is one write, whole or not at all: a request with its asking, an entry with its files, a sub-request with the entry that asked it, a stop with everything it closes. Whoever watches is told of a change after it is written. A store made by an older Bulldog is refused, and the person is told to make it again.
 

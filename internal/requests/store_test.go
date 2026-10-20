@@ -50,6 +50,14 @@ func TestRequestsListed(t *testing.T) {
 	if open := got[[]requests.Summary](t)(h.OpenOf(office.Top)); !slices.Equal(numbers(open), []int64{lights, monday}) || open[0].State.Is != requests.Waiting || open[1].State.Is != requests.Working {
 		t.Errorf("the house's open requests are %+v", open)
 	}
+	direct := got[*requests.Request](t)(h.AskAt("telegram", office.Direct, "4472", "", "4472", "hello", nil, false)).Number
+	hedge := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "the hedge again", nil, false)).Number
+	if list := got[[]requests.Summary](t)(h.List("sam", requests.Filter{Bridge: "telegram"})); !slices.Equal(numbers(list), []int64{hedge, direct}) {
+		t.Errorf("Sam's requests asked on Telegram are %v", numbers(list))
+	}
+	if list := got[[]requests.Summary](t)(h.List("sam", requests.Filter{Bridge: "telegram", Place: "garden-chat"})); !slices.Equal(numbers(list), []int64{hedge}) {
+		t.Errorf("Sam's requests asked in Telegram's garden-chat are %v", numbers(list))
+	}
 }
 
 func TestRequestsOneThingOneWrite(t *testing.T) {

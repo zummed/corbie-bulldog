@@ -220,6 +220,16 @@ func (s *site) watch(person string, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// run gives a run to whoever may watch it, as it is kept: its kind, its
+// team and request, its worker and how it stands.
+func (s *site) run(person string, w http.ResponseWriter, r *http.Request) (any, error) {
+	kept, err := s.Work.Watched(r.PathValue("run"), person)
+	if err != nil {
+		return nil, err
+	}
+	return runOf(kept), nil
+}
+
 // A seenOut is one thing a run did, as a screen watching it is sent it:
 // the instance it happened in and its machine, the tool, stage or job it
 // is of, its words, and for a refusal what was tried, the layer that

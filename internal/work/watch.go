@@ -69,15 +69,38 @@ type Seen struct {
 // was said in every place it listens in, or a sign-in link. A run below
 // one Bulldog started is watched with it.
 func (w *Work) MayWatch(run, person string) (bool, error) {
+	n, err := w.watchable(run, person)
+	return n != nil, err
+}
+
+// Watched gives a run a person may watch as it is kept: its kind, its team
+// and request, its worker and how it stands. To anyone else it is not
+// there.
+func (w *Work) Watched(run, person string) (KeptRun, error) {
+	n, err := w.watchable(run, person)
+	if err != nil {
+		return KeptRun{}, err
+	}
+	if n == nil {
+		return KeptRun{}, ErrNoWatch
+	}
+	return w.kept(n), nil
+}
+
+// watchable gives the note of a run a person may watch, or nil.
+func (w *Work) watchable(run, person string) (*note, error) {
 	n, err := w.noted(run)
 	if err != nil || n == nil || isBridge(n.Kind) || n.Status == unsent {
-		return false, err
+		return nil, err
 	}
 	labels := map[string]string{requests.LabelTeam: n.Team}
 	if n.Request != 0 {
 		labels[requests.LabelRequest] = fmt.Sprint(n.Request)
 	}
-	return w.requests.MayWatch(labels, person)
+	if may, err := w.requests.MayWatch(labels, person); err != nil || !may {
+		return nil, err
+	}
+	return n, nil
 }
 
 // Follow shows a person who may watch a run each thing it does as it does

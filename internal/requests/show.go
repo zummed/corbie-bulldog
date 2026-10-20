@@ -194,12 +194,15 @@ func (l *look) summary(r *Request, ws []wait, person string) (Summary, error) {
 }
 
 // A Filter narrows a list: to one team, to one state, to those waiting on
-// the one looking, or to those they asked.
+// the one looking, to those they asked, or to those asked on one bridge
+// and, when Place names one, at that listed place of it.
 type Filter struct {
 	Team      string
 	State     string
 	WaitsOnMe bool
 	Asked     bool
+	Bridge    string
+	Place     string
 }
 
 // List gives the requests a person may see, newest first, as the filter
@@ -233,7 +236,7 @@ func (s *Store) List(person string, f Filter) ([]Summary, error) {
 			continue
 		}
 		if !done {
-			if f.WaitsOnMe && f.Team == "" && f.State == "" && !f.Asked {
+			if f.WaitsOnMe && f.Team == "" && f.State == "" && !f.Asked && f.Bridge == "" {
 				list = append(list, Summary{Number: r.Number})
 			}
 			continue
@@ -242,7 +245,8 @@ func (s *Store) List(person string, f Filter) ([]Summary, error) {
 		if err != nil {
 			return nil, err
 		}
-		if f.Team != "" && r.Team != f.Team || f.State != "" && sum.State.Is != f.State || f.Asked && !l.is(r.Asker, person) {
+		if f.Team != "" && r.Team != f.Team || f.State != "" && sum.State.Is != f.State || f.Asked && !l.is(r.Asker, person) ||
+			f.Bridge != "" && (r.Origin.Bridge != f.Bridge || f.Place != "" && r.Origin.Heard != f.Place) {
 			continue
 		}
 		list = append(list, sum)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -59,6 +60,20 @@ func TestServerEveryRequestOfTheAPI(t *testing.T) {
 	sam.get("/api/history").is(http.StatusOK).into(&history)
 	if commit := sam.get("/api/history/" + history.History[0].ID).is(http.StatusOK).json(); commit["commit"] == nil || commit["files"] == nil {
 		t.Errorf("a commit is given as %v", commit)
+	}
+	var pages struct{ Pages []pageOut }
+	sam.get("/api/manual").is(http.StatusOK).into(&pages)
+	if len(pages.Pages) < 2 || pages.Pages[0].Name != "office" || !slices.ContainsFunc(pages.Pages, func(p pageOut) bool { return p.Name == "tools/talk" && p.Text == "" }) {
+		t.Errorf("/api/manual gives %+v", pages)
+	}
+	if page := sam.get("/api/manual/tools/talk").is(http.StatusOK).json(); !strings.Contains(page["text"].(string), "./.bulldog/tools/talk/talk.yaml") {
+		t.Errorf("/api/manual/tools/talk gives %v", page)
+	}
+	sam.get("/api/manual/agent").is(http.StatusNotFound)
+	var run runOut
+	sam.get("/api/runs/" + url.PathEscape(v.Runs[0].Name)).is(http.StatusOK).into(&run)
+	if run.Request != n || run.Team != "office" || run.Worker != v.Runs[0].Worker {
+		t.Errorf("/api/runs/%s gives %+v", v.Runs[0].Name, run)
 	}
 	if e := sam.stream("/api/events").next(); e.name != Hello {
 		t.Errorf("the stream of changes begins %+v", e)

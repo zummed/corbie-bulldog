@@ -131,9 +131,23 @@
 
   // Ask
 
+  // strip gives the way a request to a team goes: its lead, and whether it
+  // can be started; to those who see it, whether the team sets a
+  // disclosure; and where the answer is said.
+  function strip(t) {
+    if (!t) return [];
+    const lead = B.person(t.lead) ? B.personEl(t.lead) : B.workerEl(t.lead, t.name, {bare: true});
+    return [
+      ["Lead", B.el("span", {class: "line"}, lead, t.lead_runs ? null : B.el("span", {class: "status failed"}, "cannot run"))],
+      t.discloses === undefined ? null : ["Disclosure", t.discloses ? "Set" : B.el("span", {class: "faint"}, "None")],
+      ["Answer", B.el("span", {class: "line"}, B.way({kind: "chat"}), B.el("span", {class: "faint"}, "›"), "screens")],
+    ];
+  }
+
   // ask gives the form that asks a team in the chat: picked from a list
   // when the office is small, typed when it is not; the one looking's own
-  // teams first.
+  // teams first; beside it the way a request to the team picked goes, and
+  // Ask only while its lead can be started.
   function ask() {
     const mine = new Set(B.me.me.teams || []);
     const all = B.me.teams || [];
@@ -157,6 +171,16 @@
     const text = B.el("textarea", {class: "in"});
     const files = B.el("input", {class: "in", type: "file", multiple: true});
     const go = B.el("button", {class: "btn go", type: "submit"}, "Ask");
+    const way = B.el("div", {class: "desk-strip"});
+    const picked = () => { try { return B.team(pick()); } catch (err) { return null; } };
+    const showWay = () => {
+      const t = picked();
+      way.hidden = !t;
+      way.replaceChildren(B.kv(strip(t)));
+      go.disabled = Boolean(t && !t.lead_runs);
+    };
+    team.addEventListener("change", showWay);
+    team.addEventListener("input", showWay);
     const form = B.el("form", {class: "desk-ask", onsubmit: async (ev) => {
       ev.preventDefault();
       B.trouble(null);
@@ -168,12 +192,14 @@
         drafts.delete("ask");
         location.hash = "#/r/" + out.number;
       } catch (err) { B.trouble(err); }
-      go.disabled = false;
+      showWay();
     }},
-      B.el("div", {class: "desk-ask-team"}, B.field("Team", team), list),
+      B.el("div", {class: "desk-ask-head"}, B.el("div", {class: "desk-ask-team"}, B.field("Team", team), list), way),
       B.field("Request", text),
       B.el("div", {class: "desk-ask-foot"}, B.field("Files", files), go));
-    return B.sect("Ask", keep(form, "ask", false));
+    keep(form, "ask", false);
+    showWay();
+    return B.sect("Ask", form);
   }
 
   // Asked by you
@@ -228,11 +254,33 @@
       all.length > TEAMS ? more("#/teams", all.length - TEAMS) : null);
   }
 
+  // stops gives what a problem stops, its worker, its rule or its bridge,
+  // or else the team it is of; the key it is grouped by; and whether it is
+  // stopped.
+  function stops(p) {
+    if (p.worker) return ["w:" + p.team + "/" + p.worker, B.workerEl(p.worker, p.team), true];
+    if (p.rule) return ["r:" + p.rule, B.el("span", {class: "line"}, B.ruleEl(p.rule), B.teamEl(p.team)), true];
+    if (p.bridge) return ["b:" + p.bridge, B.el("a", {class: "who", href: "#/bridges"}, B.icon("bridge"), p.bridge), true];
+    return ["t:" + p.team, B.teamEl(p.team), false];
+  }
+
+  // problems gives the problems the one looking sees, each beneath what it
+  // stops.
   function problems() {
     const all = B.me.problems || [];
     if (!all.length) return null;
-    return B.sect("Problems", B.el("div", {class: "rows"}, all.slice(0, PROBLEMS).map((p) =>
-      B.el("div", {class: "row"}, B.teamEl(p.team), B.el("span", {class: "grow"}, p.said)))),
+    const groups = new Map();
+    for (const p of all.slice(0, PROBLEMS)) {
+      const [key, head, stopped] = stops(p);
+      if (!groups.has(key)) groups.set(key, {head, stopped, said: []});
+      groups.get(key).said.push(p);
+    }
+    return B.sect(B.label("Problems", B.el("span", {class: "count"}, String(all.length))),
+      B.el("div", {class: "desk-problems"}, [...groups.values()].map((g) => B.el("div", {class: "desk-problem"},
+        B.el("div", {class: "desk-problem-head"}, g.head, g.stopped ? B.el("span", {class: "status stopped"}, "stopped") : null),
+        B.el("ul", {class: "desk-problem-list"}, g.said.map((p) => B.el("li", {},
+          p.file ? B.el("span", {class: "mono small faint"}, p.file + (p.line ? ":" + p.line : "")) : null,
+          B.el("span", {}, p.text || p.said))))))),
       all.length > PROBLEMS ? more("#/me", all.length - PROBLEMS) : null);
   }
 

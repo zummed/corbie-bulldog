@@ -80,24 +80,33 @@
     return B.el("div", {class: "why"}, B.kv([["Refused", s.refused], ["Layer", s.layer], ["Fix", s.fix]]));
   }
 
-  // view draws the page. The run is watched only once the page is the one
+  // The kinds of run, by the word their labels give.
+  const KIND = {work: "Work", heed: "Heed", decide: "Decide", clock: "Clock"};
+
+  // view draws the page, with the run's team, request and kind as its
+  // labels give them. The run is watched only once the page is the one
   // shown: a view may be drawn and thrown away when the office changes
   // while it is being fetched.
-  function view(m) {
+  async function view(m) {
     const name = decodeURIComponent(m[1].split("?")[0]);
+    const run = await B.api("/api/runs/" + encodeURIComponent(name));
+    const reqLink = run.request ? B.el("a", {class: "mono", href: "#/r/" + run.request}, "#" + run.request) : null;
 
     const machineSlot = B.el("span", {class: "run-machine"});
     const statusEl = B.el("span", {class: "status working live"}, "working");
     const meta = B.el("div", {});
     const rows = B.el("div", {class: "events rows"});
     const root = B.el("div", {class: "run-view"},
-      B.head([B.el("a", {href: "#/requests"}, "Requests")],
+      B.head([B.teamEl(run.team), reqLink].filter(Boolean),
         B.el("span", {class: "run-title"}, "Run", machineSlot), statusEl),
       B.el("div", {class: "cols"},
         B.el("div", {class: "main"}, B.sect("Events", rows)),
         B.el("div", {class: "side"}, meta)));
 
     const drawMeta = (at) => meta.replaceChildren(B.kv([
+      ["Team", B.teamEl(run.team)],
+      ["Request", reqLink ? reqLink.cloneNode(true) : null],
+      ["Kind", KIND[run.kind] || run.kind],
       ["Run", B.el("span", {class: "mono small run-name"}, name)],
       ["Started", at ? B.whenEl(at) : null],
     ]));

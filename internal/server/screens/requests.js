@@ -1,20 +1,23 @@
 // Requests: those the one looking may see, newest first, narrowed by
-// whose they are, their state and their team, a page at a time.
+// whose they are, their state, their team and the place they were asked
+// at, a page at a time; the noted only when picked, and each sub-request
+// beneath the request it was asked from when both are shown.
 (function () {
   "use strict";
 
   // The address's query names these, and they go on to the API as given.
-  const PASSED = ["team", "state", "asked", "waiting", "limit", "before"];
-  const STATES = ["working", "waiting", "answered"];
+  const PASSED = ["team", "state", "asked", "waiting", "bridge", "place", "noted", "limit", "before"];
+  const STATES = ["working", "queued", "waiting", "answered"];
   const PAGE = 100; // the server's page, when the address names none
   const MOST = 500; // the most the server gives in one page
 
   // kept is what the one looking did in the view at an address, so that
   // drawing it again at a change keeps it: what is typed in either box,
   // the oldest request More fetched and how many there were, and what was
-  // drawn last, to be given again when nothing in it changed.
+  // drawn last, to be given again when nothing in it changed; and the
+  // requests whose sub-requests below the first level are open.
   let kept = fresh("");
-  function fresh(hash) { return {hash, q: "", team: null, until: 0, count: 0, sig: "", root: null}; }
+  function fresh(hash) { return {hash, q: "", team: null, until: 0, count: 0, sig: "", root: null, open: new Set()}; }
 
   function apiQuery(q, before, limit) {
     const out = new URLSearchParams();
@@ -53,6 +56,36 @@
     return B.field("State", sel);
   }
 
+  // placeFilter picks one place a bridge listens in, by the bridge and the
+  // place as listed; one the address names that is listed no longer is
+  // offered too, and there is none to pick in an office with no places.
+  function placeFilter(q) {
+    const all = (B.me.office.bridges || []).flatMap((b) => (b.places || []).map((p) => ({bridge: b.name, place: p.name})));
+    const at = {bridge: q.get("bridge") || "", place: q.get("place") || ""};
+    if (at.bridge && !all.some((x) => x.bridge === at.bridge && x.place === at.place)) all.push(at);
+    if (!all.length) return null;
+    const sel = B.el("select", {class: "in"},
+      B.el("option", {value: ""}, "all"),
+      all.map((x, i) => B.el("option", {value: String(i), selected: x.bridge === at.bridge && x.place === at.place},
+        x.place ? x.bridge + " › " + x.place : x.bridge)));
+    sel.addEventListener("change", () => {
+      const x = all[Number(sel.value)];
+      location.hash = hrefWith(x ? {bridge: x.bridge, place: x.place} : {bridge: null, place: null});
+    });
+    return B.field("Place", sel);
+  }
+
+  // notedChip picks whether the requests noted, whose every message the
+  // team's heed noted, are listed; it is there while there are any.
+  function notedChip(q, count) {
+    const picked = q.get("noted") === "yes";
+    if (!count && !picked) return null;
+    return B.el("span", {class: "line rqs-noted"},
+      B.el("a", {class: "rqs-chip", href: hrefWith({noted: picked ? null : "yes"}), "aria-pressed": String(picked)},
+        "Noted", B.el("span", {class: "count"}, String(count))),
+      ...B.info("About noted", "Kept in the request; its lead did not start on it, and is given it in the thread when next asked."));
+  }
+
   // teamFilter is a box that offers the teams the one looking is in, and
   // takes a team's name or what it is called. It is a search box, so that
   // what it holds is not taken for something being written; what is typed
@@ -84,23 +117,52 @@
   }
 
   // A row is a link by its number, which covers the whole row; the other
-  // links in it lie above that.
-  function row(r, byTeam) {
-    const n = cell("n", B.el("a", {class: "mono rqs-open", href: "#/r/" + r.number,
+  // links in it lie above that. A sub-request beneath its request is set
+  // in by its depth, with no origin of its own, and one with sub-requests
+  // of its own below the first level opens them by its toggle.
+  function row(r, byTeam, depth, toggle) {
+    const nest = depth ? " nest d" + Math.min(depth, 3) : "";
+    const n = cell("n" + nest, toggle, B.el("a", {class: "mono rqs-open", href: "#/r/" + r.number,
       "aria-label": "#" + r.number + (r.whole && r.first ? " " + r.first : ""), title: r.whole ? r.first : null}, "#" + r.number));
     if (!r.whole) {
       return B.el("div", {class: "row link"}, n, cell("first muted", "put to you"),
         r.state ? cell("st", B.status(r)) : null);
     }
     const st = B.status(r);
-    return B.el("div", {class: "row link"},
+    return B.el("div", {class: "row link" + (depth ? " sub" : "")},
       n,
-      B.el("span", {class: "cell first", title: r.first}, r.first),
+      B.el("span", {class: "cell first" + nest, title: r.first}, r.first),
       byTeam ? null : cell("team", B.teamEl(r.team)),
       cell("asker", B.party(r.asker)),
-      cell("origin", where(r)),
+      cell("origin", depth ? "" : where(r)),
       B.el("span", {class: "cell st", title: st.textContent}, st),
       cell("made", B.whenEl(r.made)));
+  }
+
+  // chains gives the rows shown, each sub-request whose request is shown
+  // right after it, in the order they were asked; the first level open,
+  // and those below it behind their request's toggle.
+  function chains(shown, rowOf, redraw) {
+    const numbers = new Set(shown.map((r) => r.number));
+    const kids = new Map();
+    const roots = [];
+    for (const r of shown) {
+      if (r.whole && r.parent && numbers.has(r.parent)) {
+        if (!kids.has(r.parent)) kids.set(r.parent, []);
+        kids.get(r.parent).unshift(r);
+      } else roots.push(r);
+    }
+    const draw = (r, depth) => {
+      const below = kids.get(r.number) || [];
+      const open = below.length > 0 && (depth === 0 || kept.open.has(r.number));
+      const toggle = below.length && depth > 0 ? B.el("button", {class: "toggle rqs-toggle", type: "button", "aria-expanded": String(open),
+        "aria-label": "Sub-requests of #" + r.number, onclick: () => {
+          if (open) kept.open.delete(r.number); else kept.open.add(r.number);
+          redraw();
+        }}, open ? "▾" : "▸") : null;
+      return [rowOf(r, depth, toggle), open ? below.map((k) => draw(k, depth + 1)) : []];
+    };
+    return roots.map((r) => draw(r, 0));
   }
 
   function header(byTeam) {
@@ -157,12 +219,18 @@
       return kept.root;
     }
 
-    // Each row is made once, and the search only chooses among them.
+    // Each row is made once for where it stands, and the search only
+    // chooses among them.
     const made = new Map();
-    const rowOf = (r) => { if (!made.has(r)) made.set(r, row(r, byTeam)); return made.get(r); };
+    const rowOf = (r, depth, toggle) => {
+      const key = r.number + "/" + depth + "/" + (toggle ? toggle.getAttribute("aria-expanded") : "");
+      if (!made.has(key) || made.get(key).r !== r) made.set(key, {r, el: row(r, byTeam, depth, toggle)});
+      return made.get(key).el;
+    };
     const hd = header(byTeam);
+    const redraw = () => search.box.dispatchEvent(new Event("input"));
     const search = B.search("Search", items, words, (shown, typed) => shown.length
-      ? B.el("div", {class: "rows rqs-list" + (byTeam ? " by-team" : "")}, hd, shown.map(rowOf))
+      ? B.el("div", {class: "rows rqs-list" + (byTeam ? " by-team" : "")}, hd, chains(shown, rowOf, redraw))
       : B.empty(typed && before ? "none loaded" : undefined));
     search.box.dataset.keep = "q";
     search.box.addEventListener("input", () => { kept.q = search.box.value; });
@@ -191,7 +259,7 @@
 
     const root = B.el("div", {class: "rqs-view"},
       B.head(null, "Requests", search.box),
-      B.el("div", {class: "rqs-bar"}, tabs(q), B.el("div", {class: "rqs-filters"}, stateFilter(q), teamFilter(q))),
+      B.el("div", {class: "rqs-bar"}, tabs(q), B.el("div", {class: "rqs-filters"}, stateFilter(q), teamFilter(q), placeFilter(q), notedChip(q, first.noted || 0))),
       search.out,
       B.el("div", {class: "rqs-more"}, more));
     kept.sig = sig();

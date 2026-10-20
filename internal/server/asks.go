@@ -40,6 +40,9 @@ type (
 		Origin *originOut `json:"origin,omitempty"`
 		Parent int64      `json:"parent,omitempty"`
 		State  string     `json:"state,omitempty"`
+		// Queued is its place in the queue, from 1, while it waits its
+		// turn to work.
+		Queued int        `json:"queued,omitempty"`
 		Label  string     `json:"label,omitempty"`
 		On     []partyOut `json:"on,omitempty"`
 		Source *sourceOut `json:"source,omitempty"`
@@ -105,6 +108,7 @@ type (
 		Team      string        `json:"team"`
 		Question  string        `json:"question"`
 		State     string        `json:"state"`
+		Queued    int           `json:"queued,omitempty"`
 		Label     string        `json:"label,omitempty"`
 		On        []partyOut    `json:"on,omitempty"`
 		Answer    string        `json:"answer,omitempty"`
@@ -140,6 +144,7 @@ type (
 		Name    string     `json:"name"`
 		Kind    string     `json:"kind"`
 		Team    string     `json:"team"`
+		Request int64      `json:"request,omitempty"`
 		Worker  string     `json:"worker,omitempty"`
 		Started time.Time  `json:"started"`
 		Ended   *time.Time `json:"ended,omitempty"`
@@ -310,15 +315,21 @@ func partiesOf(ps []requests.Party) []partyOut {
 	return out
 }
 
+// stateQueued is the state a list may be narrowed to of the requests
+// working that wait their turn, which work, not the requests, says.
+const stateQueued = "queued"
+
 // list gives the requests the one looking may see, newest first, as the
-// address narrows them: to a team, a state, those they asked, or those
-// waiting on them; and of them a part, those numbered below before, and
-// how many; with the number to give as before for the next part, when
-// more are left.
+// address narrows them: to a team, a state, those they asked, those
+// waiting on them, or those asked on a bridge and at a place of it; those
+// noted only when they are asked for, and how many there are; and of them
+// a part, those numbered below before, and how many; with the number to
+// give as before for the next part, when more are left.
 func (s *site) list(person string, w http.ResponseWriter, r *http.Request) (any, error) {
 	q := r.URL.Query()
 	var f requests.Filter
 	before, limit := int64(0), Requests
+	queued, withNoted := false, false
 	for name, values := range q {
 		if len(values) != 1 {
 			return nil, unreadable("The address gives %s more than once.", name)
@@ -327,16 +338,28 @@ func (s *site) list(person string, w http.ResponseWriter, r *http.Request) (any,
 		case "team":
 			f.Team = v
 		case "state":
-			if !slices.Contains([]string{requests.Working, requests.Waiting, requests.Answered}, v) {
-				return nil, unreadable("A state is working, waiting or answered, and not %q.", v)
+			if !slices.Contains([]string{requests.Working, stateQueued, requests.Waiting, requests.Answered}, v) {
+				return nil, unreadable("A state is working, queued, waiting or answered, and not %q.", v)
 			}
-			f.State = v
+			f.State, queued = v, v == stateQueued
+			if queued {
+				f.State = requests.Working
+			}
 		case "asked", "waiting":
 			if v != "me" {
 				return nil, unreadable("%s is me, or not given, and not %q.", name, v)
 			}
 			f.Asked = f.Asked || name == "asked"
 			f.WaitsOnMe = f.WaitsOnMe || name == "waiting"
+		case "bridge":
+			f.Bridge = v
+		case "place":
+			f.Place = v
+		case "noted":
+			if v != "yes" {
+				return nil, unreadable("noted is yes, or not given, and not %q.", v)
+			}
+			withNoted = true
 		case "before":
 			n, err := counted(name, v)
 			if err != nil {
@@ -353,10 +376,22 @@ func (s *site) list(person string, w http.ResponseWriter, r *http.Request) (any,
 			return nil, unreadable("The address gives %s, which is not taken here.", name)
 		}
 	}
+	if f.Place != "" && f.Bridge == "" {
+		return nil, unreadable("A place is given with its bridge.")
+	}
 	sums, err := s.Requests.List(person, f)
 	if err != nil {
 		return nil, err
 	}
+	queue := s.Work.Queue()
+	noted := 0
+	sums = slices.DeleteFunc(sums, func(sum requests.Summary) bool {
+		if sum.State.Noted {
+			noted++
+			return !withNoted
+		}
+		return f.State == requests.Working && slices.Contains(queue, sum.Number) != queued
+	})
 	shown, next := listPage(sums, before, limit)
 	out := []summaryOut{}
 	for _, sum := range shown {
@@ -373,12 +408,12 @@ func (s *site) list(person string, w http.ResponseWriter, r *http.Request) (any,
 				origin = &req.Origin
 			}
 		}
-		out = append(out, summaryOf(sum, origin, s.Requests.Party))
+		out = append(out, summaryOf(sum, origin, queue, s.Requests.Party))
 	}
 	if next != 0 {
-		return map[string]any{"requests": out, "before": next}, nil
+		return map[string]any{"requests": out, "noted": noted, "before": next}, nil
 	}
-	return map[string]any{"requests": out}, nil
+	return map[string]any{"requests": out, "noted": noted}, nil
 }
 
 // listPage gives part of a list of requests, newest first: as many as the
@@ -397,20 +432,31 @@ func listPage(sums []requests.Summary, before int64, limit int) ([]requests.Summ
 }
 
 // summaryOf gives a request as a list shows it: all of it to whoever sees
-// it whole, with anyone its origin and source name as party gives them,
-// and its number alone to anyone else.
-func summaryOf(sum requests.Summary, origin *requests.Origin, party func(requests.Who) requests.Party) summaryOut {
+// it whole, with its place in the queue while it waits its turn, and
+// anyone its origin and source name as party gives them; and its number
+// alone to anyone else.
+func summaryOf(sum requests.Summary, origin *requests.Origin, queue []int64, party func(requests.Who) requests.Party) summaryOut {
 	if !sum.Whole {
 		return summaryOut{Number: sum.Number}
 	}
 	asker := partyOf(sum.Asker)
 	made := sum.Made
 	out := summaryOut{Number: sum.Number, Whole: true, Team: sum.Team, Asker: &asker, Parent: sum.Parent,
-		State: sum.State.Is, Label: labelOf(sum.State), On: partiesOf(sum.State.On), First: sum.First, Made: &made, Origin: originOf(origin, party)}
+		State: sum.State.Is, Queued: queuedAt(queue, sum), Label: labelOf(sum.State), On: partiesOf(sum.State.On), First: sum.First, Made: &made,
+		Origin: originOf(origin, party)}
 	if st := sum.Source; st != nil {
 		out.Source = &sourceOut{Status: st.Status, Closed: st.Closed, By: partyOf(party(st.By)), At: st.At, Link: st.Link}
 	}
 	return out
+}
+
+// queuedAt gives where a request working waits its turn in the queue,
+// from 1, or 0 when it does not.
+func queuedAt(queue []int64, sum requests.Summary) int {
+	if sum.State.Is != requests.Working {
+		return 0
+	}
+	return slices.Index(queue, sum.Number) + 1
 }
 
 // originOf gives where a request was asked, with the person who ran a
@@ -506,8 +552,9 @@ func (s *site) request(person string, w http.ResponseWriter, r *http.Request) (a
 	if err != nil {
 		return nil, err
 	}
-	out := viewOut{summaryOut: summaryOf(sum, v.Origin, s.Requests.Party), Read: v.Read, Entries: []entryOut{}, Questions: questionsOf(v.Entries, s.Requests.Party), Waits: []int64{}}
-	if out.Subs, err = s.subsOf(o, v.Subs, person); err != nil {
+	queue := s.Work.Queue()
+	out := viewOut{summaryOut: summaryOf(sum, v.Origin, queue, s.Requests.Party), Read: v.Read, Entries: []entryOut{}, Questions: questionsOf(v.Entries, s.Requests.Party), Waits: []int64{}}
+	if out.Subs, err = s.subsOf(o, v.Subs, queue, person); err != nil {
 		return nil, err
 	}
 	open := map[int64]bool{}
@@ -563,18 +610,19 @@ func (s *site) request(person string, w http.ResponseWriter, r *http.Request) (a
 
 // subsOf gives sub-requests as the request above them shows them, each
 // with its decisions as the one looking may see them.
-func (s *site) subsOf(o *office.Office, subs []requests.Sub, person string) ([]subOut, error) {
+func (s *site) subsOf(o *office.Office, subs []requests.Sub, queue []int64, person string) ([]subOut, error) {
 	out := []subOut{}
 	for _, sub := range subs {
 		ds, err := s.decisionsOf(o, sub.Number, person, true)
 		if err != nil {
 			return nil, err
 		}
-		below, err := s.subsOf(o, sub.Subs, person)
+		below, err := s.subsOf(o, sub.Subs, queue, person)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, subOut{Number: sub.Number, Team: sub.Team, Question: sub.Question, State: sub.State.Is, Label: labelOf(sub.State),
+		out = append(out, subOut{Number: sub.Number, Team: sub.Team, Question: sub.Question, State: sub.State.Is,
+			Queued: queuedAt(queue, requests.Summary{Number: sub.Number, State: sub.State}), Label: labelOf(sub.State),
 			On: partiesOf(sub.State.On), Answer: sub.Answer, Decisions: ds, Subs: below})
 	}
 	return out, nil
@@ -622,7 +670,7 @@ func (s *site) disclosureOf(o *office.Office, n int64, team string) (*disclosure
 
 // runOf gives a run on a request as it is kept with it.
 func runOf(r work.KeptRun) runOut {
-	out := runOut{Name: r.Name, Kind: r.Kind, Team: r.Team, Worker: r.Worker, Started: r.Started, Status: r.Status, How: r.How, Tokens: r.Tokens}
+	out := runOut{Name: r.Name, Kind: r.Kind, Team: r.Team, Request: r.Request, Worker: r.Worker, Started: r.Started, Status: r.Status, How: r.How, Tokens: r.Tokens}
 	if r.Kind == work.KindHeed && r.Status == "done" {
 		out.Says, out.How, _ = strings.Cut(r.How, ": ")
 	}

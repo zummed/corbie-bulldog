@@ -208,13 +208,16 @@ func TestARequestWaitsItsTurnOldestFirst(t *testing.T) {
 	if load := b.w.Load(); load != (Load{Working: 1, Queued: 3}) {
 		t.Errorf("with one run at work and three waiting their turn, the load is %+v", load)
 	}
+	if queue := b.w.Queue(); !slices.Equal(queue, ns) {
+		t.Errorf("the requests waiting their turn are %v, not %v", queue, ns)
+	}
 	let()
 	for _, n := range ns {
 		b.settled(n, requests.Answered)
 	}
 	b.still()
-	if load := b.w.Load(); load != (Load{}) {
-		t.Errorf("with every request answered, the load is %+v", load)
+	if load := b.w.Load(); load != (Load{}) || len(b.w.Queue()) != 0 {
+		t.Errorf("with every request answered, the load is %+v and the queue %v", load, b.w.Queue())
 	}
 	// One run at a time, so the model is asked in the order they started.
 	var order []string

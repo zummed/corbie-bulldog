@@ -38,10 +38,11 @@ func (w *Work) stopped(ctx context.Context, numbers []int64) error {
 
 // A KeptRun is a run on a request as it is kept with it.
 type KeptRun struct {
-	Name   string
-	Kind   string
-	Team   string
-	Worker string
+	Name    string
+	Kind    string
+	Team    string
+	Request int64
+	Worker  string
 	// Started and Ended are in the office's zone; Ended is zero while it
 	// goes.
 	Started time.Time
@@ -61,6 +62,16 @@ func (w *Work) Runs(n int64) ([]KeptRun, error) {
 	if err != nil {
 		return nil, err
 	}
+	var runs []KeptRun
+	for _, n := range notes {
+		runs = append(runs, w.kept(n))
+	}
+	return runs, nil
+}
+
+// kept gives a run as it is kept, its times in the office's zone, one not
+// yet started by when it was noted.
+func (w *Work) kept(n *note) KeptRun {
 	zone := time.UTC
 	if o := w.keeper.Office(); o != nil {
 		zone = o.Zone
@@ -71,14 +82,10 @@ func (w *Work) Runs(n int64) ([]KeptRun, error) {
 		}
 		return t.In(zone)
 	}
-	var runs []KeptRun
-	for _, n := range notes {
-		started := n.Started
-		if started.IsZero() {
-			started = n.Noted
-		}
-		runs = append(runs, KeptRun{Name: n.Name, Kind: n.Kind, Team: n.Team, Worker: n.Worker, Started: in(started), Ended: in(n.Ended),
-			Status: n.Status, How: n.How, Tokens: n.Tokens})
+	started := n.Started
+	if started.IsZero() {
+		started = n.Noted
 	}
-	return runs, nil
+	return KeptRun{Name: n.Name, Kind: n.Kind, Team: n.Team, Request: n.Request, Worker: n.Worker, Started: in(started), Ended: in(n.Ended),
+		Status: n.Status, How: n.How, Tokens: n.Tokens}
 }

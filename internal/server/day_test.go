@@ -534,6 +534,25 @@ return { says: "note", note: "Not for the bot." }
 		t.Errorf("Al is shown the quiet request's runs as %+v", v.Runs)
 	}
 
+	// Dana's list of what was asked at #help leaves the noted request out
+	// and counts it, and holds it once the noted are asked for.
+	var list struct {
+		Requests []summaryOut
+		Noted    int
+	}
+	dana.get("/api/requests?bridge=slack&place=%23help").is(http.StatusOK).into(&list)
+	if len(list.Requests) != 1 || list.Requests[0].Number != quiet || list.Noted != 1 {
+		t.Errorf("Dana's list of #help is %+v", list)
+	}
+	if listed := dana.listed("?bridge=slack&place=%23help&noted=yes"); !slices.Equal(listed, []int64{quiet, noted}) {
+		t.Errorf("Dana's list of #help with the noted is %v", listed)
+	}
+	if listed := dana.listed("?bridge=gitlab"); len(listed) != 0 {
+		t.Errorf("Dana's list of what was asked on GitLab is %v", listed)
+	}
+	dana.get("/api/requests?place=%23help").is(http.StatusBadRequest)
+	dana.get("/api/requests?noted=no").is(http.StatusBadRequest)
+
 	// Said more of, and stopped by Al, it is stopped.
 	s.delivered("slack", thing("said", "U0DANA00", "#help", "#help/1700.2", "readers", readers, "text", "@bot hello?"))
 	al.until(quiet, "is working again", func(v viewOut) bool { return v.State != requests.Answered })

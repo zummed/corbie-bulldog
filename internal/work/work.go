@@ -140,8 +140,8 @@ type Work struct {
 	// driving goroutine, so it only marks or wakes.
 	Took func()
 	// Counted, when it is set, is told each time how many runs are at
-	// work, or how many requests wait their turn, changes, which Load then
-	// gives. It is told on the driving goroutine, so it only marks or
+	// work, or which requests wait their turn, changes, which Load and
+	// Queue then give. It is told on the driving goroutine, so it only marks or
 	// wakes.
 	Counted func()
 
@@ -194,8 +194,10 @@ type Work struct {
 	// taken is the latest reading every area has taken.
 	taken atomic.Pointer[office.Office]
 	// load is how many runs were at work, and how many requests waited
-	// their turn, when the runs going were last counted.
-	load atomic.Pointer[Load]
+	// their turn, when the runs going were last counted; queue is which
+	// requests waited, in the order they start.
+	load  atomic.Pointer[Load]
+	queue atomic.Pointer[[]int64]
 
 	// mu guards what other goroutines hand the driving one.
 	mu      sync.Mutex
@@ -292,9 +294,21 @@ func (w *Work) Load() Load {
 	return Load{}
 }
 
-// count keeps the load, and tells Counted when it changed.
-func (w *Work) count(l Load) {
-	if old := w.load.Swap(&l); (old == nil || *old != l) && w.Counted != nil {
+// Queue gives the requests that waited their turn when the runs going
+// were last counted, in the order they start, oldest first: none before
+// then.
+func (w *Work) Queue() []int64 {
+	if q := w.queue.Load(); q != nil {
+		return *q
+	}
+	return nil
+}
+
+// count keeps the load and the queue, and tells Counted when either
+// changed.
+func (w *Work) count(l Load, queue []int64) {
+	old, was := w.load.Swap(&l), w.queue.Swap(&queue)
+	if (old == nil || *old != l || !slices.Equal(*was, queue)) && w.Counted != nil {
 		w.Counted()
 	}
 }

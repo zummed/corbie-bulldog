@@ -76,6 +76,8 @@ func routes(s *site) http.Handler {
 	mux.HandleFunc("POST /api/teams/{team}/routines/now", s.api(s.routineNow))
 	mux.HandleFunc("GET /api/shipped", s.api(s.shipped))
 	mux.HandleFunc("GET /api/defined", s.api(s.defined))
+	mux.HandleFunc("GET /api/manual", s.api(s.manualPages))
+	mux.HandleFunc("GET /api/manual/{page...}", s.api(s.manualPage))
 	mux.HandleFunc("GET /api/office/files", s.api(s.files))
 	mux.HandleFunc("GET /api/office/file", s.api(s.file))
 	mux.HandleFunc("POST /api/office/check", s.api(s.check))
@@ -83,6 +85,7 @@ func routes(s *site) http.Handler {
 	mux.HandleFunc("GET /api/history", s.api(s.history))
 	mux.HandleFunc("GET /api/history/{id}", s.api(s.commit))
 	mux.HandleFunc("GET /api/events", s.keyed(s.events))
+	mux.HandleFunc("GET /api/runs/{run}", s.api(s.run))
 	mux.HandleFunc("GET /api/runs/{run}/watch", s.keyed(s.watch))
 	mux.HandleFunc("GET /files/{id}", s.keyed(s.entryFile))
 	mux.HandleFunc("/", s.keyed(func(person string, w http.ResponseWriter, r *http.Request) {

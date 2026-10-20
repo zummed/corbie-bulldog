@@ -203,8 +203,8 @@ An empty answer to a request asked by a routine, or at a channel place, any plac
 
 ## The store
 
-**R-requests-43** A person can list the requests they may see, by team and by state; the requests waiting on them; and the requests they asked.
-*Accept:* Sam lists the house's requests by state and sees Kit's request as answered and Monday's routine as working; his list of what waits on him holds the circuit to cut; Kit's list of what she asked holds her request.
+**R-requests-43** A person can list the requests they may see, by team, by state, and by the bridge they were asked on and the place it lists that they were asked at; the requests waiting on them; and the requests they asked.
+*Accept:* Sam lists the house's requests by state and sees Kit's request as answered and Monday's routine as working; his list of what waits on him holds the circuit to cut; Kit's list of what she asked holds her request. Kit then says hello to the house directly on Telegram and asks of the hedge in `garden-chat`: Sam's list of what was asked on Telegram holds both, and of `garden-chat` the hedge alone.
 
 **C-requests-23** Only this area reads or writes the requests' part of the store, and every other area asks it. Queries written elsewhere against its tables drift from each other and from the store. *Test:* none: it is a rule of the code's shape, kept by review.
 

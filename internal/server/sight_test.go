@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -16,6 +17,7 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/bridges"
 	"github.com/zummed/corbie-bulldog/internal/bridges/standin"
 	"github.com/zummed/corbie-bulldog/internal/decisions"
+	"github.com/zummed/corbie-bulldog/internal/requests"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 	"github.com/zummed/corbie-bulldog/internal/work"
 	"github.com/zummed/corbie-bulldog/shipped"
@@ -465,6 +467,42 @@ func TestServerRequestsSeenAsRequestsSay(t *testing.T) {
 	d.s.as("lee").get("/api/requests/" + itoa(d.n)).is(http.StatusNotFound)
 }
 
+func TestServerRequestWaitingItsTurnShownQueued(t *testing.T) {
+	t.Parallel()
+	files := house(t)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "people: [sam, kit]", "people: [sam, kit]\nruns: 1", 1)
+	b := newBench(t, files)
+	held, let := b.hold()
+	s := b.serve()
+	sam := s.as("sam")
+	// How many wait their turn is counted apart from any write, and the
+	// stream of changes says when it changes.
+	changes := sam.stream("/api/events")
+	first := s.chat("kit", "", "first")
+	b.until("the first is held", func() bool { return held() == 1 })
+	second, third := s.chat("sam", "", "second"), s.chat("sam", "", "third")
+	for len(sam.listed("?state=queued")) != 2 {
+		changes.until("the runs are counted again", func(e event) bool { return e.data == Runs })
+	}
+	if listed := sam.listed("?state=queued"); !slices.Equal(listed, []int64{third, second}) {
+		t.Errorf("Sam's queued requests are %v", listed)
+	}
+	if listed := sam.listed("?state=working"); !slices.Equal(listed, []int64{first}) {
+		t.Errorf("Sam's working requests are %v", listed)
+	}
+	if v := sam.view(third); v.State != requests.Working || v.Queued != 2 {
+		t.Errorf("Sam is shown the third request %s, queued %d", v.State, v.Queued)
+	}
+	if v := sam.view(first); v.Queued != 0 {
+		t.Errorf("Sam is shown the first request queued %d", v.Queued)
+	}
+	let()
+	s.answered(third)
+	if listed := sam.listed("?state=queued"); len(listed) != 0 {
+		t.Errorf("with every request answered, Sam's queued requests are %v", listed)
+	}
+}
+
 // watched fails the test unless a browser's watch of a run is answered
 // with a status.
 func watched(t *testing.T, br *browser, run string, status int) {
@@ -497,6 +535,12 @@ func TestServerRunWatchedByItsTeam(t *testing.T) {
 	ledger := d.s.runOf("lee", d.payments, "ledger")
 	watched(t, d.s.as("lee"), ledger, http.StatusOK)
 	watched(t, d.s.as("al"), ledger, http.StatusNotFound)
+	var run runOut
+	d.s.as("lee").get("/api/runs/" + url.PathEscape(ledger)).is(http.StatusOK).into(&run)
+	if run.Name != ledger || run.Team != "payments" || run.Request != d.payments || run.Kind != work.KindWork || run.Worker != "ledger" {
+		t.Errorf("Lee is given the ledger's run as %+v", run)
+	}
+	d.s.as("al").get("/api/runs/" + url.PathEscape(ledger)).is(http.StatusNotFound)
 	ops := d.s.runOf("al", d.platform, "ops")
 	watched(t, d.s.as("al"), ops, http.StatusOK)
 	watched(t, d.s.as("dana"), ops, http.StatusNotFound)

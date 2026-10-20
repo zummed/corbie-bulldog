@@ -16,10 +16,19 @@
 
 /* Ask */
 .desk-ask { display: flex; flex-direction: column; gap: var(--gap); padding: 16px 18px; border: 1.5px solid var(--ink); background: var(--sheet); }
-.desk-ask-team { max-width: 420px; }
+.desk-ask-head { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--gap) var(--space); }
+.desk-ask-team { flex: 1 1 240px; max-width: 420px; }
+.desk-strip { flex: 1 1 260px; padding-left: 14px; border-left: 1.5px solid var(--line); }
+.desk-strip .kv { row-gap: 4px; }
 .desk-ask-team select.in { width: 100%; }
 .desk-ask-foot { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--gap); }
 .desk-ask-foot .field { flex: 1 1 240px; max-width: 420px; }
+
+/* Problems: each beneath what it stops */
+.desk-problems { display: flex; flex-direction: column; gap: 12px; }
+.desk-problem-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+.desk-problem-list { list-style: none; margin: 6px 0 0 9px; padding: 0 0 0 14px; border-left: 1.5px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.desk-problem-list li { display: flex; flex-direction: column; gap: 2px; font-size: 14px; word-break: break-word; }
 
 /* Your teams */
 .desk-lead { gap: 8px; }

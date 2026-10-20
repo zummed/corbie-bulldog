@@ -74,7 +74,8 @@ func (w *Work) starts(ctx context.Context, touched map[int64]bool) bool {
 		}
 	}
 	if counted {
-		w.count(Load{Working: working, Queued: len(w.queued)})
+		queue := slices.Sorted(maps.Keys(w.queued))
+		w.count(Load{Working: working, Queued: len(queue)}, queue)
 	}
 	return did
 }
