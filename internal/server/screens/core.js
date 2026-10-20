@@ -169,18 +169,6 @@ B.asksIn = function (team) {
   return B.el("span", {class: "line ways"}, ways.flatMap((w, i) => [i ? B.el("span", {class: "faint", "aria-hidden": "true"}, "·") : null, w]));
 };
 
-// answersTo gives where a team's answer is said: back where it was
-// asked, a place of a bridge, the screens or the asking tool.
-B.answersTo = function (team) {
-  const sep = () => B.el("span", {class: "faint"}, "›");
-  const ways = [
-    ...B.placesOf(team).map((x) => B.placeEl(x.bridge, x.place.name)),
-    B.el("span", {class: "line"}, "Chat", sep(), "screens"),
-    B.el("span", {class: "line"}, "Sub-request", sep(), B.el("span", {class: "mono"}, "ask_team")),
-  ];
-  return B.el("span", {class: "line"}, ways.flatMap((w, i) => [i ? B.el("span", {class: "faint", "aria-hidden": "true"}, "·") : null, w]));
-};
-
 // band gives one band of a team's room, In, Team or Out: its label beside
 // the rows it holds, each a label and what it says, nested beneath when
 // it holds more; a row with no label says it across the band.

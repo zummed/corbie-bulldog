@@ -184,8 +184,8 @@
 
   // room draws a top team as a room: what it says of the whole office,
   // then its bands, In, where it is asked and its heed; Team, its people
-  // and its lead; and Out, its disclosure and where its answer is said;
-  // and the tree of its teams.
+  // and its lead; and Out, its disclosure, when it sets one; and the tree
+  // of its teams.
   function room(o, t) {
     const own = officeRows(t).filter((p) => p[1] !== "");
     const channel = B.placesOf(t.name).some((x) => x.place.name !== "direct");
@@ -205,8 +205,7 @@
           [B.leadLabel(t), B.el("span", {class: "line"}, leadEl(o, t), t.lead_runs ? null : B.el("span", {class: "status failed"}, "cannot run"))],
         ]),
         B.band("Out", [
-          t.discloses !== undefined ? [B.disclosureLabel(t), t.discloses ? "Set" : B.el("span", {class: "faint"}, "None")] : null,
-          ["Answer", B.answersTo(t.name)],
+          t.discloses ? [B.disclosureLabel(t), "Set"] : null,
         ])),
       (o.inside.get(t.name) || []).length ? B.el("div", {class: "rows tm-tree"}, list(o, t.name)) : null);
   }
