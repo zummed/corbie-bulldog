@@ -104,6 +104,7 @@ Corbie's words keep Corbie's meaning: machine, definition, job, ticket, ask, tag
 
 Each is general to any client of Corbie.
 
+- **A problem of a file that cannot be read names that file**, apart from what was said of it, so a client that gave the file says the problem where it belongs. Until then, when a worker's colleague cannot have its one-word model filled in, Bulldog finds the colleague by the end of Corbie's text, which is what its loader said of that file.
 - **Runner tags given once at a start**, joined to each script job's tags in the tree, for an office whose sensitive team's jobs run only on a runner beside their system.
 - **A reading of a definition's reach**: every job in its tree, as Corbie fills it out, with the hosts it may reach, the secrets it may send and to where, what it is denied, what it is asked about and which of its jobs are held, so a client shows what a definition may touch without reading it a second way. Until then Bulldog works out from the filled definition what each worker's tools, a flow's stages and a statechart's jobs run, what each may reach, and which wait for a yes.
 - **When a run's timer is due**, given to clients with the run, so a client shows when a waiting run comes round next without working out the time a second way. Until then Bulldog works out a routine's next time from its `at` and the office's zone, as its clock's timer is filled.
