@@ -176,7 +176,7 @@ JSON in and out, with the key in its cookie. `/api/me` gives the office's `zone`
 | `GET /api/teams/{team}/docs/{doc}` | one doc of the team, whole, by its name, a path in its `docs/` folder without `.md`, to those who may open it |
 | `GET /api/office/files`, `GET /api/office/file?path=` | the office's files, to the people who decide a change |
 | `GET /api/history`, `GET /api/history/{id}` | every change to the office's files, newest first, and one change with each file before and after, to the people who decide a change |
-| `GET /api/events` | a stream: `hello` when a screen connects, then `change` naming what changed, how many runs are at work among it |
+| `GET /api/events` | a stream: `hello` when a screen connects, then `change` naming what changed, or `runs` when how many runs are at work or wait their turn, or which requests wait their turn, changes |
 | `GET /api/runs/{run}` | one run, to those who may watch it: its kind, its team, its request, the worker or rule it is of, and how it stands |
 | `GET /api/runs/{run}/watch` | a stream of what one run does, as it does it |
 | `GET /files/{id}` | a file on an entry |

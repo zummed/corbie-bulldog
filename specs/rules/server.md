@@ -354,7 +354,7 @@ and these, open without a key:
 
 ## The streams
 
-**R-server-48** `GET /api/events` is a stream of server-sent events: `hello` when it connects, then `change` naming what changed, `request:<n>`, `waiting`, `office`, or `runs` when how many runs are at work or wait their turn changes, and a comment every 25 seconds when nothing else is sent.
+**R-server-48** `GET /api/events` is a stream of server-sent events: `hello` when it connects, then `change` naming what changed, `request:<n>`, `waiting`, `office`, or `runs` when how many runs are at work or wait their turn, or which requests wait their turn, changes, and a comment every 25 seconds when nothing else is sent.
 *Accept:* a screen connects and is sent `hello`; Kit asks something and Kit's stream is sent `change` with `request:` and its number; its run starts and every stream is sent `runs`; the office is read again and every stream is sent `office`; a comment is sent once the test's clock has moved 25 seconds with nothing else to send.
 
 **C-server-40** A stream names only what the one looking may see, with sight read when each is sent. Every change named to every screen would tell everyone the numbers of what they may not see. *Test:* `server_events_filtered_by_sight`
