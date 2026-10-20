@@ -128,7 +128,7 @@ func TestServerCheckReportsEveryProblem(t *testing.T) {
 	files := house(t)
 	files["fixer.yaml"] = strings.Replace(files["fixer.yaml"], "model: usual", "model: quick", 1)
 	files["clerk.yaml"] = "agent: clerk\ninput: { said: string }\nmodel: usual\nprompt: ${input.said}\ntools:\n  sums: { does: Add, args: {}, job: { script: ./tools/missing.js } }\n"
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "order_part: [./small-orders.js, sam]", "order_part: [./big-orders.js, sam]", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "order_part: [./small-orders.js, clerk: advise, sam]", "order_part: [./big-orders.js, sam]", 1)
 	files["office.yaml"] = strings.Replace(files["office.yaml"], "      direct: {}", "      direct: {}\n  slack:\n    places: {}", 1)
 	files["bridges/gitlab/in.yaml"] = "statechart: in\ninitial: a\nstates: { a: { end: done } }\n"
 	files["garden/team.yaml"] = strings.Replace(files["garden/team.yaml"], `to: gardener`, `to: gardener, every: day`, 1)

@@ -231,7 +231,7 @@ func TestChangesEveryFileIsSaid(t *testing.T) {
 	// A rule taken off its list with its file is said once.
 	check = saysOf(t, f, map[string]string{
 		"small-orders.js": "",
-		"office.yaml":     replaced(t, house(t), "office.yaml", "order_part: [./small-orders.js, sam]", "order_part: [sam]"),
+		"office.yaml":     replaced(t, house(t), "office.yaml", "order_part: [./small-orders.js, clerk: advise, sam]", "order_part: [sam]"),
 	})
 	has(t, check.Says, "rule small-orders.js is on none of its lists")
 	hasNo(t, append(check.Says, check.LetsMoreBy...), "small-orders.js is gone")
@@ -276,9 +276,9 @@ func TestChangesWhatLetsMoreBy(t *testing.T) {
 		{house(t), map[string]string{"garden/team.yaml": replaced(t, house(t), "garden/team.yaml", "people: [sam]", "people: [sam, kit]")}, "kit is named in the garden"},
 		{w, map[string]string{"platform/team.yaml": w["platform/team.yaml"] + "decide: { everything: [raj] }\n"}, "raj now stands as one of Platform's people"},
 		{house(t), map[string]string{"office.yaml": replaced(t, house(t), "office.yaml", `"4472"`, `"4473"`)}, "kit is now 4473 on telegram"},
-		{house(t), map[string]string{"office.yaml": replaced(t, house(t), "office.yaml", "order_part: [./small-orders.js, sam]", "order_part: [sam]")}, "decides order_part by sam, where it was ./small-orders.js, sam"},
+		{house(t), map[string]string{"office.yaml": replaced(t, house(t), "office.yaml", "order_part: [./small-orders.js, clerk: advise, sam]", "order_part: [sam]")}, "decides order_part by sam, where it was ./small-orders.js, clerk: advise, sam"},
 		{house(t), map[string]string{"office.yaml": replaced(t, house(t), "office.yaml", "  everything: [sam]\n", "  everything: [./small-orders.js, sam]\n")}, "decides everything by ./small-orders.js, sam"},
-		{house(t), map[string]string{"office.yaml": replaced(t, house(t), "office.yaml", "  order_part: [./small-orders.js, sam]\n", "")}, "order_part list is taken away"},
+		{house(t), map[string]string{"office.yaml": replaced(t, house(t), "office.yaml", "  order_part: [./small-orders.js, clerk: advise, sam]\n", "")}, "order_part list is taken away"},
 		{advising, map[string]string{"office.yaml": replaced(t, advising, "office.yaml", "cut_power: [clerk: advise, sam]", "cut_power: [clerk, sam]")}, "decides cut_power by clerk, sam, where it was clerk: advise, sam"},
 		{house(t), map[string]string{"small-orders.js": house(t)["small-orders.js"] + "\n"}, "rule small-orders.js is changed"},
 		{house(t), map[string]string{"sparks.yaml": replaced(t, house(t), "sparks.yaml", "model: { name: haiku, service: claude-code }", `model: { name: haiku, service: claude-code, secret: K }`)}, "sparks' model is now haiku (claude-code), with the secret K"},

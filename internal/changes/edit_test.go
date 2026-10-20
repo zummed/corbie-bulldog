@@ -33,7 +33,7 @@ func TestChangesAPersonDraftsOnTheScreens(t *testing.T) {
 	if err != nil || len(told) != 0 || len(files) != 1 {
 		t.Fatalf("the edit gives %+v, %v, %v", files, told, err)
 	}
-	if want := replaced(t, house(t), "clerk.yaml", "system: You keep the house's accounts. Say what was spent, what is owed and what is on its way.", "system: You keep the house's accounts, and the receipts."); files[0].Text != want {
+	if want := replaced(t, house(t), "clerk.yaml", "system: You keep the house's accounts. Say what was spent, what is owed and what is on its way, and, asked about an order, whether the house has the money for it.", "system: You keep the house's accounts, and the receipts."); files[0].Text != want {
 		t.Errorf("the clerk would be\n%s", files[0].Text)
 	}
 	check, _ := f.c.Check(ctx, files, Drafter{Name: "sam", Person: true})

@@ -73,7 +73,7 @@ func TestOfficeBrokenDefinitionStopsItself(t *testing.T) {
 	t.Parallel()
 	// A worker no other runs, a rule and a bridge, each refused by Corbie.
 	files := replace(t, own(t, house(t), "telegram"), "bins.yaml", "stages:", "stagse:")
-	files = replace(t, files, "office.yaml", "[./small-orders.js, sam]", "[./big-orders.yaml, sam]")
+	files = replace(t, files, "office.yaml", "[./small-orders.js, clerk: advise, sam]", "[./big-orders.yaml, sam]")
 	files = with(files, map[string]string{"big-orders.yaml": "flow: big-orders\nstages: { look: { job: ./nowhere.js } }\n"})
 	files = replace(t, files, "bridges/telegram/out.yaml", "flow: telegram-out", "flw: telegram-out")
 	o, problems := read(t, files)

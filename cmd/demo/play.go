@@ -19,7 +19,8 @@ const Stock = "This is the demo, and I am its stand-in for a model, so I play on
 // told; on its walk round it says what is open. The fixer asks sparks
 // which circuit, cuts it, orders a socket, asks to be told when it comes,
 // and then fits it; for the fan it orders one that costs more than the
-// house orders alone, and says whether it was ordered. The gardener hands
+// house orders alone, which the clerk, asked to advise, recommends to
+// Sam, and says whether it was ordered. The gardener hands
 // the heavy work to the groundsman.
 func play(turn testkit.Turn) testkit.Reply {
 	asked := said(turn)
@@ -33,6 +34,8 @@ func play(turn testkit.Turn) testkit.Reply {
 			return testkit.Use("circuits", map[string]any{})
 		}
 		return testkit.Say("4 kitchen ring: sockets by the window and the hob.")
+	case strings.Contains(turn.System, "You keep the house's accounts") && has(asked, "decide"):
+		return testkit.Say(`{ "says": "yes", "note": "The house has spent £12 this month, so it has the money for this." }`)
 	case strings.Contains(turn.System, "You keep the house's accounts"):
 		return testkit.Say("This month the house spent £12, on a 13 A double socket, which is on its way. Nothing is owed.")
 	case strings.Contains(turn.System, "You look after the garden"):

@@ -129,8 +129,8 @@ func TestDecisionsOneJobOneDecision(t *testing.T) {
 			t.Fatalf("a rule was given more than one job: %v", s.Input)
 		}
 	}
-	if len(b.runner.started()) != 2 {
-		t.Fatalf("the rule was started %d times for two jobs", len(b.runner.started()))
+	if rules := slices.DeleteFunc(b.runner.started(), func(s decisions.Start) bool { return s.Name != "small-orders.js" }); len(rules) != 2 {
+		t.Fatalf("the rule was started %d times for two jobs", len(rules))
 	}
 	if b.get(decs[1].ID).Ended != "" {
 		t.Fatal("the referral on the large order was taken as the decision of both")

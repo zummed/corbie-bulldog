@@ -21,8 +21,8 @@ import (
 // environment.
 func rules(t *testing.T) map[string]string {
 	files := house(t)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "  order_part: [./small-orders.js, sam]",
-		"  order_part: [./small-orders.js, sam]\n  call_out: [./phone.js, sam]\n  look_round: [./envy.yaml, sam]", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "  order_part: [./small-orders.js, clerk: advise, sam]",
+		"  order_part: [./small-orders.js, clerk: advise, sam]\n  call_out: [./phone.js, sam]\n  look_round: [./envy.yaml, sam]", 1)
 	files["phone.js"] = "return { says: \"yes\", note: String(http.get(\"https://example.com\")) }\n"
 	files["envy.yaml"] = "flow: envy\nstages:\n  a: { job: { script: ./envy.js, input: \"${input}\", allow: [env] } }\noutput: ${stages.a.output}\n"
 	files["envy.js"] = "return { says: \"yes\", note: String(env.get(\"HOME\", { otherwise: \"none\" }) !== null) }\n"

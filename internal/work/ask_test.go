@@ -159,7 +159,7 @@ func TestAStopEndsTheAskOfAHeldJob(t *testing.T) {
 func TestARuleThatTakesTooLongRefers(t *testing.T) {
 	t.Parallel()
 	files := house(t)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "order_part: [./small-orders.js, sam]", "order_part: [./slow.yaml, sam]", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "order_part: [./small-orders.js, clerk: advise, sam]", "order_part: [./slow.yaml, sam]", 1)
 	files["slow.yaml"] = "statechart: slow\ninitial: waiting\nstates:\n  waiting: { ticket: never, on: { never: over } }\n  over: { end: done, output: { says: yes } }\n"
 	b := newBench(t, files)
 	b.says(fixing("order_part", map[string]any{"part": "socket", "pounds": 12}))

@@ -174,7 +174,7 @@ func TestDecisionOutlivesARestart(t *testing.T) {
 		t.Fatalf("the refund is answered %+v, %d times", v, b.answers("ask-1"))
 	}
 
-	h := newBench(t, house(t))
+	h := newBench(t, byRule(t))
 	n := h.chat("kit", office.Top, "a new cooker")
 	big := h.one("ask-2", office.Top, n, fixerUp, orderPart("order_part", "cooker", 300))
 	rule := h.runner.next(t)
@@ -232,12 +232,12 @@ func TestDecisionWalksOnAtAReading(t *testing.T) {
 		t.Fatalf("the answer let go is %q", got)
 	}
 
-	h := newBench(t, house(t))
+	h := newBench(t, byRule(t))
 	n := h.chat("kit", office.Top, "a new cooker")
 	order := h.one("ask-2", office.Top, n, fixerUp, orderPart("order_part", "cooker", 300))
 	rule := h.runner.next(t)
-	text := house(t)["office.yaml"]
-	h.rewrite(map[string]string{"office.yaml": strings.Replace(text, "order_part: [./small-orders.js, sam]", "order_part: [sam]", 1)})
+	text := byRule(t)["office.yaml"]
+	h.rewrite(map[string]string{"office.yaml": strings.Replace(text, ruleOrders, "order_part: [sam]", 1)})
 	rule.cancelled(t)
 	if got := h.get(order.ID); !slices.Equal(got.Asked, []string{"sam"}) || len(got.Referrals) != 0 {
 		t.Fatalf("with the rule taken off, the order is %+v", got)

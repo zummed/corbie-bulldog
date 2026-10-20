@@ -167,14 +167,15 @@ func TestDemoServesTheHouseWithNothingSetUp(t *testing.T) {
 		t.Errorf("nothing of the socket's request is carried to Sam on Telegram: %+v", socket.Entries)
 	}
 
-	// Sam asked about the fan: the small-orders rule referred the order to
-	// him, with its note, and the request waits on his yes.
+	// Sam asked about the fan: the small-orders rule referred the order,
+	// with its note, the clerk recommended it to him, and the request waits
+	// on his yes.
 	fan := view(sam, Fan)
 	if fan.State != requests.Waiting || len(fan.On) != 1 || fan.On[0].Name != "sam" {
 		t.Errorf("the fan's request is %s on %+v", fan.State, fan.On)
 	}
-	if d := fan.Decisions; len(d) != 1 || !d[0].Mine || !slices.Equal(d[0].Asked, []string{"sam"}) || len(d[0].Referrals) != 1 ||
-		d[0].Referrals[0].Note != "£48 is more than I order alone." {
+	if d := fan.Decisions; len(d) != 1 || !d[0].Mine || !slices.Equal(d[0].Asked, []string{"sam"}) || len(d[0].Referrals) != 2 ||
+		d[0].Referrals[0].Note != "£48 is more than I order alone." || !d[0].Referrals[1].Recommends || d[0].Referrals[1].Name != "clerk" {
 		t.Errorf("Sam is shown the fan's order as %+v", d)
 	}
 
@@ -254,8 +255,11 @@ type (
 		Does, Ended string
 		Mine        bool
 		Asked       []string
-		Referrals   []struct{ Note string }
-		By          *struct{ Name string }
+		Referrals   []struct {
+			Name, Note string
+			Recommends bool
+		}
+		By *struct{ Name string }
 	}
 )
 
@@ -406,6 +410,7 @@ func TestDemoPlaysTheHouseDay(t *testing.T) {
 		{"money", "steward.yaml", given("what have we spent this month?", ""), []turn{
 			{"", "use clerk"}, {"This month the house spent £12.", "The clerk says: This month the house spent £12."}}},
 		{"the clerk", "clerk.yaml", "what have we spent this month?", []turn{{"", "spent £12"}}},
+		{"the clerk, advising on the fan", "clerk.yaml", "You are asked to decide this for the house. You advise on it: a refusal from you ends it.", []turn{{"", `"says": "yes"`}}},
 		{"the walk round", "steward.yaml", given("Walk round: what is still open?",
 			"The open requests of The house, newest first; you act on none of them:\n- Request 2, asked by Sam, waiting: the bathroom fan has stopped\n\n"),
 			[]turn{{"", "- Request 2, asked by Sam, waiting: the bathroom fan has stopped"}}},

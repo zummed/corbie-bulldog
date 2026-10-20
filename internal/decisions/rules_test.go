@@ -27,7 +27,7 @@ func TestRuleStartedWithTheDecision(t *testing.T) {
 	request := in["request"].(map[string]any)
 	if in["kind"] != decisions.OfAction || in["team"] != office.Top || request["number"] != n || request["asker"] != "Kit" ||
 		action["name"] != "order_part" || action["does"] != "Order a part" || action["args"].(map[string]any)["pounds"] != 12.0 ||
-		in["said"] != "A new socket is needed." || len(in["referrals"].([]map[string]any)) != 0 || len(in["referral_goes_to"].([]map[string]any)) != 1 {
+		in["said"] != "A new socket is needed." || len(in["referrals"].([]map[string]any)) != 0 || len(in["referral_goes_to"].([]map[string]any)) != 2 {
 		t.Fatalf("the rule is given %v", in)
 	}
 	c.says(decisions.SaysYes, "Under £20.")
@@ -172,7 +172,7 @@ func TestWorkerDecidesFromItsReply(t *testing.T) {
 
 func TestDecisionsRuleGetsNoGrant(t *testing.T) {
 	t.Parallel()
-	b := newBench(t, house(t))
+	b := newBench(t, byRule(t))
 	n := b.chat("kit", office.Top, "a new cooker")
 	dec := b.one("ask-1", office.Top, n, fixerUp, orderPart("order_part", "cooker", 300))
 	c := b.runner.next(t)
@@ -214,7 +214,7 @@ func TestDecisionsWorkerDeciderRunBelongsToTeamDecidedFor(t *testing.T) {
 
 func TestDecisionsDeciderResultTakenOnceFromItsRun(t *testing.T) {
 	t.Parallel()
-	b := newBench(t, house(t))
+	b := newBench(t, byRule(t))
 	n := b.chat("kit", office.Top, "a new cooker")
 	dec := b.one("ask-1", office.Top, n, fixerUp, orderPart("order_part", "cooker", 300))
 	rule := b.runner.next(t)
@@ -225,7 +225,7 @@ func TestDecisionsDeciderResultTakenOnceFromItsRun(t *testing.T) {
 		t.Fatalf("a rule's result came after Sam decided, and the decision is %+v", got)
 	}
 
-	b = newBench(t, house(t))
+	b = newBench(t, byRule(t))
 	n = b.chat("kit", office.Top, "a new cooker")
 	dec = b.one("ask-1", office.Top, n, fixerUp, orderPart("order_part", "cooker", 300))
 	rule = b.runner.next(t)

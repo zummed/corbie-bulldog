@@ -139,7 +139,7 @@ func TestATeamNeedWriteNoDecide(t *testing.T) {
 func TestDecideAndDisclosureAreListsOfDeciders(t *testing.T) {
 	t.Parallel()
 	o := reads(t, house(t))
-	if d := o.TopTeam().Decide; len(d) != 2 || d[0].Key != "everything" || d[1].Key != "order_part" || !slices.Equal(written(d[1].Deciders), []string{"./small-orders.js", "sam"}) {
+	if d := o.TopTeam().Decide; len(d) != 2 || d[0].Key != "everything" || d[1].Key != "order_part" || !slices.Equal(written(d[1].Deciders), []string{"./small-orders.js", "clerk", "sam"}) || !d[1].Deciders[1].Advises {
 		t.Errorf("the house decides %#v", d)
 	}
 	p := reads(t, work(t)).Teams["payments"]
@@ -154,10 +154,10 @@ func TestADeciderIsAPersonAWorkerOrARule(t *testing.T) {
 	t.Parallel()
 	reads(t, work(t))
 	o := reads(t, house(t))
-	if d := o.TopTeam().Decide[1].Deciders; d[0].Kind != office.IsRule || d[0].Name != "small-orders.js" || d[1].Kind != office.IsPerson {
+	if d := o.TopTeam().Decide[1].Deciders; d[0].Kind != office.IsRule || d[0].Name != "small-orders.js" || d[1].Kind != office.IsWorker || d[2].Kind != office.IsPerson {
 		t.Errorf("order_part is decided by %#v", d)
 	}
-	reads(t, replace(t, house(t), "office.yaml", "[./small-orders.js, sam]", "[./small-orders.js]"))
+	reads(t, replace(t, house(t), "office.yaml", "[./small-orders.js, clerk: advise, sam]", "[./small-orders.js]"))
 	for list, entry := range map[string]string{"[./missing.js, lee]": "./missing.js", "[nobody]": "nobody", "[lee, lee]": "lee is written twice", "[../bot.yaml]": "../bot.yaml"} {
 		problems := refused(t, replace(t, work(t), "payments/team.yaml", "everything: [lee, priya]", "everything: "+list))
 		if p := says(t, problems, "payments/team.yaml", entry); len(problems) != 1 {
@@ -165,14 +165,14 @@ func TestADeciderIsAPersonAWorkerOrARule(t *testing.T) {
 		}
 	}
 	// A path that is no rule takes no worker out of the office.
-	problems := refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, sam]", "[./garden/gardener.yaml, sam]"))
+	problems := refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, clerk: advise, sam]", "[./garden/gardener.yaml, sam]"))
 	if p := says(t, problems, "office.yaml", "./garden/gardener.yaml", "within"); len(problems) != 1 {
 		t.Errorf("a rule's path in a team within gives more than %v: %v", p, problems)
 	}
-	says(t, refused(t, with(replace(t, house(t), "office.yaml", "[./small-orders.js, sam]", "[./garden/check.js, sam]"), map[string]string{"garden/check.js": "return 1"})),
+	says(t, refused(t, with(replace(t, house(t), "office.yaml", "[./small-orders.js, clerk: advise, sam]", "[./garden/check.js, sam]"), map[string]string{"garden/check.js": "return 1"})),
 		"office.yaml", "./garden/check.js", "within")
 	// A rule is a script, .js, or a definition, .yaml.
-	says(t, refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, sam]", "[./notes/rooms.md, sam]")), "office.yaml", "./notes/rooms.md", "is not a rule")
+	says(t, refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, clerk: advise, sam]", "[./notes/rooms.md, sam]")), "office.yaml", "./notes/rooms.md", "is not a rule")
 	o = reads(t, replace(t, work(t), "platform/team.yaml", "lead: ops", "lead: ops\ndecide: { everything: [bot, al] }"))
 	if d := o.Everything("platform"); d[0].Kind != office.IsWorker || d[1].Kind != office.IsPerson {
 		t.Errorf("platform's everything is %#v", d)
@@ -181,7 +181,7 @@ func TestADeciderIsAPersonAWorkerOrARule(t *testing.T) {
 
 func TestARuleOrAWorkerMayBeMarkedToAdvise(t *testing.T) {
 	t.Parallel()
-	o := reads(t, replace(t, house(t), "office.yaml", "[./small-orders.js, sam]", "[./small-orders.js, clerk: advise, sam]"))
+	o := reads(t, house(t))
 	d := o.TopTeam().Decide[1].Deciders
 	if len(d) != 3 || d[0].Advises || d[1].Kind != office.IsWorker || d[1].Name != "clerk" || !d[1].Advises || d[2].Advises {
 		t.Errorf("order_part is decided by %#v", d)
@@ -193,7 +193,7 @@ func TestARuleOrAWorkerMayBeMarkedToAdvise(t *testing.T) {
 	if p := o.Teams["payments"]; len(p.Disclosure) != 1 || p.Disclosure[0].Kind != office.IsRule || !p.Disclosure[0].Advises || o.Workers["no-account-numbers"] != nil {
 		t.Errorf("payments discloses by %#v", p.Disclosure)
 	}
-	o = reads(t, replace(t, house(t), "office.yaml", "  order_part: [./small-orders.js, sam]", "  order_part: [clerk: advise, sam]\n  cut_power: [clerk, sam]"))
+	o = reads(t, replace(t, house(t), "office.yaml", "  order_part: [./small-orders.js, clerk: advise, sam]", "  order_part: [clerk: advise, sam]\n  cut_power: [clerk, sam]"))
 	if a, b := o.TopTeam().Decide[1].Deciders[0], o.TopTeam().Decide[2].Deciders[0]; !a.Advises || b.Advises {
 		t.Errorf("the clerk is %#v on order_part and %#v on cut_power", a, b)
 	}
@@ -205,7 +205,7 @@ func TestARuleOrAWorkerMayBeMarkedToAdvise(t *testing.T) {
 		"[./small-orders.js, sam: advise]":        {"sam is a person", "does not advise"},
 		"[{ clerk: advise, sparks: advise }, sam]": {"this is a mapping"},
 	} {
-		problems := refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, sam]", list))
+		problems := refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, clerk: advise, sam]", list))
 		if p := says(t, problems, append([]string{"office.yaml", "order_part"}, words...)...); p.Line == 0 || len(problems) != 1 {
 			t.Errorf("%s gives %v, not its own problem at its line: %v", list, p, problems)
 		}
@@ -215,7 +215,7 @@ func TestARuleOrAWorkerMayBeMarkedToAdvise(t *testing.T) {
 func TestARuleMayBeOneBulldogShips(t *testing.T) {
 	t.Parallel()
 	for _, entry := range []string{"./.bulldog/rules/none/none.js", "./.bulldog/tools/talk/talk.yaml"} {
-		problems := refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, sam]", "["+entry+", sam]"))
+		problems := refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, clerk: advise, sam]", "["+entry+", sam]"))
 		if p := says(t, problems, "office.yaml", entry, "no rule Bulldog ships", ".bulldog/rules/"); len(problems) != 1 {
 			t.Errorf("%s gives more than its own problem %v: %v", entry, p, problems)
 		}
@@ -250,7 +250,7 @@ func TestOfficeTopEverythingNamesAPerson(t *testing.T) {
 
 func TestOfficePeopleLastInList(t *testing.T) {
 	t.Parallel()
-	p := says(t, refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, sam]", "[sam, ./small-orders.js]")), "office.yaml", "order_part", "./small-orders.js", "after sam")
+	p := says(t, refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, clerk: advise, sam]", "[sam, ./small-orders.js]")), "office.yaml", "order_part", "./small-orders.js", "after sam")
 	if p.Team != "office" {
 		t.Errorf("the problem is on %q", p.Team)
 	}
@@ -259,7 +259,7 @@ func TestOfficePeopleLastInList(t *testing.T) {
 
 func TestOfficeUnknownDeciderIsAProblem(t *testing.T) {
 	t.Parallel()
-	p := says(t, refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, sam]", "[./small-order.js, sam]")), "office.yaml", "order_part", "./small-order.js")
+	p := says(t, refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, clerk: advise, sam]", "[./small-order.js, sam]")), "office.yaml", "order_part", "./small-order.js")
 	if p.Team != "office" || p.Line == 0 {
 		t.Errorf("the problem is %#v", p)
 	}
@@ -278,7 +278,7 @@ func TestOfficeRuleDefinitionIsNotAWorker(t *testing.T) {
 	}
 	// Named by the house too, a definition in its folder is a rule there.
 	files := with(house(t), map[string]string{"reviewer.yaml": "flow: reviewer\nstages: { look: { job: ./small-orders.js } }\n"})
-	files = replace(t, files, "office.yaml", "[./small-orders.js, sam]", "[./reviewer.yaml, sam]")
+	files = replace(t, files, "office.yaml", "[./small-orders.js, clerk: advise, sam]", "[./reviewer.yaml, sam]")
 	if o := reads(t, files); o.Workers["reviewer"] != nil || o.Rules["reviewer.yaml"] == nil {
 		t.Error("a definition named in a list is read as a worker")
 	}

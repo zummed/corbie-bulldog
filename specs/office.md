@@ -50,7 +50,7 @@ people: [sam, kit]
 lead: steward
 decide:
   everything: [sam]
-  order_part: [./small-orders.js, sam]
+  order_part: [./small-orders.js, clerk: advise, sam]   # the clerk looks at what the rule refers; Sam decides
 routines:
   - { at: "mon 09:00", to: steward, say: "Walk round: what is still open?" }
   - { at: "18:00", to: bins, say: "Which bin goes out tonight?" }

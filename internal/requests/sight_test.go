@@ -504,7 +504,7 @@ func noSam(t *testing.T, files map[string]string) map[string]string {
 	files = replace(t, files, "office.yaml", "  sam: { name: Sam, title: Owner. Decides money and the building., telegram: \"4471\" }\n", "")
 	files = replace(t, files, "office.yaml", "people: [sam, kit]", "people: [kit]")
 	files = replace(t, files, "office.yaml", "everything: [sam]", "everything: [kit]")
-	files = replace(t, files, "office.yaml", "order_part: [./small-orders.js, sam]", "order_part: [./small-orders.js, kit]")
+	files = replace(t, files, "office.yaml", "order_part: [./small-orders.js, clerk: advise, sam]", "order_part: [./small-orders.js, clerk: advise, kit]")
 	files = replace(t, files, "garden/team.yaml", "people: [sam]", "people: [kit]")
 	return replace(t, files, "garden/team.yaml", "everything: [sam]", "everything: [kit]")
 }

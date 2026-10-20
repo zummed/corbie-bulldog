@@ -217,7 +217,7 @@ func TestChangeRefusedByBulldog(t *testing.T) {
 	o = strings.Replace(o, "  sam: { name: Sam, title: Owner. Decides money and the building., telegram: \"4471\" }\n", "", 1)
 	o = strings.Replace(o, "people: [sam, kit]", "people: [kit]", 1)
 	o = strings.Replace(o, "everything: [sam]", "everything: [kit]", 1)
-	o = strings.Replace(o, "order_part: [./small-orders.js, sam]", "order_part: [./small-orders.js, kit]", 1)
+	o = strings.Replace(o, houseOrders, "order_part: [./small-orders.js, clerk: advise, kit]", 1)
 	testkit.Write(t, b.dir, map[string]string{"office.yaml": o, "garden/team.yaml": strings.ReplaceAll(files["garden/team.yaml"], "sam", "kit")})
 	read, err := office.Read(b.dir)
 	if err != nil {

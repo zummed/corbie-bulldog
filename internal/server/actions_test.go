@@ -47,9 +47,12 @@ func TestServerAskInTheChat(t *testing.T) {
 // playHouse plays the house's workers for the screens' tests: the
 // steward asks whoever asked which socket, when asked about one, and has
 // the fixer order a part when asked to; the fixer orders a £300 part,
-// which the small-orders rule refers on to Sam.
+// which the small-orders rule refers on, and the clerk, which advises on
+// orders, recommends to Sam.
 func playHouse(turn testkit.Turn) testkit.Reply {
 	switch {
+	case strings.Contains(turn.System, "You keep the house's accounts"):
+		return testkit.Say(`{ "says": "yes", "note": "The pump is within this month's money." }`)
 	case strings.Contains(turn.System, "You look after the house"):
 		switch asked := turn.Prompt(); {
 		case turn.Number == 1 && strings.Contains(asked, "socket"):
@@ -114,7 +117,8 @@ func TestServerDecide(t *testing.T) {
 	}
 
 	// In the house, a £300 order the small-orders rule referred reaches Sam
-	// with its note.
+	// with its note, and with the recommendation of the clerk, which
+	// advises after it, and the clerk as advising on the walk.
 	b := newBench(t, house(t))
 	b.says(playHouse)
 	s := b.serve()
@@ -122,30 +126,11 @@ func TestServerDecide(t *testing.T) {
 	s.waitsOn(n, "sam")
 	var v struct{ Decisions []decisionOut }
 	s.as("sam").get("/api/requests/" + itoa(n)).is(http.StatusOK).into(&v)
-	if len(v.Decisions) != 1 || !v.Decisions[0].Mine || len(v.Decisions[0].Referrals) != 1 || v.Decisions[0].Referrals[0].Note != "£300 is more than I order alone." {
-		t.Errorf("Sam is shown the order as %+v", v.Decisions)
-	}
-
-	// With the clerk advising after the rule, Sam is shown the clerk's
-	// recommendation, and the clerk as advising on the walk.
-	files := house(t)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "order_part: [./small-orders.js, sam]", "order_part: [./small-orders.js, clerk: advise, sam]", 1)
-	b = newBench(t, files)
-	b.says(func(turn testkit.Turn) testkit.Reply {
-		if strings.Contains(turn.System, "You keep the house's accounts") {
-			return testkit.Say(`{ "says": "yes", "note": "The pump is within this month's money." }`)
-		}
-		return playHouse(turn)
-	})
-	s = b.serve()
-	n = numbered(s.as("kit").post("/api/requests", map[string]string{"text": "the boiler pump is dead"}))
-	s.waitsOn(n, "sam")
-	s.as("sam").get("/api/requests/" + itoa(n)).is(http.StatusOK).into(&v)
-	if len(v.Decisions) != 1 || len(v.Decisions[0].Referrals) != 2 {
+	if len(v.Decisions) != 1 || !v.Decisions[0].Mine || len(v.Decisions[0].Referrals) != 2 || v.Decisions[0].Referrals[0].Note != "£300 is more than I order alone." {
 		t.Fatalf("Sam is shown the order as %+v", v.Decisions)
 	}
 	d0 := v.Decisions[0]
-	if rec := d0.Referrals[1]; rec.Name != "clerk" || !rec.Recommends || rec.Note != "The pump is within this month's money." || d0.Ended != "" || !d0.Mine {
+	if rec := d0.Referrals[1]; rec.Name != "clerk" || !rec.Recommends || rec.Note != "The pump is within this month's money." || d0.Ended != "" {
 		t.Errorf("Sam is shown the clerk's word as %+v, on %+v", rec, d0)
 	}
 	want := []deciderOut{{Kind: "rule", Name: "small-orders.js"}, {Kind: "worker", Name: "clerk", Team: "office", Advises: true}, {Kind: "person", Name: "sam"}}

@@ -508,7 +508,7 @@ func TestServerToolToldByWhereItResolves(t *testing.T) {
 		{"office", "fixer", []toolOut{
 			{Name: "sparks", Does: "Which circuit is what", Kind: "worker", Worker: "sparks", File: "sparks.yaml"},
 			{Name: "cut_power", Does: "Turn one circuit off", Kind: "script", File: "tools/cut-power.js", Waits: true, Deciders: []deciderOut{{Kind: "person", Name: "sam"}}},
-			{Name: "order_part", Does: "Order a part", Kind: "script", File: "tools/order.js", Waits: true, Deciders: []deciderOut{{Kind: "rule", Name: "small-orders.js"}, {Kind: "person", Name: "sam"}}},
+			{Name: "order_part", Does: "Order a part", Kind: "script", File: "tools/order.js", Waits: true, Deciders: []deciderOut{{Kind: "rule", Name: "small-orders.js"}, {Kind: "worker", Name: "clerk", Team: "office", Advises: true}, {Kind: "person", Name: "sam"}}},
 			{Name: "read_doc", Does: shippedDoes(shipped.Docs, "read_doc"), Kind: "bulldog", Kit: "docs"},
 		}},
 		{"office", "builder", []toolOut{
@@ -943,7 +943,7 @@ model: usual
 system: You review what is ordered. End with { "says": "yes", "refuse" or "refer", "note": why }.
 prompt: ${input.said}
 `
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "order_part: [./small-orders.js, sam]", "order_part: [./small-orders.js, reviewer, sam]", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "order_part: [./small-orders.js, clerk: advise, sam]", "order_part: [./small-orders.js, reviewer, sam]", 1)
 	b := newBench(t, files)
 	b.says(func(turn testkit.Turn) testkit.Reply {
 		if strings.Contains(turn.System, "You review what is ordered") {

@@ -32,6 +32,26 @@ var ctx = context.Background()
 func house(t *testing.T) map[string]string { return testkit.Files(t, examples.House()) }
 func work(t *testing.T) map[string]string  { return testkit.Files(t, examples.Work()) }
 
+// The house's orders as it writes them, the clerk advising after the
+// rule, and as the tests of how a rule runs take them, the rule and then
+// Sam.
+const (
+	houseOrders = "order_part: [./small-orders.js, clerk: advise, sam]"
+	ruleOrders  = "order_part: [./small-orders.js, sam]"
+)
+
+// byRule gives the house with its orders decided by the rule, and then by
+// Sam.
+func byRule(t *testing.T) map[string]string {
+	t.Helper()
+	files := house(t)
+	if !strings.Contains(files["office.yaml"], houseOrders) {
+		t.Fatalf("the house does not write %q", houseOrders)
+	}
+	files["office.yaml"] = strings.Replace(files["office.yaml"], houseOrders, ruleOrders, 1)
+	return files
+}
+
 // A bench is an office in a folder of the test's own, in a repository of
 // its own, with its requests, its changes and its decisions in one store,
 // on a clock the test moves. A stand-in runs its rules and workers, and
@@ -581,8 +601,13 @@ func jsonOf(v any) string {
 
 func raw(v any) json.RawMessage { return json.RawMessage(jsonOf(v)) }
 
-// smallOrders answers as small-orders.js does, for every start of it.
+// smallOrders answers as small-orders.js does, for every start of it,
+// and as the house's clerk, which advises on its orders, does: it
+// recommends yes.
 func smallOrders(s decisions.Start) (string, error, bool) {
+	if s.Name == "clerk" {
+		return jsonOf(map[string]any{"says": "yes", "note": "The house has the money for it."}), nil, true
+	}
 	if s.Name != "small-orders.js" {
 		return "", nil, false
 	}

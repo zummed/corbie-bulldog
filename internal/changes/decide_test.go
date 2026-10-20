@@ -67,7 +67,7 @@ func TestChangesPutAsADecisionOfTheTopTeam(t *testing.T) {
 		{"", []string{"sam", "kit"}},
 	} {
 		files := house(t)
-		files["office.yaml"] = strings.Replace(files["office.yaml"], "decide:\n  everything: [sam]\n  order_part: [./small-orders.js, sam]\n", c.decide+"\n", 1)
+		files["office.yaml"] = strings.Replace(files["office.yaml"], "decide:\n  everything: [sam]\n  order_part: [./small-orders.js, clerk: advise, sam]\n", c.decide+"\n", 1)
 		f := newOffice(t, files)
 		f.write(1, "clerk.yaml", clerkAgain(t, "x"))
 		p := f.put(1, "X")
@@ -121,7 +121,7 @@ func TestChangesWhoDecidesAChange(t *testing.T) {
 		{"", []string{"sam", "kit"}},
 	} {
 		files := house(t)
-		files["office.yaml"] = strings.Replace(files["office.yaml"], "decide:\n  everything: [sam]\n  order_part: [./small-orders.js, sam]\n", c.decide+"\n", 1)
+		files["office.yaml"] = strings.Replace(files["office.yaml"], "decide:\n  everything: [sam]\n  order_part: [./small-orders.js, clerk: advise, sam]\n", c.decide+"\n", 1)
 		o, err := office.Read(newOffice(t, files).dir)
 		if err != nil {
 			t.Fatal(err)
@@ -345,6 +345,7 @@ func TestChangesWorkersTakenAwayAreNamed(t *testing.T) {
 	f := newOffice(t, house(t))
 	f.call(1, ToolRemove, map[string]any{"path": "clerk.yaml"})
 	f.write(1, "crew.yaml", strings.Replace(house(t)["crew.yaml"], "clerk:\n  does: Money and orders. What was spent, what is owed and what is on its way\n  args: { question: string }\n  job: { machine: ./clerk.yaml, input: { said: \"${args.question}\" } }\n", "", 1))
+	f.write(1, "office.yaml", strings.Replace(house(t)["office.yaml"], "clerk: advise, ", "", 1))
 	p := f.put(1, "No clerk")
 	if o := f.yes(p.ID, "sam", ""); o.Ended != Written || !slices.Equal(o.Gone, []string{"clerk"}) {
 		t.Errorf("the change ended %+v", o)
@@ -575,6 +576,7 @@ func TestChangesWrittenOnceCommitted(t *testing.T) {
 	g := newOffice(t, house(t))
 	g.call(1, ToolRemove, map[string]any{"path": "clerk.yaml"})
 	g.write(1, "crew.yaml", strings.Replace(house(t)["crew.yaml"], "clerk:\n  does: Money and orders. What was spent, what is owed and what is on its way\n  args: { question: string }\n  job: { machine: ./clerk.yaml, input: { said: \"${args.question}\" } }\n", "", 1))
+	g.write(1, "office.yaml", strings.Replace(house(t)["office.yaml"], "clerk: advise, ", "", 1))
 	p = g.put(1, "No clerk")
 	if _, err := g.db.Exec(`DROP TABLE changes_drafts`); err != nil {
 		t.Fatal(err)
