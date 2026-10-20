@@ -8,7 +8,6 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 	"github.com/zummed/corbie-bulldog/shipped"
 	"github.com/zummed/corbie/client"
@@ -255,7 +254,7 @@ func TestChangesUnchangedFileLeavesTheDraft(t *testing.T) {
 	if draft, _ := f.c.Drafted(ctx, 1); len(draft) != 0 {
 		t.Errorf("the draft holds %+v", draft)
 	}
-	if got := f.call(1, ToolPut, map[string]any{"why": "Nothing"}); got.Put != 0 || !strings.Contains(got.Text, "empty") {
+	if got := f.call(1, ToolPut, map[string]any{"why": "Nothing"}); !strings.Contains(got.Text, "not written") || !strings.Contains(got.Text, "empty") {
 		t.Errorf("an empty draft is put: %+v", got)
 	}
 }
@@ -311,33 +310,37 @@ func TestChangesDraftsAreKeptApart(t *testing.T) {
 	}
 }
 
-func TestChangesBuilderWritesNothingWithoutAPerson(t *testing.T) {
+// weeder is a builder of the garden: it names the build kit, and its
+// tools reach the garden's files alone.
+func weeder(t *testing.T) map[string]string {
+	files := house(t)
+	files["garden/weeder.yaml"] = "agent: weeder\ninput: { said: string }\nmodel: usual\nsystem: You change how the garden is run.\nprompt: ${input.said}\n" +
+		"tools_file: [../.bulldog/tools/build/build.yaml]\n"
+	return files
+}
+
+func TestChangesABuilderReachesItsOwnTeamAndWithin(t *testing.T) {
 	t.Parallel()
-	f := newOffice(t, house(t))
-	before := f.head().Hash
-	f.write(1, "clerk.yaml", house(t)["clerk.yaml"]+"# rewritten\n")
-	f.call(1, ToolRemove, map[string]any{"path": "tools/order.js"})
-	f.write(1, "tools/order.js", "return 'ordered'\n")
-	f.call(1, ToolRemove, map[string]any{"path": "garden/notes/shed.md"})
-	f.call(1, ToolCheck, nil)
-	p := f.put(1, "Rewrite the clerk")
-	if f.text("clerk.yaml") != house(t)["clerk.yaml"] || f.text("garden/notes/shed.md") == "" || f.head().Hash != before {
-		t.Fatal("the builder's tools wrote into the office")
+	f := newOffice(t, weeder(t))
+	listed := f.callAs("weeder", 1, ToolFiles, nil).Text
+	if !strings.Contains(listed, "garden/team.yaml: as it is") || !strings.Contains(listed, "garden/notes/shed.md") || strings.Contains(listed, "office.yaml") || strings.Contains(listed, "clerk.yaml") {
+		t.Errorf("the garden's builder lists:\n%s", listed)
 	}
-	// A yes from a rule or a worker writes nothing.
-	for _, kind := range []string{office.IsRule, office.IsWorker} {
-		if _, err := f.c.Decided(ctx, p.ID, Decision{By: "steward", Kind: kind, Yes: true}); err == nil || !strings.Contains(err.Error(), "only a person's yes") {
-			t.Errorf("a %s's yes is taken: %v", kind, err)
+	for _, tool := range []string{ToolRead, ToolWrite, ToolRemove} {
+		for _, file := range []string{"clerk.yaml", "office.yaml", "notes/rooms.md"} {
+			if got := f.callAs("weeder", 1, tool, map[string]any{"path": file, "text": "x"}).Text; !strings.Contains(got, "outside what you reach") {
+				t.Errorf("the garden's builder's %s of %s: %s", tool, file, got)
+			}
 		}
 	}
-	// Nor does a yes from someone the walk does not ask.
-	if _, err := f.c.Decided(ctx, p.ID, Decision{By: "kit", Kind: office.IsPerson, Yes: true}); err == nil {
-		t.Error("Kit's yes is taken, and the house asks Sam")
+	if draft, _ := f.c.Drafted(ctx, 1); len(draft) != 0 {
+		t.Errorf("the draft holds %+v", draft)
 	}
-	if f.text("clerk.yaml") != house(t)["clerk.yaml"] || f.head().Hash != before {
-		t.Fatal("a yes that is not a person's wrote the change")
+	if got := f.callAs("weeder", 1, ToolWrite, map[string]any{"path": "garden/notes/shed.md", "text": "Tidy.\n"}).Text; !strings.Contains(got, "in your draft") {
+		t.Errorf("the garden's builder could not draft its own team's file: %s", got)
 	}
-	if o := f.yes(p.ID, "sam", ""); o.Ended != Written || f.text("garden/notes/shed.md") != "" || f.text("tools/order.js") != "return 'ordered'\n" {
-		t.Errorf("Sam's yes ended it %+v", o)
+	// The house's builder reaches everything.
+	if listed := f.call(2, ToolFiles, nil).Text; !strings.Contains(listed, "office.yaml") || !strings.Contains(listed, "garden/weeder.yaml") {
+		t.Errorf("the house's builder lists:\n%s", listed)
 	}
 }

@@ -179,8 +179,10 @@ func TestADecidersRunIsOfTheTeamItDecidesFor(t *testing.T) {
 		}
 	}
 	context := b.input(runs[0].ID)["context"].(string)
-	holds(t, "the clerk's context", context, "deciding for The garden", "## lawn", "Order a socket for £12?")
-	holdsNone(t, "the clerk's context", context, "The fuse board is under the stairs.")
+	// The clerk names no notes kit, so it is given no notes, the
+	// garden's or the house's.
+	holds(t, "the clerk's context", context, "deciding for The garden", "Order a socket for £12?")
+	holdsNone(t, "the clerk's context", context, "## lawn", "The fuse board is under the stairs.")
 
 	// A bare script is given no permission: its call to a host is
 	// refused. A rule that is a definition has what its file allows.

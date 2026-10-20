@@ -159,9 +159,11 @@ func (w *Work) giving(o *office.Office, rd ready, worker string) (*giving, error
 	if err != nil {
 		return nil, err
 	}
-	notes, err := o.Notes(r.Team)
-	if err != nil {
-		return nil, fmt.Errorf("the notes of %s could not be read: %w", team.Called, err)
+	var notes []office.Note
+	if ow := o.Workers[worker]; ow != nil && WritesNotes(ow) {
+		if notes, err = o.Notes(r.Team); err != nil {
+			return nil, fmt.Errorf("the notes of %s could not be read: %w", team.Called, err)
+		}
 	}
 	var open []requests.Summary
 	if r.Origin.Kind == requests.ByRoutine {

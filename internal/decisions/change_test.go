@@ -12,11 +12,11 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/decisions"
 	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/requests"
-	"github.com/zummed/corbie-bulldog/internal/testkit"
 )
 
-// draft has the builder write files into a request's draft and put it,
-// and gives the change's decision.
+// draft has the builder write files into a request's draft and call
+// office_put, which the build kit has Corbie hold, and gives the held
+// put's decision.
 func (b *bench) draft(n int64, why string, files map[string]string) *decisions.Decision {
 	b.t.Helper()
 	for path, text := range files {
@@ -25,25 +25,23 @@ func (b *bench) draft(n int64, why string, files map[string]string) *decisions.D
 			b.t.Fatal(err)
 		}
 	}
-	args, _ := json.Marshal(map[string]string{"why": why})
-	a, err := b.ch.Answer(ctx, changes.Call{Request: n, Worker: "builder", Tool: changes.ToolPut, Args: args})
-	if err != nil {
+	job := decisions.Job{Name: changes.ToolPut, Asked: &decisions.Asked{Does: "Put your draft", Args: raw(map[string]string{"why": why})}}
+	return b.one("ask of "+why, office.Top, n, []string{"builder", "steward"}, job)
+}
+
+// runs stays until a held put's ask is answered approving it, and does the
+// call its job then runs, as work hands it on; it gives how the change
+// ended.
+func (b *bench) runs(dec *decisions.Decision) changes.Outcome {
+	b.t.Helper()
+	if v := b.verdict(dec.Ask); !slices.Equal(v.Approve, []string{dec.Job.Name}) {
+		b.t.Fatalf("the put's ask is answered %+v", v)
+	}
+	args, _ := json.Marshal(map[string]string{"why": dec.Put.Why})
+	if _, err := b.ch.Answer(ctx, changes.Call{Request: dec.Request, Worker: "builder", Tool: changes.ToolPut, Args: args}); err != nil {
 		b.t.Fatal(err)
 	}
-	if a.Put == 0 {
-		b.t.Fatalf("the change was not put: %s", a.Text)
-	}
-	decs, err := b.d.OfRequest(n)
-	if err != nil {
-		b.t.Fatal(err)
-	}
-	for _, dec := range slices.Backward(decs) {
-		if dec.Put != nil && dec.Put.ID == a.Put {
-			return dec
-		}
-	}
-	b.t.Fatalf("the change %d is no decision", a.Put)
-	return nil
+	return b.outcome(dec.Put.ID)
 }
 
 // putOwn has a person put a change of their own from the screens, naming
@@ -89,22 +87,26 @@ func kitInTheGarden(t *testing.T) map[string]string {
 	return map[string]string{"garden/team.yaml": strings.Replace(text, "people: [sam]", "people: [sam, kit]", 1)}
 }
 
-func TestChangeIsADecisionOfTheTopTeam(t *testing.T) {
+func TestAHeldPutIsADecisionOfTheTeamWhoseFilesItWrites(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, house(t))
 	n := b.chat("kit", office.Top, "let me into the garden")
+	// It writes the garden's team file, so the house decides it.
 	dec := b.draft(n, "Name Kit in the garden\n\nKit helps with the lawn now.", kitInTheGarden(t))
-	if dec.Kind != decisions.OfChange || dec.Team != office.Top || dec.Whose.Name != "builder" || !slices.Equal(dec.Asked, []string{"sam"}) {
-		t.Fatalf("the change's decision is %+v", dec)
+	if dec.Kind != decisions.OfAction || dec.Job.Name != changes.ToolPut || dec.Put == nil || dec.Team != office.Top || dec.Whose.Name != "builder" || !slices.Equal(dec.Asked, []string{"sam"}) {
+		t.Fatalf("the put's decision is %+v", dec)
 	}
 	text := b.waitingFor("sam")[0].Text
-	for _, want := range []string{"builder", "Kit helps with the lawn now.", "kit is named in the garden", "garden/team.yaml"} {
+	for _, want := range []string{"builder", "Kit helps with the lawn now.", "kit is named in the garden", "garden/team.yaml, changed:", "- people: [sam]", "+ people: [sam, kit]"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("Sam is not shown %q: %s", want, text)
 		}
 	}
 	b.decide(dec.ID, "sam", decisions.SaysYes, "")
-	if o := b.outcome(dec.Put.ID); o.Ended != changes.Written || o.Decider != "sam" {
+	if text, _ := os.ReadFile(filepath.Join(b.dir, "garden", "team.yaml")); string(text) != house(t)["garden/team.yaml"] {
+		t.Fatal("the put was written before its job ran")
+	}
+	if o := b.runs(dec); o.Ended != changes.Written || o.Decider != "sam" {
 		t.Fatalf("the change ended %+v", o)
 	}
 	history, err := b.ch.History("sam")
@@ -116,6 +118,24 @@ func TestChangeIsADecisionOfTheTopTeam(t *testing.T) {
 	}
 	has(t, b.thread(n), "decided by sam", "approved by Sam")
 	has(t, b.seen(n, "kit"), "Name Kit in the garden: approved by Sam")
+	// A note of the garden's alone is the garden's to decide.
+	other := b.chat("kit", office.Top, "the shed")
+	if dec := b.draft(other, "The shed", map[string]string{"garden/notes/shed.md": "# The shed\n\nLocked.\n"}); dec.Team != "garden" {
+		t.Errorf("a change of the garden's note is %s's to decide", dec.Team)
+	}
+}
+
+func TestAnUnfitPutIsRefusedByBulldog(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	n := b.chat("kit", office.Top, "do nothing")
+	dec := b.one("ask of nothing", office.Top, n, []string{"builder", "steward"}, decisions.Job{Name: changes.ToolPut, Asked: &decisions.Asked{Args: raw(map[string]string{"why": "Nothing"})}})
+	if got := b.ended(dec.ID); got.Ended != decisions.Refused || got.By.Kind != requests.IsBulldog || !strings.Contains(got.By.Note, "empty") || len(got.WasAsked) != 0 {
+		t.Fatalf("an empty put is %+v", got)
+	}
+	if v := b.verdict(dec.Ask); len(v.Approve) != 0 || !strings.Contains(v.Note, "empty") {
+		t.Errorf("the ask is answered %+v", v)
+	}
 }
 
 func TestRefusedChangeNotWritten(t *testing.T) {
@@ -125,8 +145,11 @@ func TestRefusedChangeNotWritten(t *testing.T) {
 	dec := b.draft(n, "Name Kit in the garden", kitInTheGarden(t))
 	b.decide(dec.ID, "sam", decisions.SaysRefuse, "not the fixer's job")
 	o := b.outcome(dec.Put.ID)
-	if o.Ended != changes.Refused || o.Decider != "sam" || o.Note != "not the fixer's job" || !strings.Contains(o.Text(), "not the fixer's job") {
+	if o.Ended != changes.Refused || o.Decider != "sam" || o.Note != "not the fixer's job" {
 		t.Fatalf("the change ended %+v", o)
+	}
+	if v := b.verdict(dec.Ask); len(v.Approve) != 0 || !strings.Contains(v.Note, "not the fixer's job") {
+		t.Errorf("the ask is answered %+v", v)
 	}
 	if text, err := os.ReadFile(filepath.Join(b.dir, "garden", "team.yaml")); err != nil || string(text) != house(t)["garden/team.yaml"] {
 		t.Fatalf("the refused change was written: %s, %v", text, err)
@@ -137,43 +160,52 @@ func TestRefusedChangeNotWritten(t *testing.T) {
 	}
 }
 
-func TestChangeWalkedOverItsList(t *testing.T) {
+func TestAHeldPutIsWalkedOverItsList(t *testing.T) {
 	t.Parallel()
 	files := house(t)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  change: [./no-secrets.js, sam]\n", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  office_put: [./no-secrets.js, sam]\n", 1)
 	files["no-secrets.js"] = `return { says: "yes" }`
 	b := newBench(t, files)
 	n := b.chat("kit", office.Top, "let me into the garden")
 	dec := b.draft(n, "Name Kit in the garden", kitInTheGarden(t))
 	r := b.runner.next(t)
-	if r.Name != "no-secrets.js" || r.Input["kind"] != decisions.OfChange || !strings.Contains(r.Input["ends"].(string), "your yes is taken as a referral") {
-		t.Fatalf("the change is put to %s, given %v", r.Name, r.Input)
+	change, _ := r.Input["change"].(map[string]any)
+	if r.Name != "no-secrets.js" || r.Input["kind"] != decisions.OfAction || change["why"] != "Name Kit in the garden" || !strings.Contains(r.Input["ends"].(string), "Your yes or your refusal ends it") {
+		t.Fatalf("the put is put to %s, given %v", r.Name, r.Input)
 	}
+	// A rule's yes approves it, as any held action.
 	r.says(decisions.SaysYes, "no secret in it")
+	if o := b.runs(dec); o.Ended != changes.Written || o.Decider != "no-secrets.js" {
+		t.Fatalf("the change ended %+v", o)
+	}
+	other := b.chat("kit", office.Top, "and the shed")
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "office_put: [./no-secrets.js, sam]", "office_put: [./no-secrets.js: advise, sam]", 1)
+	b.rewrite(files)
+	dec = b.draft(other, "Name Kit in the shed", map[string]string{"notes/shed.md": "# The shed\n\nKit has a key.\n"})
+	b.runner.next(t).says(decisions.SaysYes, "looks fine")
 	b.until("Sam is asked", func() bool { return len(b.waitingFor("sam")) == 1 })
-	if got := b.get(dec.ID); got.Ended != "" || !strings.Contains(got.Referrals[0].Note, "only a person's yes approves a change") {
-		t.Fatalf("a rule's yes on a change ended it: %+v", got)
+	if text := b.waitingFor("sam")[0].Text; !strings.Contains(text, "no-secrets.js recommends yes: looks fine") {
+		t.Errorf("Sam is shown %s", text)
 	}
 	b.decide(dec.ID, "sam", decisions.SaysYes, "")
-	if o := b.outcome(dec.Put.ID); o.Ended != changes.Written {
-		t.Fatalf("the change ended %+v", o)
-	}
-
-	other := b.chat("kit", office.Top, "and the shed")
-	dec = b.draft(other, "Name Kit in the garden again", map[string]string{"garden/notes/shed.md": "# The shed\n\nKit has a key.\n"})
-	b.runner.next(t).says(decisions.SaysRefuse, "a key is a secret")
-	if o := b.outcome(dec.Put.ID); o.Ended != changes.Refused || o.Decider != "no-secrets.js" {
-		t.Fatalf("the change ended %+v", o)
+	if o := b.runs(dec); o.Ended != changes.Written || o.Decider != "sam" {
+		t.Fatalf("the advised change ended %+v", o)
 	}
 }
 
 func TestPersonsOwnChangeDecidedByTheirYes(t *testing.T) {
 	t.Parallel()
+	// In the house nobody is asked before Sam: it is written as it is put.
+	h := newBench(t, house(t))
+	p := h.putOwn("sam", "Kit helps in the garden")
+	if o := h.outcome(p.ID); o.Ended != changes.Written || o.Decider != "sam" || len(h.runner.started()) != 0 {
+		t.Fatalf("Sam's own change in the house ended %+v", o)
+	}
 	files := house(t)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  change: [./no-secrets.js, sam]\n", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  office_put: [./no-secrets.js, sam]\n", 1)
 	files["no-secrets.js"] = `return { says: "refer" }`
 	b := newBench(t, files)
-	p := b.putOwn("sam", "Kit helps in the garden")
+	p = b.putOwn("sam", "Kit helps in the garden")
 	b.runner.next(t).says(decisions.SaysRefuse, "not today")
 	if o := b.outcome(p.ID); o.Ended != changes.Refused || o.Decider != "no-secrets.js" {
 		t.Fatalf("Sam's own change ended %+v", o)
@@ -202,23 +234,19 @@ func TestChangePutAgainIsWithdrawn(t *testing.T) {
 	}
 }
 
-// A change waits on Sam, the one person on its walk, and Sam then leaves
-// the office: nobody named on the walk it was put with can decide it.
-// Sam merely taken off the change list would still be asked, since a
-// change's walk is the one it was put with.
+// A put of the garden's alone waits on Sam, and the garden then leaves
+// the office: nobody can decide it.
 func TestChangeRefusedByBulldog(t *testing.T) {
 	t.Parallel()
-	files := house(t)
-	b := newBench(t, files)
+	b := newBench(t, house(t))
 	n := b.chat("kit", office.Top, "tidy the shed")
-	dec := b.draft(n, "Note the shed", map[string]string{"notes/shed.md": "# The shed\n"})
-
-	o := files["office.yaml"]
-	o = strings.Replace(o, "  sam: { name: Sam, title: Owner. Decides money and the building., telegram: \"4471\" }\n", "", 1)
-	o = strings.Replace(o, "people: [sam, kit]", "people: [kit]", 1)
-	o = strings.Replace(o, "everything: [sam]", "everything: [kit]", 1)
-	o = strings.Replace(o, houseOrders, "order_part: [./small-orders.js, clerk: advise, kit]", 1)
-	testkit.Write(t, b.dir, map[string]string{"office.yaml": o, "garden/team.yaml": strings.ReplaceAll(files["garden/team.yaml"], "sam", "kit")})
+	dec := b.draft(n, "Note the shed", map[string]string{"garden/notes/beds.md": "# The beds\n"})
+	if dec.Team != "garden" {
+		t.Fatalf("the put is %s's", dec.Team)
+	}
+	if err := os.RemoveAll(filepath.Join(b.dir, "garden")); err != nil {
+		t.Fatal(err)
+	}
 	read, err := office.Read(b.dir)
 	if err != nil {
 		t.Fatal(err)
@@ -226,23 +254,13 @@ func TestChangeRefusedByBulldog(t *testing.T) {
 	if err := b.reqs.Read(read); err != nil {
 		t.Fatal(err)
 	}
-	told := b.d.Read(ctx, read)
-
-	got := b.get(dec.ID)
-	const why = "nobody can decide this: nobody named on its walk is in the office"
-	if got.Ended != decisions.Refused || got.By.Kind != requests.IsBulldog || got.Why != why {
-		t.Fatalf("the change nobody can decide is %+v", got)
-	}
-	e := b.entries(n, decisions.KindDecided)[0]
-	if len(e.To) != 1 || e.To[0].Name != "builder" || e.Text != "refused by Bulldog: "+why {
-		t.Fatalf("the builder is told %+v", e)
-	}
-	if _, err := os.Stat(filepath.Join(b.dir, "notes", "shed.md")); !os.IsNotExist(err) {
-		t.Fatalf("the refused change was written: %v", err)
-	}
-
-	if told != nil {
+	if told := b.d.Read(ctx, read); told != nil {
 		t.Fatal(told)
+	}
+	got := b.get(dec.ID)
+	const why = "nobody can decide this: garden is no longer in the office"
+	if got.Ended != decisions.Refused || got.By.Kind != requests.IsBulldog || got.By.Note != why {
+		t.Fatalf("the change nobody can decide is %+v", got)
 	}
 	if out := b.outcome(dec.Put.ID); out.Ended != changes.Refused || out.Decider != "Bulldog" || out.Note != why {
 		t.Fatalf("the change ended %+v", out)

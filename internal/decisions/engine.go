@@ -74,6 +74,11 @@ func (d *Decisions) changingOne(ctx context.Context, id int64, do func(o *office
 // does what each decision that ended owes.
 func (d *Decisions) after(ctx context.Context, fx *effects) error {
 	var errs []error
+	// What a held write's decision owes Changes is done before its ask
+	// is answered, so the write its job then runs names who decided.
+	for _, dec := range fx.owed {
+		errs = append(errs, d.settle(ctx, dec))
+	}
 	for _, v := range fx.verdicts {
 		if d.Answer == nil {
 			errs = append(errs, fmt.Errorf("the ask %s is decided, but nothing keeps what was decided to answer Corbie with", v.ask))
@@ -82,9 +87,6 @@ func (d *Decisions) after(ctx context.Context, fx *effects) error {
 		if err := d.Answer(ctx, v.ask, v.v); err != nil {
 			errs = append(errs, fmt.Errorf("the ask %s is decided, but what was decided could not be kept to answer Corbie with: %w", v.ask, err))
 		}
-	}
-	for _, dec := range fx.owed {
-		errs = append(errs, d.settle(ctx, dec))
 	}
 	d.tell(fx.touched)
 	return errors.Join(errs...)
@@ -175,7 +177,7 @@ func owedBeyond(dec *Decision) string {
 		return oweSay
 	case dec.Kind == OfDisclosure && dec.Ended != Withdrawn:
 		return oweLet
-	case dec.Kind == OfChange && dec.Ended != Withdrawn:
+	case dec.Put != nil && dec.Ended != Withdrawn:
 		return oweDecided
 	}
 	return ""
@@ -201,7 +203,7 @@ func (d *Decisions) advance(o *office.Office, dec *Decision, fx *effects) error 
 		stages, why := walk(o, dec)
 		s, i, ok := next(stages, dec)
 		switch {
-		case !ok && dec.Kind == OfChange && dec.Put.Person:
+		case ok && ownChange(dec, s):
 			return d.end(dec, Yes, d.personWord(o, dec.Put.By, ""), fx)
 		case !ok:
 			if o.Teams[dec.Team] == nil {
@@ -328,8 +330,6 @@ func (d *Decisions) taken(ctx context.Context, id int64, step int, out []byte, f
 			// It advises, as it was told: its yes goes on, as a
 			// referral does, as a recommendation.
 			says, w.Recommends = SaysRefer, true
-		case dec.Kind == OfChange && says == SaysYes:
-			says, w.Note = SaysRefer, "it said yes, and only a person's yes approves a change, so it is taken as a referral"+noted(note)
 		}
 		switch says {
 		case SaysYes:
@@ -526,7 +526,7 @@ func (d *Decisions) keepEnd(dec *Decision) (*Verdict, error) {
 		return nil, err
 	}
 	var v *Verdict
-	if dec.Kind == OfAction {
+	if dec.Kind == OfAction && dec.Ask != "" {
 		if v, err = verdictOf(tx, dec.Ask); err != nil {
 			return nil, err
 		}

@@ -1,6 +1,6 @@
 // Package decisions is every yes that work waits for: an action Corbie
-// holds, what a team with a disclosure check says outside itself, and a
-// change to the office's files. Each is asked of its team's deciders in
+// holds, a write to the office's files among them, and what a team with a
+// disclosure check says outside itself. Each is asked of its team's deciders in
 // order, rules and workers one at a time and then people all at once, and
 // the first yes or refusal stands. What each decider said is an entry in
 // the request's thread; the walk itself is kept here, so it goes on where
@@ -35,7 +35,6 @@ const (
 const (
 	OfAction     = "action"
 	OfDisclosure = "disclosure"
-	OfChange     = "change"
 )
 
 // How a decision ends. One that has not ended has Ended "".

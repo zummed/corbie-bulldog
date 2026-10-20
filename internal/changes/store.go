@@ -13,11 +13,12 @@ import (
 // tables.
 const (
 	Area   = "changes"
-	Schema = 1
+	Schema = 2
 )
 
 // tables makes this part's tables: each request's draft, a file to a row,
-// and each change put to be decided, with how it ended once it has.
+// and each change put, by its tool, with the yes kept for a held write
+// until its job runs, and how it ended once it has.
 const tables = `
 CREATE TABLE changes_drafts (
 	request INTEGER NOT NULL,
@@ -31,11 +32,13 @@ CREATE TABLE changes_drafts (
 CREATE TABLE changes_puts (
 	id      INTEGER PRIMARY KEY AUTOINCREMENT,
 	request INTEGER NOT NULL,
+	tool    TEXT NOT NULL,
 	put     TEXT NOT NULL,
+	yes     TEXT NOT NULL DEFAULT '',
 	ended   TEXT NOT NULL DEFAULT '',
 	outcome TEXT NOT NULL DEFAULT ''
 );
-CREATE INDEX changes_puts_waiting ON changes_puts (request, ended);
+CREATE INDEX changes_puts_waiting ON changes_puts (request, tool, ended);
 `
 
 // ready makes this part's tables in a store that has none, and refuses one
@@ -129,47 +132,97 @@ func keepPut(ctx context.Context, q querier, p Put) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	res, err := q.ExecContext(ctx, `INSERT INTO changes_puts (request, put) VALUES (?, ?)`, p.Request, text)
+	res, err := q.ExecContext(ctx, `INSERT INTO changes_puts (request, tool, put) VALUES (?, ?, ?)`, p.Request, p.Tool, text)
 	if err != nil {
 		return 0, err
 	}
 	return res.LastInsertId()
 }
 
-// gotPut gives a change put, its number its row's, and how it ended, ""
-// while it waits.
-func gotPut(ctx context.Context, q querier, id int64) (Put, Outcome, error) {
-	var text, ended, outcome string
-	err := q.QueryRowContext(ctx, `SELECT put, ended, outcome FROM changes_puts WHERE id = ?`, id).Scan(&text, &ended, &outcome)
+// gotPut gives a change put, its number its row's, how it ended, ""
+// while it waits, and the yes kept for it, if any.
+func gotPut(ctx context.Context, q querier, id int64) (Put, Outcome, *Decision, error) {
+	var text, yes, ended, outcome string
+	err := q.QueryRowContext(ctx, `SELECT put, yes, ended, outcome FROM changes_puts WHERE id = ?`, id).Scan(&text, &yes, &ended, &outcome)
 	if errors.Is(err, sql.ErrNoRows) {
-		return Put{}, Outcome{}, fmt.Errorf("no change %d was ever put", id)
+		return Put{}, Outcome{}, nil, fmt.Errorf("no change %d was ever put", id)
 	}
 	if err != nil {
-		return Put{}, Outcome{}, err
+		return Put{}, Outcome{}, nil, err
 	}
+	return readPut(id, text, yes, ended, outcome)
+}
+
+// readPut reads a change put as it is kept.
+func readPut(id int64, text, yes, ended, outcome string) (Put, Outcome, *Decision, error) {
 	var p Put
 	if err := json.Unmarshal([]byte(text), &p); err != nil {
-		return Put{}, Outcome{}, fmt.Errorf("the change %d put cannot be read: %w", id, err)
+		return Put{}, Outcome{}, nil, fmt.Errorf("the change %d put cannot be read: %w", id, err)
 	}
 	p.ID = id
 	var o Outcome
 	if ended != "" {
 		if err := json.Unmarshal([]byte(outcome), &o); err != nil {
-			return Put{}, Outcome{}, fmt.Errorf("how the change %d ended cannot be read: %w", id, err)
+			return Put{}, Outcome{}, nil, fmt.Errorf("how the change %d ended cannot be read: %w", id, err)
 		}
 	}
-	return p, o, nil
+	var d *Decision
+	if yes != "" {
+		d = &Decision{}
+		if err := json.Unmarshal([]byte(yes), d); err != nil {
+			return Put{}, Outcome{}, nil, fmt.Errorf("the yes kept for the change %d cannot be read: %w", id, err)
+		}
+	}
+	return p, o, d, nil
 }
 
-// waitingOf gives the number of the change put from a request's draft that
-// waits for its decision, or nothing.
-func waitingOf(ctx context.Context, q querier, request int64) (int64, error) {
+// waitingOf gives the number of the change put by a tool from a request
+// that waits for its decision, or nothing.
+func waitingOf(ctx context.Context, q querier, request int64, tool string) (int64, error) {
 	var id int64
-	err := q.QueryRowContext(ctx, `SELECT id FROM changes_puts WHERE request = ? AND ended = '' ORDER BY id DESC LIMIT 1`, request).Scan(&id)
+	err := q.QueryRowContext(ctx, `SELECT id FROM changes_puts WHERE request = ? AND tool = ? AND ended = '' AND yes = '' ORDER BY id DESC LIMIT 1`,
+		request, tool).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, nil
 	}
 	return id, err
+}
+
+// keepYes keeps the yes on a held write, which the call its job runs
+// then writes.
+func keepYes(ctx context.Context, q querier, id int64, d Decision) error {
+	text, err := json.Marshal(d)
+	if err != nil {
+		return err
+	}
+	_, err = q.ExecContext(ctx, `UPDATE changes_puts SET yes = ? WHERE id = ? AND ended = '' AND yes = ''`, text, id)
+	return err
+}
+
+// approved gives the held write of a tool from a request, with a why,
+// whose yes is kept and that is not yet written, or nothing.
+func approved(ctx context.Context, q querier, request int64, tool, why string) (*Put, *Decision, error) {
+	rows, err := q.QueryContext(ctx, `SELECT id, put, yes FROM changes_puts WHERE request = ? AND tool = ? AND ended = '' AND yes != '' ORDER BY id DESC`,
+		request, tool)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var text, yes string
+		if err := rows.Scan(&id, &text, &yes); err != nil {
+			return nil, nil, err
+		}
+		p, _, d, err := readPut(id, text, yes, "", "")
+		if err != nil {
+			return nil, nil, err
+		}
+		if p.Why == why {
+			return &p, d, nil
+		}
+	}
+	return nil, nil, rows.Err()
 }
 
 // endPut keeps how a change put ended. It says whether it was still

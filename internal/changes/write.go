@@ -180,3 +180,56 @@ func removeEmpty(dirs []string) error {
 	}
 	return errors.Join(errs...)
 }
+
+// Lines gives what a change does to a file by its lines: each line it
+// takes away, "- ", and each it adds, "+ ", in the order of the file, the
+// lines it keeps left out. A file too long to compare line by line is
+// given as all its old lines taken away and all its new ones added.
+func (f File) Lines() []string {
+	split := func(text string, had bool) []string {
+		if !had || text == "" {
+			return nil
+		}
+		return strings.Split(strings.TrimSuffix(text, "\n"), "\n")
+	}
+	was, now := split(f.Was, f.Had), split(f.Text, !f.Gone)
+	var out []string
+	if len(was)*len(now) > 4_000_000 {
+		for _, l := range was {
+			out = append(out, "- "+l)
+		}
+		for _, l := range now {
+			out = append(out, "+ "+l)
+		}
+		return out
+	}
+	// kept[i][j] is how many lines of was[i:] and now[j:] are kept, at
+	// most.
+	kept := make([][]int, len(was)+1)
+	for i := range kept {
+		kept[i] = make([]int, len(now)+1)
+	}
+	for i := len(was) - 1; i >= 0; i-- {
+		for j := len(now) - 1; j >= 0; j-- {
+			if was[i] == now[j] {
+				kept[i][j] = kept[i+1][j+1] + 1
+			} else {
+				kept[i][j] = max(kept[i+1][j], kept[i][j+1])
+			}
+		}
+	}
+	i, j := 0, 0
+	for i < len(was) || j < len(now) {
+		switch {
+		case i < len(was) && j < len(now) && was[i] == now[j]:
+			i, j = i+1, j+1
+		case j < len(now) && (i == len(was) || kept[i][j+1] >= kept[i+1][j]):
+			out = append(out, "+ "+now[j])
+			j++
+		default:
+			out = append(out, "- "+was[i])
+			i++
+		}
+	}
+	return out
+}

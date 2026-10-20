@@ -435,8 +435,8 @@ func TestServerNotesShownWithWhatARunIsGiven(t *testing.T) {
 	if lee.Notes[1].Text != files["payments/notes/b.md"] {
 		t.Errorf("Lee is not given b whole")
 	}
-	// No worker of payments names the notes tool.
-	if lee.Writers == nil || len(lee.Writers) != 0 {
+	// The ledger names the notes kit.
+	if !slices.Equal(lee.Writers, []string{"ledger"}) {
 		t.Errorf("Lee sees payments' notes written by %#v", lee.Writers)
 	}
 	if dana := s.as("dana").get("/api/teams/payments").is(http.StatusOK).json(); dana["notes"] != nil || dana["writers"] != nil {
@@ -512,7 +512,7 @@ func TestServerToolToldByWhereItResolves(t *testing.T) {
 			{Name: "read_doc", Does: shippedDoes(shipped.Docs, "read_doc"), Kind: "bulldog", Kit: "docs"},
 		}},
 		{"office", "builder", []toolOut{
-			{Name: "office_put", Does: shippedDoes(shipped.Build, "office_put"), Kind: "bulldog", Kit: "build"},
+			{Name: "office_put", Does: shippedDoes(shipped.Build, "office_put"), Kind: "bulldog", Kit: "build", Waits: true, Deciders: []deciderOut{{Kind: "person", Name: "sam"}}},
 		}},
 		{"garden", "gardener", []toolOut{
 			{Name: "groundsman", Does: "Heavy work in the garden: digging, mowing and the shed", Kind: "worker", Worker: "groundsman", File: "garden/groundsman.yaml"},
@@ -752,6 +752,9 @@ func TestServerRunGivenWorkedOutWhenShown(t *testing.T) {
 	t.Parallel()
 	files := workOffice(t)
 	files["notes/hours.md"] = "Support answers from nine to five.\n"
+	// The bot names the notes kit, so each of its runs is given the
+	// office's notes.
+	files["bot.yaml"] = strings.Replace(files["bot.yaml"], "./.bulldog/tools/docs/docs.yaml]", "./.bulldog/tools/docs/docs.yaml, ./.bulldog/tools/notes/notes.yaml]", 1)
 	b := newBench(t, files)
 	b.says(func(turn testkit.Turn) testkit.Reply {
 		switch {

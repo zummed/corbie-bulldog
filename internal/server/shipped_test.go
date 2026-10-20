@@ -146,7 +146,7 @@ func TestServerShippedChangedLinesAfterUpgrade(t *testing.T) {
 			t.Errorf("the start after the upgrade does not say %q", said)
 		}
 	}
-	if upgraded.logged("bridges/jira changed") || upgraded.logged("tools/notes changed") {
+	if upgraded.logged("bridges/jira changed") || upgraded.logged("tools/build changed") {
 		t.Error("the start after the upgrade says what changed in what the office does not use")
 	}
 	changed := func(s *serving, person string) []shipped.Change {

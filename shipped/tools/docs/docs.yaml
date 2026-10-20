@@ -1,7 +1,9 @@
-# The docs tools Bulldog ships: for reading the docs of the team and of
-# each team around it, out to the office. Each is a run that only waits:
-# Bulldog reads what was asked, and its answer is the tool's result. A
-# worker has them by naming this file:
+# The docs kit Bulldog ships: for reading the docs of the team and of
+# each team around it, out to the office, and mending the team's own.
+# Each is a run that only waits: Bulldog does what was asked, and its
+# answer is the tool's result. write_doc is marked approve, so Corbie
+# holds it for the team's yes, and the worker started at the top names
+# the ask Bulldog ships. A worker has them by naming this file:
 #   tools_file: [./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/docs/docs.yaml]
 docs:
   does: List the docs you may read, your team's and those of each team around it, each with its name, its team, its size and its first heading. A doc of your own team stands before one of the same name further out
@@ -20,3 +22,7 @@ search_docs:
   does: Find the lines of the docs you may read that hold the words given, as written, in any case, each with its doc, its line and its team. Gives up to 20,000 characters
   args: { words: string }
   job: { machine: ../../call.yaml, input: { tool: search_docs, args: "${args}", unanswered: *unanswered } }
+write_doc:
+  does: Write one of your own team's docs, whole, in place of what it held, when you find it wrong or out of date. name is a doc's name as docs lists it, such as rooms/kitchen; text is all of it in Markdown; why says why, in a line. Your team's deciders are shown it beside what it replaces, and it is written once they say yes
+  args: { name: string, text: string, why: string }
+  job: { machine: ../../call.yaml, input: { tool: write_doc, args: "${args}", unanswered: "The doc was not written within 7 days. Write it again if it is still wanted." }, approve: true }

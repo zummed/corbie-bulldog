@@ -70,12 +70,9 @@ type Call struct {
 	Args    json.RawMessage
 }
 
-// An Answer is a tool's result. Put is the number of a change office_put
-// has put, whose call waits on until it ends: its outcome is told, and
-// that is the tool's result.
+// An Answer is a tool's result.
 type Answer struct {
 	Text string
-	Put  int64
 }
 
 // The builder's tools, as the tools file Bulldog ships writes them.
@@ -87,6 +84,9 @@ const (
 	ToolCheck  = "office_check"
 	ToolPut    = "office_put"
 	ToolManual = "manual"
+	// ToolWriteDoc is the docs kit's write, which this area writes as a
+	// change of one file.
+	ToolWriteDoc = "write_doc"
 )
 
 // Tools are the builder's tools this area answers, in the order they sort.
@@ -112,15 +112,36 @@ func (c *Changes) Answer(ctx context.Context, call Call) (Answer, error) {
 		}
 	}
 	said := func(text string, err error) (Answer, error) { return Answer{Text: text}, err }
+	o, err := c.office()
+	if err != nil {
+		return Answer{}, err
+	}
+	team := ""
+	if w := o.Workers[call.Worker]; w != nil {
+		team = w.Team
+	}
+	reach := func(file string) string {
+		if !o.Reaches(team, file) {
+			return fmt.Sprintf("%s is outside what you reach, the files of your own team's folder and of the teams within it, so it is not read or drafted", file)
+		}
+		return ""
+	}
 	switch call.Tool {
 	case ToolFiles:
-		return said(c.files(ctx, call.Request))
+		return said(c.files(ctx, call.Request, team))
 	case ToolRead:
+		if problem := reach(args.Path); problem != "" {
+			return said(problem, nil)
+		}
 		return said(c.read(ctx, call.Request, args.Path))
-	case ToolWrite:
+	case ToolWrite, ToolRemove:
+		if problem := reach(args.Path); problem != "" {
+			return said(problem, nil)
+		}
+		if call.Tool == ToolRemove {
+			return said(c.write(ctx, call.Request, args.Path, nil))
+		}
 		return said(c.write(ctx, call.Request, args.Path, &args.Text))
-	case ToolRemove:
-		return said(c.write(ctx, call.Request, args.Path, nil))
 	case ToolCheck:
 		files, err := drafted(ctx, c.db, call.Request)
 		if err != nil {
@@ -134,8 +155,8 @@ func (c *Changes) Answer(ctx context.Context, call Call) (Answer, error) {
 			return Answer{}, err
 		}
 		return Answer{Text: check.Text()}, nil
-	case ToolPut:
-		return c.putDraft(ctx, call, args.Why)
+	case ToolPut, ToolWriteDoc:
+		return c.written(ctx, call)
 	case ToolManual:
 		return Answer{Text: Manual(args.Page)}, nil
 	}
@@ -154,8 +175,9 @@ func (c *Changes) folder() (map[string][]byte, office.Problems, error) {
 	return office.Folder(c.dir)
 }
 
-// files lists every file of the office, and what the draft does to each.
-func (c *Changes) files(ctx context.Context, request int64) (string, error) {
+// files lists every file of the office a team's worker reaches, and what
+// the draft does to each.
+func (c *Changes) files(ctx context.Context, request int64, team string) (string, error) {
 	draft, err := drafted(ctx, c.db, request)
 	if err != nil {
 		return "", err
@@ -164,15 +186,21 @@ func (c *Changes) files(ctx context.Context, request int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	o, err := c.office()
+	if err != nil {
+		return "", err
+	}
 	does := map[string]string{}
 	for name := range folder {
-		does[name] = IsAsItIs
+		if o.Reaches(team, name) {
+			does[name] = IsAsItIs
+		}
 	}
 	for _, f := range draft {
 		does[f.Path] = f.Does()
 	}
 	var b strings.Builder
-	b.WriteString("Every file of the office, and what your draft does to it:\n")
+	b.WriteString("Every file of the office you reach, and what your draft does to it:\n")
 	for _, name := range sortedKeys(does) {
 		fmt.Fprintf(&b, "%s: %s\n", name, does[name])
 	}

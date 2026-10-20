@@ -15,7 +15,7 @@ import (
 // tables.
 const (
 	Area    = "work"
-	Version = 7
+	Version = 8
 )
 
 // How a run noted in the store stands.
@@ -58,10 +58,9 @@ CREATE TABLE work_calls(
 	request INTEGER NOT NULL, tool TEXT NOT NULL, worker TEXT NOT NULL DEFAULT '',
 	state TEXT NOT NULL, mark INTEGER NOT NULL DEFAULT 0,
 	entry INTEGER NOT NULL DEFAULT 0, sub INTEGER NOT NULL DEFAULT 0,
-	put INTEGER NOT NULL DEFAULT 0, decision INTEGER NOT NULL DEFAULT 0,
+	decision INTEGER NOT NULL DEFAULT 0,
 	answer TEXT NOT NULL DEFAULT '');
 CREATE INDEX work_calls_request ON work_calls(request);
-CREATE INDEX work_calls_put ON work_calls(put);
 CREATE TABLE work_given(entry INTEGER PRIMARY KEY, request INTEGER NOT NULL);
 CREATE INDEX work_given_request ON work_given(request);
 CREATE TABLE work_subs(sub INTEGER PRIMARY KEY, given INTEGER NOT NULL DEFAULT 0, open INTEGER NOT NULL DEFAULT 1);
@@ -472,16 +471,14 @@ type callRow struct {
 	// what it put is after it.
 	Mark int64
 	// Entry is the question or the tell it put, Sub the sub-request it
-	// made, Put the change it put, and Decision the disclosure its words wait
-	// on.
+	// made, and Decision the disclosure its words wait on.
 	Entry    int64
 	Sub      int64
-	Put      int64
 	Decision int64
 	Answer   string
 }
 
-const callColumns = `SELECT run, request, tool, worker, state, mark, entry, sub, put, decision, answer FROM work_calls`
+const callColumns = `SELECT run, request, tool, worker, state, mark, entry, sub, decision, answer FROM work_calls`
 
 func scanCalls(rows *sql.Rows, err error) ([]*callRow, error) {
 	if err != nil {
@@ -491,7 +488,7 @@ func scanCalls(rows *sql.Rows, err error) ([]*callRow, error) {
 	var calls []*callRow
 	for rows.Next() {
 		c := &callRow{}
-		if err := rows.Scan(&c.Run, &c.Request, &c.Tool, &c.Worker, &c.State, &c.Mark, &c.Entry, &c.Sub, &c.Put, &c.Decision, &c.Answer); err != nil {
+		if err := rows.Scan(&c.Run, &c.Request, &c.Tool, &c.Worker, &c.State, &c.Mark, &c.Entry, &c.Sub, &c.Decision, &c.Answer); err != nil {
 			return nil, storeFailed(err)
 		}
 		calls = append(calls, c)
@@ -516,15 +513,6 @@ func (w *Work) callsOf(request int64) ([]*callRow, error) {
 	return scanCalls(w.db.Query(callColumns+` WHERE request = ? ORDER BY rowid`, request))
 }
 
-// callOfPut gives the call that put a change, or nil.
-func (w *Work) callOfPut(put int64) (*callRow, error) {
-	calls, err := scanCalls(w.db.Query(callColumns+` WHERE put = ?`, put))
-	if err != nil || len(calls) == 0 {
-		return nil, err
-	}
-	return calls[0], nil
-}
-
 // everyCall gives every call kept.
 func (w *Work) everyCall() ([]*callRow, error) {
 	return scanCalls(w.db.Query(callColumns + ` ORDER BY rowid`))
@@ -532,12 +520,12 @@ func (w *Work) everyCall() ([]*callRow, error) {
 
 // keepCall keeps where a call stands, in place of what was kept.
 func (w *Work) keepCall(c *callRow) error {
-	_, err := w.db.Exec(`INSERT INTO work_calls(run, request, tool, worker, state, mark, entry, sub, put, decision, answer)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	_, err := w.db.Exec(`INSERT INTO work_calls(run, request, tool, worker, state, mark, entry, sub, decision, answer)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(run) DO UPDATE SET request = excluded.request, tool = excluded.tool, worker = excluded.worker, state = excluded.state,
-			mark = excluded.mark, entry = excluded.entry, sub = excluded.sub, put = excluded.put, decision = excluded.decision,
+			mark = excluded.mark, entry = excluded.entry, sub = excluded.sub, decision = excluded.decision,
 			answer = excluded.answer`,
-		c.Run, c.Request, c.Tool, c.Worker, c.State, c.Mark, c.Entry, c.Sub, c.Put, c.Decision, c.Answer)
+		c.Run, c.Request, c.Tool, c.Worker, c.State, c.Mark, c.Entry, c.Sub, c.Decision, c.Answer)
 	if err != nil {
 		return storeFailed(err)
 	}
@@ -554,10 +542,10 @@ func (w *Work) answerCall(c *callRow, answer string, given *requests.Entry) erro
 		return storeFailed(err)
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec(`INSERT INTO work_calls(run, request, tool, worker, state, mark, entry, sub, put, decision, answer)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	if _, err := tx.Exec(`INSERT INTO work_calls(run, request, tool, worker, state, mark, entry, sub, decision, answer)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(run) DO UPDATE SET state = excluded.state, answer = excluded.answer`,
-		c.Run, c.Request, c.Tool, c.Worker, answered, c.Mark, c.Entry, c.Sub, c.Put, c.Decision, answer); err != nil {
+		c.Run, c.Request, c.Tool, c.Worker, answered, c.Mark, c.Entry, c.Sub, c.Decision, answer); err != nil {
 		return storeFailed(err)
 	}
 	switch {

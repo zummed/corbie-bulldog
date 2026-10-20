@@ -318,16 +318,15 @@ func (w *Work) teamOf(n int64) string {
 func (w *Work) Told(out changes.Outcome) {
 	w.decide.Told(out)
 	if err := w.keepOwed("work_outcomes", out.Put, out); err != nil {
-		w.Log("how the change %d ended could not be kept, so the builder that put it is not told: %v", out.Put, err)
+		w.Log("how the change %d ended could not be kept, so the runs of the workers it took away are not stopped: %v", out.Put, err)
 		return
 	}
 	w.owesNoted()
 }
 
 // outcomes does what each change that ended asks of work: the runs of
-// the workers it took away are stopped, and the builder that put it is
-// told, by its waiting tool, or, once that no longer waits, in its
-// request, which starts it again.
+// the workers it took away are stopped. Whoever put it is told by the
+// tool's own result, or, refused, by Corbie denying its job.
 func (w *Work) outcomes(ctx context.Context) bool {
 	owed, err := w.owed("work_outcomes")
 	if err != nil {
@@ -345,47 +344,20 @@ func (w *Work) outcomes(ctx context.Context) bool {
 		var out changes.Outcome
 		err := json.Unmarshal([]byte(owed[id]), &out)
 		if err == nil {
-			err = w.outcome(ctx, out)
+			err = w.stopWorkers(out.Gone)
 		}
 		if err == nil {
 			err = w.paid("work_outcomes", id)
 		}
 		if err != nil {
-			w.trouble(out.Request, w.teamOf(out.Request), fmt.Sprintf("Bulldog could not tell %s how the change %d ended, and tries again in %v: %v",
-				out.By, id, Again, err))
+			w.trouble(out.Request, w.teamOf(out.Request), fmt.Sprintf("Bulldog could not stop the runs of the workers the change %d took away, and tries again in %v: %v",
+				id, Again, err))
 			w.again(key)
 		}
 	}
 	return did
 }
 
-func (w *Work) outcome(ctx context.Context, out changes.Outcome) error {
-	if err := w.stopWorkers(out.Gone); err != nil {
-		return err
-	}
-	if out.Request == 0 {
-		return nil
-	}
-	row, err := w.callOfPut(out.Put)
-	if err != nil {
-		return err
-	}
-	if row != nil {
-		if row.State != waiting {
-			return nil
-		}
-		gone, err := w.settleCall(ctx, row, out.Text(), nil)
-		if err != nil || !gone {
-			return err
-		}
-		if err := w.dropCall(row.Run, 0); err != nil {
-			return err
-		}
-	}
-	_, err = w.requests.Write(out.Request, requests.Writing{Kind: requests.KindLate, By: requests.Bulldog, To: []requests.Who{w.requests.Worker(out.By)},
-		Read: true, Working: true, Text: out.Text()})
-	return err
-}
 
 // stopWorkers stops the runs on requests of workers a change took out of
 // the office.

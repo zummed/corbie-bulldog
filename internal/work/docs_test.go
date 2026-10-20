@@ -39,7 +39,7 @@ func withDocs(t *testing.T) map[string]string {
 	files["steward.yaml"] = strings.Replace(files["steward.yaml"], "./.bulldog/tools/notes/notes.yaml]",
 		"./.bulldog/tools/notes/notes.yaml, ./.bulldog/tools/docs/docs.yaml]", 1)
 	files["garden/gardener.yaml"] = strings.Replace(files["garden/gardener.yaml"], "../.bulldog/tools/notes/notes.yaml]",
-		"../.bulldog/tools/notes/notes.yaml, ../.bulldog/tools/docs/docs.yaml]", 1)
+		"../.bulldog/tools/notes/notes.yaml, ../.bulldog/tools/docs/docs.yaml]\nask: { machine: ../.bulldog/ask.yaml }", 1)
 	return files
 }
 

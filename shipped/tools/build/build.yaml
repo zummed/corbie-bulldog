@@ -1,10 +1,13 @@
-# The builder's tools Bulldog ships: for reading how the office is written
-# and drafting a change to it, which a person decides. Each is a run that
-# only waits: Bulldog does what was asked, and its answer is the tool's
-# result. A worker is a builder by naming this file:
+# The build kit Bulldog ships: for reading how the office is written and
+# drafting a change to the files of the worker's own team and the teams
+# within it. Each is a run that only waits: Bulldog does what was asked,
+# and its answer is the tool's result. office_put is marked approve, so
+# Corbie holds it for a yes, and the worker started at the top names the
+# ask Bulldog ships; a copy without approve writes the draft at once. A
+# worker is a builder by naming this file:
 #   tools_file: [./.bulldog/tools/build/build.yaml]
 office_files:
-  does: List every file of the office, and what your draft does to each, new, changed, removed or left as it is
+  does: List every file you may draft, your team's and those of the teams within it, and what your draft does to each, new, changed, removed or left as it is
   args: {}
   job:
     machine: ../../call.yaml
@@ -17,7 +20,7 @@ office_read:
   args: { path: string }
   job: { machine: ../../call.yaml, input: { tool: office_read, args: "${args}", unanswered: *unanswered } }
 office_write:
-  does: Put the whole new text of one file into your draft, making the file if it is not there. Nothing changes in the office until a person says yes to the draft
+  does: Put the whole new text of one file into your draft, making the file if it is not there. Nothing changes in the office until the draft is put
   args: { path: string, text: string }
   job: { machine: ../../call.yaml, input: { tool: office_write, args: "${args}", unanswered: *unanswered } }
 office_remove:
@@ -29,9 +32,9 @@ office_check:
   args: {}
   job: { machine: ../../call.yaml, input: { tool: office_check, args: "${args}", unanswered: *unanswered } }
 office_put:
-  does: Put your draft to be decided, and wait for the decision. Say why in words a person can decide on, its first line saying what it is. Whoever decides is shown every file whole and what the change does. Only a person's yes writes it
+  does: Put your draft, to be written once it is decided. Say why in words a person can decide on, its first line saying what it is. Whoever decides is shown every file whole and what the change does
   args: { why: string }
-  job: { machine: ../../call.yaml, input: { tool: office_put, args: "${args}", unanswered: *unanswered } }
+  job: { machine: ../../call.yaml, input: { tool: office_put, args: "${args}", unanswered: *unanswered }, approve: true }
 manual:
   does: Read a page of the manual. The page office says how an office is written, with whole examples of a worker, a rule and a bridge; each thing Bulldog ships has a page named by its path, as tools/talk or bridges/slack; any other is a page of Corbie's manual. Leave page empty for the list of pages
   args: { page: "string?" }

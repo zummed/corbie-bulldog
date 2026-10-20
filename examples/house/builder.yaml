@@ -1,4 +1,6 @@
-# The builder drafts changes to how the house is run. A person decides each.
+# The builder drafts changes to how the house is run. It names the build
+# kit, whose office_put waits for a yes: the house's everything, Sam,
+# decides each, or the garden's for a change to the garden alone.
 agent: builder
 input: { said: string }
 model: usual

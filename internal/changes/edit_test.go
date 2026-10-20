@@ -237,8 +237,9 @@ func TestChangesAWorkerGoesWithWhatItAloneUses(t *testing.T) {
 
 func TestChangesAPersonPutsTheirOwn(t *testing.T) {
 	t.Parallel()
-	// In the house nobody is asked before Sam: it is written as it is put,
-	// with Sam's yes, and never handed on to be decided.
+	// Sam's own change is handed on to be decided as an office_put of his
+	// would be, of the team whose folder holds it; whom it is asked of is
+	// Decisions'. His yes writes it, by him.
 	h := newOffice(t, house(t))
 	before := h.head().Hash
 	sams := clerkAgain(t, "sam's")
@@ -246,25 +247,22 @@ func TestChangesAPersonPutsTheirOwn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, o, _ := h.c.Put(ctx, p.ID); o.Ended != Written || o.Decider != "sam" || h.text("clerk.yaml") != sams || h.head().Hash == before || h.head().Author.Name != "sam" || !strings.Contains(h.head().Message, "Decided-by: sam") {
-		t.Errorf("Sam's own change ended %+v", o)
+	if put := h.decided(); len(put) != 1 || put[0].ID != p.ID || !put[0].Person || put[0].By != "sam" || put[0].Tool != ToolPut || put[0].Team != office.Top {
+		t.Fatalf("Sam's own change is handed on as %+v", put)
 	}
-	if told := h.outcomes(); len(h.decided()) != 0 || len(told) != 1 || told[0].Put != p.ID || told[0].Ended != Written {
-		t.Errorf("Sam's own change was handed on %+v, and told %+v", h.decided(), told)
+	if h.text("clerk.yaml") != house(t)["clerk.yaml"] || h.head().Hash != before {
+		t.Fatal("Sam's own change was written before it was decided")
+	}
+	if o := h.yes(p.ID, "sam", ""); o.Ended != Written || o.Decider != "sam" || h.text("clerk.yaml") != sams || h.head().Author.Name != "sam" || !strings.Contains(h.head().Message, "Decided-by: sam") {
+		t.Errorf("Sam's own change ended %+v", o)
 	}
 	// A rule that refuses ends it: nothing is written, and Sam is told the
 	// rule's note.
-	refusing := house(t)
-	refusing["no-secrets.js"] = "return { says: \"refuse\", note: \"no secrets in a worker\" }\n"
-	refusing["office.yaml"] = replaced(t, refusing, "office.yaml", "  everything: [sam]\n", "  everything: [sam]\n  change: [./no-secrets.js, sam]\n")
-	r := newOffice(t, refusing)
+	r := newOffice(t, house(t))
 	before = r.head().Hash
 	p, err = r.own("sam", "Sam's clerk", Edit{Files: map[string]*string{"clerk.yaml": &sams}})
 	if err != nil {
 		t.Fatal(err)
-	}
-	if put := r.decided(); len(put) != 1 || put[0].ID != p.ID || !put[0].Person || len(put[0].Walk) != 1 || put[0].Walk[0].Kind != office.IsRule {
-		t.Fatalf("Sam's own change is handed on as %+v", put)
 	}
 	o, err := r.c.Decided(ctx, p.ID, Decision{By: "no-secrets.js", Kind: office.IsRule, Note: "no secrets in a worker"})
 	if err != nil || o.Ended != Refused {
@@ -279,42 +277,12 @@ func TestChangesAPersonPutsTheirOwn(t *testing.T) {
 	if _, err := r.c.Decided(ctx, p.ID, Decision{By: "sam", Kind: office.IsPerson, Yes: true}); err == nil || r.text("clerk.yaml") != house(t)["clerk.yaml"] {
 		t.Errorf("Sam's yes after the refusal: %v", err)
 	}
-	files := house(t)
-	files["no-secrets.js"] = "return { says: \"refer\", note: \"no secrets\" }\n"
-	files["office.yaml"] = replaced(t, files, "office.yaml", "  everything: [sam]\n", "  everything: [sam]\n  change: [./no-secrets.js, sam]\n")
-	f := newOffice(t, files)
-	text := clerkAgain(t, "x")
-	p, err = f.own("sam", "Sam's clerk", Edit{Files: map[string]*string{"clerk.yaml": &text}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(p.Walk) != 1 || p.Walk[0].Name != "no-secrets.js" || !p.Person || p.By != "sam" {
-		t.Errorf("Sam's own change is put %+v", p)
-	}
-	if _, o, _ := f.c.Put(ctx, p.ID); o.Ended != "" || f.text("clerk.yaml") != house(t)["clerk.yaml"] {
-		t.Errorf("Sam's own change did not wait on the rule: %+v", o)
-	}
-	// The rule refers it, and it is Sam's own yes.
-	if o := f.yes(p.ID, "sam", ""); o.Ended != Written || f.text("clerk.yaml") != text || f.head().Author.Name != "sam" || !strings.Contains(f.head().Message, "Decided-by: sam") {
-		t.Errorf("it ended %+v", o)
-	}
-	// With the reviewer on the everything a change list of rules goes on to.
-	files["reviewer.yaml"] = "agent: reviewer\ninput: { said: string }\nmodel: usual\nsystem: You review.\nprompt: ${input.said}\n"
-	files["office.yaml"] = replaced(t, files, "office.yaml", "  everything: [sam]\n  change: [./no-secrets.js, sam]\n", "  everything: [reviewer, sam]\n  change: [./no-secrets.js]\n")
-	g := newOffice(t, files)
-	p, err = g.own("sam", "Again", Edit{Files: map[string]*string{"clerk.yaml": &text}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var names []string
-	for _, d := range p.Walk {
-		names = append(names, d.Name)
-	}
-	if !slices.Equal(names, []string{"no-secrets.js", "reviewer"}) {
-		t.Errorf("Sam's own change is asked of %v", names)
+	// A change of the garden alone is the garden's to decide.
+	beds := "Beds.\n"
+	if p, err := h.own("sam", "Beds", Edit{Files: map[string]*string{"garden/notes/beds.md": &beds}}); err != nil || p.Team != "garden" {
+		t.Errorf("Sam's change of the garden is %s's to decide, %v", p.Team, err)
 	}
 }
-
 func TestChangesAPersonWhoDoesNotDecideCannotPutOne(t *testing.T) {
 	t.Parallel()
 	f := newOffice(t, house(t))
@@ -347,9 +315,11 @@ func TestChangesAShippedBridgeIsSetByItsEntry(t *testing.T) {
 		t.Fatalf("the check is %+v", check)
 	}
 	has(t, check.LetsMoreBy, "the bridge telegram is new")
-	if _, err := f.c.PutOwn(ctx, "sam", "Telegram", changed, check.Mark); err != nil {
+	p, err := f.c.PutOwn(ctx, "sam", "Telegram", changed, check.Mark)
+	if err != nil {
 		t.Fatal(err)
 	}
+	f.yes(p.ID, "sam", "")
 	if h := f.history()[0]; !slices.Equal(h.Files, []string{"office.yaml"}) {
 		t.Errorf("the commit holds %v", h.Files)
 	}
@@ -410,7 +380,7 @@ func TestChangesAPersonWritesWhatTheyWereShown(t *testing.T) {
 	// written.
 	ruled := house(t)
 	ruled["no-secrets.js"] = "return { says: \"refer\" }\n"
-	ruled["office.yaml"] = replaced(t, ruled, "office.yaml", "  everything: [sam]\n", "  everything: [sam]\n  change: [./no-secrets.js, sam]\n")
+	ruled["office.yaml"] = replaced(t, ruled, "office.yaml", "  everything: [sam]\n", "  everything: [sam]\n  office_put: [./no-secrets.js, sam]\n")
 	g := newOffice(t, ruled)
 	p, err := g.own("sam", "Clerk", Edit{Files: map[string]*string{"clerk.yaml": &text}})
 	if err != nil {

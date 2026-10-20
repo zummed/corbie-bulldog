@@ -66,7 +66,7 @@ func TestEveryShippedFileIsADefinitionCorbieTakes(t *testing.T) {
 		t.Errorf("the call is %s, taking %v: %s", call.Definition.Name, call.Definition.Input, body)
 	}
 	for _, name := range shipped.ToolsFiles {
-		parse(t, "agent: someone\nmodel: { name: claude-sonnet-5-5, secret: KEY }\nprompt: hi\ntools_file: [./.bulldog/"+name+"]\n", nil)
+		parse(t, "agent: someone\nmodel: { name: claude-sonnet-5-5, secret: KEY }\nprompt: hi\ntools_file: [./.bulldog/"+name+"]\nask: { machine: ./.bulldog/ask.yaml }\n", nil)
 		contents, _ := shipped.File(name)
 		var tools map[string]struct {
 			Job struct {
@@ -93,12 +93,30 @@ func TestEveryShippedFileIsADefinitionCorbieTakes(t *testing.T) {
 	}
 }
 
+func TestKitsMarkTheirWritesForAYes(t *testing.T) {
+	t.Parallel()
+	for _, name := range shipped.ToolsFiles {
+		contents, _ := shipped.File(name)
+		var tools map[string]struct {
+			Job struct{ Approve bool }
+		}
+		if err := yaml.Unmarshal(contents, &tools); err != nil {
+			t.Fatal(err)
+		}
+		for tool, written := range tools {
+			if want := tool == "write_doc" || tool == "office_put"; written.Job.Approve != want {
+				t.Errorf("%s's %s is marked approve %v", name, tool, written.Job.Approve)
+			}
+		}
+	}
+}
+
 func TestToolsNamed(t *testing.T) {
 	t.Parallel()
 	for name, want := range map[string][]string{
 		shipped.Talk:  {"ask_person", "ask_team", "read_thread", "tell"},
 		shipped.Notes: {"write_notes"},
-		shipped.Docs:  {"docs", "read_doc", "search_docs"},
+		shipped.Docs:  {"docs", "read_doc", "search_docs", "write_doc"},
 		shipped.Build: {"manual", "office_check", "office_files", "office_put", "office_read", "office_remove", "office_write"},
 		shipped.Ask:   nil,
 	} {

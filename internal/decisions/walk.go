@@ -36,13 +36,9 @@ const IsPeople = "people"
 // walk gives whom a decision is asked of, in order, in the office as it is
 // read: a held action, as Walk gives it for its job's key, or for a call
 // of a listed tool its entry's when its team names no list for the tool;
-// a disclosure, its team's disclosure list and on outward as Walk goes; a
-// change, the walk it was put with. It ends at people, or with nobody
-// where none is reached; why says why.
+// a disclosure, its team's disclosure list and on outward as Walk goes.
+// It ends at people, or with nobody where none is reached; why says why.
 func walk(o *office.Office, dec *Decision) (stages []Stage, why string) {
-	if dec.Kind == OfChange {
-		return listed(dec.Put.Walk, office.Top, "change", o), "nobody named on its walk is in the office"
-	}
 	t := o.Teams[dec.Team]
 	if t == nil {
 		return nil, "it is no longer in the office"
@@ -53,7 +49,7 @@ func walk(o *office.Office, dec *Decision) (stages []Stage, why string) {
 	case OfAction:
 		var keys []string
 		for _, key := range []string{dec.Job.key(), dec.Job.entry()} {
-			if key != "" && key != "change" {
+			if key != "" {
 				keys = append(keys, key)
 			}
 		}
@@ -83,8 +79,8 @@ func (dec *Decision) Args() json.RawMessage {
 
 // Walk gives whom a team's decision is asked of, in order, in the office
 // as it is read, with no decision needed: the team's list of the first
-// key it writes one of, a held job's name or a listed tool's entry, or
-// change for a change of the top team; then its everything, and the
+// key it writes one of, a held job's name or a listed tool's entry; then
+// its everything, and the
 // everything of each team around it out to the office, as far as the
 // first that names people. Of a team not in the office it gives nothing.
 func Walk(o *office.Office, team string, keys ...string) []Stage {
@@ -201,6 +197,12 @@ func next(stages []Stage, dec *Decision) (Stage, int, bool) {
 // reach gives the people the walk comes to when every rule and worker on
 // its way refers it, who may decide it while it waits.
 func reach(stages []Stage, dec *Decision) []string { return firstPeople(stages[from(stages, dec):]) }
+
+// ownChange says whether a stage of people holds the person whose own
+// change a decision is, whose yes it is taken as once it reaches them.
+func ownChange(dec *Decision, s Stage) bool {
+	return s.Kind == IsPeople && dec.Put != nil && dec.Put.Person && slices.Contains(s.People, dec.Put.By)
+}
 
 // ownWorker says whether a stage is the worker whose action a decision is,
 // which never decides it.

@@ -42,7 +42,8 @@ func TestChangesCommitSaysWhoWhyAndWhoDecided(t *testing.T) {
 	// What lets more by is apart in the four places it is shown.
 	has(t, p.LetsMoreBy, "cut_power no longer waits")
 	hasNo(t, p.Says, "cut_power")
-	has(t, f.decided()[0].LetsMoreBy, "cut_power no longer waits")
+	shown, _, _ := f.c.Put(ctx, p.ID)
+	has(t, shown.LetsMoreBy, "cut_power no longer waits")
 	h := f.history()[0]
 	if h.DecidedBy != "sam" || h.Note != "Good. Mind the cooker." || h.Request != 12 || h.By != "builder" || h.Why != "Let the fixer cut power alone" {
 		t.Errorf("the history reads %+v", h)
@@ -70,10 +71,7 @@ func TestChangesCommitIsByWhoMadeIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The house's walk has no rule before Sam: it is written as it is put.
-	if len(p.Walk) != 0 {
-		t.Errorf("Sam's own change is asked of %+v", p.Walk)
-	}
+	f.yes(p.ID, "sam", "")
 	if c := f.head(); c.Author.Name != "sam" || !strings.Contains(c.Message, "Decided-by: sam") || strings.Contains(c.Message, "Request:") {
 		t.Errorf("Sam's own change is by %s:\n%s", c.Author.Name, c.Message)
 	}
@@ -182,9 +180,11 @@ func TestChangesHistoryShowsEveryChange(t *testing.T) {
 	text := clerkAgain(t, "sam's")
 	files, _, _ := f.c.Edited(Edit{Files: map[string]*string{"clerk.yaml": &text}})
 	check, _ := f.c.Check(ctx, files, Drafter{Name: "sam", Person: true})
-	if _, err := f.c.PutOwn(ctx, "sam", "Sam's", files, check.Mark); err != nil {
+	p, err := f.c.PutOwn(ctx, "sam", "Sam's", files, check.Mark)
+	if err != nil {
 		t.Fatal(err)
 	}
+	f.yes(p.ID, "sam", "")
 	f.later()
 	if _, err := f.c.WriteNote(ctx, Note{Team: "office", Name: "fuses", Text: "Breaker 4.\n", Why: "Fuses", Worker: "steward", Request: 14}); err != nil {
 		t.Fatal(err)

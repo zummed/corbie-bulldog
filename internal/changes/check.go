@@ -293,7 +293,7 @@ func guard(was, now *office.Office, folder, laid map[string][]byte, files []File
 		}
 		return strings.Join(names, ",")
 	}
-	for _, key := range []string{"change", "everything"} {
+	for _, key := range []string{ToolPut, "everything"} {
 		if written(was, key) != written(now, key) {
 			out = append(out, fmt.Sprintf("it changes the office's %s list: who decides a change to the office is a person's to write", key))
 		}
@@ -303,9 +303,9 @@ func guard(was, now *office.Office, folder, laid map[string][]byte, files []File
 	if (!hadEverything || !hasEverything) && was.TopTeam() != nil && now.TopTeam() != nil && !slices.Equal(was.TopTeam().People, now.TopTeam().People) {
 		out = append(out, "it changes the top team's people, who decide what its everything list does not name: who decides a change to the office is a person's to write")
 	}
-	// The deciders on the change list and on the everything list, each
+	// The deciders on the office_put list and on the everything list, each
 	// once.
-	change, _ := was.List(office.Top, "change")
+	change, _ := was.List(office.Top, ToolPut)
 	var deciders []office.Decider
 	for _, d := range append(slices.Clone(change), was.Everything(office.Top)...) {
 		if !slices.ContainsFunc(deciders, func(x office.Decider) bool { return x.Kind == d.Kind && x.Name == d.Name }) {

@@ -64,7 +64,7 @@ func TestServerTeamHeedRulesModelsAndWorkersSeenByItsPeople(t *testing.T) {
 	}
 	ledger := payments.Workers[slices.IndexFunc(payments.Workers, func(w workerOut) bool { return w.Name == "ledger" })]
 	def := definitionOut{System: ledger.Definition.System, Prompt: "${input.context}", Inputs: []string{"said", "context"},
-		ToolsFiles: []string{"../.bulldog/tools/talk/talk.yaml"}, Asks: true}
+		ToolsFiles: []string{"../.bulldog/tools/talk/talk.yaml", "../.bulldog/tools/notes/notes.yaml"}, Asks: true}
 	if ledger.Secret != testkit.Key || !reflect.DeepEqual(ledger.Definition, def) || !strings.HasPrefix(def.System, "You keep the ledger.") ||
 		!slices.Contains(ledger.Uses, "payments/tools/ledger.js") || len(ledger.HeldHere) != 0 {
 		t.Errorf("Lee sees the ledger as %+v", ledger)
@@ -88,9 +88,10 @@ func TestServerHeldHereAreTheColleaguesThatUseTheAsk(t *testing.T) {
 	for _, w := range office.Workers {
 		held[w.Name] = w.HeldHere
 	}
-	// The steward calls the fixer, whose cut and order wait for a yes and
-	// go to the steward's ask, since the fixer names none.
-	if !slices.Equal(held["steward"], []string{"fixer"}) || len(held["fixer"]) != 0 {
+	// The steward calls the fixer, whose cut and order wait for a yes, and
+	// the builder, whose office_put does, and they go to the steward's ask,
+	// since neither names one.
+	if !slices.Equal(held["steward"], []string{"builder", "fixer"}) || len(held["fixer"]) != 0 {
 		t.Errorf("Sam sees the held jobs of colleagues as %v", held)
 	}
 }

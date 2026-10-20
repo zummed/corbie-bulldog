@@ -80,7 +80,7 @@ func TestChangesANoteStandsApartFromTheDraft(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Nothing put or withdrawn, and the drafts are as they were.
-	if len(f.decided()) != 1 || len(f.outcomes()) != 0 {
+	if len(f.decided()) != 0 || len(f.outcomes()) != 0 {
 		t.Errorf("the note put %+v and told %+v", f.decided(), f.outcomes())
 	}
 	for request, n := range map[int64]int{3: 2, 4: 1} {

@@ -259,8 +259,9 @@ func TestServerEveryActionHasItsPerson(t *testing.T) {
 	if last := thread[len(thread)-1]; last.Text != "stopped by Al" {
 		t.Errorf("Dana's request ends %+v", last)
 	}
-	check := d.s.as("al").post("/api/office/check", map[string]any{"files": map[string]any{"support/notes/calls.md": "Call back within a day.\n"}}).is(http.StatusOK).json()
-	d.s.as("al").post("/api/office/put", map[string]any{"files": map[string]any{"support/notes/calls.md": "Call back within a day.\n"}, "why": "How support calls back.", "mark": check["mark"]}).is(http.StatusOK)
+	// A note of the office's own, which Al decides, so his yes is his own.
+	check := d.s.as("al").post("/api/office/check", map[string]any{"files": map[string]any{"notes/calls.md": "Call back within a day.\n"}}).is(http.StatusOK).json()
+	d.s.as("al").post("/api/office/put", map[string]any{"files": map[string]any{"notes/calls.md": "Call back within a day.\n"}, "why": "How the office calls back.", "mark": check["mark"]}).is(http.StatusOK)
 	history, err := a.Changes.History("al")
 	if err != nil || history[0].By != "al" || history[0].DecidedBy != "al" {
 		t.Errorf("the change was made by %+v (%v)", history[0], err)

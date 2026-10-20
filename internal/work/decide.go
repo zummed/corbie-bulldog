@@ -127,9 +127,12 @@ func (w *Work) deciding(o *office.Office, s decisions.Start) (map[string]any, er
 	if team == nil {
 		return nil, fmt.Errorf("%s is no team of the office", s.Team)
 	}
-	notes, err := o.Notes(s.Team)
-	if err != nil {
-		return nil, fmt.Errorf("the notes of %s could not be read: %w", team.Called, err)
+	var notes []office.Note
+	if ow := o.Workers[s.Name]; ow != nil && WritesNotes(ow) {
+		var err error
+		if notes, err = o.Notes(s.Team); err != nil {
+			return nil, fmt.Errorf("the notes of %s could not be read: %w", team.Called, err)
+		}
 	}
 	now := w.clock.Now().In(o.Zone)
 	shown, left := shownNotes(notes)

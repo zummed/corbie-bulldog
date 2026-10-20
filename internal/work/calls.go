@@ -41,12 +41,13 @@ const (
 	toolReadDoc    = "read_doc"
 	toolSearchDocs = "search_docs"
 	toolOfficePut  = "office_put"
+	toolWriteDoc   = "write_doc"
 	// askTool is what an ask's run is kept as among the calls.
 	askTool = "ask"
 )
 
-// WritesNotes says whether a worker has the notes tool Bulldog ships, and
-// so may write its team's notes.
+// WritesNotes says whether a worker names the notes kit Bulldog ships, and
+// so is given its team's notes and may write them.
 func WritesNotes(w *office.Worker) bool {
 	return slices.ContainsFunc(w.Held, func(t office.Tool) bool { return t.Kind == office.ToolBulldog && t.Name == toolWriteNotes })
 }
@@ -58,7 +59,7 @@ var errGone = errors.New("it no longer waits on its ticket")
 // ships, and no other.
 func does(tool string) bool {
 	switch tool {
-	case toolAskTeam, toolAskPerson, toolTell, toolReadThread, toolWriteNotes, toolDocs, toolReadDoc, toolSearchDocs:
+	case toolAskTeam, toolAskPerson, toolTell, toolReadThread, toolWriteNotes, toolDocs, toolReadDoc, toolSearchDocs, toolWriteDoc:
 		return true
 	}
 	return slices.Contains(shipped.Tools(shipped.Build), tool)
@@ -151,17 +152,6 @@ func (w *Work) seenAgain(ctx context.Context, row *callRow) (bool, error) {
 		w.touch(row.Request)
 		if row.Sub != 0 {
 			w.touch(row.Sub)
-		}
-		if row.Tool == toolOfficePut && w.changes != nil {
-			_, out, err := w.changes.Put(ctx, row.Put)
-			if err != nil {
-				return true, err
-			}
-			if out.Ended != "" {
-				if err := w.keepOwed("work_outcomes", out.Put, out); err != nil {
-					return true, err
-				}
-			}
 		}
 	}
 	return true, nil
@@ -313,7 +303,7 @@ func (w *Work) doing(ctx context.Context, c *calling) (string, bool, error) {
 		return w.readDoc(c)
 	case tool == toolSearchDocs:
 		return w.searchDocs(c)
-	case does(tool):
+	case tool == toolWriteDoc || does(tool):
 		return w.build(ctx, c)
 	}
 	return fmt.Sprintf("Bulldog does no tool called %q, so nothing was done.", c.row.Tool), false, nil
@@ -463,12 +453,14 @@ func (w *Work) writeNotes(ctx context.Context, c *calling) (string, bool, error)
 	return written, false, nil
 }
 
-// build hands a call of the builder's tools to Changes. A change put
-// waits until it is decided.
+// build hands a call of the builder's tools, or of write_doc, to Changes.
+// Its job has run, after its yes where it was held, so a write is
+// written as Changes answers it.
 func (w *Work) build(ctx context.Context, c *calling) (string, bool, error) {
-	if c.again && c.row.Tool == toolOfficePut {
-		// Bulldog stopped while it was being put: it is not put twice.
-		return "Bulldog stopped while your change was being put, and cannot tell whether it was: look at the request's thread before putting it again.",
+	if c.again && (c.row.Tool == toolOfficePut || c.row.Tool == toolWriteDoc) {
+		// Bulldog stopped while it was being written: it is not written
+		// twice.
+		return "Bulldog stopped while your change was being written, and cannot tell whether it was: look at the office's files before putting it again.",
 			false, nil
 	}
 	a, err := w.changes.Answer(ctx, changes.Call{Request: c.r.Number, Worker: c.worker, Tool: c.row.Tool, Args: c.raw})
@@ -477,11 +469,7 @@ func (w *Work) build(ctx context.Context, c *calling) (string, bool, error) {
 		return fmt.Sprintf("Your %s was not done: Bulldog failed in doing it, and the people of %s are told why.", c.row.Tool, inSentence(c.team.Called)),
 			false, nil
 	}
-	if a.Put == 0 {
-		return a.Text, false, nil
-	}
-	c.row.State, c.row.Put = waiting, a.Put
-	return "", true, w.keepCall(c.row)
+	return a.Text, false, nil
 }
 
 // whom gives whom a question or a tell is for: a person of the worker's

@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
+	"github.com/zummed/corbie-bulldog/internal/changes"
 	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/requests"
 )
@@ -43,7 +45,11 @@ func (d *Decisions) Held(ctx context.Context, a Ask) error {
 				break
 			}
 		}
-		decs, err := d.keepAll(a, team, whose)
+		writes, err := d.writes(o, a, whose, fx)
+		if err != nil {
+			return err
+		}
+		decs, err := d.keepAll(a, team, whose, writes)
 		if err != nil {
 			return err
 		}
@@ -53,6 +59,12 @@ func (d *Decisions) Held(ctx context.Context, a Ask) error {
 					return err
 				}
 			}
+			if w := writes[dec.Job.Name]; w.refused != "" {
+				if err := d.end(dec, Refused, Word{Kind: requests.IsBulldog, Called: "Bulldog", Note: w.refused, At: d.Now()}, fx); err != nil {
+					return err
+				}
+				continue
+			}
 			if err := d.advance(o, dec, fx); err != nil {
 				return err
 			}
@@ -61,9 +73,49 @@ func (d *Decisions) Held(ctx context.Context, a Ask) error {
 	})
 }
 
+// A write is what Changes made of a held write of the files: the change
+// it fixed, or why it could not be put.
+type write struct {
+	put     *changes.Put
+	refused string
+}
+
+// writes has Changes fix each held job that is a write of the kits
+// Bulldog ships, office_put or write_doc of a worker that holds it from
+// them, by its job's name.
+func (d *Decisions) writes(o *office.Office, a Ask, whose requests.Who, fx *effects) (map[string]write, error) {
+	out := map[string]write{}
+	w := o.Workers[whose.Name]
+	if whose.Kind != requests.IsWorker || w == nil {
+		return out, nil
+	}
+	for _, job := range a.Jobs {
+		key := job.key()
+		if !changes.Holds(key) || !slices.ContainsFunc(w.Held, func(t office.Tool) bool { return t.Name == key && t.Kind == office.ToolBulldog }) {
+			continue
+		}
+		p, refused, withdrawn, err := d.changes.Held(d.base, changes.Hold{Request: a.Request, Worker: w.Name, Tool: key, Args: job.args()})
+		if withdrawn != nil {
+			if err := d.withdrawPut(*withdrawn, fx); err != nil {
+				return nil, err
+			}
+		}
+		if err != nil {
+			return nil, fmt.Errorf("%s's %s could not be put to be decided: %w", w.Name, key, err)
+		}
+		if p.ID == 0 {
+			out[job.Name] = write{refused: refused}
+			continue
+		}
+		out[job.Name] = write{put: &p}
+	}
+	return out, nil
+}
+
 // keepAll keeps an ask and a decision for each job it holds, all of them
 // or none.
-func (d *Decisions) keepAll(a Ask, team string, whose requests.Who) ([]*Decision, error) {
+// A write is a decision of the team whose decision Changes says it is.
+func (d *Decisions) keepAll(a Ask, team string, whose requests.Who, writes map[string]write) ([]*Decision, error) {
 	tx, err := d.db.Begin()
 	if err != nil {
 		return nil, failed(err)
@@ -75,6 +127,9 @@ func (d *Decisions) keepAll(a Ask, team string, whose requests.Who) ([]*Decision
 	var decs []*Decision
 	for _, job := range a.Jobs {
 		dec := &Decision{Kind: OfAction, Team: team, Request: a.Request, Whose: whose, Ask: a.Run, Job: &job, Made: d.Now()}
+		if p := writes[job.Name].put; p != nil {
+			dec.Team, dec.Put = p.Team, p
+		}
 		if err := keepNew(tx, dec); err != nil {
 			return nil, err
 		}

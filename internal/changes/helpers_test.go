@@ -139,24 +139,52 @@ func (f *officeAt) write(request int64, file, text string) {
 	}
 }
 
-// put puts the request's draft, and gives the change put.
+// put has the builder's office_put held, as the build kit ships it: the
+// request's draft is fixed as Decisions has it fixed when Corbie holds
+// the job, and the change put is given.
 func (f *officeAt) put(request int64, why string) Put {
 	f.t.Helper()
-	a := f.call(request, ToolPut, map[string]any{"why": why})
-	if a.Put == 0 {
-		f.t.Fatalf("the draft was not put: %s", a.Text)
-	}
-	p, _, err := f.c.Put(ctx, a.Put)
+	return f.hold("builder", request, ToolPut, map[string]any{"why": why})
+}
+
+// hold has a worker's held write fixed, and gives the change put.
+func (f *officeAt) hold(worker string, request int64, tool string, args map[string]any) Put {
+	f.t.Helper()
+	raw, _ := json.Marshal(args)
+	p, refused, _, err := f.c.Held(ctx, Hold{Request: request, Worker: worker, Tool: tool, Args: raw})
 	if err != nil {
 		f.t.Fatal(err)
+	}
+	if p.ID == 0 {
+		f.t.Fatalf("the %s was not put: %s", tool, refused)
 	}
 	return p
 }
 
-// yes is Sam's yes to a change put.
+// yes is a person's yes to a change put, and, for a held write, the call
+// its job then runs; it gives how the change ended.
 func (f *officeAt) yes(id int64, by, note string) Outcome {
 	f.t.Helper()
 	o, err := f.c.Decided(ctx, id, Decision{By: by, Kind: office.IsPerson, Called: f.called(by), Yes: true, Note: note})
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	if o.Ended != "" {
+		return o
+	}
+	return f.runs(id)
+}
+
+// runs does the call a held write's job runs once it is approved, and
+// gives how the change ended.
+func (f *officeAt) runs(id int64) Outcome {
+	f.t.Helper()
+	p, _, err := f.c.Put(ctx, id)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	f.callAs(p.By, p.Request, p.Tool, map[string]any{"why": p.Why})
+	_, o, err := f.c.Put(ctx, id)
 	if err != nil {
 		f.t.Fatal(err)
 	}

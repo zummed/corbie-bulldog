@@ -48,6 +48,13 @@ func (d *Decisions) input(o *office.Office, dec *Decision, stages []Stage, at in
 			in["said"] = dec.Job.Asked.Said
 		}
 		in["worker"] = dec.Whose.Name
+		if p := dec.Put; p != nil {
+			var files []map[string]any
+			for _, f := range p.Files {
+				files = append(files, map[string]any{"path": f.Path, "text": f.Text, "gone": f.Gone, "was": f.Was, "had": f.Had})
+			}
+			in["change"] = map[string]any{"by": p.By, "person": p.Person, "why": p.Why, "files": files, "says": p.Says, "lets_more_by": p.LetsMoreBy}
+		}
 	case OfDisclosure:
 		disclosure, err := d.disclosure(o, dec)
 		if err != nil {
@@ -56,13 +63,6 @@ func (d *Decisions) input(o *office.Office, dec *Decision, stages []Stage, at in
 		in["disclosure"] = disclosure
 		in["text"] = dec.Said.Text
 		in["notes"] = disclosure["notes"]
-	case OfChange:
-		p := dec.Put
-		var files []map[string]any
-		for _, f := range p.Files {
-			files = append(files, map[string]any{"path": f.Path, "text": f.Text, "gone": f.Gone, "was": f.Was, "had": f.Had})
-		}
-		in["change"] = map[string]any{"by": p.By, "person": p.Person, "why": p.Why, "files": files, "says": p.Says, "lets_more_by": p.LetsMoreBy}
 	}
 	said, err := json.MarshalIndent(in, "", "  ")
 	if err != nil {
@@ -86,8 +86,8 @@ func beyond(stages []Stage, dec *Decision, at int) []Stage {
 	for {
 		s, _, ok := next(stages, &then)
 		switch {
-		case !ok && dec.Kind == OfChange && dec.Put.Person:
-			return append(after, Stage{Kind: IsPeople, People: []string{dec.Put.By}, List: drafter})
+		case ok && ownChange(dec, s):
+			return append(after, Stage{Kind: IsPeople, People: []string{dec.Put.By}, List: drafter, Team: s.Team})
 		case !ok:
 			return after
 		case s.Kind == IsPeople:
@@ -122,14 +122,10 @@ func (d *Decisions) referWords(o *office.Office, dec *Decision, after []Stage) s
 }
 
 // ends says what a decider's word does: a yes or a refusal ends it, but
-// for one that advises, whose yes goes on as a recommendation, and for a
-// change, which only a person approves.
+// for one that advises, whose yes goes on as a recommendation.
 func ends(dec *Decision, advises bool, where string) string {
 	if advises {
 		return "You advise on it: a refusal from you ends it. Your yes does not end it: it goes on as a recommendation, with your note, to " + where + ". A referral goes on, with your note, the same way."
-	}
-	if dec.Kind == OfChange {
-		return "A refusal from you ends it. Only a person approves a change, so your yes is taken as a referral. A referral goes on, with your note, to " + where + "."
 	}
 	return "Your yes or your refusal ends it. A referral goes on, with your note, to " + where + "."
 }
@@ -158,7 +154,7 @@ func (d *Decisions) stageCalled(o *office.Office, s Stage) string {
 // office as read now and, for an answer to be disclosed, its request: the
 // action as its tool describes itself; what would be disclosed, by whom
 // and to whom, and an answer where it is read, as "ledger's answer to
-// Dana, in the chat on the screens"; or the change, by the first line of
+// Dana, in the chat on the screens"; a held write by the first line of
 // why it was drafted. Whom an answer goes to, or where, is left out when
 // it cannot be read.
 func (d *Decisions) Does(o *office.Office, dec *Decision) string {
@@ -185,7 +181,8 @@ func (d *Decisions) Does(o *office.Office, dec *Decision) string {
 			line += ", in " + where
 		}
 		return line
-	case OfChange:
+	}
+	if dec.Put != nil {
 		first, _, _ := strings.Cut(dec.Put.Why, "\n")
 		return "Change to the office: " + strings.TrimSpace(first)
 	}
@@ -364,16 +361,8 @@ func (d *Decisions) shown(o *office.Office, dec *Decision, people []string) (str
 	} else {
 		fmt.Fprintf(&b, "A decision for %s: %s\n", inSentence(called(o, dec.Team)), d.Does(o, dec))
 	}
-	switch dec.Kind {
-	case OfAction:
-		who := cmp.Or(dec.Whose.Name, "a run of "+dec.Team)
-		fmt.Fprintf(&b, "%s would do it (%s), with: %s\n", who, dec.Job.key(), compact(dec.Job.args()))
-		if dec.Job.Asked != nil && dec.Job.Asked.Said != "" {
-			fmt.Fprintf(&b, "%s said: %s\n", who, dec.Job.Asked.Said)
-		}
-	case OfDisclosure:
-		fmt.Fprintf(&b, "%s checks what it says to anyone outside it, and this waits on you:\n\n%s\n\n", capital(inSentence(called(o, dec.Team))), dec.Said.Text)
-	case OfChange:
+	switch {
+	case dec.Put != nil:
 		p := dec.Put
 		fmt.Fprintf(&b, "Drafted by %s, who says why: %s\n", p.By, p.Why)
 		if len(p.Says) > 0 {
@@ -382,11 +371,26 @@ func (d *Decisions) shown(o *office.Office, dec *Decision, people []string) (str
 		if len(p.LetsMoreBy) > 0 {
 			fmt.Fprintf(&b, "What it lets more by:\n- %s\n", strings.Join(p.LetsMoreBy, "\n- "))
 		}
-		var paths []string
+		left := ShownLines
 		for _, f := range p.Files {
-			paths = append(paths, f.Path)
+			fmt.Fprintf(&b, "%s, %s:\n", f.Path, f.Does())
+			lines := f.Lines()
+			if len(lines) > left {
+				lines = append(lines[:left:left], fmt.Sprintf("… %d more lines, on the screens", len(lines)-left))
+			}
+			left -= min(left, len(lines))
+			for _, l := range lines {
+				fmt.Fprintf(&b, "%s\n", l)
+			}
 		}
-		fmt.Fprintf(&b, "Files: %s\n", strings.Join(paths, ", "))
+	case dec.Kind == OfAction:
+		who := cmp.Or(dec.Whose.Name, "a run of "+dec.Team)
+		fmt.Fprintf(&b, "%s would do it (%s), with: %s\n", who, dec.Job.key(), compact(dec.Job.args()))
+		if dec.Job.Asked != nil && dec.Job.Asked.Said != "" {
+			fmt.Fprintf(&b, "%s said: %s\n", who, dec.Job.Asked.Said)
+		}
+	case dec.Kind == OfDisclosure:
+		fmt.Fprintf(&b, "%s checks what it says to anyone outside it, and this waits on you:\n\n%s\n\n", capital(inSentence(called(o, dec.Team))), dec.Said.Text)
 	}
 	if asked, err := d.served(o, dec); err != nil {
 		return "", err
@@ -408,6 +412,10 @@ func (d *Decisions) shown(o *office.Office, dec *Decision, people []string) (str
 	b.WriteString("Answer yes or refuse, with a note if you like.")
 	return b.String(), nil
 }
+
+// ShownLines is how many lines of what a change does to its files the
+// people asked to decide it are shown in what is sent them.
+const ShownLines = 200
 
 // whoCalled gives someone an entry is by or to as a sentence names them.
 func (d *Decisions) whoCalled(o *office.Office, w requests.Who) string {

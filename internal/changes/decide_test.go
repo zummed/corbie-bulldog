@@ -1,12 +1,12 @@
 package changes
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/zummed/corbie-bulldog/internal/office"
 )
@@ -48,7 +48,7 @@ func TestBuilderIsGivenTheOutcome(t *testing.T) {
 	f.write(4, "clerk.yaml", clerkAgain(t, "four, again"))
 	second := f.put(4, "Four again")
 	_, ended, _ := f.c.Put(ctx, first.ID)
-	if ended.Ended != Withdrawn || !slices.ContainsFunc(f.outcomes(), func(o Outcome) bool { return o.Put == first.ID && o.Ended == Withdrawn && o.Request == 4 }) {
+	if ended.Ended != Withdrawn || ended.Request != 4 {
 		t.Errorf("the change put first ended %+v", ended)
 	}
 	if _, ended, _ := f.c.Put(ctx, second.ID); ended.Ended != "" {
@@ -56,68 +56,70 @@ func TestBuilderIsGivenTheOutcome(t *testing.T) {
 	}
 }
 
-func TestChangesPutAsADecisionOfTheTopTeam(t *testing.T) {
+func TestChangesWhoseDecisionAWriteIs(t *testing.T) {
 	t.Parallel()
+	f := newOffice(t, weeder(t))
 	for _, c := range []struct {
-		decide string
-		walk   []string
+		by    string
+		files []string
+		whose string
 	}{
-		{"decide: { change: [./small-orders.js, sam] }", []string{"small-orders.js", "sam"}},
-		{"decide: { everything: [kit] }", []string{"kit"}},
-		{"", []string{"sam", "kit"}},
+		{"weeder", []string{"garden/notes/beds.md"}, "garden"},
+		{"weeder", []string{"garden/team.yaml"}, office.Top},
+		{"weeder", []string{"garden/notes/beds.md", "garden/team.yaml"}, office.Top},
+		{"builder", []string{"garden/notes/beds.md"}, "garden"},
+		{"builder", []string{"clerk.yaml", "garden/notes/beds.md"}, office.Top},
+		{"builder", []string{"office.yaml"}, office.Top},
 	} {
-		files := house(t)
-		files["office.yaml"] = strings.Replace(files["office.yaml"], "decide:\n  everything: [sam]\n  order_part: [./small-orders.js, clerk: advise, sam]\n", c.decide+"\n", 1)
-		f := newOffice(t, files)
-		f.write(1, "clerk.yaml", clerkAgain(t, "x"))
-		p := f.put(1, "X")
-		var walk []string
-		for _, d := range p.Walk {
-			walk = append(walk, d.Name)
+		n := int64(len(c.by) + 10*len(c.files) + len(c.files[0]))
+		for _, file := range c.files {
+			text := "changed\n"
+			switch file {
+			case "garden/team.yaml":
+				text = strings.Replace(house(t)[file], "about: The beds", "about: Only the beds", 1)
+			case "office.yaml":
+				text = strings.Replace(house(t)[file], "about: The house", "about: Only the house", 1)
+			case "clerk.yaml":
+				text = clerkAgain(t, "x")
+			}
+			if a := f.callAs(c.by, n, ToolWrite, map[string]any{"path": file, "text": text}); !strings.Contains(a.Text, "in your draft") {
+				t.Fatalf("%s writing %s: %s", c.by, file, a.Text)
+			}
 		}
-		if !slices.Equal(walk, c.walk) {
-			t.Errorf("with %q the change is asked of %v", c.decide, walk)
-		}
-		if got := f.decided(); len(got) != 1 || got[0].ID != p.ID {
-			t.Errorf("with %q it was put %+v", c.decide, got)
+		if p := f.hold(c.by, n, ToolPut, map[string]any{"why": "X"}); p.Team != c.whose {
+			t.Errorf("%s's put of %v is %s's to decide, not %s's", c.by, c.files, p.Team, c.whose)
 		}
 	}
 }
 
-func TestChangesWalkGoesOnToEverything(t *testing.T) {
+func TestChangesATeamFileIsDecidedAroundIt(t *testing.T) {
 	t.Parallel()
-	files := house(t)
-	files["no-secrets.js"] = "return { says: \"yes\", note: \"no secrets\" }\n"
-	files["reviewer.yaml"] = "agent: reviewer\ninput: { said: string }\nmodel: usual\nsystem: You review.\nprompt: ${input.said}\n"
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [reviewer, sam]\n  change: [./no-secrets.js]\n", 1)
-	f := newOffice(t, files)
-	var names []string
-	for _, d := range Walk(f.keeper.Office()) {
-		names = append(names, d.Name)
+	f := newOffice(t, weeder(t))
+	// The garden's builder rewrites the garden's deciders: the house
+	// decides it, never the garden.
+	f.callAs("weeder", 1, ToolWrite, map[string]any{"path": "garden/team.yaml",
+		"text": strings.Replace(house(t)["garden/team.yaml"], "decide: { everything: [sam] }", "decide: { everything: [sam], office_put: [] }", 1)})
+	if p := f.hold("weeder", 1, ToolPut, map[string]any{"why": "Let the garden write"}); p.Team != office.Top {
+		t.Errorf("a change to the garden's team file is %s's to decide", p.Team)
 	}
-	if !slices.Equal(names, []string{"no-secrets.js", "reviewer", "sam"}) {
-		t.Errorf("the walk is %v", names)
+	// The office's own file, around which there is no team, is the top
+	// team's.
+	f.write(2, "office.yaml", strings.Replace(house(t)["office.yaml"], "about: The house", "about: Only the house", 1))
+	if p := f.put(2, "About"); p.Team != office.Top {
+		t.Errorf("a change to office.yaml is %s's to decide", p.Team)
 	}
-	// With a person on the change list, the walk ends with them.
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "change: [./no-secrets.js]", "change: [./no-secrets.js, sam]", 1)
-	f = newOffice(t, files)
-	names = nil
-	for _, d := range Walk(f.keeper.Office()) {
-		names = append(names, d.Name)
-	}
-	if !slices.Equal(names, []string{"no-secrets.js", "sam"}) {
-		t.Errorf("the walk is %v", names)
+	if got := (&office.Office{}).Whose(nil); got != office.Top {
+		t.Errorf("nothing at all is %s's to decide", got)
 	}
 }
-
 func TestChangesWhoDecidesAChange(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
 		decide string
 		who    []string
 	}{
-		{"decide: { everything: [kit], change: [./small-orders.js, sam] }", []string{"sam"}},
-		{"decide: { everything: [kit], change: [./small-orders.js] }", []string{"kit"}},
+		{"decide: { everything: [kit], office_put: [./small-orders.js, sam] }", []string{"sam"}},
+		{"decide: { everything: [kit], office_put: [./small-orders.js] }", []string{"kit"}},
 		{"", []string{"sam", "kit"}},
 	} {
 		files := house(t)
@@ -138,8 +140,8 @@ func TestChangesDeciderIsShownTheChange(t *testing.T) {
 	f.write(12, "clerk.yaml", clerkAgain(t, "changed"))
 	f.write(12, "notes/fuses.md", "Breaker 4.\n")
 	p := f.put(12, "Note the fuses\n\nThe kitchen breaker keeps tripping.")
-	shown := f.decided()[0]
-	if shown.Why != "Note the fuses\n\nThe kitchen breaker keeps tripping." || shown.Request != 12 || shown.By != "builder" || shown.ID != p.ID {
+	shown, _, _ := f.c.Put(ctx, p.ID)
+	if shown.Why != "Note the fuses\n\nThe kitchen breaker keeps tripping." || shown.Request != 12 || shown.By != "builder" || shown.Tool != ToolPut || shown.Team != office.Top {
 		t.Errorf("the decider is shown %+v", shown)
 	}
 	has(t, shown.Says, "note fuses is new")
@@ -180,10 +182,7 @@ func TestChangesBulldogRefusesWhatNobodyCanDecide(t *testing.T) {
 	f := newOffice(t, house(t))
 	f.write(1, "clerk.yaml", clerkAgain(t, "x"))
 	p := f.put(1, "X")
-	const why = "nobody can decide this: nobody named on its walk is in the office"
-	if _, err := f.c.Decided(ctx, p.ID, Decision{By: "kit", Kind: office.IsPerson, Note: "no"}); err == nil || !strings.Contains(err.Error(), "not asked") {
-		t.Errorf("Kit, not on the walk, refused it: %v", err)
-	}
+	const why = "nobody can decide this: nobody the lists name can be reached to decide it"
 	if _, err := f.c.Decided(ctx, p.ID, Decision{By: "Bulldog", Kind: office.IsBulldog, Yes: true, Note: why}); err == nil {
 		t.Error("Bulldog's yes was taken")
 	}
@@ -205,55 +204,55 @@ func TestChangesBulldogRefusesWhatNobodyCanDecide(t *testing.T) {
 	}
 }
 
-func TestChangesLateDecisionIsActedOn(t *testing.T) {
+func TestChangesAHeldWriteIsWrittenWhenItsJobRuns(t *testing.T) {
 	t.Parallel()
 	f := newOffice(t, house(t))
-	f.write(5, "clerk.yaml", clerkAgain(t, "x"))
-	p := f.put(5, "X")
-	// Seven days on, the tool has stopped waiting, and the change still
-	// waits: Sam's yes on the eighth day writes it, and the request is told.
-	f.clock.Move(8 * 24 * time.Hour)
-	o := f.yes(p.ID, "sam", "")
-	if o.Ended != Written || f.text("clerk.yaml") != clerkAgain(t, "x") {
-		t.Fatalf("the late yes ended it %+v", o)
+	// Held: its yes is kept, and nothing is written until its job runs.
+	f.write(1, "clerk.yaml", clerkAgain(t, "held"))
+	p := f.put(1, "Held")
+	before := f.head().Hash
+	if o, err := f.c.Decided(ctx, p.ID, Decision{By: "small-orders.js", Kind: office.IsRule, Called: "small-orders.js", Yes: true, Note: "fine"}); err != nil || o.Ended != "" {
+		t.Fatalf("a rule's yes ended it %+v, %v", o, err)
 	}
-	told := f.outcomes()
-	if len(told) != 1 || told[0].Request != 5 || told[0].By != "builder" || told[0].Commit == "" {
-		t.Errorf("the request is told %+v", told)
+	if f.text("clerk.yaml") != house(t)["clerk.yaml"] || f.head().Hash != before {
+		t.Fatal("a yes wrote the change before its job ran")
 	}
-	if !f.history()[0].At.Equal(f.clock.Now()) {
-		t.Errorf("the commit is dated %v", f.history()[0].At)
+	if o := f.runs(p.ID); o.Ended != Written || !strings.Contains(f.head().Message, "Decided-by: small-orders.js") || !strings.Contains(o.Text(), "with the yes of small-orders.js") {
+		t.Errorf("the held write ended %+v:\n%s", o, f.head().Message)
+	}
+	// Not held: its call writes the draft at once, decided by nobody.
+	f.write(2, "clerk.yaml", clerkAgain(t, "at once"))
+	a := f.call(2, ToolPut, map[string]any{"why": "At once"})
+	if f.text("clerk.yaml") != clerkAgain(t, "at once") || strings.Contains(f.head().Message, "Decided-by") || !strings.Contains(a.Text, "written, and is kept as the commit "+f.head().Hash.String()) {
+		t.Errorf("an unheld put gave %q:\n%s", a.Text, f.head().Message)
+	}
+	// A held write_doc is one doc of the worker's own team, fixed when
+	// held; written at once where it is not held.
+	d := f.hold("steward", 3, ToolWriteDoc, map[string]any{"name": "rooms/kitchen", "text": "The fuse is 5.\n", "why": "The fuse moved"})
+	if len(d.Files) != 1 || d.Files[0].Path != "docs/rooms/kitchen.md" || d.Team != office.Top || d.Tool != ToolWriteDoc {
+		t.Errorf("the doc is put %+v", d)
+	}
+	if o := f.yes(d.ID, "sam", ""); o.Ended != Written || f.text("docs/rooms/kitchen.md") != "The fuse is 5.\n" || f.head().Author.Name != "steward" {
+		t.Errorf("the doc ended %+v", o)
+	}
+	if a := f.callAs("gardener", 4, ToolWriteDoc, map[string]any{"name": "boiler.md", "text": "Oil.\n", "why": "Oil"}); f.text("garden/docs/boiler.md") != "Oil.\n" || !strings.Contains(a.Text, "written") {
+		t.Errorf("the gardener's unheld doc gave %q", a.Text)
+	}
+	for _, name := range []string{"../notes/fuses", "/etc/x", ".hidden", "a/../../b", ""} {
+		raw, _ := json.Marshal(map[string]any{"name": name, "text": "x", "why": "x"})
+		if p, refused, _, err := f.c.Held(ctx, Hold{Request: 5, Worker: "steward", Tool: ToolWriteDoc, Args: raw}); err != nil || p.ID != 0 || refused == "" {
+			t.Errorf("the doc %q is put %+v, %q, %v", name, p, refused, err)
+		}
 	}
 }
-
-func TestChangesOnlyAPersonsYesWritesAChange(t *testing.T) {
-	t.Parallel()
-	files := house(t)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  change: [./small-orders.js]\n", 1)
-	f := newOffice(t, files)
-	f.write(1, "clerk.yaml", clerkAgain(t, "x"))
-	p := f.put(1, "X")
-	if _, err := f.c.Decided(ctx, p.ID, Decision{By: "small-orders.js", Kind: office.IsRule, Yes: true, Note: "fine"}); err == nil {
-		t.Error("a rule's yes was taken")
-	}
-	if _, ended, _ := f.c.Put(ctx, p.ID); ended.Ended != "" || f.text("clerk.yaml") != house(t)["clerk.yaml"] {
-		t.Errorf("a rule's yes ended it %+v", ended)
-	}
-	// A rule may refuse one.
-	o, err := f.c.Decided(ctx, p.ID, Decision{By: "small-orders.js", Kind: office.IsRule, Note: "secrets"})
-	if err != nil || o.Ended != Refused || o.Decider != "small-orders.js" {
-		t.Errorf("a rule's refusal ended it %+v, %v", o, err)
-	}
-}
-
 func TestChangesJudgedByTheOfficeAsItIs(t *testing.T) {
 	t.Parallel()
 	files := house(t)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  change: [./small-orders.js, sam]\n", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  office_put: [./small-orders.js, sam]\n", 1)
 	f := newOffice(t, files)
-	// Sam's own change takes the rule off the change list: it is still
+	// Sam's own change takes the rule off the office_put list: it is still
 	// asked of the rule, as the office is now.
-	edited := strings.Replace(files["office.yaml"], "  change: [./small-orders.js, sam]\n", "  change: [sam]\n", 1)
+	edited := strings.Replace(files["office.yaml"], "  office_put: [./small-orders.js, sam]\n", "  office_put: [sam]\n", 1)
 	changed, _, err := f.c.Edited(Edit{Files: map[string]*string{"office.yaml": &edited}})
 	if err != nil {
 		t.Fatal(err)
@@ -266,8 +265,10 @@ func TestChangesJudgedByTheOfficeAsItIs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(p.Walk) != 1 || p.Walk[0].Name != "small-orders.js" {
-		t.Errorf("it is asked of %+v", p.Walk)
+	// What it is asked of is read by Decisions from the office as it is:
+	// nothing is written as it is put.
+	if got := f.decided(); len(got) != 1 || got[0].ID != p.ID || f.text("office.yaml") != files["office.yaml"] {
+		t.Errorf("it is handed on as %+v", got)
 	}
 }
 
@@ -303,8 +304,12 @@ func TestChangesAnUnfitChangeIsNotPut(t *testing.T) {
 			t.Errorf("the check does not say %q:\n%s", says, f.call(request, ToolCheck, nil).Text)
 		}
 		a := f.call(request, ToolPut, map[string]any{"why": why})
-		if a.Put != 0 || !strings.Contains(a.Text, says) {
+		if !strings.Contains(a.Text, "not written") || !strings.Contains(a.Text, says) {
 			t.Errorf("put: %+v", a)
+		}
+		raw, _ := json.Marshal(map[string]any{"why": why})
+		if p, refused, _, err := f.c.Held(ctx, Hold{Request: request, Worker: "builder", Tool: ToolPut, Args: raw}); err != nil || p.ID != 0 || !strings.Contains(refused, says) {
+			t.Errorf("held: %+v, %q, %v", p, refused, err)
 		}
 	}
 	try(1, "Nothing", "empty")
@@ -546,6 +551,20 @@ func TestChangesAnUnwrittenYesEndsTheDecision(t *testing.T) {
 	}
 }
 
+// yesAndRun is Sam's yes to a held write and the call its job then runs,
+// with what went wrong beside the change written.
+func (f *officeAt) yesAndRun(id int64) (Outcome, error) {
+	f.t.Helper()
+	if _, err := f.c.Decided(ctx, id, Decision{By: "sam", Kind: office.IsPerson, Yes: true}); err != nil {
+		f.t.Fatal(err)
+	}
+	p, _, _ := f.c.Put(ctx, id)
+	raw, _ := json.Marshal(map[string]any{"why": p.Why})
+	_, err := f.c.Answer(ctx, Call{Request: p.Request, Worker: p.By, Tool: p.Tool, Args: raw})
+	_, o, _ := f.c.Put(ctx, id)
+	return o, err
+}
+
 func TestChangesWrittenOnceCommitted(t *testing.T) {
 	t.Parallel()
 	if os.Geteuid() == 0 {
@@ -561,7 +580,7 @@ func TestChangesWrittenOnceCommitted(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.Chmod(index, 0o644) })
-	o, err := f.c.Decided(ctx, p.ID, Decision{By: "sam", Kind: office.IsPerson, Yes: true})
+	o, err := f.yesAndRun(p.ID)
 	if o.Ended != Written || o.Commit != f.head().Hash.String() || err == nil || !strings.Contains(err.Error(), "index") {
 		t.Errorf("it ended %+v, %v", o, err)
 	}
@@ -581,7 +600,7 @@ func TestChangesWrittenOnceCommitted(t *testing.T) {
 	if _, err := g.db.Exec(`DROP TABLE changes_drafts`); err != nil {
 		t.Fatal(err)
 	}
-	o, err = g.c.Decided(ctx, p.ID, Decision{By: "sam", Kind: office.IsPerson, Yes: true})
+	o, err = g.yesAndRun(p.ID)
 	if o.Ended != Written || !slices.Equal(o.Gone, []string{"clerk"}) || err == nil || !strings.Contains(err.Error(), "draft could not be cleared") {
 		t.Errorf("it ended %+v, %v", o, err)
 	}

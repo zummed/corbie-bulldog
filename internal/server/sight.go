@@ -224,7 +224,7 @@ func (s *site) me(person string, w http.ResponseWriter, r *http.Request) (any, e
 	out := meOut{Me: me, Teams: []teamOut{}, People: []personOut{}, Waiting: len(waits), Problems: problems,
 		Office: officeOut{Name: o.Name(), About: o.TopTeam().About, Zone: o.Zone.String(),
 			Runs:   runsOut{Limit: o.Runs, Working: load.Working, Queued: load.Queued},
-			Change: walked(o, office.Top, "change")}}
+			Change: walked(o, office.Top, changes.ToolPut)}}
 	for _, name := range o.Order {
 		people, err := s.Requests.People(name)
 		if err != nil {

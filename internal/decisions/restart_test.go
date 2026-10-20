@@ -151,6 +151,15 @@ func TestEndedDecisionCarriedThroughARestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.open()
+	// Changes is told of the yes once it is back, and the call the put's
+	// job then runs writes it.
+	h.until("the yes is kept with the change", func() bool {
+		var yes string
+		return h.db.QueryRow(`SELECT yes FROM changes_puts WHERE id = ?`, dec.Put.ID).Scan(&yes) == nil && yes != ""
+	})
+	if a, err := h.ch.Answer(ctx, changes.Call{Request: n, Worker: "builder", Tool: changes.ToolPut, Args: raw(map[string]string{"why": dec.Put.Why})}); err != nil || !strings.Contains(a.Text, "with the yes of Sam") {
+		t.Fatalf("the put's call is answered %q, %v", a.Text, err)
+	}
 	if o := h.outcome(dec.Put.ID); o.Ended != changes.Written || o.Decider != "sam" {
 		t.Fatalf("the change ended %+v", o)
 	}

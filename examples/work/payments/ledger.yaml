@@ -4,7 +4,7 @@ input: { said: string, context: string }
 model: usual
 system: You keep the ledger. Find charges, and refund what was charged wrongly. Never say a card or account number outside payments.
 prompt: ${input.context}
-tools_file: [../.bulldog/tools/talk/talk.yaml]
+tools_file: [../.bulldog/tools/talk/talk.yaml, ../.bulldog/tools/notes/notes.yaml]
 ask: { machine: ../.bulldog/ask.yaml }
 tools:
   charges:

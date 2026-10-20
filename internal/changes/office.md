@@ -47,7 +47,7 @@ routines:
 | `people` | the team's people, by the names `everyone` writes them under |
 | `lead` | the one worker or person of the team that answers for it |
 | `heed` | one rule that weighs what is said at a channel place before the lead starts on it, as the section on a heed says |
-| `decide` | ordered lists of deciders: `everything`; the name of a tool a worker of the team holds, a stage of a flow or a job of a statechart; and at the top, `change`, for a change to the office files |
+| `decide` | ordered lists of deciders: `everything`; the name of a tool a worker of the team holds, a stage of a flow or a job of a statechart; and the kits' writes, `office_put`, `write_doc` and `write_notes`, for what is written into the team's folder |
 | `disclosure` | a list of deciders for everything the team says outside itself |
 | `routines` | what is said to one of its workers at a time of day, `"18:00"`, or with a weekday, `"mon 09:00"`, in the office's zone |
 | `models` | models by a name of the team's, each written as Corbie writes one, naming the secret that holds its key and never a key |
@@ -55,7 +55,7 @@ routines:
 
 A decider is a person, a worker of any team by its name, or a rule by its path, in the team's own folder, as `./small-orders.js`, or among those Bulldog ships, in `.bulldog/rules/` at the top of the office. In a list every rule and worker comes before every person. A rule or a worker may be marked to advise, as `clerk: advise`: it may refuse, which ends the decision, or refer, but its yes never approves; it goes on to the next decider as a recommendation, as a referral would, and is shown as "clerk recommends yes" with its note. A person is never marked to advise. The same worker may advise on one list and decide plainly on another.
 
-The people of the office, how each is reached, who decides a change to the office, a bridge's in machine, and a bridge's entry with its `from` and every setting but its places are a person's to write: a builder's draft that changes any of them is refused, and from outside you say what you would write there and let the person write it.
+The people of the office, how each is reached, the top team's `office_put` list and its `everything`, a bridge's in machine, and a bridge's entry with its `from` and every setting but its places are a person's to write: a builder's draft that changes any of them is refused, and from outside you say what you would write there and let the person write it.
 
 ## A worker
 
@@ -90,7 +90,7 @@ A reply that is not a 2xx is no error to a script: ask for it as text, check its
 
 Hold as a secret only what the service never sends back. An identifier it does send back, such as a client id, is written plainly, or masking spoils whatever carries it.
 
-A worker has nothing of Bulldog's that its definition does not name, each by its path in `.bulldog/`: the talk tools, `tools/talk/talk.yaml`, for asking another team or a person, telling someone, and reading the thread; the notes tool, `tools/notes/notes.yaml`, for writing its team's notes; the docs tools, `tools/docs/docs.yaml`, for reading the docs of its team and the teams around it; the builder's tools, `tools/build/build.yaml`. Each thing Bulldog ships is a folder there with its page of the manual, named by its path, as `tools/talk` or `bridges/slack`. A worker Bulldog starts at the top, a team's lead or a routine's worker, names the ask Bulldog ships when anything it runs can wait for a yes: `ask: { machine: ./.bulldog/ask.yaml }`. From a team within, the paths begin `../.bulldog/`.
+A worker has nothing of Bulldog's that its definition does not name, each by its path in `.bulldog/`: the talk tools, `tools/talk/talk.yaml`, for asking another team or a person, telling someone, and reading the thread; and three kits, each reaching its own team's files and those of the teams within it: the notes kit, `tools/notes/notes.yaml`, which gives each run its team's notes and writes them; the docs kit, `tools/docs/docs.yaml`, for reading the docs of its team and the teams around it, and mending its own team's with `write_doc`; the build kit, `tools/build/build.yaml`, which makes it a builder. `write_doc` and `office_put` are marked `approve: true` as Bulldog ships them, so they wait for a yes; `write_notes` is not. Each thing Bulldog ships is a folder there with its page of the manual, named by its path, as `tools/talk` or `bridges/slack`. A worker Bulldog starts at the top, a team's lead or a routine's worker, names the ask Bulldog ships when anything it runs can wait for a yes, a builder it calls among them: `ask: { machine: ./.bulldog/ask.yaml }`. From a team within, the paths begin `../.bulldog/`.
 
 A tool whose job says `approve: true` waits for a yes, decided by the team's list named for the tool, or else its `everything`.
 
@@ -119,7 +119,7 @@ stages:
 output: ${stages.check.output}
 ```
 
-On a change to the office, a rule's yes is taken as a referral: only a person approves a change.
+A held `office_put` or `write_doc` is decided by the innermost team whose folder holds every file it writes, by its list of the tool's name or else its `everything`; one that touches a team's `team.yaml` by the team around it, and `office.yaml` by the top team. A rule's yes approves it as any action; to have a person decide, put one on the list, and mark a check to advise: `office_put: [reviewer: advise, sam]`.
 
 Rules build on each other in a list. A yes or a refusal ends the decision, but for the yes of one that advises, so a rule that finds something and leaves the judging to another refers, with what it found as its note, and every decider after it, rule or worker, is given that referral. A note may be JSON: it reaches the next rule as JSON text, and is shown to people as it was written. No decider changes what it decides: to have something taken out, a disclosure's rule refuses and says what, and the lead says it again.
 
@@ -171,7 +171,7 @@ The second rule picks the first one's referral by its file's name, never by its 
 }
 ```
 
-`what` is `answer`, `question`, `tell` or `sub`, a question to another team, which names it in `to_team` too. A decision on an action holds, in place of `text`, `disclosure` and `notes`, the `action`, with its `name`, `job`, `does` and `args`, the `worker` whose it is, and `said`, what the worker said with it; a change holds `change`, with who drafted it, why, every file, what it does and what it lets more by.
+`what` is `answer`, `question`, `tell` or `sub`, a question to another team, which names it in `to_team` too. A decision on an action holds, in place of `text`, `disclosure` and `notes`, the `action`, with its `name`, `job`, `does` and `args`, the `worker` whose it is, and `said`, what the worker said with it; a held `office_put` or `write_doc` holds `change` beside, with who drafted it, why, every file, what it does and what it lets more by.
 
 ## A heed
 
@@ -265,19 +265,19 @@ The in machine says who a person is, and so is a person's to write. So is a brid
 
 ## Notes
 
-A team's notes are the files in its `notes/` folder, prose in Markdown. Every run of the team's workers is given them. They are not private: the builder reads them, and so does whoever decides a change. A secret belongs in Corbie's secrets, never in a note.
+A team's notes are the files in its `notes/` folder, prose in Markdown. Each run of a team's worker that names the notes kit is given them, and one that names it not is given none. They are not private: the builder reads them, and so does whoever decides a change. A secret belongs in Corbie's secrets, never in a note.
 
 ## Docs
 
-A team's docs are the Markdown files under its `docs/` folder, subfolders included, each named by its path there without `.md`, as `refunds/policy`: reference people write, through a change. No run is given them: a worker whose definition names the docs tools reads them when it asks, its own team's first, then those of each team around it, out to the office, the nearer team's doc of a name standing before one further out.
+A team's docs are the Markdown files under its `docs/` folder, subfolders included, each named by its path there without `.md`, as `refunds/policy`: reference people write, through a change, or a worker mends with `write_doc`. No run is given them: a worker whose definition names the docs kit reads them when it asks, its own team's first, then those of each team around it, out to the office, the nearer team's doc of a name standing before one further out.
 
 ## Drafting a change, as a builder
 
 A builder changes a served office with the builder's tools, never in the folder.
 
-1. `office_files` lists every file, and what your draft does to each.
+1. `office_files` lists every file you reach, your own team's and those of the teams within it, and what your draft does to each.
 2. `office_read` a file before you write it; `office_write` puts its whole new text in your draft, and `office_remove` has your draft remove it.
 3. `office_check` reads the office as your draft would make it: every problem, Corbie's among them, and what the change does as whoever decides will be told, with what it lets more by apart. Mend every problem it says.
-4. `office_put` with why, its first line saying what the change is. Whoever decides is shown every file whole, and what the change does read from the files alone. You are told when it is written, refused, or not written, with why.
+4. `office_put` with why, its first line saying what the change is. It waits for the yes of the team whose folder holds what it writes, the team around it for a `team.yaml`; whoever decides is shown every file whole, and what the change does read from the files alone. You are told when it is written, or not written, with why, and a refusal is said as the call denied, with the note.
 
 Your draft is kept with the request you work on, from one run to the next, until it is written.
