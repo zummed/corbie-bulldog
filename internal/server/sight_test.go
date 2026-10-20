@@ -310,6 +310,35 @@ func TestServerTeamSeenByItsPeople(t *testing.T) {
 	}
 }
 
+func TestServerNotesShownWithWhatARunIsGiven(t *testing.T) {
+	t.Parallel()
+	files := workOffice(t)
+	files["payments/notes/a.md"] = strings.Repeat("é", 30_000)
+	files["payments/notes/b.md"] = strings.Repeat("b", 30_000)
+	files["payments/notes/c.md"] = strings.Repeat("c", 10)
+	s := newBench(t, files).serve()
+	var lee teamWhole
+	s.as("lee").get("/api/teams/payments").is(http.StatusOK).into(&lee)
+	type given struct {
+		name        string
+		size, given int
+	}
+	var seen []given
+	for _, n := range lee.Notes {
+		seen = append(seen, given{n.Name, n.Size, n.Given})
+	}
+	refunds := len([]rune(files["payments/notes/refunds.md"]))
+	if want := []given{{"a", 30_000, 30_000}, {"b", 30_000, 20_000}, {"c", 10, 0}, {"refunds", refunds, 0}}; !slices.Equal(seen, want) {
+		t.Errorf("Lee sees payments' notes as %v, not %v", seen, want)
+	}
+	if lee.Notes[1].Text != files["payments/notes/b.md"] {
+		t.Errorf("Lee is not given b whole")
+	}
+	if dana := s.as("dana").get("/api/teams/payments").is(http.StatusOK).json(); dana["notes"] != nil {
+		t.Errorf("Dana sees payments' notes: %v", dana["notes"])
+	}
+}
+
 func TestServerToolToldByWhereItResolves(t *testing.T) {
 	t.Parallel()
 	files := house(t)

@@ -155,6 +155,8 @@ main { max-width: var(--page); margin: 0 auto; padding: var(--space) 24px 64px; 
 .status.noted { color: var(--ink3); } .status.noted::before { background: transparent; border: 1.5px dashed var(--ink3); }
 .status.act { color: var(--plan); } .status.act::before { background: var(--plan); border-radius: 1px; }
 .status.held { color: var(--ink2); } .status.held::before { background: var(--ink3); border-radius: 1px; }
+.status.cut { color: var(--wait); } .status.cut::before { background: linear-gradient(90deg, var(--wait) 50%, transparent 50%); border: 1.5px solid var(--wait); }
+.status.not-given { color: var(--bad); } .status.not-given::before { background: transparent; border: 1.5px solid var(--bad); }
 .status.live::before { animation: pulse 2.4s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) { .status.live::before { animation: none; } }

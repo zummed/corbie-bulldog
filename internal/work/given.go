@@ -297,25 +297,43 @@ func (g *giving) shownNotes() ([]office.Note, string) { return shownNotes(g.note
 func shownNotes(notes []office.Note) ([]office.Note, string) {
 	var shown []office.Note
 	var left []string
-	room := NotesLimit
-	for _, n := range notes {
-		size := utf8.RuneCountInString(n.Text)
+	for _, n := range NotesGiven(notes) {
 		switch {
-		case size <= room:
-			shown = append(shown, n)
-			room -= size
-		case room > 0:
-			shown = append(shown, office.Note{Name: n.Name, Text: cut(n.Text, room)})
-			left = append(left, fmt.Sprintf("the last %d of the %d characters of %s", size-room, size, n.Name))
-			room = 0
+		case n.Given == n.Size:
+			shown = append(shown, n.Note)
+		case n.Given > 0:
+			shown = append(shown, office.Note{Name: n.Name, Text: cut(n.Text, n.Given)})
+			left = append(left, fmt.Sprintf("the last %d of the %d characters of %s", n.Size-n.Given, n.Size, n.Name))
 		default:
-			left = append(left, fmt.Sprintf("all %d characters of %s", size, n.Name))
+			left = append(left, fmt.Sprintf("all %d characters of %s", n.Size, n.Name))
 		}
 	}
 	if len(left) == 0 {
 		return shown, ""
 	}
 	return shown, fmt.Sprintf("Not shown, past the %d characters of notes a run is given: %s.", NotesLimit, strings.Join(left, "; "))
+}
+
+// A NoteGiven is one of a team's notes with its size and how much of it a
+// run is given, both in characters: all of it, its first part, or none.
+type NoteGiven struct {
+	office.Note
+	Size, Given int
+}
+
+// NotesGiven gives a team's notes as a run is given them, in the order
+// given: each whole while NotesLimit characters in all leave room, the
+// one that meets the limit cut there, and none after it.
+func NotesGiven(notes []office.Note) []NoteGiven {
+	var given []NoteGiven
+	room := NotesLimit
+	for _, n := range notes {
+		size := utf8.RuneCountInString(n.Text)
+		g := min(size, room)
+		given = append(given, NoteGiven{Note: n, Size: size, Given: g})
+		room -= g
+	}
+	return given
 }
 
 // notesText writes a team's notes as a run is given them, each whole

@@ -638,9 +638,13 @@ type (
 		ToolsFiles []string `json:"tools_files"`
 		Asks       bool     `json:"asks"`
 	}
+	// noteOut is a note whole, with its size and how much of it a run
+	// is given, in characters.
 	noteOut struct {
-		Name string `json:"name"`
-		Text string `json:"text"`
+		Name  string `json:"name"`
+		Text  string `json:"text"`
+		Size  int    `json:"size"`
+		Given int    `json:"given"`
 	}
 	atWork struct {
 		Worker  string `json:"worker"`
@@ -697,8 +701,8 @@ func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any,
 	if err != nil {
 		return nil, err
 	}
-	for _, n := range notes {
-		out.Notes = append(out.Notes, noteOut{Name: n.Name, Text: n.Text})
+	for _, n := range work.NotesGiven(notes) {
+		out.Notes = append(out.Notes, noteOut{Name: n.Name, Text: n.Text, Size: n.Size, Given: n.Given})
 	}
 	if out.Problems, err = s.problems(o, person, t.Name); err != nil {
 		return nil, err

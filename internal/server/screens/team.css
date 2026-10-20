@@ -43,6 +43,7 @@
 .te-problem::before { content: ""; width: 7px; height: 7px; border-radius: 1px; background: var(--bad); flex: none; align-self: center; }
 .te-note > details { width: 100%; }
 .te-note summary { padding: 2px 0; }
+.te-note summary .status { margin-left: 10px; }
 .te-note pre { margin: 8px 0 10px 14px; padding: 10px 12px; background: var(--sheet); border: 1px solid var(--line); color: var(--ink); }
 
 /* Docs: each folder holds its own, drawn inside it on a guide line */
