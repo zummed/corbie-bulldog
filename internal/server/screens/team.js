@@ -129,13 +129,14 @@
     return (t.problems || []).filter((p) => p.worker === name).map((p) => B.el("div", {class: "mono te-problem lt-problem"}, p.text));
   }
 
-  // workerRow gives a worker on one line: its name, its one status,
-  // cannot run or at work, with each request it is at work on, to watch,
-  // and how it stands in the tree.
-  function workerRow(t, w, role) {
+  // workerRow gives a worker on one line: its name, the lock of a
+  // colleague that waits for a yes, its one status, cannot run or at
+  // work, with each request it is at work on, to watch, and how it stands
+  // in the tree.
+  function workerRow(t, w, role, lock) {
     const busy = (t.at_work || []).filter((a) => a.worker === w.name);
     return B.el("span", {class: "line lt-row"},
-      B.workerEl(w.name, t.name, {bare: true}),
+      B.workerEl(w.name, t.name, {bare: true}), lock,
       w.runs === false ? B.el("span", {class: "status failed"}, "cannot run") : busy.length ? B.status({state: "working"}) : null,
       w.runs !== false && t.in ? busy.map((a) => B.el("a", {class: "mono small", href: "#/run/" + encodeURIComponent(a.run), title: "Watch " + w.name + " on #" + a.request, "aria-label": "Watch " + w.name + " on #" + a.request}, "#" + a.request)) : null,
       role ? B.el("span", {class: "lt-role"}, role) : null);
@@ -158,7 +159,7 @@
   // holding its own beneath it, folded, unless it is already above it or
   // holds nothing.
   function colleagueNode(t, w, tl, c, above) {
-    const row = B.el("span", {class: "line lt-row"}, workerRow(t, c, "colleague"), lockEl(t, tl));
+    const row = workerRow(t, c, "colleague", lockEl(t, tl));
     const body = above.has(c.name) ? null : [...problemEls(t, c.name), under(t, c, new Set(above).add(c.name))].filter(Boolean);
     if (!body || !body.length) return B.el("li", {class: "lt-leaf"}, row);
     return B.el("li", {}, opened("tree:" + w.name + "/" + tl.name, "lt-node", B.el("summary", {}, row), B.el("div", {}, body)));
