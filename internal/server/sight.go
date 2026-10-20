@@ -601,7 +601,7 @@ type (
 	// toolOut is a tool, a flow's stage or a statechart's job, with what
 	// it does and what its job is: a worker of the same team, named;
 	// another machine or a script, by its file; or one of the tools
-	// Bulldog ships. One that waits for a yes gives who decides it, in the
+	// Bulldog ships, with the kit it comes in. One that waits for a yes gives who decides it, in the
 	// order its walk asks them, and none when nobody does and what waits
 	// on it is refused; one that does not wait gives no list at all. A
 	// listed tool is a list: entry, which stands for the tools its server
@@ -610,6 +610,7 @@ type (
 		Name     string       `json:"name"`
 		Does     string       `json:"does"`
 		Kind     string       `json:"kind"`
+		Kit      string       `json:"kit,omitempty"`
 		Worker   string       `json:"worker,omitempty"`
 		File     string       `json:"file,omitempty"`
 		Listed   bool         `json:"listed,omitempty"`
@@ -875,12 +876,27 @@ func workerOf(o *office.Office, w *office.Worker) workerOut {
 		if t.Waits {
 			t.Deciders = walked(o, w.Team, tool.Name)
 		}
+		if t.Kind == office.ToolBulldog {
+			t.Kit = kitOf(tool.Name)
+		}
 		if t.Kind == office.ToolScript || t.Kind == office.ToolMachine {
 			t.Reach = &toolReach{reachOut: reachOf(tool.Allow), Deny: orEmpty(tool.Deny), AskAbout: orEmpty(tool.AskAbout)}
 		}
 		out.Tools = append(out.Tools, t)
 	}
 	return out
+}
+
+// kitOf gives the kit one of Bulldog's tools comes in, by the folder of
+// the tools file Bulldog ships that holds it: talk, notes, docs or build;
+// or none for a tool of the call that no file Bulldog ships holds.
+func kitOf(name string) string {
+	for _, file := range shipped.ToolsFiles {
+		if slices.Contains(shipped.Tools(file), name) {
+			return path.Base(path.Dir(file))
+		}
+	}
+	return ""
 }
 
 // definitionOf gives what a worker's file writes of how it runs, as it is

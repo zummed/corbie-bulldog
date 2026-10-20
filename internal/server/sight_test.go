@@ -399,8 +399,8 @@ func TestServerToolToldByWhereItResolves(t *testing.T) {
 	}{
 		{"office", "steward", []toolOut{
 			{Name: "fixer", Does: "Mend something in the house. Say what is wrong and where", Kind: "worker", Worker: "fixer", File: "fixer.yaml"},
-			{Name: "ask_team", Does: shippedDoes(shipped.Talk, "ask_team"), Kind: "bulldog"},
-			{Name: "write_notes", Does: shippedDoes(shipped.Notes, "write_notes"), Kind: "bulldog"},
+			{Name: "ask_team", Does: shippedDoes(shipped.Talk, "ask_team"), Kind: "bulldog", Kit: "talk"},
+			{Name: "write_notes", Does: shippedDoes(shipped.Notes, "write_notes"), Kind: "bulldog", Kit: "notes"},
 		}},
 		{"office", "fixer", []toolOut{
 			{Name: "sparks", Does: "Which circuit is what", Kind: "worker", Worker: "sparks", File: "sparks.yaml"},
@@ -412,7 +412,7 @@ func TestServerToolToldByWhereItResolves(t *testing.T) {
 			{Name: "sparks", Does: "Which circuit is what", Kind: "machine", File: "sparks.yaml"},
 			{Name: "tell", Does: "Chalk it on the shed door", Kind: "machine"},
 			{Name: "wait", Does: "Wait until Monday", Kind: "machine"},
-			{Name: "ask_team", Does: shippedDoes(shipped.Talk, "ask_team"), Kind: "bulldog"},
+			{Name: "ask_team", Does: shippedDoes(shipped.Talk, "ask_team"), Kind: "bulldog", Kit: "talk"},
 		}},
 		{"office", "bins", []toolOut{
 			{Name: "which", Kind: "script", File: "tools/bins.js"},
