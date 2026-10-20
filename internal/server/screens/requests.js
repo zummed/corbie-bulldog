@@ -128,7 +128,7 @@
   // origin of its own.
   function row(r, byTeam, depth, toggle) {
     const nest = depth ? " nest d" + Math.min(depth, 3) : "";
-    const n = cell("n" + nest, B.el("a", {class: "mono rqs-open", href: "#/r/" + r.number,
+    const n = cell("n" + nest, B.el("a", {class: "mono row-open", href: "#/r/" + r.number,
       "aria-label": "#" + r.number + (r.whole && r.first ? " " + r.first : ""), title: r.whole ? r.first : null}, "#" + r.number));
     if (!r.whole) {
       return B.el("div", {class: "row link"}, n, cell("first muted", "put to you"),

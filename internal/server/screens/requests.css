@@ -46,9 +46,6 @@
 .rqs-chip .count { font-weight: 600; color: inherit; }
 
 /* The number's link covers its row; the row's other links lie above it. */
-.rqs-open::after { content: ""; position: absolute; inset: 0; }
-.rqs-open:focus-visible { outline: none; }
-.rqs-open:focus-visible::after { outline: 2px solid var(--plan); outline-offset: -2px; }
 .rqs-list > .row .cell:not(.n) a { position: relative; z-index: 1; }
 
 .rqs-list > .rqs-hd { min-height: 28px; padding: 2px 0; font-size: var(--small); font-weight: 600; color: var(--ink2); border-bottom-color: var(--line); }

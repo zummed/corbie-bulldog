@@ -113,6 +113,10 @@ main { max-width: var(--page); margin: 0 auto; padding: var(--space) 24px 64px; 
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: var(--row); padding: 5px 0; border-bottom: 1px solid var(--faint); }
 .row.link { cursor: pointer; }
 .row.link:hover { background: var(--faint); }
+/* A row that opens as a whole: its one link covers it */
+.row-open::after { content: ""; position: absolute; inset: 0; }
+.row-open:focus-visible { outline: none; }
+.row-open:focus-visible::after { outline: 2px solid var(--plan); outline-offset: -2px; }
 .row > .grow { flex: 1 1 200px; min-width: 0; }
 .row .clip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kv { display: grid; grid-template-columns: minmax(96px, max-content) 1fr; gap: 6px 18px; align-items: baseline; margin: 0; }
@@ -162,19 +166,8 @@ main { max-width: var(--page); margin: 0 auto; padding: var(--space) 24px 64px; 
 @keyframes pulse { 50% { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) { .status.live::before { animation: none; } }
 
-/* A team: a walled block, its name on a plate that breaks the wall; a
-   team inside it is a block inside it. */
-.room { position: relative; border: var(--wall) solid var(--ink); background: var(--sheet); padding: 26px 18px 16px; margin-top: 12px; }
-.room .room { background: var(--paper); border-width: 1.5px; }
-.plate { position: absolute; top: -12px; left: 14px; display: inline-flex; align-items: baseline; gap: 10px; padding: 1px 10px; background: var(--ink); color: var(--paper); max-width: calc(100% - 28px); }
-.plate a, .plate b { color: var(--paper); font-weight: 600; }
-.plate .about { font-size: var(--small); color: var(--ink3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.room .room > .plate { background: var(--paper); color: var(--ink); border: 1.5px solid var(--ink); }
-.room .room > .plate a, .room .room > .plate b { color: var(--ink); }
-
-/* A team's room in bands, In, Team and Out, each its label beside its
-   rows; what a row holds is nested beneath it on a guide line */
-.bands { display: flex; flex-direction: column; }
+/* Bands, each its label beside its rows; what a row holds is nested
+   beneath it on a guide line */
 .band { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 0 14px; padding: 10px 0; border-top: 1px solid var(--line); }
 .band-label { font: 600 var(--small) var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink3); padding-top: 2px; }
 .band-rows { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
@@ -184,14 +177,8 @@ main { max-width: var(--page); margin: 0 auto; padding: var(--space) 24px 64px; 
 .band-under { grid-column: 2; min-width: 0; padding-left: 14px; border-left: 1.5px solid var(--line); }
 .band-list { gap: 4px; }
 .band-row.band-across { grid-template-columns: minmax(0, 1fr); }
-.ways { gap: 4px 10px; }
 
-/* A heed: its rule and its short settings on a line, all of them opened
-   beneath it */
-.heed > summary { display: flex; align-items: center; }
-.heed-short { color: var(--ink2); }
-.heed-all { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 4px 6px; padding-left: 12px; border-left: 1.5px solid var(--line); }
-.heed-all .kv > dd { font-size: var(--data); }
+/* A rule's settings, each its name and its (i) */
 .settings-k { gap: 6px; flex-wrap: nowrap; }
 
 /* What a team read: hatched, seen only by its people */
@@ -228,11 +215,13 @@ input[type="file"].in { min-height: 0; padding: 6px; border-style: dashed; font-
 /* The office's page: its name, and its parts as tabs beneath */
 .of-head .head { margin-bottom: 10px; }
 .of-head > .tabs { margin-bottom: 0; }
+.of-strip { gap: 6px 28px; padding: 10px 0 0; }
+.of-said { gap: 4px 10px; }
+.of-word { font-size: var(--small); font-weight: 600; color: var(--ink2); }
 
 /* (i): a little more, on asking */
 .info { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; padding: 0; border: 1.2px solid var(--ink2); border-radius: 50%; background: transparent; color: var(--ink2); font: 600 10px/1 var(--mono); cursor: pointer; text-transform: none; letter-spacing: 0; }
 .info:hover { color: var(--ink); border-color: var(--ink); }
-.plate .info, .plate .info:hover { align-self: center; border-color: var(--paper); color: var(--paper); }
 .pop { max-width: 320px; margin: 0; padding: 10px 12px; border: 1.5px solid var(--ink); background: var(--sheet); color: var(--ink); box-shadow: 3px 3px 0 var(--ink); font: 13px/1.45 var(--sans); text-transform: none; letter-spacing: 0; font-weight: 400; }
 
 /* What waits on the one looking */

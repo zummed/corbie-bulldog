@@ -1,15 +1,13 @@
-/* teams: the tree of teams in the top team's room, and the people. */
+/* teams: the tree of teams, and the people. */
 .tm { display: flex; flex-direction: column; gap: var(--space); }
 .tm .head { margin-bottom: 0; }
 .tm .sect > .search { margin-bottom: 10px; }
 
-/* The top team's room: what it says of the office, its bands, then its
-   teams */
-.tm-room > .kv { margin-bottom: var(--gap); }
-.tm-room > .bands { margin-bottom: var(--gap); }
-.tm-room .plate .tag { color: var(--paper); border-color: var(--ink3); }
-
-/* One team on one line */
+/* One team on one line, which opens its page; its toggle and the other
+   links on it sit above */
+.row.tm-team { position: relative; }
+.row.tm-team:hover { background: var(--faint); }
+.row.tm-team .toggle, .row.tm-team a:not(.row-open) { position: relative; z-index: 1; }
 .row.tm-team { display: grid; grid-template-columns: 22px fit-content(30%) minmax(0, 1fr) minmax(0, 150px) 118px minmax(0, 150px) 52px; gap: 4px 14px; align-items: center; }
 .row.tm-team.tm-flat { grid-template-columns: fit-content(40%) minmax(0, 1fr) minmax(0, 150px) 118px minmax(0, 150px) 52px; }
 .tm-places { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; max-width: 100%; }
@@ -45,6 +43,7 @@
 
 @media (max-width: 720px) {
   .row.tm-team, .row.tm-team.tm-flat, .row.tm-person { display: flex; }
+  .row.tm-team .toggle { width: 44px; height: 44px; margin: -5px 0 -5px -11px; flex: none; }
   .tm-team .tm-about { flex: 1 1 100%; order: 9; }
   .tm-team .tm-mine { margin-left: auto; }
   .tm-person > span:nth-child(2) { flex: 1 1 100%; order: 9; }

@@ -1,7 +1,8 @@
-// Teams: the teams as they sit in each other, the top team the room around
-// them, and the people. An office may have hundreds of each, so the tree is
-// folded but for the way to the one looking's own teams, lists are paged,
-// and a search shows what it finds flat, each team with the teams around it.
+// Teams: the teams as they sit in each other, each a row that opens its
+// page, the top team's like any other, and the people. An office may have
+// hundreds of each, so the tree is folded but for the top teams and the
+// way to the one looking's own teams, lists are paged, and a search shows
+// what it finds flat, each team with the teams around it.
 (function () {
   "use strict";
 
@@ -52,7 +53,7 @@
     }
     for (const list of inside.values()) list.sort(order);
     if (!state.open) {
-      state.open = new Set();
+      state.open = new Set((inside.get("") || []).map((t) => t.name));
       for (const n of mine) { const t = byName.get(n); if (t) for (const u of around(t)) state.open.add(u.name); }
     }
 
@@ -124,15 +125,23 @@
     return o.mine.has(t.name) ? B.el("span", {class: "tag"}, "yours") : "";
   }
 
-  // teamRow is one team on one line, with its toggle in the tree; a team
-  // found by a search is shown with the teams around it.
+  // open gives a team's name, leading to its page from anywhere on its row.
+  function open(t) {
+    const a = B.teamEl(t.name);
+    a.classList.add("row-open");
+    return a;
+  }
+
+  // teamRow is one team on one line, which opens its page, with its
+  // toggle in the tree; a team found by a search is shown with the teams
+  // around it.
   function teamRow(o, t, toggle) {
     const around = toggle ? [] : o.around(t);
     return B.el("div", {class: "row tm-team" + (toggle ? "" : " tm-flat")},
       toggle || "",
       B.el("span", {class: "tm-name tm-cut"},
         around.length ? B.el("span", {class: "mono faint small tm-path"}, around.map((u) => u.called).join(" / ") + " /") : "",
-        B.teamEl(t.name)),
+        open(t)),
       B.el("span", {class: "tm-about muted clip small", title: t.about || null}, t.about || ""),
       B.el("span", {class: "tm-cut"}, placesCell(t)),
       B.el("span", {}, people(o, t.people, t.reached)),
@@ -161,53 +170,6 @@
     };
     draw(false);
     return li;
-  }
-
-  // officeRows gives what the top team's room says of the whole office: its
-  // zone; how many runs are at work out of as many as it lets work, and
-  // how many wait their turn; who decides a change, in order; and each
-  // bridge with its one status.
-  function officeRows(t) {
-    if (t.within) return [];
-    const runs = B.me.office.runs;
-    const change = B.me.office.change || [];
-    const bridges = B.me.office.bridges || [];
-    return [
-      ["Zone", B.el("span", {class: "mono"}, B.me.office.zone)],
-      ["Runs", B.el("span", {class: "line"}, B.el("span", {class: "mono"}, runs.working + " / " + runs.limit),
-        runs.queued ? B.el("span", {class: "tag"}, "Queued " + runs.queued) : null)],
-      ["Change", change.length ? B.chain(change, t.name) : ""],
-      ["Bridges", bridges.length ? B.el("span", {class: "line"}, bridges.map((b) =>
-        B.el("span", {class: "line tm-bridge"}, B.el("a", {class: "who", href: "#/office/bridges"}, B.icon("bridge"), b.name), B.bridgeStatus(b)))) : ""],
-    ];
-  }
-
-  // room draws a top team as a room: what it says of the whole office,
-  // then its bands, In, where it is asked and its heed; Team, its people
-  // and its lead; and Out, its disclosure, when it sets one; and the tree
-  // of its teams.
-  function room(o, t) {
-    const own = officeRows(t).filter((p) => p[1] !== "");
-    const channel = B.placesOf(t.name).some((x) => x.place.name !== "direct");
-    return B.el("section", {class: "room tm-room", "aria-label": t.called},
-      B.el("div", {class: "plate"}, B.el("a", {href: B.teamHref(t.name)}, t.called),
-        t.about ? B.el("span", {class: "about"}, t.about) : null, yours(o, t) || null),
-      own.length ? B.kv(own) : null,
-      B.el("div", {class: "bands"},
-        B.band("In", [
-          ["Asked", B.asksIn(t.name)],
-          channel || t.heed ? [B.heedLabel(t), B.heedEl(t)] : null,
-        ]),
-        B.band("Team", [
-          t.people && t.people.length ? ["People", people(o, t.people)] : null,
-          !(t.people && t.people.length) && t.reached && t.reached.length
-            ? [B.el("span", {class: "line"}, "Reached", ...B.info("About reached", "The people this team's decisions reach. They stand as its people.")), people(o, null, t.reached)] : null,
-          [B.leadLabel(t), B.el("span", {class: "line"}, leadEl(o, t), t.lead_runs ? null : B.el("span", {class: "status failed"}, "cannot run"))],
-        ]),
-        B.band("Out", [
-          t.discloses ? [B.disclosureLabel(t), "Set"] : null,
-        ])),
-      (o.inside.get(t.name) || []).length ? B.el("div", {class: "rows tm-tree"}, list(o, t.name)) : null);
   }
 
   // Defined: the tools, models and docs the teams' files define, each
@@ -278,7 +240,7 @@
     const o = office();
 
     const teams = search("teamQ", "Search teams", o.teams, (t) => o.teamText.get(t), (found, q) => {
-      if (!q) return paged(B.el("div", {}), "rooms", "", o.inside.get("") || [], (t) => room(o, t), "div");
+      if (!q) return B.el("div", {class: "rows tm-tree"}, list(o, ""));
       if (!found.length) return B.empty();
       const sorted = found.slice().sort((a, b) => (o.mine.has(b.name) - o.mine.has(a.name)) || o.pathOf.get(a).localeCompare(o.pathOf.get(b)));
       return paged(B.el("div", {class: "rows tm-found"}), "found", q, sorted, (t) => teamRow(o, t, null), "div");
@@ -316,5 +278,5 @@
     }
     again(drawn.el, f);
     return drawn.el;
-  }, "teams", (what) => what === "office" || what === "runs");
+  }, "teams", (what) => what === "office");
 })();
