@@ -57,6 +57,10 @@ type Office struct {
 	// Bridges are by name, in the order the top team's file writes them.
 	Bridges     map[string]*Bridge
 	BridgeOrder []string
+	// SignIns are the sign-in methods, by name, in the order the top
+	// team's file writes them.
+	SignIns     map[string]*SignIn
+	SignInOrder []string
 
 	// Files are the office's files, by their paths in it, in order.
 	Files []string
@@ -214,6 +218,18 @@ type Person struct {
 	// Reached are who they are on each bridge that knows them, in the
 	// order written.
 	Reached []Identity
+	// Accounts are who they are by each sign-in method the office has that
+	// they may sign in by, in the order written, and Password says they may
+	// set a password of their own.
+	Accounts []Account
+	Password bool
+}
+
+// An Account is who someone is by one sign-in method: what the method's
+// machine answers for them, as written, and compared whatever its case.
+type Account struct {
+	Method string
+	ID     string
 }
 
 // An Identity is who someone is on one bridge, by the lasting id the
@@ -435,6 +451,62 @@ func (b *Bridge) Dir() string {
 	return "bridges/" + b.Name
 }
 
+// A SignIn is a sign-in method, named under signin in the top team's file,
+// which runs a folder: its own under signin/, or one Bulldog ships, which
+// its entry's from names. Its one machine is given the code a provider
+// gave a person's browser, and answers who the person is there.
+type SignIn struct {
+	Name string
+	// From is the folder Bulldog ships that it runs, as
+	// .bulldog/signin/google, or empty when it runs its own.
+	From string
+	// Settings are as written, handed whole to its machine, and Line is
+	// where in office.yaml its entry is written.
+	Settings any
+	Line     int
+	// Machine is its machine as Corbie checked it, nil while the method
+	// has a problem: such a method signs nobody in.
+	Machine  *machine.Draft
+	Problems Problems
+}
+
+// Runs says whether the method may sign anyone in.
+func (m *SignIn) Runs() bool { return m.Machine != nil && len(m.Problems) == 0 }
+
+// Dir gives the folder the method runs, by its path in the office.
+func (m *SignIn) Dir() string {
+	if m.From != "" {
+		return m.From
+	}
+	return SignInDir + "/" + m.Name
+}
+
+// SignInDir is the folder of the office that holds its own sign-in
+// methods.
+const SignInDir = "signin"
+
+// Setting gives one of a method's settings as its machine is given it: as
+// written, or else the default its machine's input gives it, or "" for
+// neither.
+func (m *SignIn) Setting(name string) string {
+	if settings, ok := m.Settings.(map[string]any); ok {
+		if v, ok := settings[name]; ok && v != nil {
+			return fmt.Sprint(v)
+		}
+	}
+	if m.Machine == nil {
+		return ""
+	}
+	names, _ := m.Machine.Definition.Input["properties"].(map[string]any)
+	settings, _ := names["settings"].(map[string]any)
+	known, _ := settings["properties"].(map[string]any)
+	setting, _ := known[name].(map[string]any)
+	if v, ok := setting["default"]; ok && v != nil {
+		return fmt.Sprint(v)
+	}
+	return ""
+}
+
 // Takes says whether a machine's input names name.
 func Takes(m *machine.Draft, name string) bool {
 	names, _ := m.Definition.Input["properties"].(map[string]any)
@@ -481,12 +553,13 @@ type Problem struct {
 	Line  int
 	Place string
 	Text  string
-	// Team is the team it is shown on, and Worker, Bridge or Rule the one
-	// it stops; a rule is named by its path in the office.
+	// Team is the team it is shown on, and Worker, Bridge, Rule or SignIn
+	// the one it stops; a rule is named by its path in the office.
 	Team   string
 	Worker string
 	Bridge string
 	Rule   string
+	SignIn string
 	// Refuses says it is a problem of a team file, which refuses the
 	// reading.
 	Refuses bool
@@ -530,6 +603,11 @@ func (ps Problems) OfWorker(name string) Problems {
 // OfBridge gives the problems that stop one bridge.
 func (ps Problems) OfBridge(name string) Problems {
 	return ps.of(func(p Problem) bool { return p.Bridge == name })
+}
+
+// OfSignIn gives the problems that stop one sign-in method.
+func (ps Problems) OfSignIn(name string) Problems {
+	return ps.of(func(p Problem) bool { return p.SignIn == name })
 }
 
 // OfRule gives the problems that stop one rule, by its path in the office.
@@ -626,6 +704,21 @@ func (o *Office) Person(bridge, id string) *Person {
 	for _, name := range o.Everyone {
 		p := o.People[name]
 		if slices.Contains(p.Reached, Identity{bridge, id}) {
+			return p
+		}
+	}
+	return nil
+}
+
+// Account gives the person whose account by a sign-in method is the one
+// its machine answered, compared whatever its case, or nil for nobody.
+func (o *Office) Account(method, id string) *Person {
+	if id == "" {
+		return nil
+	}
+	for _, name := range o.Everyone {
+		p := o.People[name]
+		if slices.ContainsFunc(p.Accounts, func(a Account) bool { return a.Method == method && strings.EqualFold(a.ID, id) }) {
 			return p
 		}
 	}

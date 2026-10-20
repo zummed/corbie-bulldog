@@ -719,6 +719,66 @@ func (r *reading) checkBridges() {
 	}
 }
 
+// SignInTakes are what a sign-in method's machine takes: the code the
+// provider gave the browser, the verifier of the challenge Bulldog sent,
+// the address the provider sent the browser back to, the nonce Bulldog
+// gave, and the method's settings.
+var SignInTakes = []string{"code", "verifier", "redirect", "nonce", "settings"}
+
+// checkSignIns has Corbie check each sign-in method's machine, as it does
+// before a start, with the method's settings against what it takes. A
+// method with any problem signs nobody in.
+func (r *reading) checkSignIns() {
+	for _, name := range r.o.SignInOrder {
+		m := r.o.SignIns[name]
+		file := m.Dir() + "/" + shipped.SignIn
+		src, ok := r.files[file]
+		if m.From != "" {
+			src, ok = shipped.File(strings.TrimPrefix(file, shipped.Dir+"/"))
+		}
+		if ok && len(m.Problems) == 0 {
+			r.checkSignIn(m, file, src)
+		}
+		if len(m.Problems) > 0 {
+			m.Machine = nil
+		}
+		r.problems = append(r.problems, m.Problems...)
+	}
+}
+
+// checkSignIn checks one sign-in method's machine.
+func (r *reading) checkSignIn(m *SignIn, file string, src []byte) {
+	p := Problem{File: file, Team: Top, SignIn: m.Name}
+	r.o.Checked = append(r.o.Checked, file)
+	if m.From == "" {
+		filled, _, _, problems := r.fill(src, r.o.Teams[Top], file)
+		for _, problem := range problems {
+			p.Text = problem
+			m.Problems = append(m.Problems, p)
+		}
+		if len(problems) > 0 {
+			return
+		}
+		src = filled
+	}
+	draft, err := machine.Parse(src, r.loader(m.Dir(), nil))
+	if err != nil {
+		m.Problems = append(m.Problems, corbieSays(err, p)...)
+		return
+	}
+	if slices.ContainsFunc(SignInTakes, func(what string) bool { return !Takes(draft, what) }) {
+		p.Text = "input: a sign-in method's machine takes " + strings.Join(SignInTakes, ", ")
+		m.Problems = append(m.Problems, p)
+		return
+	}
+	if text := unfit(draft, m.Settings); text != "" {
+		m.Problems = append(m.Problems, Problem{File: OfficeFile, Line: m.Line, Team: Top, SignIn: m.Name,
+			Text: fmt.Sprintf("signin: %s's settings do not fit what its machine takes: %s", m.Name, text)})
+		return
+	}
+	m.Machine = draft
+}
+
 // checkKeys reports a decide key that names nothing the team's workers
 // run by name, a tool, a stage or a job, and a team whose lead cannot
 // run. While a worker's definition is one Corbie did not fill out, what
