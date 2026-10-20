@@ -34,7 +34,7 @@ The heed answers `{ says: act | note, note }`:
 
 A heed's run counts toward neither `runs:` nor the runs in a row, and a heed with a problem is not asked: the lead starts as if there were none. What a heed read is its team's, whichever folder holds its rule.
 
-Bulldog ships two heeds, each in its folder in `.bulldog/rules/` with its page. Each acts if any message it weighs is addressed to the lead: marked by its bridge as naming the bot, or said straight after the lead's answer by whoever that answer went to.
+Bulldog ships two heeds, each in its folder in `.bulldog/rules/` with its page. Each acts if any message it weighs is addressed to the lead: marked by its bridge as naming the bot, or said by whoever the lead answered, straight after that answer or while the lead was answering them. Each takes the thread in the order it was said, since a message said while the lead was answering comes before its answer.
 
 - **mentioned**, `mentioned/mentioned.js`, a bare script with no settings that asks no model, notes everything else, "Not addressed to bot.".
 - **for-us**, `for-us/for-us.yaml`, a statechart, asks a System One model of everything else whether the newest message is for the team, given the team, the thread before and what is new, and acts when the model is at least as sure as its threshold, or notes "Not for Platform support (0.12)". It needs the secret `TYPESAFE_KEY`, for `api.typesafe.ai`. Its settings are `timeout`, 10s; `threshold`, 0.5; `model`, `jev-latest`; and `question`, what the model is asked, each given in its input with its default. `timeout` is a timer of the chart, around everything it does: past it, the heed ends as act, with the note "timed out".

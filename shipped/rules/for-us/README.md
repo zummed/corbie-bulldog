@@ -26,4 +26,5 @@ From a team within, the path begins `../.bulldog/`.
 
 ## Changed
 
+- 0.3.0: weighs messages in the order they were said, so one said while the lead was answering no longer stands between its answer and what follows it, and one by whoever it answered is acted on as said while it was answering.
 - 0.2.0: first shipped.

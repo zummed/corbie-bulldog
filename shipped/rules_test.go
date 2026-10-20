@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -99,14 +100,20 @@ var dana = map[string]any{"kind": "person", "name": "dana", "called": "Dana", "b
 var raj = map[string]any{"kind": "person", "name": "raj", "called": "Raj", "bridge": "slack", "id": "U0RAJ000"}
 
 // weighing gives a heed's input: Dana's messages, new to the lead, after
-// the entries before them, with the settings.
+// the entries before them, with the settings. Each entry is numbered in
+// the order given, but for one that already has its number.
 func weighing(before []any, settings map[string]any, said ...string) map[string]any {
+	if before == nil {
+		before = []any{map[string]any{"kind": "asked", "by": dana, "text": "is the API down?"}}
+	}
 	var fresh []any
 	for _, text := range said {
 		fresh = append(fresh, map[string]any{"kind": "said", "by": dana, "text": text, "mentioned": strings.Contains(text, "<@")})
 	}
-	if before == nil {
-		before = []any{map[string]any{"kind": "asked", "by": dana, "text": "is the API down?"}}
+	for i, e := range append(slices.Clone(before), fresh...) {
+		if e := e.(map[string]any); e["id"] == nil {
+			e["id"] = i + 1
+		}
 	}
 	return map[string]any{
 		"said": "[09:00] Dana: " + strings.Join(said, "\n[09:00] Dana: "),
@@ -143,6 +150,8 @@ func TestTheMentionedHeedActsOnWhatIsAddressed(t *testing.T) {
 		map[string]any{"kind": "asked", "by": dana, "text": "is the API down?"},
 		map[string]any{"kind": "answer", "by": map[string]any{"kind": "worker", "name": "bot"}, "to": []any{dana}, "text": "It is up."},
 	}
+	// The bot's answer came after what Dana said while it was answering.
+	answeredLate := []any{answered[0], map[string]any{"kind": "answer", "by": map[string]any{"kind": "worker", "name": "bot"}, "to": []any{dana}, "text": "It is up.", "id": 4}}
 	for _, c := range []struct {
 		name       string
 		before     []any
@@ -154,6 +163,7 @@ func TestTheMentionedHeedActsOnWhatIsAddressed(t *testing.T) {
 		{"after its answer", answered, []string{"and now?"}, "act", "Follows bot's answer."},
 		{"not straight after its answer", append(answered[:2:2], map[string]any{"kind": "said", "by": raj, "text": "same here"}), []string{"and now?"}, "note", "Not addressed to bot."},
 		{"talk", nil, []string{"Raj, I'll look at it"}, "note", "Not addressed to bot."},
+		{"while it answers", answeredLate, []string{"the EU one"}, "act", "Said while bot was answering."},
 	} {
 		if out := heedSays(t, corbie, d, weighing(c.before, map[string]any{}, c.said...)); out["says"] != c.says || out["note"] != c.note {
 			t.Errorf("%s: the heed says %v", c.name, out)
@@ -165,6 +175,19 @@ func TestTheMentionedHeedActsOnWhatIsAddressed(t *testing.T) {
 	input["request"].(map[string]any)["new"].([]any)[0].(map[string]any)["by"] = map[string]any{"kind": "guest", "called": "a guest", "bridge": "slack", "id": "U0GUEST1"}
 	if out := heedSays(t, corbie, d, input); out["says"] != "note" {
 		t.Errorf("a guest after the bot's answer to Dana: the heed says %v", out)
+	}
+	// Raj, while the bot answered Dana, does not stand between its answer
+	// and what she says after it; and he is not who it was answering.
+	input = weighing(answeredLate, map[string]any{}, "same here", "and now?")
+	fresh := input["request"].(map[string]any)["new"].([]any)
+	fresh[0].(map[string]any)["by"], fresh[1].(map[string]any)["id"] = raj, 5
+	if out := heedSays(t, corbie, d, input); out["says"] != "act" || out["note"] != "Follows bot's answer." {
+		t.Errorf("Dana after the bot's answer, Raj before it: the heed says %v", out)
+	}
+	fresh = fresh[:1]
+	input["request"].(map[string]any)["new"] = fresh
+	if out := heedSays(t, corbie, d, input); out["says"] != "note" {
+		t.Errorf("Raj while the bot answered Dana: the heed says %v", out)
 	}
 }
 
@@ -199,6 +222,12 @@ func TestTheForUsHeedAsksItsModel(t *testing.T) {
 	}
 	// What names the bot is acted on with no model asked.
 	if out := heedSays(t, corbie, d, weighing(nil, settings, "<@U0APP000> is it?")); out["says"] != "act" || out["note"] != "Names bot." {
+		t.Errorf("the heed says %v", out)
+	}
+	// And so is what whoever it answers says while it is answering.
+	late := []any{map[string]any{"kind": "asked", "by": dana, "text": "is the API down?"},
+		map[string]any{"kind": "answer", "by": map[string]any{"kind": "worker", "name": "bot"}, "to": []any{dana}, "text": "It is up.", "id": 4}}
+	if out := heedSays(t, corbie, d, weighing(late, settings, "the EU one")); out["says"] != "act" || out["note"] != "Said while bot was answering." {
 		t.Errorf("the heed says %v", out)
 	}
 	if asked, _ = sure.calls(); len(asked) != 2 {
