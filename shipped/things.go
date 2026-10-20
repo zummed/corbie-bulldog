@@ -67,7 +67,7 @@ func Reach(thing string) []string {
 			allow = append(allow, toolsReach(name)...)
 			continue
 		}
-		allow = append(allow, draftReach(parsed(name))...)
+		allow = append(allow, allowed(name, parsed(name))...)
 	}
 	slices.Sort(allow)
 	return slices.Compact(allow)
@@ -90,26 +90,64 @@ func parsed(name string) *machine.Draft {
 	return d
 }
 
-// draftReach gives what a definition and the machines it runs allow:
-// the definition's own list, its ask's, and each job's but a machine's,
-// whose own definition says what it is allowed.
-func draftReach(d *machine.Draft) []string {
-	if d == nil {
-		return nil
+// allowed gives what a definition in a file and every machine it runs are
+// allowed, as written.
+func allowed(file string, d *machine.Draft) []string {
+	var out []string
+	Machines(file, d, func(_ string, d *machine.Draft) bool {
+		allow, _, _ := Own(d.Definition)
+		out = append(out, allow...)
+		return true
+	})
+	return out
+}
+
+// Machines walks a definition in a file and every machine it runs, as
+// Corbie read them, calling at with each and the file it is written in. A
+// machine named by its path is in that file, beside the one that names it;
+// one written in place is in the file of the one it is written in. Where at
+// says no, the machines that one runs are not walked. It is here so that
+// what is shipped and what an office writes are read one way.
+func Machines(file string, d *machine.Draft, at func(file string, d *machine.Draft) bool) {
+	if d == nil || !at(file, d) {
+		return
 	}
-	allow := slices.Clone(d.Definition.Allow)
-	if d.Definition.Ask != nil {
-		allow = append(allow, d.Definition.Ask.Allow...)
+	for _, name := range sortedKeys(d.Children) {
+		in := file
+		if strings.HasPrefix(name, "./") || strings.HasPrefix(name, "../") {
+			in = path.Join(path.Dir(file), name)
+		}
+		Machines(in, d.Children[name], at)
 	}
-	for _, j := range machine.Jobs(d.Definition) {
-		if j.Place != "turn" && j.Place != "ask" && !j.Job.IsMachine() {
+}
+
+// Own gives what a definition's own part may reach, as Corbie places it:
+// what it is allowed and refused, by the lists written for the whole of
+// it, those of its ask and those of its jobs; and within, the limits its
+// machines' jobs put on those machines. Each job's deny is its own. A
+// machine's job allows nothing of its own, its allow being a limit on the
+// machine, whose own definition says what it is allowed; what it refuses,
+// the machine is refused. An agent's turn is its model's, and the ask is
+// the definition's own.
+func Own(def *machine.Definition) (allow, deny, within []string) {
+	allow = slices.Clone(def.Allow)
+	deny = slices.Clone(def.Deny)
+	if def.Ask != nil {
+		allow = append(allow, def.Ask.Allow...)
+		deny = append(deny, def.Ask.Deny...)
+	}
+	for _, j := range machine.Jobs(def) {
+		switch {
+		case j.Place == "turn" || j.Place == "ask":
+			continue
+		case j.Job.IsMachine():
+			within = append(within, j.Job.Allow...)
+		default:
 			allow = append(allow, j.Job.Allow...)
 		}
+		deny = append(deny, j.Job.Deny...)
 	}
-	for _, child := range d.Children {
-		allow = append(allow, draftReach(child)...)
-	}
-	return allow
+	return allow, deny, within
 }
 
 // toolsReach gives what the tools of a shipped tools file allow: a
@@ -128,7 +166,8 @@ func toolsReach(name string) []string {
 	var allow []string
 	for _, tool := range tools {
 		if tool.Job.Machine != "" {
-			allow = append(allow, draftReach(parsed(path.Join(path.Dir(name), tool.Job.Machine)))...)
+			file := path.Join(path.Dir(name), tool.Job.Machine)
+			allow = append(allow, allowed(file, parsed(file))...)
 			continue
 		}
 		allow = append(allow, tool.Job.Allow...)

@@ -6,26 +6,9 @@ import (
 	"strings"
 
 	"github.com/zummed/corbie-bulldog/internal/office"
+	"github.com/zummed/corbie-bulldog/shipped"
 	"github.com/zummed/corbie/machine"
 )
-
-// machines walks a definition in a file and every machine it runs, as
-// Corbie read them, calling at with each and the file it is written in. A
-// machine named by its path is in that file, beside the one that names it;
-// one written in place is in the file of the one it is written in. Where at
-// says no, the machines that one runs are not walked.
-func machines(file string, d *machine.Draft, at func(file string, d *machine.Draft) bool) {
-	if d == nil || !at(file, d) {
-		return
-	}
-	for _, name := range sortedKeys(d.Children) {
-		in := file
-		if strings.HasPrefix(name, "./") || strings.HasPrefix(name, "../") {
-			in = path.Join(path.Dir(file), name)
-		}
-		machines(in, d.Children[name], at)
-	}
-}
 
 // filesOf gives the files of the office one definition names directly: its
 // scripts and the files they load, by their paths in the office. Corbie's
@@ -46,7 +29,7 @@ func filesOf(file string, d *machine.Draft) []string {
 // own file.
 func uses(file string, d *machine.Draft) []string {
 	out := []string{file}
-	machines(file, d, func(at string, d *machine.Draft) bool {
+	shipped.Machines(file, d, func(at string, d *machine.Draft) bool {
 		out = append(out, at)
 		out = append(out, filesOf(at, d)...)
 		return true
@@ -67,7 +50,7 @@ func direct(o *office.Office, w *office.Worker) []string {
 	}
 	others := otherWorkers(o, w.Name)
 	out := []string{}
-	machines(w.File, w.Draft, func(at string, d *machine.Draft) bool {
+	shipped.Machines(w.File, w.Draft, func(at string, d *machine.Draft) bool {
 		out = append(out, at)
 		if others[at] {
 			return false
@@ -190,19 +173,19 @@ func reachOf(o *office.Office, file string, d *machine.Draft) reach {
 	for _, w := range o.Workers {
 		others[w.File] = w.File != file
 	}
-	machines(file, d, func(at string, d *machine.Draft) bool {
+	shipped.Machines(file, d, func(at string, d *machine.Draft) bool {
 		if others[at] {
 			return false
 		}
-		own := ownOf(d.Definition)
-		out.allow = append(out.allow, own.allow...)
-		out.deny = append(out.deny, own.deny...)
+		allow, deny, _ := shipped.Own(d.Definition)
+		out.allow = append(out.allow, allow...)
+		out.deny = append(out.deny, deny...)
 		return true
 	})
-	machines(file, d, func(at string, d *machine.Draft) bool {
-		own := ownOf(d.Definition)
-		out.within = append(out.within, own.allow...)
-		out.within = append(out.within, own.within...)
+	shipped.Machines(file, d, func(at string, d *machine.Draft) bool {
+		allow, _, within := shipped.Own(d.Definition)
+		out.within = append(out.within, allow...)
+		out.within = append(out.within, within...)
 		return true
 	})
 	slices.Sort(out.allow)
@@ -218,40 +201,4 @@ func reachOf(o *office.Office, file string, d *machine.Draft) reach {
 // those of a machine that is another worker's definition.
 func Allowed(o *office.Office, file string, d *machine.Draft) []string {
 	return reachOf(o, file, d).allow
-}
-
-// ownOf gives what a definition's own part may reach: the lists written for
-// the whole of it, those of its ask, and those of its jobs.
-func ownOf(def *machine.Definition) reach {
-	out := jobsOf(def)
-	out.allow = append(slices.Clone(def.Allow), out.allow...)
-	out.deny = append(slices.Clone(def.Deny), out.deny...)
-	if def.Ask != nil {
-		out.allow = append(out.allow, def.Ask.Allow...)
-		out.deny = append(out.deny, def.Ask.Deny...)
-	}
-	return out
-}
-
-// jobsOf gives what the jobs of a definition's own part are allowed and
-// refused, as Corbie places them. Each job's deny is its own. A machine's
-// job allows nothing of its own, its allow being a limit on the machine,
-// whose own definition says what it is allowed; what it refuses, the
-// machine is refused. That limit is kept as what a refusal may hold back,
-// since a machine made while running is allowed only what it says. An
-// agent's turn is its model's, and the ask is the definition's own.
-func jobsOf(def *machine.Definition) reach {
-	var out reach
-	for _, j := range machine.Jobs(def) {
-		switch {
-		case j.Place == "turn" || j.Place == "ask":
-			continue
-		case j.Job.IsMachine():
-			out.within = append(out.within, j.Job.Allow...)
-		default:
-			out.allow = append(out.allow, j.Job.Allow...)
-		}
-		out.deny = append(out.deny, j.Job.Deny...)
-	}
-	return out
 }
