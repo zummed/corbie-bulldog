@@ -497,6 +497,39 @@ func TestServerRequestPagesCutByNumber(t *testing.T) {
 	}
 }
 
+func TestServerSubRequestListedBeneathItsRequest(t *testing.T) {
+	t.Parallel()
+	d := refundDay(t, refundOffice(t))
+	d.decided()
+	// Al runs the office: Dana's request is one row, with the two teams it
+	// asked beneath it, oldest first, and a part of one holds them all.
+	var all struct {
+		Requests []summaryOut
+		Before   int64
+	}
+	d.s.as("al").get("/api/requests?limit=1").is(http.StatusOK).into(&all)
+	if len(all.Requests) != 1 || all.Before != 0 || all.Requests[0].Number != d.n {
+		t.Fatalf("Al's list is %+v, before %d", all.Requests, all.Before)
+	}
+	var subs []int64
+	for _, sub := range all.Requests[0].Subs {
+		if sub.Parent != d.n || len(sub.Subs) != 0 || sub.Origin != nil {
+			t.Errorf("a sub-request is listed as %+v", sub)
+		}
+		subs = append(subs, sub.Number)
+	}
+	if want := []int64{min(d.platform, d.payments), max(d.platform, d.payments)}; !slices.Equal(subs, want) {
+		t.Errorf("beneath Dana's request are %v, not %v", subs, want)
+	}
+	// Narrowed to payments, its sub-request is a row of its own, naming the
+	// request it was asked from.
+	var payments struct{ Requests []summaryOut }
+	d.s.as("al").get("/api/requests?team=payments").is(http.StatusOK).into(&payments)
+	if len(payments.Requests) != 1 || payments.Requests[0].Number != d.payments || payments.Requests[0].Parent != d.n {
+		t.Errorf("Al's list of payments is %+v", payments.Requests)
+	}
+}
+
 // part gives a part of a thread as the one looking is given it.
 type part struct {
 	Entries []entryOut

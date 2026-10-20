@@ -48,6 +48,9 @@ type (
 		Source *sourceOut `json:"source,omitempty"`
 		First  string     `json:"first,omitempty"`
 		Made   *time.Time `json:"made,omitempty"`
+		// Subs, in a list, are the requests beneath it listed too, oldest
+		// first.
+		Subs []summaryOut `json:"subs,omitempty"`
 	}
 	// originOut is where a request was asked, with the person who ran a
 	// routine now as the office is read now.
@@ -354,9 +357,11 @@ const stateQueued = "queued"
 // list gives the requests the one looking may see, newest first, as the
 // address narrows them: to a team, a state, those they asked, those
 // waiting on them, or those asked on a bridge and at a place of it; those
-// noted only when they are asked for, and how many there are; and of them
-// a part, those numbered below before, and how many; with the number to
-// give as before for the next part, when more are left.
+// noted only when they are asked for, and how many there are; each
+// beneath the request it was asked from when that is listed too; and of
+// those beneath no other a part, those numbered below before, and how
+// many, each with what is beneath it; with the number to give as before
+// for the next part, when more are left.
 func (s *site) list(person string, w http.ResponseWriter, r *http.Request) (any, error) {
 	q := r.URL.Query()
 	var f requests.Filter
@@ -424,7 +429,27 @@ func (s *site) list(person string, w http.ResponseWriter, r *http.Request) (any,
 		}
 		return f.State == requests.Working && slices.Contains(queue, sum.Number) != queued
 	})
-	shown, next := listPage(sums, before, limit)
+	listed := map[int64]bool{}
+	for _, sum := range sums {
+		listed[sum.Number] = true
+	}
+	beneath := map[int64][]requests.Summary{}
+	var tops []requests.Summary
+	for _, sum := range sums {
+		if listed[sum.Parent] {
+			beneath[sum.Parent] = append(beneath[sum.Parent], sum)
+			continue
+		}
+		tops = append(tops, sum)
+	}
+	var fold func(out summaryOut) summaryOut
+	fold = func(out summaryOut) summaryOut {
+		for _, sub := range slices.Backward(beneath[out.Number]) {
+			out.Subs = append(out.Subs, fold(summaryOf(sub, nil, queue, s.Requests.Party)))
+		}
+		return out
+	}
+	shown, next := listPage(tops, before, limit)
 	out := []summaryOut{}
 	for _, sum := range shown {
 		// Where a request was asked is given of a request at the top of
@@ -440,7 +465,7 @@ func (s *site) list(person string, w http.ResponseWriter, r *http.Request) (any,
 				origin = &req.Origin
 			}
 		}
-		out = append(out, summaryOf(sum, origin, queue, s.Requests.Party))
+		out = append(out, fold(summaryOf(sum, origin, queue, s.Requests.Party)))
 	}
 	if next != 0 {
 		return map[string]any{"requests": out, "noted": noted, "before": next}, nil
