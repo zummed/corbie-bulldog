@@ -265,6 +265,32 @@ input[type="file"].in { min-height: 0; padding: 6px; border-style: dashed; font-
 .entry .reply .in { flex: 1 1 240px; }
 .files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 
+/* What flows: a line downward, a node on it for each step or stage. What
+   goes on now breathes, what waits on someone rings, and the line
+   trickles on below while anything is at work. Bulldog's own checks, a
+   heed, an authorisation and a disclosure, are dashed. */
+:root { --node: 12px; --breathe: 1.8s; --flow-gap: 14px; }
+.flow { display: flex; flex-direction: column; --phase: 0ms; }
+.flow > * > .line { position: relative; align-self: stretch; min-height: 28px; }
+.flow > * > .line::before { content: ""; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: var(--line); }
+.flow > :first-child > .line::before { top: 14px; }
+.flow:not(.live) > :last-child > .line::before { bottom: calc(100% - 14px); }
+.flow > * > .line::after { content: ""; position: absolute; left: 3px; top: 14px; width: var(--node); height: var(--node); border-radius: 50%; background: var(--paper); border: 2px solid var(--plan); }
+.flow > .working > .line::after { background: var(--plan); animation: breathe var(--breathe) ease-in-out infinite; animation-delay: var(--phase); }
+.flow > .waiting > .line::after { background: var(--wait); border-color: var(--wait); animation: ring var(--breathe) ease-out infinite; animation-delay: var(--phase); }
+.flow > .pending > .line::after { border-style: dashed; border-color: var(--ink3); }
+.flow > .tail > .line::after { display: none; }
+.flow.live > .tail > .line::before { background: linear-gradient(180deg, var(--plan) 0 6px, transparent 6px 12px) 0 0 / 2px 12px; opacity: 0.6; animation: descend 1.2s linear infinite; }
+.flow > .new { animation: enter 0.6s ease-out both; }
+.check { border: 1.5px dashed var(--ink2); }
+@keyframes descend { to { background-position: 0 12px; } }
+@keyframes breathe { 0%, 100% { opacity: 0.45; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1); } }
+@keyframes ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--wait) 60%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
+@keyframes enter { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .flow *, .flow *::before, .flow *::after { animation: none !important; }
+}
+
 /* An authorisation: an ordered list of deciders */
 .chain { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 .chain .then { color: var(--ink3); font: var(--data) var(--mono); }
@@ -321,7 +347,12 @@ main.narrow #said:empty { display: none; }
 main.narrow #said { color: var(--ink2); font-size: 14px; }
 
 @media (max-width: 640px) {
-  .top { padding: 0 12px; }
+  .top { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand me" "nav manual"; gap: 0 12px; padding: 0 12px; position: static; }
+  .brand { grid-area: brand; min-height: 44px; margin-bottom: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .whoami { grid-area: me; }
+  .nav { grid-area: nav; flex-wrap: nowrap; margin-left: -12px; }
+  .nav a, .manual-link { min-height: 44px; }
+  .manual-link { grid-area: manual; }
   main { padding: 20px 14px 48px; }
   .kv { grid-template-columns: 1fr; gap: 2px; }
   .kv > dd { margin-bottom: 8px; }

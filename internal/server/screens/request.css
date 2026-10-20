@@ -1,127 +1,120 @@
-/* One request: its head and meta, its thread's kinds of entry, and the
-   side: what waits on the one looking, sub-requests, authorisations,
-   what was read, runs. */
+/* One request: its head and meta line, its trace building downward, each
+   step a node on the line, and saying more beneath. */
 
+.rq { max-width: 1040px; }
+.rq .head { margin-bottom: 8px; }
 .rq-num { font-family: var(--mono); font-weight: 500; color: var(--ink3); margin-right: 12px; }
+.rq-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-bottom: var(--space); font-size: var(--data); color: var(--ink2); }
+.rq-meta .btn { margin-left: auto; }
 
-/* The meta, a strip of label over data */
-.rq-meta { margin: calc(var(--space) * -0.5) 0 var(--space); }
-.rq-meta .kv { grid-template-columns: none; grid-auto-flow: column; grid-template-rows: auto auto; justify-content: start; gap: 2px 36px; }
-.rq-meta .kv > dd { font-family: var(--mono); font-size: var(--data); }
-@media (max-width: 900px) {
-  .rq-meta .kv { grid-auto-flow: row; grid-template-rows: none; grid-template-columns: minmax(96px, max-content) 1fr; gap: 6px 18px; }
-}
-@media (max-width: 640px) {
-  .rq-meta .kv { grid-template-columns: 1fr; gap: 2px; }
-}
+/* A step: its time, its node on the line, and what it is */
+.rq-flow .step { display: grid; grid-template-columns: 56px 18px minmax(0, 1fr); gap: 0 var(--flow-gap); align-items: start; }
+.rq-flow .step > * { min-width: 0; }
+.rq-flow .step > .t { font: var(--small)/1.4 var(--mono); color: var(--ink3); text-align: right; padding-top: 12px; }
+.rq-flow .step > .body { display: flex; flex-direction: column; gap: 4px; padding: 8px 0 14px; }
+.rq-flow .step.d1 > .body { margin-left: 28px; padding-left: 14px; border-left: 2px solid var(--line); }
+.rq-flow .step.d2 > .body { margin-left: 56px; padding: 8px 12px 14px 14px; border-left: 2px solid var(--plan); background: var(--sheet); }
+.rq-flow .step.d3 > .body { margin-left: 84px; padding: 8px 12px 14px 14px; border-left: 2px solid var(--plan); background: var(--sheet); }
+.rq-flow > .step.d1 > .line::after, .rq-flow > .step.d2 > .line::after, .rq-flow > .step.d3 > .line::after { --node: 10px; left: 4px; top: 15px; }
+.rq-flow .step.gap > .body { padding: 2px 0 6px; }
+.rq-flow > .step.gap > .line::after { display: none; }
+.rq-flow > .step.gap > .line::before { background: linear-gradient(180deg, var(--line) 0 4px, transparent 4px 8px) 0 0 / 2px 8px; }
 
-/* The thread */
-.rq .thread { margin-top: 4px; }
-.rq-earlier { margin: 6px 0 6px 9px; border-style: dashed; }
+.rq-flow .group { font: 500 var(--small)/1.3 var(--mono); color: var(--plan); }
+.rq-flow .group a { color: inherit; }
+.rq-flow .hd { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.rq-flow .hd > .at { display: none; margin-left: auto; font: var(--small) var(--mono); color: var(--ink3); }
+.rq-flow .what { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-weight: 600; min-width: 0; }
+.rq-flow .what .who, .rq-flow .what .status { font-weight: 400; }
+.rq-flow .said { max-width: 72ch; padding: 6px 10px; background: var(--sheet); border: 1px solid var(--faint); white-space: pre-wrap; overflow-wrap: anywhere; }
+.rq-flow .step.d0 > .body > .said { font-size: 16px; }
+.rq-flow .step.d2 .said, .rq-flow .step.d3 .said { background: var(--paper); }
+.rq-flow .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font: var(--data)/1.45 var(--mono); color: var(--ink2); }
+.rq-flow .more { display: flex; flex-direction: column; gap: 8px; }
+.rq-flow .more:empty { display: none; }
+.rq-flow .mono { overflow-wrap: anywhere; }
+
+/* A step's kind: solid for what the team and people do, dashed for
+   Bulldog's checks; orange while it waits on someone */
+.rq-chip { display: inline-flex; align-items: center; font: 500 11px/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink2); border: 1px solid var(--line); padding: 3px 5px; white-space: nowrap; }
+.rq-chip.check { border: 1px dashed var(--ink2); color: var(--ink); }
+.rq-flow > .waiting > .body > .hd > .rq-chip { color: var(--wait); border-color: var(--wait); }
+
+.rq-fold { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 32px; margin: -6px 0; padding: 0; border: none; background: none; color: var(--ink2); cursor: pointer; font: 13px var(--mono); }
+.rq-fold:hover { color: var(--ink); }
+.rq-answered { font-size: 14px; }
 .rq-arrow { color: var(--ink3); font-family: var(--mono); }
 .rq-where { font: var(--small) var(--mono); color: var(--ink3); }
 .rq-where .ic svg { width: 13px; height: 13px; }
-.rq-read { display: inline-flex; align-items: center; gap: 4px; font: var(--small) var(--mono); color: var(--ink2); background: var(--sheet); border: 1px solid var(--line); padding: 0 6px; }
-.rq-read .ic { width: 14px; height: 14px; }
-.rq-read .ic svg { width: 12px; height: 12px; }
-.rq .entry .body { max-width: 72ch; }
-.rq .entry.read { padding-right: 10px; }
-
-/* Open: still waits on someone. Orange only then. */
-.rq .entry.question:not(.open)::before,
-.rq .entry.decide:not(.open)::before { background: var(--paper); border-color: var(--ink3); }
-.rq .entry.open .k { color: var(--wait); }
-.rq .entry.question .body { font-size: 16px; }
-.rq .entry.question.open .body,
-.rq .entry.decide.open .body { border-left: 3px solid var(--wait); padding-left: 10px; }
-
-.rq .entry.replied .body { font-size: 15px; }
-.rq .entry.told::before { background: var(--paper); border-color: var(--line); }
-
-.rq .entry.sub::before { background: var(--plan-soft); border-color: var(--plan); }
-.rq .entry.sub .body { border-left: 1.5px dashed var(--plan); padding-left: 10px; color: var(--ink); }
-.rq-branch { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--plan); }
-
-.rq .entry.late::before { border-radius: 1px; border-color: var(--ink2); }
-.rq .entry.late .body { border: 1.5px dashed var(--ink3); padding: 8px 12px; color: var(--ink2); }
-
-.rq .entry.held { background: repeating-linear-gradient(135deg, var(--hatch-a) 0 6px, var(--hatch-b) 6px 12px); }
-.rq .entry.held::before { border-radius: 1px; background: var(--ink3); border-color: var(--ink3); }
-.rq .entry.held .body { background: var(--sheet); border: 1.5px solid var(--ink3); padding: 8px 12px; }
-
-.rq .entry.decision::before,
-.rq .entry.referred::before,
-.rq .entry.decided::before { border-radius: 0; transform: rotate(45deg); }
-.rq .entry.decision::before { border-color: var(--plan); background: var(--plan-soft); }
-.rq .entry.decision .body { font: var(--data) var(--mono); color: var(--plan-deep); }
-.rq .entry.decide .body { font: var(--data)/1.5 var(--mono); }
-.rq .entry.referred .body { font: var(--data) var(--mono); color: var(--ink2); }
-.rq .entry.decided::before { background: var(--ink); border-color: var(--ink); }
-.rq .entry.decided .body { font-size: 15px; }
-.rq .entry.notice::before { width: 6px; height: 6px; left: -4px; }
-
-.rq-file { font: var(--small) var(--mono); padding: 2px 8px; border: 1px solid var(--line); background: var(--sheet); }
-.rq-file .ic svg { width: 13px; height: 13px; }
-.rq .entry .foot { display: flex; flex-wrap: wrap; gap: 2px 14px; }
-.rq-carried.bad { color: var(--bad); }
-form.reply { align-items: flex-end; }
-form.reply .field { flex: 1 1 240px; }
-.rq-reply { min-height: 56px; }
-
-/* Saying more */
-.rq-compose { display: flex; flex-direction: column; gap: 10px; padding-top: var(--gap); border-top: 1px solid var(--line); }
-.rq-send { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
-.rq-send .field { flex: 1 1 240px; }
-
-/* The side: what waits on the one looking, then the way in bands */
-.rq-way { border-bottom: 1px solid var(--line); }
-.rq-way .band { grid-template-columns: minmax(0, 1fr); gap: 6px; }
-.rq-way .band-row { grid-template-columns: 96px minmax(0, 1fr); }
-.rq-way .band-under { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; margin-left: 8px; }
-.rq-runs, .rq-asks, .rq-list, .rq-decs { display: flex; flex-direction: column; gap: 8px; }
-.rq-run .kind { min-width: 36px; }
-.rq-run .rq-end, .rq-asks .rq-end { margin-left: auto; }
-.rq-calls { list-style: none; margin: 6px 0 0 9px; padding-left: 12px; display: flex; flex-direction: column; gap: 4px; border-left: 1.5px solid var(--line); }
-.rq-calls .rq-end { margin-left: auto; }
-.rq-jump { font: var(--small) var(--mono); }
-.rq-now { color: var(--wait); font: var(--data) var(--mono); }
-.rq-decs { margin-top: 6px; padding-left: 12px; border-left: 1.5px solid var(--line); }
-.rq-heed { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 6px; padding: 4px 8px; font: var(--small) var(--mono); color: var(--ink2);
+.rq-heed { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 2px 8px; font: var(--small) var(--mono); color: var(--ink2);
   background: repeating-linear-gradient(135deg, var(--hatch-a) 0 6px, var(--hatch-b) 6px 12px); border-left: 2px solid var(--ink3); }
 .rq-heed .ic { width: 14px; height: 14px; }
 .rq-heed .ic svg { width: 12px; height: 12px; }
-.rq-leaving { padding: 8px 12px; border: 1.5px dashed var(--wait); background: var(--field); white-space: pre-wrap; word-break: break-word; }
-.rq-pill { display: inline-flex; align-items: baseline; gap: 6px; padding: 1px 8px; border: 1.5px solid var(--ink); font-size: var(--data); }
+.rq-file { font: var(--small) var(--mono); padding: 2px 8px; border: 1px solid var(--line); background: var(--sheet); }
+.rq-file .ic svg { width: 13px; height: 13px; }
+.rq-carried.bad { color: var(--bad); }
+.rq-jump { font: var(--small) var(--mono); }
+.rq-given { font-size: var(--small); }
+.rq-disclosure { gap: 4px 8px; }
+.rq-ruled { display: flex; flex-direction: column; gap: 4px; }
+.rq-said > summary { padding: 2px 0; }
+.rq-said .stack { gap: 4px; margin-top: 6px; padding-left: 12px; border-left: 1.5px solid var(--line); }
+.rq-said-line { gap: 4px 8px; align-items: baseline; }
+.rq-earlier { border-style: dashed; }
 
-/* The side */
-.rq-kind { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink2); }
-.rq-card .rq-kind { color: var(--wait); }
-.rq-of { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rq-word { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: var(--data); }
-.rq-note { color: var(--ink2); font-style: italic; }
-.rq-asked { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; padding: 1px 6px; border: 1.5px solid var(--wait); }
-.rq-auth { display: flex; flex-direction: column; gap: 4px; padding: 2px 0; }
-.rq-end { margin-left: auto; }
-.rq-does { font-weight: 500; }
-.status.rq-gone { color: var(--ink3); }
-.status.rq-gone::before { background: var(--ink3); }
-.rq-more { margin-top: 8px; }
-.rq-more .mono { font-size: var(--small); }
-.btn.rq-few { min-height: 24px; padding: 0 6px; font: var(--small) var(--mono); border-color: var(--line); }
+/* What a colleague called in turn */
+.rq-calls { list-style: none; margin: 0 0 0 4px; padding-left: 12px; display: flex; flex-direction: column; gap: 4px; border-left: 1.5px solid var(--line); }
+.rq-calls .rq-chip { font-size: 10px; padding: 2px 4px; }
 
-.rq-subs .rq-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: var(--row); padding-top: 4px; }
-.rq-subs > li { padding-bottom: 8px; border-bottom: 1px solid var(--faint); }
-.rq-subs .rq-subs > li { border-bottom: none; padding-bottom: 2px; }
-.rq-subs .rq-sub .status { margin-left: auto; }
-.rq-q { font-size: 14px; }
-.rq-a { margin-top: 4px; padding: 4px 8px; border-left: 2px solid var(--ink); background: var(--sheet); font-size: 14px; white-space: pre-wrap; word-break: break-word; }
-
-.rq-sealed, .rq-records { display: flex; flex-direction: column; gap: 8px; }
-.rq-record > summary { padding: 2px 0; }
-.rq-record .events { margin-top: 8px; max-height: 480px; overflow-y: auto; }
+/* What a run read: sealed, folded */
+.rq-read { display: inline-flex; align-items: center; gap: 6px; font: var(--small) var(--mono); color: var(--ink2); padding: 2px 8px;
+  background: repeating-linear-gradient(135deg, var(--hatch-a) 0 6px, var(--hatch-b) 6px 12px); border: 1px solid var(--line); }
+.rq-read .ic { width: 14px; height: 14px; }
+.rq-read .ic svg { width: 12px; height: 12px; }
+.rq-record > summary.rq-read { min-height: 28px; }
+.rq-record .events { margin-top: 8px; max-height: 480px; overflow-y: auto; border: 1px solid var(--line); background: var(--sheet); padding: 0 8px; }
 .rq-record .events .t { width: 44px; }
 .rq-record .events .k { width: 56px; }
 .rq-record .events .m { width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rq-record .events .x { flex-basis: 160px; }
 .rq-record .events .words .x { font-size: 13px; }
+.rq-more { margin-top: 8px; }
+.rq-more .mono { font-size: var(--small); }
 
+/* A decision put to the one looking */
+.rq-kind { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink2); }
+.rq-card .rq-kind { color: var(--wait); }
+.rq-word { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: var(--data); }
+.rq-note { color: var(--ink2); font-style: italic; }
+.rq-asked { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; padding: 1px 6px; border: 1.5px solid var(--wait); }
+.rq-now { color: var(--wait); font: var(--data) var(--mono); }
+.status.rq-gone { color: var(--ink3); }
+.status.rq-gone::before { background: var(--ink3); }
+.btn.rq-few { min-height: 24px; padding: 0 6px; font: var(--small) var(--mono); border-color: var(--line); }
+.rq-leaving { padding: 8px 12px; border: 1.5px dashed var(--wait); background: var(--field); white-space: pre-wrap; word-break: break-word; }
+.rq-pill { display: inline-flex; align-items: baseline; gap: 6px; padding: 1px 8px; border: 1.5px solid var(--ink); font-size: var(--data); }
+.rq-flow .ask-card { max-width: 640px; }
+form.reply { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.rq-flow form.reply { max-width: 640px; }
+form.reply .field { flex: 1 1 240px; }
+.rq-reply { min-height: 56px; }
+
+/* Saying more */
+.rq-compose { display: flex; flex-direction: column; gap: 10px; margin-top: var(--gap); padding-top: var(--gap); border-top: 1px solid var(--line); }
+.rq-send { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.rq-send .field { flex: 1 1 240px; }
+
+@media (max-width: 640px) {
+  .rq-flow .step.d1 > .body { margin-left: 12px; }
+  .rq-flow .step.d2 > .body { margin-left: 24px; }
+  .rq-flow .step.d3 > .body { margin-left: 36px; }
+  .rq-flow .step.d1 > .body, .rq-flow .step.d2 > .body, .rq-flow .step.d3 > .body { padding-left: 10px; }
+  .rq-flow .step.d2 > .body, .rq-flow .step.d3 > .body { padding-right: 8px; }
+  .rq-flow .ask-card, .rq-flow form.reply { max-width: none; }
+  .rq-meta .btn { margin-left: 0; }
+}
+@media (max-width: 480px) {
+  .rq-flow .step { grid-template-columns: 18px minmax(0, 1fr); gap: 0 10px; }
+  .rq-flow .step > .t { display: none; }
+  .rq-flow .hd > .at { display: inline; }
+}

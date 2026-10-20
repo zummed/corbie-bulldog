@@ -1,16 +1,19 @@
-// One request: its thread, what waits on the one looking in it, and its
-// way in bands: In, where it was asked, by whom, and its heed; Team, its
-// team's lead and runs; Out, the teams and people it asked, its
-// decisions, its disclosure and where its answer goes; then what its team
-// read. The desk draws a decision and an answer to a question with the
-// same parts.
+// One request as it went, a trace that builds downward: where it was
+// asked, its heed's word, each run of its lead, what the team called on,
+// the questions, decisions and sub-requests, each sub-request's own trace
+// inside it, and where its answer went. What goes on now breathes, what
+// waits on someone rings, and what is new since the page was drawn comes
+// in. The desk draws a decision and an answer to a question with the same
+// parts.
 (function () {
   "use strict";
 
   const ENDED = {yes: "approved", refused: "refused", withdrawn: "withdrawn"};
   const WHAT = {answer: "Answer", question: "Question", tell: "Tell", sub: "Sub-request"};
-  const RUN_KIND = {work: "Work", heed: "Heed", decide: "Decide"};
   const FEW = 3; // of a long list of people, how many are drawn before +N
+  const DEEP = 2; // how many levels of sub-requests are drawn before they open on asking
+  const BREATHE = 1800; // ms, the beat of what breathes and rings, kept across drawings
+  const ENTER = 600; // ms, how long a new step takes to come in
 
   // clip gives a text on one line, no longer than n.
   function clip(text, n) {
@@ -24,10 +27,16 @@
 
   // kept is what the one looking did on a request's page, so that drawing
   // it again at a change keeps it: the thread as far back as Earlier
-  // reached, how far each More went, the sub-requests opened and the
-  // records opened.
+  // reached, how far each More went, the sub-requests opened and folded,
+  // the records opened; and what the page has drawn: the steps already
+  // shown, each with when it came in, so that only a new one comes in and
+  // a drawing again finds it as far in as it came; the newest time among
+  // them; and the requests drawn in it, whose changes draw it again.
   let kept = keep(0);
-  function keep(n) { return {n, entries: [], before: 0, more: {}, open: new Set(), records: new Set()}; }
+  function keep(n) {
+    return {n, entries: [], before: 0, more: {}, open: new Set(), shut: new Set(), records: new Set(),
+      seen: new Map(), drawn: false, latest: 0, tree: new Set()};
+  }
 
   // fields are what is written on a page, by where it is written, so that
   // drawing the page again puts back the same field, with its draft and
@@ -187,95 +196,19 @@
 
   function carried(c) {
     const to = c.person ? B.personCalled(c.person) : c.place || "";
-    return B.el("span", {class: "rq-carried" + (bad(c) ? " bad" : "")},
+    return B.el("span", {class: "rq-carried bad"},
       c.bridge + (to ? " → " + to : "") + ": " + c.state + (c.why ? " (" + c.why + ")" : ""));
   }
 
-  // foot gives where an entry was carried: a line for each, or, when it
-  // went to many, a count for each bridge and state, and each that failed.
-  function foot(cs) {
-    if (cs.length <= FEW + 1) return cs.map(carried);
-    const counts = new Map();
-    for (const c of cs.filter((c) => !bad(c))) {
-      const k = c.bridge + ": " + c.state;
-      counts.set(k, (counts.get(k) || 0) + 1);
-    }
-    return [[...counts].map(([k, n]) => B.el("span", {class: "rq-carried"}, k + " ×" + n)), few(cs.filter(bad), carried)];
+  // who gives someone an entry is by or to, a worker of the request's own
+  // team by its name alone.
+  function who(p, team) {
+    return p && p.kind === "worker" && p.team === team ? B.workerEl(p.name, team, {bare: true}) : B.party(p);
   }
 
   // waitsOn gives the key of someone an entry is to, as a request names
   // whom it waits on.
   function waitsOn(w) { return w.kind === "person" ? "p:" + w.name : w.kind === "guest" ? "g:" + w.id : ""; }
-
-  // about says what each label of a thread is, and whether anything waits
-  // on it.
-  function about(lead) {
-    return {
-      Asked: "What was asked, first in every request. It waits on " + lead + "'s answer; noted by the team's heed, it waits on nobody.",
-      Said: "More said in the request. It makes an answered request working again; noted by the team's heed, it starts nothing.",
-      Question: "A worker's question to a person. It waits on them until they reply.",
-      Told: "A worker telling someone something. Nothing waits on it.",
-      Reply: "A person's reply to what was put to them. It ends their wait.",
-      "Sub-request": "A worker asking another team, which makes a request of its own. The worker waits on its answer.",
-      Answer: "The answer of " + lead + ", said where the request was asked. Nothing waits on it.",
-      "Late answer": "A sub-request's answer that came when no run waited for it. It starts " + lead + " again.",
-      Held: "The answer of " + lead + ", held by the team's disclosure. It is said once it is disclosed.",
-      "Asked to decide": "A decision put to people. It waits on them until one approves or refuses.",
-      Verdict: "A decider's yes or refusal, with its note. It ends the decision.",
-      Referred: "A rule or a worker sending a decision on to whoever is next, with its note.",
-      Notice: "Bulldog telling someone they are asked no longer, or that a message could not be sent. Nothing waits on it.",
-      Noted: "Kept in the request; " + lead + " did not start on it, and is given it in the thread when next asked.",
-      Authorisation: "A held action's decision: whom it waits on, and how it ended. The action waits on it.",
-      Disclosure: "A disclosure: whom it waits on, and how it ended. What would leave waits on it.",
-      Change: "A change to the office files: whom it waits on, and how it ended. The change waits on it.",
-      Decision: "A decision: whom it waits on, and how it ended.",
-    };
-  }
-
-  // threadLabel gives the Thread heading, with what each label its entries
-  // show is behind its (i).
-  function threadLabel(v) {
-    const lines = about(B.leadCalled(B.team(v.team)));
-    const shown = new Set(v.entries.map((e) => B.entryLabel(v.decisions || [], e)));
-    if (v.entries.some((e) => e.noted)) shown.add("Noted");
-    const said = [...shown].filter((l) => lines[l]);
-    return B.label("Thread", said.length ? B.info("About the thread", said.map((l) => B.el("div", {}, B.el("b", {}, l), " " + lines[l]))) : null);
-  }
-
-  // entry draws one entry of a thread. A question or a decision put to
-  // people is open while nothing answers it and the request waits on one
-  // of those it was put to.
-  function entry(v, e, state) {
-    const mine = state.waits.has(e.id);
-    const heed = state.noted.get(e.id);
-    const putTo = (e.to || []).some((w) => state.on.has(waitsOn(w)));
-    const open = (e.kind === "question" || e.kind === "decide") && (mine || (!state.answered.has(e.id) && v.state === "waiting" && putTo));
-    const cls = ["entry", e.kind,
-      e.kind === "told" ? "quiet" : "",
-      e.read ? "read" : "",
-      open ? "open" : "",
-      mine ? "waits" : ""].filter(Boolean).join(" ");
-    const to = e.to || [];
-    const div = B.el("article", {class: cls},
-      B.el("div", {class: "hd"},
-        B.el("span", {class: "k"}, B.entryLabel(v.decisions || [], e)),
-        B.party(e.by),
-        to.length ? [arrow(), few(to, B.party, true)] : null,
-        where(e.in),
-        e.read ? B.el("span", {class: "rq-read"}, B.icon("lock"), "Read · " + B.teamCalled(e.read)) : null,
-        e.noted ? B.el("span", {class: "tag"}, "Noted") : null,
-        B.el("span", {class: "at"}, B.whenEl(e.at))),
-      e.kind === "sub" && e.sub ? B.el("div", {class: "rq-branch"}, B.icon("branch"), B.el("a", {class: "mono", href: "#/r/" + e.sub}, "#" + e.sub)) : null,
-      e.text ? B.el("div", {class: "body"}, e.text) : null,
-      e.files && e.files.length ? B.el("div", {class: "files"}, e.files.map((f) =>
-        B.el("a", {class: "who rq-file", href: f.url}, B.icon("file"), f.name, B.el("span", {class: "faint"}, B.size(f.size))))) : null,
-      e.carried && e.carried.length ? B.el("div", {class: "foot"}, foot(e.carried)) : null,
-      heed ? B.el("div", {class: "rq-heed"}, B.icon("lock"), "Noted", B.el("span", {class: "faint"}, "·"), B.party(heed.by),
-        B.el("span", {class: "faint"}, "·"), B.el("span", {class: "rq-note"}, heed.text)) : null,
-      e.kind === "question" && mine ? B.replyForm(v, e) : null);
-    div.dataset.id = e.id;
-    return div;
-  }
 
   // union gives the entries of both, each once, the later given winning,
   // in the order they were written.
@@ -283,43 +216,6 @@
     const byId = new Map();
     for (const e of a.concat(b)) byId.set(e.id, e);
     return [...byId.values()].sort((x, y) => x.id - y.id);
-  }
-
-  // fill draws the thread's entries, with Earlier where some are not
-  // given: after the first entry and any earlier one still open.
-  function fill(box, v) {
-    const state = {
-      waits: new Set(v.waits_on_me || []),
-      answered: new Set(v.entries.map((e) => e.answers).filter(Boolean)),
-      on: new Set((v.on || []).map(waitsOn).filter(Boolean)),
-      noted: new Map(v.entries.filter((e) => e.kind === "noted").map((e) => [e.answers, e])),
-    };
-    const shown = v.entries.filter((e) => e.kind !== "noted" || !v.entries.some((m) => m.id === e.answers));
-    const drawn = shown.map((e) => entry(v, e, state));
-    if (v.before) {
-      const button = B.el("button", {class: "btn ghost sm rq-earlier", type: "button"}, "Earlier");
-      button.addEventListener("click", () => earlier(box, v, button));
-      const at = shown.findIndex((e) => e.id >= v.before);
-      drawn.splice(at < 0 ? drawn.length : at, 0, button);
-    }
-    box.replaceChildren(...drawn);
-  }
-
-  // earlier fetches the entries before the gap, and draws the thread again.
-  async function earlier(box, v, button) {
-    button.disabled = true;
-    try {
-      const back = await B.api("/api/requests/" + v.number + "?before=" + v.before);
-      v.entries = union(back.entries || [], v.entries);
-      v.before = back.before || 0;
-      if (kept.n === v.number) { kept.entries = v.entries; kept.before = v.before; }
-      fill(box, v);
-      const label = box.parentElement && box.parentElement.querySelector(":scope > .label");
-      if (label) label.replaceWith(threadLabel(v));
-    } catch (err) {
-      button.disabled = false;
-      B.trouble(err);
-    }
   }
 
   // thread takes what was fetched of the thread with what was kept of it:
@@ -337,9 +233,20 @@
     }
     kept.entries = v.entries;
     kept.before = v.before;
-    const box = B.el("div", {class: "thread"});
-    fill(box, v);
-    return box;
+  }
+
+  // earlier fetches the entries before the gap, and draws the page again.
+  async function earlier(v, button) {
+    button.disabled = true;
+    try {
+      const back = await B.api("/api/requests/" + v.number + "?before=" + v.before);
+      kept.entries = union(back.entries || [], kept.entries);
+      kept.before = back.before || 0;
+      await B.show();
+    } catch (err) {
+      button.disabled = false;
+      B.trouble(err);
+    }
   }
 
   function compose(v) {
@@ -356,55 +263,7 @@
       B.el("div", {class: "rq-send"}, B.field("Files", files), button));
   }
 
-  // The side
-
-  // subTree draws sub-requests beneath each other; those deeper than the
-  // first two levels open on asking, and are drawn then.
-  function subTree(list, depth) {
-    const ul = B.el("ul", {class: "tree rq-subs"});
-    const draw = (s) => {
-      const has = Boolean(s.subs && s.subs.length);
-      const toggle = has && depth > 0
-        ? B.el("button", {class: "toggle", type: "button", "aria-expanded": "false", "aria-label": "Sub-requests of #" + s.number}, "▸") : null;
-      const li = B.el("li", {},
-        B.el("div", {class: "rq-sub"},
-          toggle,
-          B.el("a", {class: "mono", href: "#/r/" + s.number}, "#" + s.number),
-          B.teamEl(s.team),
-          B.status(s)),
-        s.question ? B.el("div", {class: "rq-q", title: s.question}, clip(s.question, 140)) : null,
-        s.decisions && s.decisions.length ? B.el("div", {class: "rq-decs"}, s.decisions.map(authorisation)) : null,
-        s.answer ? B.el("div", {class: "rq-a"}, s.answer) : null);
-      let kids = null;
-      const show = (on) => {
-        if (on && !kids) { kids = subTree(s.subs, depth + 1); li.append(kids); }
-        if (kids) kids.hidden = !on;
-        if (toggle) {
-          toggle.setAttribute("aria-expanded", String(on));
-          toggle.textContent = on ? "▾" : "▸";
-        }
-      };
-      if (toggle) toggle.addEventListener("click", () => {
-        const on = !kept.open.has(s.number);
-        if (on) kept.open.add(s.number); else kept.open.delete(s.number);
-        show(on);
-      });
-      if (has && (depth === 0 || kept.open.has(s.number))) show(true);
-      return li;
-    };
-    return B.el("div", {}, paged(ul, list, 20, draw, depth === 0 ? "subs" : null));
-  }
-
-  // authorisation gives one decision: its kind, unless the row it is
-  // under names it, what it is and how it stands, and its walk or who
-  // ended it.
-  function authorisation(d, kindless) {
-    const why = d.why && !(d.by && d.by.note === d.why) ? d.why : null;
-    return B.el("div", {class: "rq-auth"},
-      B.el("div", {class: "line"}, kindless === true ? null : B.el("span", {class: "rq-kind"}, B.decisionWord(d.kind)), B.el("span", {class: "rq-does"}, d.does), B.el("span", {class: "rq-end"}, ending(d))),
-      chain(d),
-      why ? B.el("div", {class: "mono small muted"}, why) : null);
-  }
+  // What was read
 
   // args gives what a call was given, as name: value, of its plain values.
   function args(a) {
@@ -460,12 +319,13 @@
       B.el("span", {class: "x", title: l.text.length > 160 ? clip(l.text, 2000) : null}, clip(l.text, 160)));
   }
 
-  // record is what one run read, drawn when it is opened.
-  function record(rec, teams) {
-    const name = rec.worker ? B.workerEl(rec.worker, teams > 1 ? rec.team : null) : B.el("span", {class: "mono"}, rec.run);
-    if (rec.gone) return B.el("div", {class: "inner rq-record line"}, name, B.el("span", {class: "mono small faint"}, "Corbie keeps this record no longer"));
+  // record is what one run read, sealed and folded, drawn when it is
+  // opened.
+  function record(rec) {
+    const label = [B.icon("lock"), "Read · " + B.teamCalled(rec.team)];
+    if (rec.gone) return B.el("div", {class: "rq-read"}, label, B.el("span", {class: "faint"}, "· Corbie keeps this record no longer"));
     const body = B.el("div", {class: "events rows"});
-    const box = B.el("details", {class: "inner rq-record"}, B.el("summary", {}, name), body);
+    const box = B.el("details", {class: "rq-record"}, B.el("summary", {class: "rq-read"}, label), body);
     let built = false;
     const build = () => {
       if (built) return;
@@ -482,44 +342,39 @@
     return box;
   }
 
-  // read gives what was read, sealed, in one block: the team's, or, when
-  // the records are of several teams, each named with its team.
-  function read(records, team) {
-    const teamOf = (r) => r.team || team;
-    const teams = [...new Set(records.map(teamOf))];
-    const called = teams.length === 1 ? B.teamCalled(teams[0]) : "";
-    const sorted = records.slice().sort((a, b) => teams.indexOf(teamOf(a)) - teams.indexOf(teamOf(b)));
-    return B.el("section", {class: "sect"},
-      B.label(B.el("span", {class: "who"}, B.icon("lock"), called ? "Read · " + called : "Read"),
-        ...B.info("About Read", called ? "Seen only by " + called + "'s people." : "Seen only by each team's people.")),
-      B.el("div", {class: "sealed rq-sealed"}, paged(B.el("div", {class: "rq-records"}), sorted, 20, (r) => record(r, teams.length), "records")));
-  }
-
   const RUN = {going: "working live", failed: "failed", cancelled: "rq-gone", lost: "failed", unsent: "failed"};
   const ENDS = {going: "working", done: "done", failed: "failed", cancelled: "cancelled", lost: "lost", unsent: "unsent"};
   const HEED = {act: "act", note: "noted"};
 
   const REPEATS = /(\.[0-9]+)?(#[0-9]+)?(@[0-9]+)?$/;
 
-  // colleagues gives the colleagues a run's record shows it calling, each
-  // by the tool it was called as and, when it is a worker of the team, its
-  // worker, with how its run ended and the colleagues it called in turn.
-  // Bulldog's own machines, the ask among them, are not colleagues. A
-  // machine's path is written from its caller's folder, and it is a
-  // worker when it lies in the team's folder itself, where a worker's run
-  // starts; of any other run the folder is not known.
-  function colleagues(rec, folder) {
+  // calls gives what a run's record shows it calling, each when it was
+  // called: its colleagues, each by the tool it was called as and, when it
+  // is a worker of the team, its worker, with how its run ended; and its
+  // own tool scripts; each colleague with what it called in turn. Bulldog's
+  // own machines, the ask and the calls among them, are not colleagues: what
+  // they do is in the thread. Corbie's own scripts are not tools. A
+  // machine's path is written from its caller's folder, and it is a worker
+  // when it lies in the team's folder itself, where a worker's run starts;
+  // of any other run the folder is not known.
+  function calls(rec, folder) {
     const under = {}, ended = {};
     for (const ev of rec && Array.isArray(rec.events) ? rec.events : []) {
       if (ev.name !== undefined) continue;
       if (ev.status && ev.status !== "running") ended[ev.id] = ev.status;
       for (const a of ev.asks || []) {
-        const machine = a.job && a.job.machine || "";
-        if (a.kind !== "child" || !a.child || /(^|\/)\.bulldog\//.test(machine)) continue;
-        (under[ev.id] = under[ev.id] || []).push({id: a.child, tool: a.name.replace(REPEATS, ""), machine});
+        const job = a.job || {};
+        const machine = job.machine || "";
+        const at = Date.parse(ev.time) || 0;
+        if (a.kind === "child" && a.child && !/(^|\/)\.bulldog\//.test(machine)) {
+          (under[ev.id] = under[ev.id] || []).push({id: a.child, at, tool: a.name.replace(REPEATS, ""), machine});
+        } else if (a.kind === "script" && job.script && !/^corbie:/.test(job.script)) {
+          (under[ev.id] = under[ev.id] || []).push({at, tool: a.name.replace(REPEATS, ""), script: job.script, given: args(job.input)});
+        }
       }
     }
     const tree = (id, from) => (under[id] || []).map(({machine, ...c}) => {
+      if (c.script) return c;
       const at = from === null ? null : within(from, machine);
       const worker = at !== null && /^[^/]+\.ya?ml$/.test(at) ? at.replace(/\.ya?ml$/, "") : "";
       const next = at === null ? from : at.includes("/") ? at.slice(0, at.lastIndexOf("/")) : "";
@@ -542,64 +397,229 @@
     return parts.join("/");
   }
 
-  // callsEl gives colleague calls as a tree: the tool, the worker it
-  // reached, and how its run ended.
-  function callsEl(calls, team) {
-    if (!calls.length) return null;
-    return B.el("ul", {class: "rq-calls"}, calls.map((c) => B.el("li", {},
-      B.el("div", {class: "line"},
-        c.worker !== c.tool ? B.el("span", {class: "mono"}, c.tool) : null,
-        c.worker && c.worker !== c.tool ? B.el("span", {class: "faint", "aria-hidden": "true"}, "›") : null,
-        c.worker ? B.workerEl(c.worker, team, {bare: true}) : null,
-        B.el("span", {class: "rq-end status " + (RUN[c.status] || "")}, ENDS[c.status] || c.status)),
+  // callName gives a call by its tool and, when they differ, the worker it
+  // reached.
+  function callName(c, team) {
+    if (c.script) return [B.el("span", {class: "mono"}, c.tool), c.given ? B.el("span", {class: "mono faint rq-given", title: c.given}, clip(c.given, 60)) : null];
+    return [c.worker !== c.tool ? B.el("span", {class: "mono"}, c.tool) : null,
+      c.worker && c.worker !== c.tool ? B.el("span", {class: "faint", "aria-hidden": "true"}, "›") : null,
+      c.worker ? B.workerEl(c.worker, team, {bare: true}) : null];
+  }
+
+  function callEnd(c) {
+    return c.script ? null : B.el("span", {class: "status " + (RUN[c.status] || "")}, ENDS[c.status] || c.status);
+  }
+
+  // callsEl gives what a colleague called in turn, as a tree.
+  function callsEl(list, team) {
+    if (!list || !list.length) return null;
+    return B.el("ul", {class: "rq-calls"}, list.map((c) => B.el("li", {},
+      B.el("div", {class: "line"}, B.el("span", {class: "rq-chip" + (c.script ? "" : " solid")}, c.script ? "Tool" : "Colleague"),
+        callName(c, team), callEnd(c)),
       callsEl(c.below, team))));
   }
 
-  // runRow gives one run: its kind, its worker or rule, when it started
-  // and ended, how it ended, a heed's act or note, and its word on it;
-  // and beneath it, from its record, the colleagues it called.
-  function runRow(r, rec) {
-    const ends = r.says || ENDS[r.status] || r.status;
-    return B.el("div", {class: "rq-run"},
-      B.el("div", {class: "line"},
-        B.el("span", {class: "kind"}, RUN_KIND[r.kind] || r.kind),
-        r.kind === "heed" ? B.ruleEl(r.worker) : r.worker ? B.workerEl(r.worker, r.team, {bare: true}) : B.el("span", {class: "mono"}, r.name),
-        B.el("span", {class: "rq-end status " + (HEED[r.says] || RUN[r.status] || "")}, ends)),
-      B.el("div", {class: "line"},
-        B.el("span", {class: "mono small faint"}, B.when(r.started) + "–" + (r.ended ? B.when(r.ended) : "")),
-        r.tokens ? B.el("span", {class: "mono small faint"}, r.tokens + " tok") : null,
-        B.el("a", {class: "rq-end rq-jump", href: "#/run/" + encodeURIComponent(r.name), "aria-label": "Watch " + (r.worker || r.name)}, "Watch")),
-      r.how ? B.el("div", {class: "rq-note small"}, r.how) : null,
-      callsEl(colleagues(rec, r.kind === "work" ? "" : null), r.team));
+  // Steps
+
+  // A step is one thing in the trace: its key, kept across drawings; when
+  // it happened, in ms, and the entry it stands at, for its order; how far
+  // in it is set; its kind's word, dashed when it is one of Bulldog's
+  // checks; whether it goes on now or waits on someone; what it is, what
+  // was said in it, how it stands and what is beneath it.
+  function step(s) { return Object.assign({at: 0, entry: Number.MAX_SAFE_INTEGER, depth: 0, kind: "", check: false, now: "", what: null, said: null, meta: null, more: null}, s); }
+
+  const DEPTH = {asked: 0, said: 0, answer: 0, held: 0, late: 0, bulldog: 0, notice: 0};
+  const FOLDED = new Set(["decision", "decide", "decided", "referred"]);
+  const KIND_ABOUT = {
+    Asked: "What was asked, first in every request.",
+    Said: "More said in the request. It makes an answered request working again; noted by the team's heed, it starts nothing.",
+    Question: "A worker's question to a person. It waits on them until they reply.",
+    Told: "A worker telling someone something. Nothing waits on it.",
+    Reply: "A person's reply to what was put to them. It ends their wait.",
+    "Sub-request": "A worker asking another team, which makes a request of its own. The worker waits on its answer.",
+    "Late answer": "A sub-request's answer that came when no run waited for it. It starts the lead again.",
+    Held: "The lead's answer, held by the team's disclosure. It is said once it is disclosed.",
+    Authorisation: "A held action's decision. The action waits on it.",
+    Disclosure: "Asked before anything leaves the team. What would leave waits on it.",
+    Change: "A change to the office files. The change waits on it.",
+    Heed: "Asked first about what is said at a channel place. Act: the lead starts. Note: kept in the request; nothing runs or is said.",
+    Colleague: "A worker of the team, used as a tool.",
+    Tool: "One of the team's own tools.",
+  };
+
+  // steps gives the steps of one request as the one looking sees it, in
+  // the order they happened, each sub-request's own steps right after the
+  // step that asked it, drawn from what was fetched of it, views.
+  function steps(v, views, depth, prefix) {
+    const at = (t) => Date.parse(t) || 0;
+    const entries = v.entries || [];
+    const decisions = v.decisions || [];
+    const waits = new Set(v.waits_on_me || []);
+    const answered = new Set(entries.map((e) => e.answers).filter(Boolean));
+    const on = new Set((v.on || []).map(waitsOn).filter(Boolean));
+    const noted = new Map(entries.filter((e) => e.kind === "noted").map((e) => [e.answers, e]));
+    const working = v.state === "working";
+    const out = [];
+    const key = (k) => prefix + k;
+
+    // One step for each decision, where it was first written in the thread,
+    // holding the entries the thread wrote of it.
+    const ofDecision = new Map(decisions.map((d) => [d.id, []]));
+    for (const e of entries) if (FOLDED.has(e.kind) && ofDecision.has(e.decision)) ofDecision.get(e.decision).push(e);
+
+    for (const e of entries) {
+      if (e.kind === "noted" && entries.some((m) => m.id === e.answers)) continue;
+      if (FOLDED.has(e.kind) && ofDecision.has(e.decision)) continue;
+      if (depth > 0 && e.kind === "asked") continue; // the step that asked it says it
+      const mine = waits.has(e.id);
+      const open = (e.kind === "question" || e.kind === "decide") && (mine || (!answered.has(e.id) && v.state === "waiting" && (e.to || []).some((w) => on.has(waitsOn(w)))));
+      const heed = noted.get(e.id);
+      const isAnswer = v.answer && v.answer.entry === e.id;
+      const to = e.to || [];
+      const s = step({key: key("e" + e.id), at: at(e.at), entry: e.id, depth: depth + (e.kind in DEPTH ? DEPTH[e.kind] : 1),
+        kind: B.entryLabel(decisions, e) || "Bulldog", check: e.kind === "held", now: open ? "waiting" : "",
+        what: [who(e.by, v.team), isAnswer ? [arrow(), answerTo(v)] : to.length ? [arrow(), few(to, (p) => who(p, v.team), true)] : null, where(e.in),
+          e.noted ? B.el("span", {class: "status noted"}, "noted") : null],
+        said: e.text || null,
+        meta: [isAnswer ? answerMeta(v) : null,
+          heed ? B.el("span", {class: "rq-heed"}, B.icon("lock"), heed.by && heed.by.kind === "rule" ? B.ruleShortEl(heed.by.name) : B.party(heed.by), B.el("span", {class: "rq-note"}, heed.text)) : null,
+          (e.carried || []).filter(bad).map(carried)],
+        more: [
+          e.files && e.files.length ? B.el("div", {class: "files"}, e.files.map((f) =>
+            B.el("a", {class: "who rq-file", href: f.url}, B.icon("file"), f.name, B.el("span", {class: "faint"}, B.size(f.size))))) : null,
+          e.kind === "question" && mine ? B.replyForm(v, e) : null]});
+      if (e.kind === "sub" && e.sub) {
+        out.push(subStep(s, e, v, views, prefix));
+        continue;
+      }
+      out.push(s);
+    }
+
+    for (const d of decisions) out.push(decisionStep(v, d, ofDecision.get(d.id), depth, key));
+
+    if (v.read) {
+      const recs = new Map((v.records || []).map((r) => [r.run, r]));
+      const leads = (v.runs || []).filter((r) => r.kind === "work");
+      for (const r of v.runs || []) {
+        if (r.kind === "decide") continue; // beneath its decision
+        const rec = recs.get(r.name);
+        const going = r.status === "going";
+        if (r.kind === "heed") {
+          out.push(step({key: key("run:" + r.name), at: at(r.started), depth, kind: "Heed", check: true, now: going && working ? "working" : "",
+            what: [B.ruleShortEl(r.worker), B.el("span", {class: "status " + (HEED[r.says] || RUN[r.status] || "")}, r.says || ENDS[r.status] || r.status)],
+            meta: r.how ? B.el("span", {class: "rq-note"}, r.how) : null,
+            more: rec ? record(rec) : null}));
+          continue;
+        }
+        const again = leads.indexOf(r) > 0;
+        out.push(step({key: key("run:" + r.name), at: at(r.started), depth, kind: "Team", now: going && working ? "working" : "",
+          what: [r.worker ? B.workerEl(r.worker, r.team, {bare: true}) : B.el("span", {class: "mono"}, r.name), again ? "again" : "starts on it"],
+          meta: runMeta(r),
+          more: rec ? record(rec) : null}));
+        for (const c of calls(rec, "")) {
+          out.push(step({key: key("call:" + (c.id || r.name + ":" + c.tool + ":" + c.at)), at: c.at, depth: depth + 1,
+            kind: c.script ? "Tool" : "Colleague", now: !c.script && c.status === "going" && working ? "working" : "",
+            what: callName(c, r.team), meta: callEnd(c), more: callsEl(c.below, r.team)}));
+        }
+      }
+    }
+
+    // What came from the thread and the runs, in the order it happened;
+    // what has no time of its own, a decision not written in the part of
+    // the thread given, last but the answer.
+    const order = (s) => s.at || Infinity;
+    out.sort((a, b) => order(a) - order(b) || a.entry - b.entry);
+
+    const tail = tailStep(v, depth, key);
+    if (tail) out.push(tail);
+
+    // Each sub-request's steps right after the one that asked it.
+    return out.flatMap((s) => [s, ...(s.inside || [])]);
   }
 
-  // The way, in bands
-
-  // inBand gives where a request was asked, by whom, and, to its team's
-  // people, what its heed last said.
-  function inBand(v) {
-    const heeds = (v.runs || []).filter((r) => r.kind === "heed");
-    const heed = heeds[heeds.length - 1];
-    const way = v.parent ? ["Beneath", B.el("a", {class: "mono", href: "#/r/" + v.parent}, "#" + v.parent)]
-      : v.origin && v.origin.bridge ? ["Place", B.way(v.origin)]
-      : v.origin && v.origin.kind === "routine" ? ["Routine", B.way(v.origin)]
-      : ["Chat", B.el("span", {class: "mono"}, "screens")];
-    const asker = v.asker ? B.el("span", {class: "line"}, B.party(v.asker), (v.asker.teams || []).map((t) => B.el("span", {class: "tag"}, B.teamCalled(t)))) : null;
-    const routineBy = v.origin && v.origin.by ? ["Run now", B.party(v.origin.by)] : null;
-    return B.band("In", [way, ["Asker", asker], routineBy,
-      heed ? ["Heed", B.el("span", {class: "line"}, B.el("span", {class: "status " + (HEED[heed.says] || RUN[heed.status] || "")}, heed.says || ENDS[heed.status] || heed.status),
-        heed.says || heed.status === "going" ? null : B.info("About the heed's end", "Counted as Act: " + B.leadCalled(B.team(v.team)) + " was started."),
-        B.ruleEl(heed.worker))] : null]);
+  // runMeta gives how a run went: when it started and ended, how it
+  // stands, how much it said, and where it is watched.
+  function runMeta(r) {
+    return [B.el("span", {class: "status " + (RUN[r.status] || "")}, ENDS[r.status] || r.status),
+      B.el("span", {class: "mono faint"}, B.when(r.started) + "–" + (r.ended ? B.when(r.ended) : "")),
+      r.tokens ? B.el("span", {class: "mono faint"}, r.tokens + " tok") : null,
+      B.el("a", {class: "rq-jump", href: "#/run/" + encodeURIComponent(r.name), "aria-label": "Watch " + (r.worker || r.name)}, "Watch")];
   }
 
-  // teamBand gives the team a request went to and its lead, with its
-  // runs beneath, to its people.
-  function teamBand(v) {
+  // decisionStep gives one decision where the thread first wrote it: what
+  // it is and how it stands, who decides it and who did, the rule runs
+  // that decided it, what the thread said of it, and its card when it is
+  // put to the one looking.
+  function decisionStep(v, d, said, depth, key) {
+    const anchor = said[0];
+    const runs = (v.runs || []).filter((r) => r.kind === "decide" && deciderOf(d, r.worker));
+    const recs = new Map((v.records || []).map((r) => [r.run, r]));
+    const why = d.why && !(d.by && d.by.note === d.why) ? d.why : null;
+    return step({key: key("dec:" + d.id), at: anchor ? Date.parse(anchor.at) || 0 : 0, entry: anchor ? anchor.id : Infinity, depth: depth + 1,
+      kind: B.decisionWord(d.kind), check: true, now: d.ended ? "" : "waiting",
+      what: d.does, meta: [ending(d), why ? B.el("span", {class: "mono small muted"}, why) : null],
+      more: [chain(d),
+        runs.map((r) => B.el("div", {class: "rq-ruled"}, B.el("div", {class: "line"}, B.ruleEl(r.worker), runMeta(r)), recs.has(r.name) ? record(recs.get(r.name)) : null)),
+        said.length > 1 ? B.el("details", {class: "rq-said"}, B.el("summary", {class: "mono small faint"}, said.length + " in the thread"),
+          B.el("div", {class: "stack"}, said.map((e) => B.el("div", {class: "line rq-said-line"},
+            B.el("span", {class: "mono faint"}, B.when(e.at)), B.el("span", {class: "rq-chip"}, B.entryLabel(v.decisions, e)),
+            e.by && e.by.kind !== "bulldog" ? B.party(e.by) : null, B.el("span", {class: "small"}, e.text))))) : null,
+        d.mine && !d.ended ? B.decisionCard(v, d) : null]});
+  }
+
+  // deciderOf says whether a rule is among a decision's deciders.
+  function deciderOf(d, rule) {
+    const is = (w) => w && w.kind === "rule" && w.name === rule;
+    return (d.stages || []).some(is) || (d.referrals || []).some(is) || is(d.by);
+  }
+
+  // subStep gives a sub-request where it was asked, with its own steps
+  // inside it when they are fetched, or how it stands and its answer when
+  // it is folded.
+  function subStep(s, e, v, views, prefix) {
+    const n = e.sub;
+    const sum = (v.subs || []).find((x) => x.number === n) || {number: n};
+    const sv = views.get(n);
+    const open = Boolean(sv && !sv.error);
+    const toggle = B.el("button", {class: "rq-fold", type: "button", "aria-expanded": String(open), "aria-label": (open ? "Fold" : "Open") + " #" + n},
+      open ? "▾" : "▸");
+    toggle.addEventListener("click", () => {
+      if (open) { kept.shut.add(n); kept.open.delete(n); } else { kept.open.add(n); kept.shut.delete(n); }
+      B.show();
+    });
+    const state = sv && !sv.error ? sv : sum;
+    s.what = [who(e.by, v.team), arrow(), B.teamEl(sum.team || (e.to[0] && e.to[0].name)),
+      B.el("a", {class: "mono", href: "#/r/" + n}, "#" + n), state.state ? B.status(state) : null, toggle];
+    s.now = s.now || (state.state === "waiting" && !open ? "waiting" : "");
+    if (open) {
+      const inner = steps(sv, views, s.depth + 1, prefix + n + ":");
+      if (inner.length) inner[0].group = [B.teamCalled(sv.team), " · ", B.el("a", {href: "#/r/" + n}, "#" + n),
+        sv.before ? B.el("a", {class: "faint", href: "#/r/" + n}, " · earlier") : null];
+      s.inside = inner;
+    } else {
+      s.more = [s.more, sv && sv.error ? B.el("div", {class: "mono small bad"}, sv.error.message) : null,
+        sum.answer ? B.el("div", {class: "said rq-answered"}, sum.answer) : null];
+    }
+    return s;
+  }
+
+  // tailStep gives what the request waits on at its end that no step of
+  // it shows: its turn, its lead who is a person, or its answer, where it
+  // goes and how it stands.
+  function tailStep(v, depth, key) {
+    if (v.state === "working" && v.queued) {
+      return step({key: key("queued"), at: Infinity, entry: Infinity, depth, kind: "Queued", now: "pending",
+        what: B.status(v)});
+    }
     const t = B.team(v.team);
-    const lead = t && t.lead ? (B.person(t.lead) ? B.personEl(t.lead) : B.workerEl(t.lead, v.team, {bare: true})) : null;
-    const runs = v.runs || [];
-    return B.band("Team", [["Team", B.el("span", {class: "line"}, B.teamEl(v.team), lead ? [B.el("span", {class: "faint", "aria-hidden": "true"}, "›"), lead] : null),
-      runs.length ? paged(B.el("div", {class: "rq-runs"}), runs, 8, (r) => runRow(r, (v.records || []).find((x) => x.run === r.name)), "runs") : null]]);
+    if (v.state === "waiting" && t && B.person(t.lead) && (v.on || []).some((p) => p.kind === "person" && p.name === t.lead)) {
+      return step({key: key("lead"), at: Infinity, entry: Infinity, depth, kind: "Team", now: "waiting",
+        what: [B.personEl(t.lead), "answers"]});
+    }
+    const a = v.answer;
+    if (!a || a.entry || v.label === "noted") return null;
+    return step({key: key("answer:" + a.state), at: Infinity, entry: Infinity, depth, kind: "Answer", now: a.state === "waits" ? "pending" : "",
+      what: answerTo(v), meta: answerMeta(v)});
   }
 
   // answerTo gives where a request's answer goes: the run that asked a
@@ -614,45 +634,108 @@
 
   const ANSWER = {waits: "waiting", held: "held", said: "", quiet: "quiet", "not delivered": "failed"};
 
-  // outBand gives what a request asked of other teams and of people, its
-  // decisions but those waiting on the one looking, which are shown above
-  // it, to its team's people its disclosure when its team sets one, and
-  // where its answer goes and how it stands; each when there is any.
-  function outBand(v) {
-    if (v.label === "noted") return null;
-    const ds = v.decisions || [];
-    const held = ds.filter((d) => d.kind === "disclosure" && d.what === "sub" && !d.ended);
-    const subs = v.subs || [];
-    const teams = subs.length || held.length ? B.el("div", {},
-      held.map((d) => B.el("div", {class: "rq-auth"}, B.el("div", {class: "line"}, B.el("span", {class: "tag"}, "Held · Disclosure"), B.el("span", {class: "rq-does"}, d.does), B.el("span", {class: "rq-end"}, ending(d))), chain(d))),
-      subs.length ? subTree(subs, 0) : null) : null;
-    const questions = v.questions || [];
-    const people = questions.length ? B.el("div", {class: "rq-asks"}, questions.map((q) => B.el("div", {class: "line"},
-      B.party(q.by), arrow(), few(q.to, B.party, true),
-      B.el("a", {class: "rq-end status" + (q.answered ? "" : " waiting"), href: "#/r/" + v.number, onclick: (ev) => { ev.preventDefault(); scrollTo(q.entry); }}, q.answered ? "answered" : "open")))) : null;
-    const decs = ds.filter((d) => d.kind !== "disclosure" && !(d.mine && !d.ended));
-    const disclosure = v.disclosure && v.disclosure.set ? disclosureOf(v, ds.filter((d) => d.kind === "disclosure" && d.what !== "sub")) : null;
+  // answerMeta gives where an answer stands and, to the team's people,
+  // the disclosure it needs: not needed when only the team reads it, or
+  // who decides it.
+  function answerMeta(v) {
     const a = v.answer;
-    const answer = a ? B.el("span", {class: "line"}, answerTo(v),
-      a.entry ? B.el("a", {class: "status " + ANSWER[a.state], href: "#/r/" + v.number, onclick: (ev) => { ev.preventDefault(); scrollTo(a.entry); }}, a.state)
-        : B.el("span", {class: "status " + ANSWER[a.state]}, a.state),
-      a.why ? B.el("span", {class: "mono small muted"}, a.why) : null) : null;
-    return B.band("Out", [
-      teams ? ["Teams", B.el("span", {class: "count"}, subs.length + held.length), teams] : null,
-      people ? ["People", B.el("span", {class: "count"}, questions.length), people] : null,
-      decs.length ? ["Authorisation", B.el("span", {class: "count"}, decs.length), paged(B.el("div", {class: "rq-list"}), decs, 6, (d) => authorisation(d, true), "auths")] : null,
-      disclosure,
-      answer ? ["Answer", answer] : null]);
+    if (!a) return null;
+    const d = v.disclosure;
+    return [B.el("span", {class: "status " + ANSWER[a.state]}, a.state),
+      a.why ? B.el("span", {class: "mono small muted"}, a.why) : null,
+      d && d.set ? B.el("span", {class: "line rq-disclosure"}, B.el("span", {class: "rq-chip check"}, "Disclosure"),
+        d.needed ? B.chain(d.deciders || [], v.team) : B.el("span", {class: "line"}, "not needed", B.info("About Not needed", "Read only by people of " + B.teamCalled(v.team) + "."))) : null];
   }
 
-  // disclosureOf gives a request's Disclosure row, of a team that sets
-  // one: Not needed when only the team reads the answer, or who decides
-  // it; with the disclosures of what it said beneath.
-  function disclosureOf(v, ds) {
-    const d = v.disclosure;
-    const value = !d.needed ? B.el("span", {class: "line"}, "Not needed", B.info("About Not needed", "Read only by people of " + B.teamCalled(v.team) + "."))
-      : B.chain(d.deciders || [], v.team);
-    return [B.disclosureLabel(B.team(v.team) || {called: B.teamCalled(v.team)}), value, ds.length ? B.el("div", {class: "rq-list"}, ds.map((d) => authorisation(d, true))) : null];
+  // stepEl draws one step: its time beside the line, its node on it, and
+  // what it is beside them; one coming in, as far as it came.
+  function stepEl(s, prev, coming) {
+    const time = s.at && s.at !== Infinity ? B.when(new Date(s.at).toISOString()) : "";
+    const shown = time && time !== prev ? time : "";
+    const cls = ["step", "d" + Math.min(s.depth, 3), s.now, coming >= 0 ? "new" : ""].filter(Boolean).join(" ");
+    return B.el("div", {class: cls, "data-key": s.key, style: coming > 0 ? "animation-delay: -" + coming + "ms" : null},
+      B.el("span", {class: "t"}, shown),
+      B.el("span", {class: "line", "aria-hidden": "true"}),
+      B.el("div", {class: "body"},
+        s.group ? B.el("div", {class: "group"}, s.group) : null,
+        B.el("div", {class: "hd"},
+          B.el("span", {class: "rq-chip" + (s.check ? " check" : ""), title: KIND_ABOUT[s.kind] || null}, s.kind),
+          B.el("span", {class: "what"}, s.what),
+          shown ? B.el("span", {class: "at"}, shown) : null),
+        s.said ? B.el("div", {class: "said"}, s.said) : null,
+        s.meta && [s.meta].flat(Infinity).some(Boolean) ? B.el("div", {class: "meta"}, s.meta) : null,
+        s.more && [s.more].flat(Infinity).some(Boolean) ? B.el("div", {class: "more"}, s.more) : null));
+  }
+
+  // flowEl draws the steps; only those not drawn before come in, and none
+  // on the page's first drawing. The line goes on below the last while
+  // anything in the request is at work.
+  function flowEl(all, live, v) {
+    const now = Date.now();
+    let prev = "";
+    const els = [];
+    all.forEach((s, i) => {
+      if (!kept.seen.has(s.key)) kept.seen.set(s.key, kept.drawn ? now : 0);
+      const came = kept.seen.get(s.key);
+      els.push(stepEl(s, prev, came && now - came < ENTER ? now - came : -1));
+      if (s.at && s.at !== Infinity) prev = B.when(new Date(s.at).toISOString());
+      if (i === 0 && v.before) {
+        const button = B.el("button", {class: "btn ghost sm rq-earlier", type: "button"}, "Earlier");
+        button.addEventListener("click", () => earlier(v, button));
+        els.push(B.el("div", {class: "step gap"}, B.el("span", {class: "t"}), B.el("span", {class: "line", "aria-hidden": "true"}), B.el("div", {class: "body"}, button)));
+      }
+    });
+    kept.drawn = true;
+    kept.latest = Math.max(kept.latest, ...all.map((s) => s.at === Infinity ? 0 : s.at));
+    if (live) els.push(B.el("div", {class: "step tail", "aria-hidden": "true"}, B.el("span", {class: "t"}), B.el("span", {class: "line"})));
+    const flow = B.el("section", {class: "flow rq-flow" + (live ? " live" : ""), "aria-label": "What happened"}, els);
+    flow.style.setProperty("--phase", -(Date.now() % BREATHE) + "ms");
+    return flow;
+  }
+
+  // Live
+
+  // The runs at work in the requests drawn, each followed while it goes,
+  // so that what a colleague does shows as it is done; the page is drawn
+  // again for what is newer than all it shows, at most once a second, as
+  // any change draws it.
+  const following = new Map();
+  let soon = 0;
+  function follow(names, n) {
+    for (const [name, source] of following) {
+      if (!names.has(name)) { source.close(); following.delete(name); }
+    }
+    for (const name of names) {
+      if (following.has(name)) continue;
+      const source = new EventSource("/api/runs/" + encodeURIComponent(name) + "/watch");
+      const seen = (ev) => {
+        let s = {};
+        try { s = JSON.parse(ev.data); } catch (err) { /* nothing to place */ }
+        if (ev.type === "ended") { source.close(); following.delete(name); }
+        if (ev.type !== "ended" && !(Date.parse(s.at) > kept.latest)) return;
+        if (soon) return;
+        soon = setTimeout(() => { soon = 0; B.changed("request:" + n); }, 1000);
+      };
+      for (const kind of ["call", "result", "ended"]) source.addEventListener(kind, seen);
+      following.set(name, source);
+    }
+  }
+  addEventListener("hashchange", () => {
+    for (const source of following.values()) source.close();
+    following.clear();
+  });
+
+  // views fetches the sub-requests drawn inside a request: the first
+  // levels, and those deeper opened by hand, not those folded.
+  async function fetchSubs(v, level, views) {
+    await Promise.all((v.subs || []).map(async (s) => {
+      if (kept.shut.has(s.number) || (level >= DEEP && !kept.open.has(s.number))) return;
+      try {
+        const sv = await B.api("/api/requests/" + s.number);
+        views.set(s.number, sv);
+        await fetchSubs(sv, level + 1, views);
+      } catch (err) { views.set(s.number, {error: err}); }
+    }));
   }
 
   // labelInfo says what a request's Quiet or Noted means, behind its (i).
@@ -664,48 +747,45 @@
     return null;
   }
 
-  // scrollTo brings an entry of the thread into view, when it is drawn.
-  function scrollTo(id) {
-    const at = document.querySelector('.thread [data-id="' + id + '"]');
-    if (at) at.scrollIntoView({behavior: "smooth", block: "center"});
-  }
-
   // The view
 
   B.route(/^#\/r\/(\d+)$/, async function (m) {
     const v = await B.api("/api/requests/" + m[1]);
     const n = v.number;
     if (kept.n !== n) kept = keep(n);
-    const threadEl = thread(v);
+    thread(v);
+    const views = new Map();
+    if (v.whole) await fetchSubs(v, 0, views);
+    kept.tree = new Set(["request:" + n, ...[...views.keys()].map((k) => "request:" + k)]);
+
     const asked = v.entries.find((e) => e.kind === "asked");
     const first = asked ? firstLine(asked.text) : "";
+    const all = steps(v, views, 0, "");
+    const drawn = [v, ...[...views.values()].filter((x) => !x.error)];
+    const live = drawn.some((x) => x.state === "working");
+    follow(new Set(drawn.filter((x) => x.read && x.state === "working").flatMap((x) => (x.runs || []).filter((r) => r.kind === "work" && r.status === "going").map((r) => r.name))), n);
 
-    const mine = (v.decisions || []).filter((d) => d.mine && !d.ended);
-    const records = v.records || [];
-
-    const crumbs = [B.el("a", {href: "#/requests"}, "Requests"), v.parent ? B.el("a", {class: "mono", href: "#/r/" + v.parent}, "#" + v.parent) : null].filter(Boolean);
+    const crumbs = [B.el("a", {href: "#/requests"}, "Requests"), v.team ? B.el("a", {href: "#/requests?team=" + encodeURIComponent(v.team)}, B.teamCalled(v.team)) : null].filter(Boolean);
     const title = [B.el("span", {class: "rq-num"}, "#" + n), first ? B.el("span", {title: first.length > 90 ? first : null}, clip(first, 90)) : null];
     const stop = v.whole && v.state !== "answered" ? B.el("button", {class: "btn ghost sm", type: "button"}, "Stop") : null;
     if (stop) stop.addEventListener("click", () => act(() => B.post("/api/requests/" + n + "/stop"), [stop], []));
-    const source = v.source ? B.el("span", {class: "line"},
-      v.source.link ? B.el("a", {class: "mono", href: v.source.link, rel: "noopener noreferrer", target: "_blank"}, v.source.status) : B.el("span", {class: "mono"}, v.source.status),
-      B.whenEl(v.source.at)) : null;
+    const dot = () => B.el("span", {class: "faint", "aria-hidden": "true"}, "·");
+    const source = v.source ? [v.source.link ? B.el("a", {class: "mono", href: v.source.link, rel: "noopener noreferrer", target: "_blank"}, v.source.status) : B.el("span", {class: "mono"}, v.source.status),
+      B.whenEl(v.source.at)] : null;
+    const meta = v.whole ? B.el("div", {class: "rq-meta"},
+      v.parent ? B.el("span", {class: "who"}, B.icon("branch"), "inside ", B.el("a", {class: "mono", href: "#/r/" + v.parent}, "#" + v.parent))
+        : [B.party(v.asker), dot(), B.way(v.origin)],
+      dot(), B.teamEl(v.team),
+      v.state ? [dot(), B.status(v), labelInfo(v)] : null,
+      source ? [dot(), source] : null,
+      dot(), B.whenEl(v.made),
+      stop) : null;
 
     return B.el("div", {class: "rq"},
-      B.head(crumbs, title, v.whole && v.state ? [B.status(v), labelInfo(v)] : null, stop),
-      v.whole ? B.el("div", {class: "rq-meta"}, B.kv([
-        ["Made", B.whenEl(v.made)],
-        ["Source", source],
-      ])) : null,
-      B.el("div", {class: "cols"},
-        B.el("div", {class: "main"},
-          B.el("section", {class: "sect"},
-            v.whole ? threadLabel(v) : B.label("Put to you"),
-            v.entries.length || v.before ? threadEl : B.empty()),
-          compose(v)),
-        B.el("div", {class: "side"},
-          mine.length ? B.sect("Waiting on you", B.el("div", {class: "stack"}, mine.map((d) => B.decisionCard(v, d)))) : null,
-          v.whole ? B.el("section", {class: "bands rq-way", "aria-label": "Way"}, inBand(v), teamBand(v), outBand(v)) : null,
-          records.length ? read(records, v.team) : null)));
-  }, "requests", (what) => what === "office" || what.startsWith("request:"));
+      B.head(crumbs, title),
+      meta,
+      v.whole ? null : B.label("Put to you"),
+      all.length || v.before ? flowEl(all, live, v) : B.empty(),
+      compose(v));
+  }, "requests", (what, m) => what === "office" || what === "request:" + m[1] || kept.tree.has(what));
 })();
