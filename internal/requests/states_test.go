@@ -68,6 +68,9 @@ func TestRequestsStates(t *testing.T) {
 	if ws := got[[]requests.Wait](t)(d.WaitingOn("dana")); len(ws) != 1 || ws[0].Entry != decision.ID {
 		t.Errorf("once Dana answered, what waits on her is %+v", ws)
 	}
+	if ws := got[[]requests.Wait](t)(d.WaitsIn(support)); len(ws) != 1 || ws[0].Entry != decision.ID || ws[0].On.Name != "dana" {
+		t.Errorf("once Dana answered, what waits in support's sub-request is %+v", ws)
+	}
 }
 
 func TestRequestsWaitingNamesEveryone(t *testing.T) {
@@ -110,9 +113,15 @@ func TestRequestsWhatWaitsOnAPerson(t *testing.T) {
 	if ws := got[[]requests.Wait](t)(d.WaitingOn("dana")); len(ws) != 1 || ws[0].Request != support || ws[0].Kind != requests.KindLead {
 		t.Errorf("what waits on Dana is %+v", ws)
 	}
+	if ws := got[[]requests.Wait](t)(d.WaitsIn(support)); len(ws) != 1 || ws[0].Kind != requests.KindLead || ws[0].On.Name != "dana" {
+		t.Errorf("what waits in support's sub-request is %+v", ws)
+	}
 	must(t, errOf(d.Say(support, requests.Identity("slack", slackDana), "a refund", nil, requests.Where{Bridge: "slack", Place: "direct"}, false)))
 	if ws := got[[]requests.Wait](t)(d.WaitingOn("dana")); len(ws) != 0 {
 		t.Errorf("once Dana answered, what waits on her is %+v", ws)
+	}
+	if ws := got[[]requests.Wait](t)(d.WaitsIn(support)); len(ws) != 0 {
+		t.Errorf("once Dana answered, what waits in support's sub-request is %+v", ws)
 	}
 }
 

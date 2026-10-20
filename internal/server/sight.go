@@ -1032,8 +1032,9 @@ func (s *site) atWork(team string) ([]atWork, error) {
 
 // nowOf gives what is going on now in the newest NowOpen of a team's open
 // requests, as one of its people sees them, and the NowAnswered it
-// answered last, leaving out those its heed noted, as a list does: each
-// as the requests, the decisions and the work give it.
+// answered last, leaving out those its heed noted, as a list does, and
+// those stopped: each as the requests, the decisions and the work give
+// it.
 func (s *site) nowOf(o *office.Office, team, person string) ([]nowOut, error) {
 	open, err := s.Requests.OpenOf(team)
 	if err != nil {
@@ -1063,8 +1064,12 @@ func (s *site) nowOf(o *office.Office, team, person string) ([]nowOut, error) {
 		if err != nil {
 			return nil, err
 		}
+		waits, err := s.Requests.WaitsIn(sum.Number)
+		if err != nil {
+			return nil, err
+		}
 		for _, q := range questionsOf(v.Entries, s.Requests.Party) {
-			if !q.Answered && waitsOnAny(v.State.On, q.To) {
+			if slices.ContainsFunc(waits, func(w requests.Wait) bool { return w.Entry == q.Entry }) {
 				now := of(nowQuestion)
 				now.Entry, now.By, now.To = q.Entry, &q.By, q.To
 				out = append(out, now)
@@ -1089,38 +1094,26 @@ func (s *site) nowOf(o *office.Office, team, person string) ([]nowOut, error) {
 				out = append(out, now)
 			}
 		}
-		lead, isPerson, err := s.Requests.Lead(sum.Number)
-		if err != nil {
-			return nil, err
-		}
-		if i := slices.IndexFunc(v.State.On, func(p requests.Party) bool { return p.Kind == requests.IsPerson && p.Name == lead }); isPerson && i >= 0 {
-			now := of(nowLead)
-			now.On = []partyOut{partyOf(v.State.On[i])}
-			out = append(out, now)
+		for _, w := range waits {
+			if w.Kind == requests.KindLead {
+				now := of(nowLead)
+				now.On = []partyOut{partyOf(w.On)}
+				out = append(out, now)
+			}
 		}
 	}
 	answered, err := s.Requests.List(person, requests.Filter{Team: team, State: requests.Answered})
 	if err != nil {
 		return nil, err
 	}
-	// The requests keep no time a request was answered: the newest
-	// answered stand for those answered last.
-	answered = slices.DeleteFunc(answered, func(sum requests.Summary) bool { return sum.State.Noted })
+	// Answered last is by the last entry of each, the answer or what
+	// carried it; one stopped was not answered.
+	answered = slices.DeleteFunc(answered, func(sum requests.Summary) bool { return sum.State.Noted || sum.State.Stopped })
+	slices.SortStableFunc(answered, func(a, b requests.Summary) int { return b.Last.Compare(a.Last) })
 	for _, sum := range answered[:min(len(answered), NowAnswered)] {
 		out = append(out, nowOut{Request: sum.Number, First: sum.First, Kind: nowAnswered, Label: labelOf(sum.State)})
 	}
 	return out, nil
-}
-
-// waitsOnAny says whether a request waits on any of those something was
-// put to: a person by name, and a guest by the identity its bridge
-// vouched for.
-func waitsOnAny(on []requests.Party, to []partyOut) bool {
-	return slices.ContainsFunc(to, func(p partyOut) bool {
-		return slices.ContainsFunc(on, func(w requests.Party) bool {
-			return w.Kind == p.Kind && w.Name == p.Name && (w.Kind != requests.IsGuest || w.Bridge == p.Bridge && w.ID == p.ID)
-		})
-	})
 }
 
 // walked gives who decides a key of a team, in the order the walk asks

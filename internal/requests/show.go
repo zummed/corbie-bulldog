@@ -165,6 +165,8 @@ type Summary struct {
 	First  string
 	Source *Status
 	Made   time.Time
+	// Last is when its last entry was written.
+	Last time.Time
 	// Parent is the request it was asked from, when they see that too.
 	Parent int64
 }
@@ -177,7 +179,7 @@ func (l *look) summary(r *Request, ws []wait, person string) (Summary, error) {
 	sum := Summary{Number: r.Number, Whole: true, Team: r.Team, Asker: l.party(r.Asker), State: l.state(r, ws, es),
 		Source: r.Source, Made: r.Made}
 	if len(es) > 0 {
-		sum.First = firstLine(es[0].Text)
+		sum.First, sum.Last = firstLine(es[0].Text), es[len(es)-1].At
 	}
 	if r.Parent != 0 && person != "" {
 		parent, err := l.req(r.Parent)
@@ -263,6 +265,8 @@ type Wait struct {
 	Entry int64
 	Kind  string
 	Text  string
+	// On is whom it waits on.
+	On Party
 }
 
 // KindLead is the kind of a Wait for a request a person is the lead of.
@@ -302,6 +306,36 @@ func (s *Store) WaitingOn(person string) ([]Wait, error) {
 	return waits, nil
 }
 
+// WaitsIn gives what waits in one request, oldest first: each entry open,
+// once for each it waits on, then its lead who is a person, while they
+// answer it. It is the account WaitingOn gives, of one request.
+func (s *Store) WaitsIn(n int64) ([]Wait, error) {
+	l, err := s.look(s.db)
+	if err != nil {
+		return nil, err
+	}
+	r, err := l.req(n)
+	if err != nil {
+		return nil, err
+	}
+	ws, err := l.waits(n)
+	if err != nil {
+		return nil, err
+	}
+	var waits []Wait
+	for _, w := range ws {
+		e, err := l.entry(w.entry)
+		if err != nil {
+			return nil, err
+		}
+		waits = append(waits, Wait{Request: n, Entry: w.entry, Kind: e.Kind, Text: e.Text, On: l.party(w.who)})
+	}
+	if lead := l.leadWaits(r); lead != "" {
+		waits = append(waits, Wait{Request: n, Kind: KindLead, On: l.party(l.person(lead))})
+	}
+	return waits, nil
+}
+
 // waitsOn gives what waits on a person, by the request and entry alone.
 func (l *look) waitsOn(rs []*Request, ws []wait, person string) []Wait {
 	if l.o.People[person] == nil {
@@ -311,11 +345,11 @@ func (l *look) waitsOn(rs []*Request, ws []wait, person string) []Wait {
 	for _, r := range rs {
 		for _, w := range ws {
 			if w.request == r.Number && l.is(w.who, person) {
-				waits = append(waits, Wait{Request: r.Number, Entry: w.entry})
+				waits = append(waits, Wait{Request: r.Number, Entry: w.entry, On: l.party(w.who)})
 			}
 		}
 		if l.leadWaits(r) == person {
-			waits = append(waits, Wait{Request: r.Number, Kind: KindLead})
+			waits = append(waits, Wait{Request: r.Number, Kind: KindLead, On: l.party(l.person(person))})
 		}
 	}
 	return waits

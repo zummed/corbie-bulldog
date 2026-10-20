@@ -339,17 +339,75 @@ func TestServerTeamSeesWhereItsRequestsStandNow(t *testing.T) {
 	if len(subs) != 1 || subs[0].Request != d.n || subs[0].Sub != d.payments || subs[0].Team != "payments" || subs[0].State != requests.Waiting || len(subs[0].On) != 2 {
 		t.Errorf("Al sees the sub-requests open %+v, of %+v", subs, al.Now)
 	}
-	// Once the refund is decided and Dana answered, the office holds her
-	// request as answered last, and payments nothing waiting.
+	// Al asks the office something it answers at once. Once the refund is
+	// decided and Dana answered, the office holds her request as answered
+	// last, before his, though his is the newer, and payments nothing
+	// waiting.
+	var asked struct{ Number int64 }
+	d.s.as("al").post("/api/requests", map[string]string{"team": "office", "text": "what broke?"}).is(http.StatusOK).into(&asked)
+	d.s.as("al").until(asked.Number, "is answered", func(v viewOut) bool { return v.State == requests.Answered })
+	d.b.clock.Move(time.Minute)
 	d.decided()
+	al = teamWhole{}
 	d.s.as("al").get("/api/teams/office").is(http.StatusOK).into(&al)
-	if len(al.Now) != 1 || al.Now[0].Kind != nowAnswered || al.Now[0].Request != d.n || al.Now[0].Label != "" {
+	if len(al.Now) != 2 || al.Now[0].Kind != nowAnswered || al.Now[0].Request != d.n || al.Now[0].Label != "" || al.Now[1].Request != asked.Number {
 		t.Errorf("Al sees going on in the office %+v", al.Now)
 	}
 	lee = teamWhole{}
 	d.s.as("lee").get("/api/teams/payments").is(http.StatusOK).into(&lee)
 	if slices.ContainsFunc(lee.Now, func(n nowOut) bool { return n.Kind != nowAnswered }) {
 		t.Errorf("Lee sees going on in payments, all of it answered, %+v", lee.Now)
+	}
+}
+
+func TestServerTeamSeesItsHeedWeighAndItsLeadAnswer(t *testing.T) {
+	t.Parallel()
+	files := workOffice(t)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "\nlead: bot\n", "\nlead: bot\nheed: ./for-us.yaml\n", 1)
+	files["for-us.yaml"] = "agent: for-us\ninput: { said: string }\nmodel: usual\nprompt: \"Weigh: ${input.said}\"\n"
+	b := newBench(t, files)
+	held, release := make(chan struct{}), make(chan struct{})
+	defer close(release)
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		if strings.Contains(turn.Prompt(), "Weigh:") {
+			close(held)
+			<-release
+			return testkit.Say(`{ "says": "note" }`)
+		}
+		return testkit.Say("")
+	})
+	s := b.serve()
+	// While the heed weighs Dana's word at #help, Al, of the office, sees
+	// it beside the office, by the heed's rule and its run.
+	s.delivered("slack", thing("said", "U0DANA00", "#help", "#help/1700.1", "readers", []any{"U0DANA00"}, "text", "is the API down?"))
+	n := s.at("slack", "#help/1700.1")
+	select {
+	case <-held:
+	case <-time.After(testkit.Patience):
+		t.Fatal("the heed was never asked")
+	}
+	var al teamWhole
+	b.until("Al sees the heed weigh", func() bool {
+		al = teamWhole{}
+		s.as("al").get("/api/teams/office").is(http.StatusOK).into(&al)
+		return slices.ContainsFunc(al.Now, func(x nowOut) bool { return x.Kind == nowHeed })
+	})
+	if x := al.Now[slices.IndexFunc(al.Now, func(x nowOut) bool { return x.Kind == nowHeed })]; x.Request != n || x.Rule != "for-us.yaml" || x.Run == "" {
+		t.Errorf("Al sees the heed weigh as %+v", x)
+	}
+	// Raj's request to support waits on Dana, its lead: she sees it so,
+	// and Al, not of support, sees nothing going on in it.
+	asked := s.as("raj").post("/api/requests", map[string]string{"team": "support", "text": "a customer asks about an invoice"}).is(http.StatusOK)
+	var made struct{ Number int64 }
+	asked.into(&made)
+	var dana teamWhole
+	s.as("dana").get("/api/teams/support").is(http.StatusOK).into(&dana)
+	if i := slices.IndexFunc(dana.Now, func(x nowOut) bool { return x.Kind == nowLead }); i < 0 || dana.Now[i].Request != made.Number ||
+		len(dana.Now[i].On) != 1 || dana.Now[i].On[0].Name != "dana" {
+		t.Errorf("Dana sees going on in support %+v", dana.Now)
+	}
+	if body := string(s.as("al").get("/api/teams/support").body); strings.Contains(body, `"now"`) {
+		t.Errorf("Al is shown what is going on in support: %s", body)
 	}
 }
 
