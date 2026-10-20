@@ -143,7 +143,7 @@ A run is the team's its labels name. A worker of one team asked to decide for an
 
 | The people who decide a change | |
 |---|---|
-| see | every file of the office, notes and docs included, every team as it is written, every problem, the history, and which files are edited by hand; and nothing of what a team they are not in is doing or has read |
+| see | every file of the office, notes and docs included, every team as it is written, each bridge's settings and the hosts and secrets its in and out machines reach, every problem, the history, and which files are edited by hand; and nothing of what a team they are not in is doing or has read |
 | draft, check and put | a change of their own, which may set a bridge Bulldog ships by its entry, and which still goes first to every rule and worker the walk asks before it reaches a person |
 
 Anyone else who wants the office changed asks for it in a request, and a builder drafts it.
@@ -160,7 +160,7 @@ JSON in and out, with the key in its cookie. `/api/me` gives the office's `zone`
 
 | Request | Gives or does |
 |---|---|
-| `GET /api/me` | who is looking, the office as everyone sees it, its runs, who decides a change and its bridges with their places, with a team's heed's rule and whether it sets a disclosure to those who see how it is written, what waits on them and how much, the problems they may see, and, to the top team's people, which bridges are failing |
+| `GET /api/me` | who is looking, the office as everyone sees it, its runs, who decides a change and its bridges with their places, with each bridge's settings and the hosts and secrets its machines reach to the people who decide a change, with a team's heed's rule and whether it sets a disclosure to those who see how it is written, what waits on them and how much, the problems they may see, and, to the top team's people, which bridges are failing |
 | `GET /api/requests` | the requests the one looking may see, newest first; by `team`, by `state`, those they `asked`, or those `waiting` on them; each with its state, or, for one from an issue, its source's status as last reported, with when, and whether its work is going or waits on someone; in part, 100 at a time unless a `limit` asks for more or fewer, and no more than 500, with `before` a request's number for those numbered below it, and the `before` to give for the next part when more are left |
 | `GET /api/requests/{n}` | one request: what was done, and what was read of each team the one looking is in; its thread in part, with `before` to reach further back, each entry by and put to whoever the office names now, a person's words on a bridge shown as theirs; the decisions they were asked, each named as it is built when shown, a worker who referred or decided one with the team it is of |
 | `GET /api/teams/{team}` | one team: everyone sees it as in `/api/me`, and its people see the rest of it, each worker's tools, a flow's stages or a statechart's jobs, with what each does, what its job is and, for one that waits for a yes, its deciders in the order the walk asks them, each a person, a rule or a worker, and a worker with the team it is of, and each worker's teams it may ask; and its docs, by name and size, to those who may open them |

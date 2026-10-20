@@ -3,7 +3,11 @@ package server
 import (
 	"net/http"
 	"slices"
+	"strings"
 	"time"
+
+	"github.com/zummed/corbie/machine"
+	"github.com/zummed/corbie/permission"
 
 	"github.com/zummed/corbie-bulldog/internal/changes"
 	"github.com/zummed/corbie-bulldog/internal/decisions"
@@ -40,17 +44,35 @@ type (
 	// bridgeOut is a bridge: the folder it runs, one Bulldog ships or its
 	// own; whether it listens, or hears, at its address; its status,
 	// running or stopped, and failing to the top team's people alone, with
-	// what Corbie said; and the places it listens in.
+	// what Corbie said; and the places it listens in. To the people who
+	// decide a change it gives its settings as written, and its in and out
+	// machines.
 	bridgeOut struct {
-		Name    string      `json:"name"`
-		Folder  string      `json:"folder"`
-		Shipped bool        `json:"shipped"`
-		Listens bool        `json:"listens"`
-		Hears   bool        `json:"hears"`
-		Address string      `json:"address,omitempty"`
-		Status  string      `json:"status"`
-		Failing *failingOut `json:"failing,omitempty"`
-		Places  []placeOut  `json:"places"`
+		Name     string      `json:"name"`
+		Folder   string      `json:"folder"`
+		Shipped  bool        `json:"shipped"`
+		Listens  bool        `json:"listens"`
+		Hears    bool        `json:"hears"`
+		Address  string      `json:"address,omitempty"`
+		Status   string      `json:"status"`
+		Failing  *failingOut `json:"failing,omitempty"`
+		Places   []placeOut  `json:"places"`
+		Settings any         `json:"settings,omitempty"`
+		In       *machineOut `json:"in,omitempty"`
+		Out      *machineOut `json:"out,omitempty"`
+	}
+	// machineOut is one of a bridge's machines, by its file, with the
+	// hosts it may connect to and each secret it may send, with where.
+	machineOut struct {
+		File    string      `json:"file"`
+		Hosts   []string    `json:"hosts"`
+		Secrets []secretOut `json:"secrets"`
+	}
+	// secretOut is a secret a machine may send, by its name, and each
+	// place it may send it: a host, or * for anywhere.
+	secretOut struct {
+		Name string   `json:"name"`
+		To   []string `json:"to"`
 	}
 	// placeOut is a place a bridge listens in, the team asked there, the
 	// office when it names none, and whether guests may ask there.
@@ -128,7 +150,8 @@ func (s *site) office() (*office.Office, error) {
 // me gives who is looking, the office as everyone sees it, how much
 // waits on them and the problems they may see; to a team's people and the
 // people who decide a change, its heed's rule and whether it sets a
-// disclosure; and, to the top team's people, the bridges that are failing.
+// disclosure, and each bridge's settings and machines; and, to the top
+// team's people, the bridges that are failing.
 func (s *site) me(person string, w http.ResponseWriter, r *http.Request) (any, error) {
 	o, err := s.office()
 	if err != nil {
@@ -176,15 +199,16 @@ func (s *site) me(person string, w http.ResponseWriter, r *http.Request) (any, e
 	}
 	out.Office.Bridges = []bridgeOut{}
 	for _, name := range o.BridgeOrder {
-		out.Office.Bridges = append(out.Office.Bridges, s.bridgeOf(o.Bridges[name], failing[name]))
+		out.Office.Bridges = append(out.Office.Bridges, s.bridgeOf(o, o.Bridges[name], failing[name], me.Decides))
 	}
 	return out, nil
 }
 
 // bridgeOf gives a bridge as everyone sees it: stopped while it has a
 // problem, failing when the one looking is told it is, and otherwise
-// running.
-func (s *site) bridgeOf(b *office.Bridge, failing *failingOut) bridgeOut {
+// running; and, to whole, one of the people who decide a change, its
+// settings and its machines.
+func (s *site) bridgeOf(o *office.Office, b *office.Bridge, failing *failingOut, whole bool) bridgeOut {
 	out := bridgeOut{Name: b.Name, Folder: b.Dir(), Shipped: b.From != "", Listens: b.Listens, Hears: b.Hears, Status: "running", Places: []placeOut{}}
 	if b.Hears {
 		out.Address = s.url + "/bridges/" + b.Name
@@ -197,6 +221,38 @@ func (s *site) bridgeOf(b *office.Bridge, failing *failingOut) bridgeOut {
 	}
 	for _, p := range b.Places {
 		out.Places = append(out.Places, placeOut{Name: p.Name, Team: p.Team, Guests: p.Guests})
+	}
+	if whole {
+		out.Settings = b.Settings
+		out.In = machineOf(o, b.Dir()+"/in.yaml", b.In)
+		out.Out = machineOf(o, b.Dir()+"/out.yaml", b.Out)
+	}
+	return out
+}
+
+// machineOf gives one of a bridge's machines by its file, and, once Corbie
+// has checked it, the hosts it may connect to and each secret it may send,
+// with where.
+func machineOf(o *office.Office, file string, d *machine.Draft) *machineOut {
+	out := &machineOut{File: file, Hosts: []string{}, Secrets: []secretOut{}}
+	if d == nil {
+		return out
+	}
+	for _, entry := range changes.Allowed(o, file, d) {
+		kind, scope, _ := strings.Cut(entry, ":")
+		switch kind {
+		case permission.Net:
+			out.Hosts = append(out.Hosts, scope)
+		case permission.Secret:
+			name, to, _ := strings.Cut(scope, "@")
+			to = strings.TrimPrefix(to, permission.Net+":")
+			i := slices.IndexFunc(out.Secrets, func(s secretOut) bool { return s.Name == name })
+			if i < 0 {
+				i = len(out.Secrets)
+				out.Secrets = append(out.Secrets, secretOut{Name: name, To: []string{}})
+			}
+			out.Secrets[i].To = append(out.Secrets[i].To, to)
+		}
 	}
 	return out
 }

@@ -203,6 +203,48 @@ func TestServerEveryoneSeesTheOffice(t *testing.T) {
 	}
 }
 
+func TestServerBridgeSettingsAndReachToChangeDeciders(t *testing.T) {
+	t.Parallel()
+	files := workOffice(t)
+	job := `input: { fail: "${event.data.fail}" } }`
+	if !strings.Contains(files["bridges/slack/in.yaml"], job) {
+		t.Fatal("the stand-in's in machine has no job to allow anything")
+	}
+	files["bridges/slack/in.yaml"] = strings.Replace(files["bridges/slack/in.yaml"], job,
+		`input: { fail: "${event.data.fail}" }, allow: [net:slack.com, "secret:SLACK_TOKEN@net:slack.com", "secret:SLACK_SIGNING_SECRET@*"] }`, 1)
+	s := newBench(t, files).serve()
+	al := s.meOf("al")
+	slack, gitlab := bridgeIn(t, al, "slack"), bridgeIn(t, al, "gitlab")
+	want := map[string]any{"places": map[string]any{"#help": map[string]any{"guests": true}}}
+	if !reflect.DeepEqual(slack.Settings, want) {
+		t.Errorf("Al is given the Slack bridge's settings as %#v", slack.Settings)
+	}
+	in := &machineOut{File: "bridges/slack/in.yaml", Hosts: []string{"slack.com"},
+		Secrets: []secretOut{{Name: "SLACK_SIGNING_SECRET", To: []string{"*"}}, {Name: "SLACK_TOKEN", To: []string{"slack.com"}}}}
+	if !reflect.DeepEqual(slack.In, in) {
+		t.Errorf("Al is given the Slack bridge's in machine as %+v", slack.In)
+	}
+	if out := (&machineOut{File: "bridges/slack/out.yaml", Hosts: []string{}, Secrets: []secretOut{}}); !reflect.DeepEqual(slack.Out, out) {
+		t.Errorf("Al is given the Slack bridge's out machine as %+v", slack.Out)
+	}
+	if settings, ok := gitlab.Settings.(map[string]any); !ok || settings["site"] != "gitlab.com" {
+		t.Errorf("Al is given the GitLab bridge's settings as %#v", gitlab.Settings)
+	}
+	r := s.as("dana").get("/api/me").is(http.StatusOK)
+	var dana meOut
+	r.into(&dana)
+	for _, b := range dana.Office.Bridges {
+		if b.Settings != nil || b.In != nil || b.Out != nil {
+			t.Errorf("Dana is given the %s bridge as %+v", b.Name, b)
+		}
+	}
+	for _, hidden := range []string{`"settings"`, "slack.com", "SLACK_TOKEN", "in.yaml"} {
+		if strings.Contains(string(r.body), hidden) {
+			t.Errorf("Dana's /api/me holds %s", hidden)
+		}
+	}
+}
+
 func TestServerTeamSeenByItsPeople(t *testing.T) {
 	t.Parallel()
 	files := refundOffice(t)

@@ -194,7 +194,7 @@ type Work struct {
 	// taken is the latest reading every area has taken.
 	taken atomic.Pointer[office.Office]
 	// load is how many runs were at work, and how many requests waited
-	// their turn, when the runs were last started.
+	// their turn, when the runs going were last counted.
 	load atomic.Pointer[Load]
 
 	// mu guards what other goroutines hand the driving one.
@@ -284,7 +284,7 @@ type Load struct {
 }
 
 // Load gives how many runs were at work, and how many requests waited
-// their turn, when the runs were last started: none before then.
+// their turn, when the runs going were last counted: none before then.
 func (w *Work) Load() Load {
 	if l := w.load.Load(); l != nil {
 		return *l

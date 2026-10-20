@@ -1,7 +1,8 @@
 // Bridges: each bridge of the office with the folder it runs, whether it
 // listens or hears, its one status, and beneath it the places it listens
 // in, each read as the way something said there goes: to its team, past
-// the team's heed, to its lead, and past its disclosure.
+// the team's heed, to its lead, and past its disclosure. The people who
+// decide a change also see its settings and what its machines reach.
 (function () {
   "use strict";
 
@@ -59,8 +60,45 @@
     return "";
   }
 
-  // bridge draws one bridge: its head, what it runs, what is wrong with it
-  // to those who see that, and its places nested beneath.
+  // hostEl gives where a machine may reach: a host, or anywhere.
+  function hostEl(host) {
+    return host === "*" ? "Anywhere" : B.el("span", {class: "mono"}, host);
+  }
+
+  // machineEl gives one of a bridge's machines, to those who see it: its
+  // file, then the hosts it may connect to and each secret it may send,
+  // with where, nested beneath.
+  function machineEl(m) {
+    const none = B.el("span", {class: "faint"}, "None");
+    return B.el("div", {class: "br-machine"},
+      B.el("span", {class: "mono"}, m.file),
+      B.kv([
+        ["Hosts", m.hosts.length ? B.el("span", {class: "line"}, m.hosts.map(hostEl)) : none],
+        ["Secrets", m.secrets.length ? B.el("div", {class: "br-secrets"}, m.secrets.map((x) =>
+          B.el("div", {class: "line"}, B.el("span", {class: "mono"}, x.name), B.el("span", {class: "faint"}, "→"), ...x.to.map(hostEl)))) : none],
+      ]));
+  }
+
+  // valueEl gives a setting as written: a list or a mapping nested, each
+  // key beside its value, and anything else as text.
+  function valueEl(v) {
+    if (Array.isArray(v)) return B.el("div", {class: "br-secrets"}, v.map(valueEl));
+    if (v && typeof v === "object") return B.kv(Object.keys(v).map((k) => [B.el("span", {class: "mono"}, k), valueEl(v[k])]));
+    return B.el("span", {class: "mono"}, String(v));
+  }
+
+  // settingsEl gives a bridge's settings as written but its from and its
+  // places, which the folder and the places table show; none when that
+  // leaves nothing.
+  function settingsEl(b) {
+    const rest = Object.keys(b.settings || {}).filter((k) => k !== "from" && k !== "places");
+    if (!rest.length) return null;
+    return ["Settings", valueEl(Object.fromEntries(rest.map((k) => [k, b.settings[k]])))];
+  }
+
+  // bridge draws one bridge: its head, what it runs, with its settings and
+  // its machines to those who see them, what is wrong with it to those
+  // who see that, and its places nested beneath.
   function bridge(b) {
     const problems = (B.me.problems || []).filter((p) => p.bridge === b.name);
     return B.el("section", {class: "br", id: "bridge-" + b.name, "aria-label": b.name},
@@ -70,7 +108,9 @@
       B.el("div", {class: "br-body"},
         B.kv([
           ["Folder", b.shipped ? B.el("span", {class: "line"}, "Shipped", B.el("span", {class: "mono faint"}, b.folder)) : B.el("span", {class: "mono"}, b.folder)],
-          ["In", inEl(b)],
+          ["In", b.in ? B.el("div", {class: "br-in"}, inEl(b), machineEl(b.in)) : inEl(b)],
+          b.out ? ["Out", machineEl(b.out)] : null,
+          settingsEl(b),
           b.failing ? ["Failing", B.el("span", {class: "line"},
             B.el("span", {class: "mono br-bad"}, b.failing.error),
             B.el("span", {class: "mono faint"}, "×" + b.failing.failures), B.whenEl(b.failing.since))] : null,

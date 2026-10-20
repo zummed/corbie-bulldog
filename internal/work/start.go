@@ -31,15 +31,18 @@ type ready struct {
 // run began to wait or ended, and, after the office is read or Bulldog is
 // back, every open one. Those ready start oldest first, while the office
 // has room for them; the rest wait their turn. How many are at work, and
-// how many wait, is kept for Load.
+// how many wait, is kept for Load once the runs going could be counted.
 func (w *Work) starts(ctx context.Context, touched map[int64]bool) bool {
 	scan := w.scan && !w.held("scan")
 	if len(touched) == 0 && !w.freed && !scan {
 		return false
 	}
 	w.freed = false
-	working := w.working()
+	working, counted := w.working()
 	room := w.office.Runs - working
+	if !counted {
+		room = 0
+	}
 	candidates := maps.Clone(touched)
 	if room > 0 {
 		maps.Copy(candidates, w.queued)
@@ -70,7 +73,9 @@ func (w *Work) starts(ctx context.Context, touched map[int64]bool) bool {
 			working++
 		}
 	}
-	w.count(Load{Working: working, Queued: len(w.queued)})
+	if counted {
+		w.count(Load{Working: working, Queued: len(w.queued)})
+	}
 	return did
 }
 
@@ -94,14 +99,15 @@ func (w *Work) openRequests(candidates map[int64]bool) error {
 }
 
 // working counts the runs on requests that are working: going, and not
-// waiting on a person, another team or a decision.
-func (w *Work) working() int {
+// waiting on a person, another team or a decision; and says whether they
+// could be counted.
+func (w *Work) working() (int, bool) {
 	notes, err := w.goingNotes()
 	if err != nil {
 		w.Log("the runs going could not be counted, so nothing starts until they are, in %v: %v", Again, err)
 		w.again("scan")
 		w.scan = true
-		return w.office.Runs
+		return 0, false
 	}
 	count := 0
 	for _, n := range notes {
@@ -109,7 +115,7 @@ func (w *Work) working() int {
 			count++
 		}
 	}
-	return count
+	return count, true
 }
 
 // consider says whether a request is ready for its lead to start on it:

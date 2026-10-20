@@ -11,6 +11,13 @@
 .br-bad { color: var(--bad); }
 .br-problems { gap: 4px; }
 
+/* A machine, to those who see it: its file, and what it reaches nested
+   beneath on a guide line */
+.br-in { display: flex; flex-direction: column; gap: 8px; }
+.br-machine { display: flex; flex-direction: column; gap: 6px; }
+.br-machine > .kv { padding-left: 14px; border-left: 1.5px solid var(--line); }
+.br-secrets { display: flex; flex-direction: column; gap: 4px; }
+
 /* Places: one row each, the way a thing said there goes; what is left out
    is the faint last row */
 .br-places > .label { margin-bottom: 4px; }

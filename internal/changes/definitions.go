@@ -213,6 +213,13 @@ func reachOf(o *office.Office, file string, d *machine.Draft) reach {
 	return out
 }
 
+// Allowed gives every permission a definition of the office is allowed, as
+// Corbie read it, sorted: its jobs' and those of the machines it runs, but
+// those of a machine that is another worker's definition.
+func Allowed(o *office.Office, file string, d *machine.Draft) []string {
+	return reachOf(o, file, d).allow
+}
+
 // ownOf gives what a definition's own part may reach: the lists written for
 // the whole of it, those of its ask, and those of its jobs.
 func ownOf(def *machine.Definition) reach {

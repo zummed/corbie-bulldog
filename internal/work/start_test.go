@@ -230,6 +230,35 @@ func TestARequestWaitsItsTurnOldestFirst(t *testing.T) {
 	}
 }
 
+func TestTheLoadKeepsItsLastCountWhileTheRunsCannotBeCounted(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	held, let := b.hold("first", testkit.Say("done"))
+	first := b.chat("kit", "", "first")
+	b.started(first, 1)
+	b.until("the first is held", func() bool { return held() == 1 })
+	b.still()
+	if load := b.w.Load(); load != (Load{Working: 1}) {
+		t.Fatalf("with one run at work, the load is %+v", load)
+	}
+	back := b.away("work_runs")
+	logs := b.logCount()
+	second := b.chat("sam", "", "second")
+	b.until("the runs going could not be counted", func() bool {
+		return slices.ContainsFunc(b.logsSince(logs), func(l string) bool { return strings.Contains(l, "could not be counted") })
+	})
+	b.still()
+	if load := b.w.Load(); load != (Load{Working: 1}) {
+		t.Errorf("while the runs going cannot be counted, the load is %+v, not the last count", load)
+	}
+	back()
+	b.later(Again)
+	b.started(second, 1)
+	let()
+	b.settled(first, requests.Answered)
+	b.settled(second, requests.Answered)
+}
+
 func TestTheOfficeRunsThreeWhenItSaysNone(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, house(t))
