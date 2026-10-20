@@ -199,8 +199,6 @@ B.status = function (r) {
   return B.el("span", {class: "status " + r.state + (r.state === "working" ? " live" : "")}, r.state + (r.state === "waiting" ? on : ""));
 };
 
-// Times, in the office's zone: the time today, the day this week, the
-// date before that.
 // size gives a size in bytes as a person reads one.
 B.size = function (n) {
   if (typeof n !== "number") return "";
@@ -209,6 +207,8 @@ B.size = function (n) {
   return (n / 1024 / 1024).toFixed(1) + " MB";
 };
 
+// Times, in the office's zone: the time today, the day this week, the
+// date before that.
 B.when = function (t) {
   if (!t) return "";
   const d = new Date(t), now = new Date(), zone = B.me ? B.me.office.zone : undefined;
