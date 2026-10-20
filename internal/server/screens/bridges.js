@@ -1,4 +1,4 @@
-// Bridges: each bridge of the office with the folder it runs, whether it
+// Bridges, a part of the office's page: each bridge of the office with the folder it runs, whether it
 // listens or hears, its one status, and beneath it the places it listens
 // in, each read as the way something said there goes: to its team, past
 // the team's heed, to its lead, and past its disclosure. The people who
@@ -130,7 +130,7 @@
         B.bridgeStatus(b)),
       B.el("div", {class: "br-body"},
         B.kv([
-          ["Folder", b.shipped ? B.el("span", {class: "line"}, B.el("a", {href: "#/shipped"}, "Shipped"), B.el("span", {class: "mono faint"}, b.folder)) : B.el("span", {class: "mono"}, b.folder)],
+          ["Folder", b.shipped ? B.el("span", {class: "line"}, B.el("span", {class: "mono"}, b.folder), B.el("a", {class: "faint", href: "#/office/bulldog"}, "From Bulldog")) : B.el("span", {class: "mono"}, b.folder)],
           ["In", b.in ? B.el("div", {class: "br-in"}, inEl(b), machineEl(b.in)) : inEl(b)],
           b.out ? ["Out", machineEl(b.out)] : null,
           settingsEl(b),
@@ -142,10 +142,10 @@
         places(b)));
   }
 
-  B.route(/^#\/bridges$/, function () {
+  B.route(/^#\/office(\/bridges)?$/, function () {
     const all = B.me.office.bridges || [];
     return B.el("div", {class: "brs"},
-      B.head(null, "Bridges"),
+      B.officeHead("bridges"),
       all.length ? all.map(bridge) : B.empty());
-  }, "bridges", (what) => what === "office");
+  }, "office", (what) => what === "office");
 })();

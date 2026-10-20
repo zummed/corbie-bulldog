@@ -1,6 +1,5 @@
 /* bridges: each bridge a block, its places nested beneath it. */
 .brs { display: flex; flex-direction: column; gap: var(--space); }
-.brs .head { margin-bottom: 0; }
 
 /* A bridge: a ruled head with its name and status, then what it runs and
    its places on a guide line beneath */

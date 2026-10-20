@@ -1,4 +1,4 @@
-// Shipped: each thing Bulldog ships, grouped by what it is, with its one
+// From Bulldog, a part of the office's page: each thing Bulldog ships, grouped by what it is, with its one
 // status, and beneath it its page, what it reaches, its settings and where
 // the office uses it. The people who decide a change also see what changed
 // in it since the version that ran before, the office's copies of it, and
@@ -56,7 +56,7 @@
   function useEl(u) {
     const sep = () => B.el("span", {class: "faint"}, "›");
     if (u.bridge) return B.el("div", {class: "sh-use"},
-      B.el("a", {class: "line", href: "#/bridges"}, B.el("span", {class: "mono"}, "office.yaml"), sep(), B.el("span", {class: "mono"}, "bridges"), sep(), B.el("span", {class: "mono"}, u.bridge)),
+      B.el("a", {class: "line", href: "#/office/bridges"}, B.el("span", {class: "mono"}, "office.yaml"), sep(), B.el("span", {class: "mono"}, "bridges"), sep(), B.el("span", {class: "mono"}, u.bridge)),
       u.reach ? B.reachEl(u.reach) : "");
     if (u.worker) return B.el("div", {class: "line"}, B.teamEl(u.team), sep(), B.workerEl(u.worker, u.team, {bare: true}));
     return B.el("div", {class: "line"}, B.teamEl(u.team), sep(), asWord(u.as));
@@ -91,15 +91,15 @@
         actions.length ? B.el("div", {class: "line"}, actions) : ""));
   }
 
-  B.route(/^#\/shipped$/, async function () {
+  B.route(/^#\/office\/bulldog$/, async function () {
     const out = await B.api("/api/shipped");
     return B.el("div", {class: "shs"},
-      B.head(null, "Shipped", B.el("span", {class: "mono faint"}, "Bulldog " + out.version)),
+      B.officeHead("bulldog", B.el("span", {class: "mono faint"}, "Bulldog " + out.version)),
       groups.map(([kind, label]) => {
         const things = out.things.filter((t) => t.kind === kind);
         return B.el("section", {class: "sh-group", "aria-label": label},
           B.label(label, B.el("span", {class: "count"}, String(things.length))),
           things.map(thing));
       }));
-  }, "shipped", (what) => what === "office");
+  }, "office", (what) => what === "office");
 })();

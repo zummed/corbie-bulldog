@@ -1,4 +1,4 @@
-// Changes: the office's files, a change of one's own drafted and checked
+// Changes, a part of the office's page: the office's files, a change of one's own drafted and checked
 // and put to be decided, and the history. An
 // office may have hundreds of files and thousands of changes, so a folder
 // is drawn only when it is opened, lists are paged, and the lists are
@@ -27,7 +27,7 @@
     check: null, drafts: 0, fileQ: "", histQ: "", pages: new Map(),
   };
   addEventListener("hashchange", () => {
-    if (/^#\/(changes|history\/)/.test(location.hash)) return;
+    if (/^#\/(office\/changes|history\/)/.test(location.hash)) return;
     lists = null;
     state.fileQ = ""; state.histQ = ""; state.pages = new Map();
   });
@@ -50,7 +50,7 @@
   }
 
   // B.drafting adds a draft another screen made, as Use and Copy on
-  // Shipped do, to the draft, a field set again taking the place of the
+  // what comes with Bulldog do, to the draft, a field set again taking the place of the
   // one before, and opens Changes on it.
   B.drafting = function (edit) {
     const same = (a, b) => a.path === b.path && a.field.join("\n") === b.field.join("\n");
@@ -58,7 +58,7 @@
     for (const s of edit.set || []) draft.set = draft.set.filter((x) => !same(x, s)).concat([s]);
     state.check = null;
     state.drafts++;
-    location.hash = "#/changes";
+    location.hash = "#/office/changes";
   };
 
   // cleared empties the draft, once it is put.
@@ -71,7 +71,7 @@
     lists = null;
   }
 
-  const fileHref = (path) => "#/changes?file=" + encodeURIComponent(path);
+  const fileHref = (path) => "#/office/changes?file=" + encodeURIComponent(path);
 
   // actor gives who made or decided a change, by the kind of thing it is;
   // any other name is taken for a worker's.
@@ -321,9 +321,14 @@
     return B.sect(B.label("History", B.el("span", {class: "count"}, String(list.length))), s.box, s.out);
   }
 
-  // The view
+  // The view, to the people who decide a change; anyone else is shown the
+  // office's page without it.
 
-  B.route(/^#\/changes(\?.*)?$/, async function () {
+  B.route(/^#\/office\/changes(\?.*)?$/, async function () {
+    if (!B.me.me.decides_changes) {
+      location.replace("#/office");
+      return B.el("div", {});
+    }
     const selected = (B.query().get("file") || "").trim();
     if (!lists || lists.me !== B.me) {
       const me = B.me;
@@ -374,13 +379,13 @@
     update();
 
     return B.el("div", {class: "ch"},
-      B.head(null, "Changes"),
+      B.officeHead("changes"),
       B.el("div", {class: "cols"},
         B.el("div", {class: "main"},
           B.sect(B.label("Draft"), B.el("div", {class: "stack"}, editorBox, newFile(), workers(update), partsBox, B.el("div", {}, check), resultBox)),
           history(lists.history)),
         B.el("div", {class: "side ch-files"}, filesTree(lists.files, selected))));
-  }, "changes", (what) => what === "office");
+  }, "office", (what) => what === "office");
 
   // One change of the history, each file it touched before and after. A
   // file's texts are drawn when it is opened; a change of a few files has
@@ -404,7 +409,7 @@
       return det;
     };
     return B.el("div", {class: "ch"},
-      B.head([B.el("a", {href: "#/changes"}, "Changes")], c.why),
+      B.head([B.el("a", {href: "#/office"}, B.me.office.name), B.el("a", {href: "#/office/changes"}, "Changes")], c.why),
       B.el("div", {class: "stack ch-commit"},
         B.kv([
           ["By", actor(c.by)],
@@ -418,5 +423,5 @@
         c.lets_more_by && c.lets_more_by.length ? B.sect("Lets more by", B.el("div", {class: "lets"}, textRows(c.lets_more_by))) : "",
         out.files.length ? B.sect(B.label("Files", B.el("span", {class: "count"}, String(out.files.length))),
           B.el("div", {class: "rows"}, paged(out.files, version, "change:" + c.id))) : ""));
-  }, "changes", (what) => what === "office");
+  }, "office", (what) => what === "office");
 })();

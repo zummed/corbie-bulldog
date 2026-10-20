@@ -260,7 +260,7 @@
   function stops(p) {
     if (p.worker) return ["w:" + p.team + "/" + p.worker, B.workerEl(p.worker, p.team), true];
     if (p.rule) return ["r:" + p.rule, B.el("span", {class: "line"}, B.ruleEl(p.rule), B.teamEl(p.team)), true];
-    if (p.bridge) return ["b:" + p.bridge, B.el("a", {class: "who", href: "#/bridges"}, B.icon("bridge"), p.bridge), true];
+    if (p.bridge) return ["b:" + p.bridge, B.el("a", {class: "who", href: "#/office/bridges"}, B.icon("bridge"), p.bridge), true];
     return ["t:" + p.team, B.teamEl(p.team), false];
   }
 
@@ -288,7 +288,7 @@
     const all = (B.me.office.bridges || []).filter((b) => b.failing);
     if (!all.length) return null;
     return B.sect("Bridges failing", B.el("div", {class: "rows"}, all.map((b) =>
-      B.el("div", {class: "row"}, B.el("a", {class: "who", href: "#/bridges"}, B.icon("bridge"), b.name),
+      B.el("div", {class: "row"}, B.el("a", {class: "who", href: "#/office/bridges"}, B.icon("bridge"), b.name),
         B.bridgeStatus(b), B.el("span", {class: "mono faint"}, "×" + b.failing.failures),
         B.el("span", {class: "grow mono small"}, b.failing.error), B.whenEl(b.failing.since)))));
   }

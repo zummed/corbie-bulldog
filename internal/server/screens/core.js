@@ -150,7 +150,7 @@ B.chain = function (deciders, here) {
 // placeEl gives a place a bridge listens in as the way to it: the bridge,
 // then the place.
 B.placeEl = function (bridge, place) {
-  return B.el("span", {class: "who"}, B.icon("bridge"), B.el("a", {href: "#/bridges"}, bridge), B.el("span", {class: "faint"}, "›"), B.el("span", {class: "mono"}, place));
+  return B.el("span", {class: "who"}, B.icon("bridge"), B.el("a", {href: "#/office/bridges"}, bridge), B.el("span", {class: "faint"}, "›"), B.el("span", {class: "mono"}, place));
 };
 
 // placesOf gives the places of every bridge that ask a team.
@@ -435,7 +435,6 @@ function writing() {
 function header(nav) {
   document.getElementById("office").textContent = B.me.office.name;
   document.title = B.me.office.name;
-  document.getElementById("changes-link").hidden = !B.me.me.decides_changes;
   for (const a of document.querySelectorAll("[data-nav]")) {
     if (a.dataset.nav === nav) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   }

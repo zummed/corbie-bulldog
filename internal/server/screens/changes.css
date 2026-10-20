@@ -1,5 +1,6 @@
 /* changes: the files beside the draft, the check and the history, and
    one change with each file before and after. */
+.ch > .of-head { margin-bottom: var(--space); }
 .ch .cols > .ch-files { order: -1; flex: 1 1 260px; max-width: 360px; }
 .ch .sect > .search { margin-bottom: 10px; }
 .ch .stack > div:empty { display: none; }

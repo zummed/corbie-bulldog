@@ -178,7 +178,7 @@
         runs.queued ? B.el("span", {class: "tag"}, "Queued " + runs.queued) : null)],
       ["Change", change.length ? B.chain(change, t.name) : ""],
       ["Bridges", bridges.length ? B.el("span", {class: "line"}, bridges.map((b) =>
-        B.el("span", {class: "line tm-bridge"}, B.el("a", {class: "who", href: "#/bridges"}, B.icon("bridge"), b.name), B.bridgeStatus(b)))) : ""],
+        B.el("span", {class: "line tm-bridge"}, B.el("a", {class: "who", href: "#/office/bridges"}, B.icon("bridge"), b.name), B.bridgeStatus(b)))) : ""],
     ];
   }
 
@@ -230,7 +230,7 @@
     const groups = [
       d.tools.length ? B.el("div", {class: "group"}, B.label("Tools", B.el("span", {class: "count"}, String(d.tools.length))),
         table(["Name", "Kind", "Teams"], d.tools.map((x) => B.el("tr", {},
-          B.el("td", {}, x.shipped ? B.el("span", {class: "line"}, B.el("a", {href: "#/shipped"}, x.shipped), B.el("span", {class: "faint"}, x.name)) : x.name),
+          B.el("td", {}, x.shipped ? B.el("span", {class: "line"}, B.el("a", {href: "#/office/bulldog"}, x.shipped), B.el("span", {class: "faint"}, x.name)) : x.name),
           B.el("td", {}, B.el("span", {class: "tag"}, kinds[x.kind] || x.kind)),
           B.el("td", {}, teamsCell(x.teams)))))) : null,
       d.models.length ? B.el("div", {class: "group"}, B.label("Models", B.el("span", {class: "count"}, String(d.models.length))),

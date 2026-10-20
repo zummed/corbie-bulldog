@@ -98,7 +98,7 @@
   function fileEl(path) {
     if (!path) return "";
     return B.me.me.decides_changes
-      ? B.el("a", {class: "mono small wk-file", href: "#/changes?file=" + encodeURIComponent(path)}, path)
+      ? B.el("a", {class: "mono small wk-file", href: "#/office/changes?file=" + encodeURIComponent(path)}, path)
       : B.el("span", {class: "mono small muted wk-file"}, path);
   }
 

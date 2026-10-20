@@ -70,7 +70,7 @@ pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: var(--data
 /* The header */
 .top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 24px; padding: 0 24px; min-height: 56px; border-bottom: var(--wall) solid var(--ink); background: var(--paper); position: sticky; top: 0; z-index: 10; }
 .brand { font-weight: 700; font-size: 17px; color: var(--ink); }
-.brand:hover { text-decoration: none; }
+.brand:hover { text-decoration: none; color: var(--plan); }
 .nav { display: flex; flex-wrap: wrap; gap: 2px; flex: 1 1 280px; }
 .nav a { display: inline-flex; align-items: center; min-height: 54px; padding: 0 12px; color: var(--ink); font-weight: 500; border-bottom: 3px solid transparent; margin-bottom: -2px; }
 .nav a:hover { text-decoration: none; border-bottom-color: var(--line); }
@@ -223,6 +223,10 @@ input[type="file"].in { min-height: 0; padding: 6px; border-style: dashed; font-
 .tabs a { padding: 6px 10px; color: var(--ink2); font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .tabs a:hover { text-decoration: none; color: var(--ink); }
 .tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--plan); font-weight: 600; }
+
+/* The office's page: its name, and its parts as tabs beneath */
+.of-head .head { margin-bottom: 10px; }
+.of-head > .tabs { margin-bottom: 0; }
 
 /* (i): a little more, on asking */
 .info { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; padding: 0; border: 1.2px solid var(--ink2); border-radius: 50%; background: transparent; color: var(--ink2); font: 600 10px/1 var(--mono); cursor: pointer; text-transform: none; letter-spacing: 0; }

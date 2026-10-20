@@ -46,7 +46,7 @@
           B.sect("Decides", decidesEl(me)),
           B.sect("Change", B.kv([
             ["Decided by", change.length ? B.chain(change, "office") : B.empty()],
-            ["You", me.decides_changes ? B.el("a", {href: "#/changes"}, "Decide") : B.el("span", {class: "faint"}, "No")],
+            ["You", me.decides_changes ? B.el("a", {href: "#/office/changes"}, "Decide") : B.el("span", {class: "faint"}, "No")],
           ])),
           B.me.problems.length ? B.sect("Problems", B.el("div", {class: "rows"}, B.me.problems.map((p) =>
             B.el("div", {class: "row"}, B.teamEl(p.team), B.el("span", {class: "grow"}, p.said))))) : null),
