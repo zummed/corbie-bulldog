@@ -10,6 +10,7 @@
   const KIND = {action: "Authorisation", disclosure: "Disclosure", change: "Change"};
   const ENDED = {yes: "approved", refused: "refused", withdrawn: "withdrawn"};
   const WHAT = {answer: "Answer", question: "Question", tell: "Tell", sub: "Sub-request"};
+  const RUN_KIND = {work: "Work", heed: "Heed", decide: "Decide"};
   const FEW = 3; // of a long list of people, how many are drawn before +N
 
   // clip gives a text on one line, no longer than n.
@@ -207,6 +208,53 @@
   // whom it waits on.
   function waitsOn(w) { return w.kind === "person" ? "p:" + w.name : w.kind === "guest" ? "g:" + w.id : ""; }
 
+  // The words a thread's entries are read by, for their kinds; Bulldog's
+  // own have none, and what was done of a decision is named by its kind.
+  const ENTRY = {asked: "Asked", said: "Said", question: "Question", told: "Told", replied: "Reply", sub: "Sub-request",
+    answer: "Answer", late: "Late answer", held: "Held", decide: "Asked to decide", decided: "Verdict", referred: "Referred",
+    notice: "Notice", noted: "Noted", bulldog: ""};
+
+  function labelOf(v, e) {
+    if (e.kind !== "decision") return e.kind in ENTRY ? ENTRY[e.kind] : e.kind;
+    const d = (v.decisions || []).find((x) => x.id === e.decision);
+    return d ? KIND[d.kind] || d.kind : "Decision";
+  }
+
+  // about says what each label of a thread is, and whether anything waits
+  // on it.
+  function about(lead) {
+    return {
+      Asked: "What was asked, first in every request. It waits on " + lead + "'s answer.",
+      Said: "More said in the request. It makes an answered request working again.",
+      Question: "A worker's question to a person. It waits on them until they reply.",
+      Told: "A worker telling someone something. Nothing waits on it.",
+      Reply: "A person's reply to what was put to them. It ends their wait.",
+      "Sub-request": "A worker asking another team, which makes a request of its own. The worker waits on its answer.",
+      Answer: "The answer of " + lead + ", said where the request was asked. Nothing waits on it.",
+      "Late answer": "A sub-request's answer that came when no run waited for it. It starts " + lead + " again.",
+      Held: "The answer of " + lead + ", held by the team's disclosure. It is said once it is disclosed.",
+      "Asked to decide": "A decision put to people. It waits on them until one approves or refuses.",
+      Verdict: "A decider's yes or refusal, with its note. It ends the decision.",
+      Referred: "A rule or a worker sending a decision on to whoever is next, with its note.",
+      Notice: "Bulldog telling someone they are asked no longer, or that a message could not be sent. Nothing waits on it.",
+      Noted: "Kept in the request; " + lead + " did not start on it, and is given it in the thread when next asked.",
+      Authorisation: "A held action's decision: whom it waits on, and how it ended. The action waits on it.",
+      Disclosure: "A disclosure: whom it waits on, and how it ended. What would leave waits on it.",
+      Change: "A change to the office files: whom it waits on, and how it ended. The change waits on it.",
+      Decision: "A decision: whom it waits on, and how it ended.",
+    };
+  }
+
+  // threadLabel gives the Thread heading, with what each label its entries
+  // show is behind its (i).
+  function threadLabel(v) {
+    const lines = about(B.leadCalled(B.team(v.team)));
+    const shown = new Set(v.entries.map((e) => labelOf(v, e)));
+    if (v.entries.some((e) => e.noted)) shown.add("Noted");
+    const said = [...shown].filter((l) => lines[l]);
+    return B.label("Thread", said.length ? B.info("About the thread", said.map((l) => B.el("div", {}, B.el("b", {}, l), " " + lines[l]))) : null);
+  }
+
   // entry draws one entry of a thread. A question or a decision put to
   // people is open while nothing answers it and the request waits on one
   // of those it was put to.
@@ -223,7 +271,7 @@
     const to = e.to || [];
     const div = B.el("article", {class: cls},
       B.el("div", {class: "hd"},
-        B.el("span", {class: "k"}, e.kind === "sub" ? "sub-request" : e.kind),
+        B.el("span", {class: "k"}, labelOf(v, e)),
         B.party(e.by),
         to.length ? [arrow(), few(to, B.party, true)] : null,
         where(e.in),
@@ -279,6 +327,8 @@
       v.before = back.before || 0;
       if (kept.n === v.number) { kept.entries = v.entries; kept.before = v.before; }
       fill(box, v);
+      const label = box.parentElement && box.parentElement.querySelector(":scope > .label");
+      if (label) label.replaceWith(threadLabel(v));
     } catch (err) {
       button.disabled = false;
       B.trouble(err);
@@ -525,7 +575,7 @@
     const ends = r.says || ENDS[r.status] || r.status;
     return B.el("div", {class: "rq-run"},
       B.el("div", {class: "line"},
-        B.el("span", {class: "kind"}, r.kind),
+        B.el("span", {class: "kind"}, RUN_KIND[r.kind] || r.kind),
         r.kind === "heed" ? B.ruleEl(r.worker) : r.worker ? B.workerEl(r.worker, r.team, {bare: true}) : B.el("span", {class: "mono"}, r.name),
         B.el("span", {class: "rq-end status " + (HEED[r.says] || RUN[r.status] || "")}, ends)),
       B.el("div", {class: "line"},
@@ -551,6 +601,7 @@
     const routineBy = v.origin && v.origin.by ? ["Run now", B.party(v.origin.by)] : null;
     return B.band("In", [way, ["Asker", asker], routineBy,
       heed ? ["Heed", B.el("span", {class: "line"}, B.el("span", {class: "status " + (HEED[heed.says] || RUN[heed.status] || "")}, heed.says || ENDS[heed.status] || heed.status),
+        heed.says || heed.status === "going" ? null : B.info("About the heed's end", "Counted as Act: " + B.leadCalled(B.team(v.team)) + " was started."),
         B.ruleEl(heed.worker))] : null]);
   }
 
@@ -614,7 +665,16 @@
     const value = !d.set ? B.el("span", {class: "faint"}, "None")
       : !d.needed ? B.el("span", {class: "line"}, "Not needed", B.info("About Not needed", "Read only by people of " + B.teamCalled(v.team) + "."))
       : B.chain(d.deciders || [], v.team);
-    return ["Disclosure", value, ds.length ? B.el("div", {class: "rq-list"}, ds.map((d) => authorisation(d, true))) : null];
+    return [B.disclosureLabel(B.team(v.team) || {called: B.teamCalled(v.team)}), value, ds.length ? B.el("div", {class: "rq-list"}, ds.map((d) => authorisation(d, true))) : null];
+  }
+
+  // labelInfo says what a request's Quiet or Noted means, behind its (i).
+  function labelInfo(v) {
+    const lead = B.leadCalled(B.team(v.team));
+    if (v.state !== "answered") return null;
+    if (v.label === "quiet") return B.info("About quiet", lead + " ran and answered with nothing, so nothing was said.");
+    if (v.label === "noted") return B.info("About noted", "Kept in the request; " + lead + " did not start on it, and is given it in the thread when next asked.");
+    return null;
   }
 
   // scrollTo brings an entry of the thread into view, when it is drawn.
@@ -645,7 +705,7 @@
       B.whenEl(v.source.at)) : null;
 
     return B.el("div", {class: "rq"},
-      B.head(crumbs, title, v.whole && v.state ? B.status(v) : null, stop),
+      B.head(crumbs, title, v.whole && v.state ? [B.status(v), labelInfo(v)] : null, stop),
       v.whole ? B.el("div", {class: "rq-meta"}, B.kv([
         ["Made", B.whenEl(v.made)],
         ["Source", source],
@@ -653,7 +713,7 @@
       B.el("div", {class: "cols"},
         B.el("div", {class: "main"},
           B.el("section", {class: "sect"},
-            B.label(v.whole ? "Thread" : "Put to you"),
+            v.whole ? threadLabel(v) : B.label("Put to you"),
             v.entries.length || v.before ? threadEl : B.empty()),
           compose(v)),
         B.el("div", {class: "side"},

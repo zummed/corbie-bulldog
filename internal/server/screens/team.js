@@ -386,20 +386,20 @@
 
     const whole = Array.isArray(t.workers);
     const channel = B.placesOf(t.name).some((x) => x.place.name !== "direct");
-    const team = B.el("section", {class: "room te-room", "aria-label": "Team"},
-      B.el("div", {class: "plate"}, B.el("b", {}, "Team")),
+    const team = B.el("section", {class: "room te-room", "aria-label": t.within ? "Team" : "Office"},
+      B.el("div", {class: "plate"}, t.within ? B.el("b", {}, "Team")
+        : [B.el("b", {}, "Office"), ...B.info("About the office", "The top team, written in office.yaml. A decision nobody else takes ends at its everything.")]),
       B.el("div", {class: "bands"},
         B.band("In", [
           ["Asked", B.el("div", {class: "stack band-list"}, B.asksIn(t.name))],
-          channel || t.heed ? [B.el("span", {class: "line"}, "Heed", ...B.info("About heed", "Asked first about what is said at a channel place. Act: " + (t.lead || "the lead") + " starts. Note: kept in the request; nothing runs or is said.")),
-            B.heedEl(t), B.settingsEl(t.heed && t.heed.settings)] : null,
+          channel || t.heed ? [B.heedLabel(t), B.heedEl(t), B.settingsEl(t.heed && t.heed.settings)] : null,
         ]),
         B.band("Team", [
           ["People", people(t) || (t.reached && t.reached.length ? null : B.empty())],
           !(t.people && t.people.length) && t.reached && t.reached.length
             ? [B.el("span", {class: "line"}, "Reached", ...B.info("About reached", "The people this team's decisions reach. They stand as its people.")),
               B.el("span", {class: "line te-people te-reached"}, t.reached.map((n) => B.personEl(n)))] : null,
-          ["Lead", B.el("span", {class: "line"}, leadEl(t), t.lead_runs ? null : B.el("span", {class: "status failed"}, "cannot run"))],
+          [B.leadLabel(t), B.el("span", {class: "line"}, leadEl(t), t.lead_runs ? null : B.el("span", {class: "status failed"}, "cannot run"))],
           whole ? ["Workers", tree(t)] : null,
           whole ? ["Runs", runsEl(t)] : null,
           ["Within", t.within ? B.teamEl(t.within) : null],
@@ -409,7 +409,7 @@
         B.band("Out", [
           whole ? ["Asks", asksEl(t)] : null,
           whole ? [B.el("span", {class: "line"}, "Authorisation", ...B.info("About authorisation", "Asked in order. A yes or a refusal ends it; a refer goes on, with its note, to whoever is next.")), authorisationEl(t)] : null,
-          whole ? [B.el("span", {class: "line"}, "Disclosure", ...B.info("About disclosure", "Asked before anything leaves " + t.called + ": answers, questions and tells to people outside it, requests to other teams. Yes: disclosed as it was. Refused: back to " + (t.lead || "the lead") + ", with the note.")), disclosureEl(t)] : null,
+          whole ? [B.disclosureLabel(t), disclosureEl(t)] : null,
           ["Answer", B.answersTo(t.name)],
         ])));
 

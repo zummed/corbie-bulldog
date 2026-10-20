@@ -135,7 +135,7 @@ func TestEveryoneElseAskedIsToldItIsDecided(t *testing.T) {
 	}
 	records := b.entries(sub, decisions.KindDecision)
 	last := records[len(records)-1]
-	if last.Text != "Refund one charge: approved by Lee, 10:00" || len(last.To) != 1 || last.To[0].Name != "priya" {
+	if last.Text != "Refund one charge: approved by Lee, 10:00" || last.Decision != dec.ID || len(last.To) != 1 || last.To[0].Name != "priya" {
 		t.Fatalf("the last record is %+v", last)
 	}
 	ds, err := b.reqs.Deliveries(last.ID)

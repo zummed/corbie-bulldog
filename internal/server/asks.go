@@ -161,19 +161,20 @@ type (
 		Events json.RawMessage `json:"events,omitempty"`
 	}
 	entryOut struct {
-		ID      int64          `json:"id"`
-		Kind    string         `json:"kind"`
-		By      partyOut       `json:"by"`
-		To      []partyOut     `json:"to"`
-		At      time.Time      `json:"at"`
-		Text    string         `json:"text"`
-		Files   []fileOut      `json:"files"`
-		In      requests.Where `json:"in"`
-		Read    string         `json:"read,omitempty"`
-		Answers int64          `json:"answers,omitempty"`
-		Sub     int64          `json:"sub,omitempty"`
-		Noted   bool           `json:"noted,omitempty"`
-		Carried []carriedOut   `json:"carried,omitempty"`
+		ID       int64          `json:"id"`
+		Kind     string         `json:"kind"`
+		By       partyOut       `json:"by"`
+		To       []partyOut     `json:"to"`
+		At       time.Time      `json:"at"`
+		Text     string         `json:"text"`
+		Files    []fileOut      `json:"files"`
+		In       requests.Where `json:"in"`
+		Read     string         `json:"read,omitempty"`
+		Answers  int64          `json:"answers,omitempty"`
+		Sub      int64          `json:"sub,omitempty"`
+		Decision int64          `json:"decision,omitempty"`
+		Noted    bool           `json:"noted,omitempty"`
+		Carried  []carriedOut   `json:"carried,omitempty"`
 	}
 	fileOut struct {
 		Name string `json:"name"`
@@ -751,7 +752,7 @@ func entryOf(e requests.Entry, carried []bridges.Carried, party func(requests.Wh
 		to = append(to, partyOf(party(w)))
 	}
 	out := entryOut{ID: e.ID, Kind: e.Kind, By: partyOf(party(e.By)), To: to, At: e.At, Text: e.Text, Files: []fileOut{}, In: e.In, Read: e.Read,
-		Answers: e.Answers, Sub: e.Sub, Noted: e.Noted}
+		Answers: e.Answers, Sub: e.Sub, Decision: e.Decision, Noted: e.Noted}
 	for i, f := range e.Files {
 		out.Files = append(out.Files, fileOut{Name: f.Name, Size: f.Size, URL: fmt.Sprintf("/files/%d-%d", e.ID, i)})
 	}

@@ -196,17 +196,16 @@
       B.el("div", {class: "bands"},
         B.band("In", [
           ["Asked", B.el("div", {class: "stack band-list"}, B.asksIn(t.name))],
-          channel || t.heed ? [B.el("span", {class: "line"}, "Heed", ...B.info("About heed", "Asked first about what is said at a channel place. Act: the lead starts. Note: kept in the request; nothing runs or is said.")),
-            B.heedEl(t), B.settingsEl(t.heed && t.heed.settings)] : null,
+          channel || t.heed ? [B.heedLabel(t), B.heedEl(t), B.settingsEl(t.heed && t.heed.settings)] : null,
         ]),
         B.band("Team", [
           t.people && t.people.length ? ["People", people(o, t.people)] : null,
           !(t.people && t.people.length) && t.reached && t.reached.length
             ? [B.el("span", {class: "line"}, "Reached", ...B.info("About reached", "The people this team's decisions reach. They stand as its people.")), people(o, null, t.reached)] : null,
-          ["Lead", B.el("span", {class: "line"}, leadEl(o, t), t.lead_runs ? null : B.el("span", {class: "status failed"}, "cannot run"))],
+          [B.leadLabel(t), B.el("span", {class: "line"}, leadEl(o, t), t.lead_runs ? null : B.el("span", {class: "status failed"}, "cannot run"))],
         ]),
         B.band("Out", [
-          t.discloses !== undefined ? ["Disclosure", t.discloses ? "Set" : B.el("span", {class: "faint"}, "None")] : null,
+          t.discloses !== undefined ? [B.disclosureLabel(t), t.discloses ? "Set" : B.el("span", {class: "faint"}, "None")] : null,
           ["Answer", B.answersTo(t.name)],
         ])),
       (o.inside.get(t.name) || []).length ? B.el("div", {class: "rows tm-tree"}, list(o, t.name)) : null);
@@ -296,7 +295,7 @@
         B.el("span", {class: "clip", title: in_.map((t) => t.called).join(", ") || null}, in_.flatMap((t, i) => [i ? ", " : "", B.el("a", {href: B.teamHref(t.name)}, t.called)])),
         B.el("span", {class: "mono clip"}, (p.bridges || []).join(", ")));
     };
-    const folk = search("peopleQ", "Search people", o.all, (p) => o.personText.get(p), (found, q) =>
+    const folk = search("peopleQ", "Search everyone", o.all, (p) => o.personText.get(p), (found, q) =>
       found.length ? paged(B.el("div", {class: "rows tm-people"}), "people", q, found, personRow, "div") : B.empty());
 
     const count = (n) => B.el("span", {class: "count"}, String(n));
@@ -305,7 +304,7 @@
       B.sect(B.label("Teams", count(o.teams.length), ...B.info("About teams", "Teams are sealed: only people named in a team see what it read.")),
         teams.box, teams.out),
       defined(d),
-      B.sect(B.label("People", count(o.all.length)), folk.box, folk.out));
+      B.sect(B.label("Everyone", count(o.all.length), ...B.info("About everyone", "Every person written under everyone in office.yaml. A team's People are those its file names.")), folk.box, folk.out));
   }
 
   // The view is drawn again only when the office it shows has changed: the

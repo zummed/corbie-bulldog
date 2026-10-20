@@ -204,6 +204,28 @@ B.heedEl = function (t) {
     t.heed.stopped ? B.el("span", {class: "status failed"}, "stopped") : null);
 };
 
+// leadCalled gives a team's lead as it is called, or "the lead".
+B.leadCalled = function (t) {
+  if (!t || !t.lead) return "the lead";
+  return B.person(t.lead) ? B.personCalled(t.lead) : t.lead;
+};
+
+// The labels of a team's Heed, Lead and Disclosure rows, each with what
+// it means for this team behind its (i).
+B.heedLabel = function (t) {
+  return B.el("span", {class: "line"}, "Heed", ...B.info("About heed",
+    "Asked first about what is said at a channel place. Act: " + B.leadCalled(t) + " starts. Note: kept in the request; nothing runs or is said."));
+};
+B.leadLabel = function (t) {
+  return B.el("span", {class: "line"}, "Lead", ...B.info("About lead", B.person(t.lead)
+    ? "Each request to " + t.called + " waits on " + B.leadCalled(t) + ", and what they say in it is its answer. A routine's request goes to the worker the routine names. Being lead decides nothing."
+    : "Started on each request to " + t.called + ", and again on anything said to " + t.called + " in it, answered or not. A routine's request starts the worker the routine names. Being lead decides nothing."));
+};
+B.disclosureLabel = function (t) {
+  return B.el("span", {class: "line"}, "Disclosure", ...B.info("About disclosure",
+    "Asked before anything leaves " + t.called + ": answers, questions and tells to people outside it, requests to other teams. Yes: disclosed as it was. Refused: back to " + B.leadCalled(t) + ", with the note."));
+};
+
 // settingsEl gives a rule's settings, each its value, marked Default when
 // the team file leaves it out, or None when nothing gives it one, and what
 // it is for behind its (i).

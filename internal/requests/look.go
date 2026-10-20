@@ -242,7 +242,7 @@ func (l *look) scanRequests(rows *sql.Rows) ([]*Request, error) {
 // entries reads a request's thread, in the order it was written, its times
 // in the office's zone, each message its team's heed noted marked so.
 func (l *look) entries(n int64) ([]Entry, error) {
-	rows, err := l.q.Query(`SELECT id, request, kind, by_, to_, at, text, came_in, read_team, read_known, answers, sub, mentioned
+	rows, err := l.q.Query(`SELECT id, request, kind, by_, to_, at, text, came_in, read_team, read_known, answers, sub, decision, mentioned
 		FROM requests_entries WHERE request = ? ORDER BY id`, n)
 	if err != nil {
 		return nil, failed(err)
@@ -252,7 +252,7 @@ func (l *look) entries(n int64) ([]Entry, error) {
 	for rows.Next() {
 		var e Entry
 		var by, to, at, in string
-		if err := rows.Scan(&e.ID, &e.Request, &e.Kind, &by, &to, &at, &e.Text, &in, &e.Read, &e.ReadKnown, &e.Answers, &e.Sub, &e.Mentioned); err != nil {
+		if err := rows.Scan(&e.ID, &e.Request, &e.Kind, &by, &to, &at, &e.Text, &in, &e.Read, &e.ReadKnown, &e.Answers, &e.Sub, &e.Decision, &e.Mentioned); err != nil {
 			return nil, failed(err)
 		}
 		if err := errors.Join(json.Unmarshal([]byte(by), &e.By), json.Unmarshal([]byte(to), &e.To), json.Unmarshal([]byte(in), &e.In)); err != nil {

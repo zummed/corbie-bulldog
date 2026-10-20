@@ -387,7 +387,7 @@ func (d *Decisions) refer(o *office.Office, dec *Decision, w Word) error {
 	if err != nil {
 		return err
 	}
-	_, err = d.requests.Write(dec.Request, requests.Writing{Kind: KindReferred, By: d.whoOf(dec, w), To: to, Read: true,
+	_, err = d.requests.Write(dec.Request, requests.Writing{Kind: KindReferred, By: d.whoOf(dec, w), To: to, Read: true, Decision: dec.ID,
 		Text: "referred by " + w.Called + noted(w.Note)})
 	return err
 }
@@ -433,7 +433,7 @@ func (d *Decisions) askPeople(o *office.Office, dec *Decision, s Stage) error {
 		if err != nil {
 			return err
 		}
-		e, err := d.requests.Write(dec.Request, requests.Writing{Kind: KindDecide, By: requests.Bulldog, To: persons, Waits: persons, Read: true, Text: text})
+		e, err := d.requests.Write(dec.Request, requests.Writing{Kind: KindDecide, By: requests.Bulldog, To: persons, Waits: persons, Read: true, Decision: dec.ID, Text: text})
 		if err != nil {
 			return err
 		}
@@ -466,7 +466,7 @@ func (d *Decisions) unsent(o *office.Office, dec *Decision, people []string) err
 			}
 			text := fmt.Sprintf("The direct message asking %s to decide could not be sent on %s, which a problem of the office stops: %s is asked on the screens and on any other bridge.",
 				o.People[name].Called, capital(id.Bridge), o.People[name].Called)
-			if _, err := d.requests.Write(dec.Request, requests.Writing{Kind: KindNotice, By: requests.Bulldog, Read: true, Text: text}); err != nil {
+			if _, err := d.requests.Write(dec.Request, requests.Writing{Kind: KindNotice, By: requests.Bulldog, Read: true, Decision: dec.ID, Text: text}); err != nil {
 				return err
 			}
 		}
@@ -541,7 +541,7 @@ func (d *Decisions) ended(o *office.Office, dec *Decision) error {
 	if err != nil {
 		return err
 	}
-	w := requests.Writing{Kind: KindDecided, By: d.whoOf(dec, *dec.By), To: to, Read: true, Answers: dec.Entry, Text: how(dec) + noted(dec.By.Note)}
+	w := requests.Writing{Kind: KindDecided, By: d.whoOf(dec, *dec.By), To: to, Read: true, Answers: dec.Entry, Decision: dec.ID, Text: how(dec) + noted(dec.By.Note)}
 	w.Working = dec.Ended == Refused && dec.Kind == OfDisclosure && dec.Said.What == SaysAnswer
 	if _, err := d.requests.Write(dec.Request, w); err != nil {
 		return err
@@ -628,7 +628,7 @@ func verdictOf(q querier, ask string) (*Verdict, error) {
 // team.
 func (d *Decisions) record(o *office.Office, dec *Decision, text string, to []string) error {
 	_, err := d.requests.Write(dec.Request, requests.Writing{Kind: KindDecision, By: requests.Bulldog, To: d.persons(o, to),
-		Read: dec.Kind == OfDisclosure, Text: text})
+		Read: dec.Kind == OfDisclosure, Decision: dec.ID, Text: text})
 	return err
 }
 
@@ -638,7 +638,7 @@ func (d *Decisions) notice(o *office.Office, dec *Decision, people []string, tex
 	if len(to) == 0 {
 		return nil
 	}
-	_, err := d.requests.Write(dec.Request, requests.Writing{Kind: KindNotice, By: requests.Bulldog, To: to, Read: true, Text: text})
+	_, err := d.requests.Write(dec.Request, requests.Writing{Kind: KindNotice, By: requests.Bulldog, To: to, Read: true, Decision: dec.ID, Text: text})
 	return err
 }
 

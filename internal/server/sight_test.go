@@ -455,6 +455,24 @@ func TestServerRequestsSeenAsRequestsSay(t *testing.T) {
 	if !strings.Contains(string(sub.body), "Refund one charge, by its id: approved by Lee") {
 		t.Errorf("Dana does not see the refund decided: %s", sub.body)
 	}
+	var s struct {
+		Entries   []entryOut
+		Decisions []decisionOut
+	}
+	sub.into(&s)
+	records := 0
+	for _, e := range s.Entries {
+		if e.Kind != decisions.KindDecision {
+			continue
+		}
+		records++
+		if !slices.ContainsFunc(s.Decisions, func(d decisionOut) bool { return d.ID == e.Decision && d.Kind == decisions.OfAction }) {
+			t.Errorf("Dana's entry %q names decision %d, which she is not given as a held action: %+v", e.Text, e.Decision, s.Decisions)
+		}
+	}
+	if records == 0 {
+		t.Errorf("Dana is given no entry of the refund's decision: %s", sub.body)
+	}
 	for _, r := range []reply{view, sub} {
 		if strings.Contains(string(r.body), "4111") || strings.Contains(string(r.body), "a duplicate") {
 			t.Errorf("Dana sees what payments read: %s", r.body)

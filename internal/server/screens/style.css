@@ -216,6 +216,7 @@ input[type="file"].in { min-height: 0; padding: 6px; border-style: dashed; font-
 /* (i): a little more, on asking */
 .info { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; padding: 0; border: 1.2px solid var(--ink2); border-radius: 50%; background: transparent; color: var(--ink2); font: 600 10px/1 var(--mono); cursor: pointer; text-transform: none; letter-spacing: 0; }
 .info:hover { color: var(--ink); border-color: var(--ink); }
+.plate .info, .plate .info:hover { align-self: center; border-color: var(--paper); color: var(--paper); }
 .pop { max-width: 320px; margin: 0; padding: 10px 12px; border: 1.5px solid var(--ink); background: var(--sheet); color: var(--ink); box-shadow: 3px 3px 0 var(--ink); font: 13px/1.45 var(--sans); text-transform: none; letter-spacing: 0; font-weight: 400; }
 
 /* What waits on the one looking */

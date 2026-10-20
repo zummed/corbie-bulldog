@@ -743,21 +743,22 @@ func (s *Store) Readers(bridge, place string, ids []string) error {
 
 // A Writing is an entry as another area writes it, a decision's among
 // them: what it is, whether it is what was read of the request's team or
-// what was done, the open entry it answers, which it closes, and whom it
-// waits on. Working says it starts the request's lead again: an answered
+// what was done, the open entry it answers, which it closes, the decision
+// it is of, and whom it waits on. Working says it starts the request's lead again: an answered
 // request is working again, and a held answer of a lead who is a person
 // is no longer held, so they are waited on again.
 type Writing struct {
-	Kind    string
-	By      Who
-	To      []Who
-	Text    string
-	Files   []File
-	In      Where
-	Read    bool
-	Answers int64
-	Waits   []Who
-	Working bool
+	Kind     string
+	By       Who
+	To       []Who
+	Text     string
+	Files    []File
+	In       Where
+	Read     bool
+	Answers  int64
+	Decision int64
+	Waits    []Who
+	Working  bool
 }
 
 // Write writes an entry as another area gives it. Whom it is to who is a
@@ -790,7 +791,7 @@ func (s *Store) Write(n int64, w Writing) (*Entry, error) {
 				return fmt.Errorf("entry %d is not in request %d", w.Answers, n)
 			}
 		}
-		entry := Entry{Kind: w.Kind, By: w.By, To: w.To, Text: w.Text, In: w.In, Answers: w.Answers}
+		entry := Entry{Kind: w.Kind, By: w.By, To: w.To, Text: w.Text, In: w.In, Answers: w.Answers, Decision: w.Decision}
 		if w.Read {
 			entry.Read, entry.ReadKnown = r.Team, r.TeamKnown
 		}
@@ -920,9 +921,9 @@ func (c *change) add(r *Request, e Entry, files []File, waits []Who) (*Entry, er
 	if e.To == nil {
 		e.To = []Who{}
 	}
-	res, err := c.tx.Exec(`INSERT INTO requests_entries(request, kind, by_, to_, at, text, came_in, read_team, read_known, answers, sub, mentioned)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, r.Number, e.Kind, jsonOf(e.By), jsonOf(e.To), stamp(c.at), e.Text, jsonOf(e.In),
-		e.Read, e.ReadKnown, e.Answers, e.Sub, e.Mentioned)
+	res, err := c.tx.Exec(`INSERT INTO requests_entries(request, kind, by_, to_, at, text, came_in, read_team, read_known, answers, sub, decision, mentioned)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, r.Number, e.Kind, jsonOf(e.By), jsonOf(e.To), stamp(c.at), e.Text, jsonOf(e.In),
+		e.Read, e.ReadKnown, e.Answers, e.Sub, e.Decision, e.Mentioned)
 	if err != nil {
 		return nil, failed(err)
 	}
