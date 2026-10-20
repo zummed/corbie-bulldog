@@ -31,7 +31,7 @@ A builder is a worker whose definition names the builder's tools, a tools file B
 | `office_remove(path)` | has the draft remove a file |
 | `office_check()` | reads the office as the draft would make it: every problem, and what the change says |
 | `office_put(why)` | puts the draft to be decided, and waits for the decision |
-| `manual(page)` | how an office is written, with whole examples of a worker, a rule and a bridge, and any page of Corbie's manual |
+| `manual(page)` | how an office is written, with whole examples of a worker, its tool keeping the service's reason, a rule and its whole input, rules in a chain, a heed and its whole input, and a bridge, which listens or hears; and any page of Corbie's manual |
 
 Each is a tool Bulldog ships: a run that waits on a ticket, which Bulldog answers. `office_read` reads any file of the office, every team's notes among them, since notes are files and are not sealed.
 

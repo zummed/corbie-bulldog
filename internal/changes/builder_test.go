@@ -207,7 +207,7 @@ func TestBuilderChecksWithoutPutting(t *testing.T) {
 func TestBuilderReadsTheManual(t *testing.T) {
 	t.Parallel()
 	page := Manual("office")
-	for _, example := range []string{"agent: weather", "small-orders.js", "flow: slack-out"} {
+	for _, example := range []string{"agent: weather", "small-orders.js", `r.by === "finds-numbers.js"`, "heed: { rule:", "flow: slack-out"} {
 		if !strings.Contains(page, example) {
 			t.Errorf("the office page holds no %q", example)
 		}

@@ -46,6 +46,7 @@ routines:
 | `about` | one line saying what the team looks after; workers choosing whom to ask are given it |
 | `people` | the team's people, by the names `everyone` writes them under |
 | `lead` | the one worker or person of the team that answers for it |
+| `heed` | one rule that weighs what is said at a channel place before the lead starts on it, as the section on a heed says |
 | `decide` | ordered lists of deciders: `everything`; the name of a tool a worker of the team holds, a stage of a flow or a job of a statechart; and at the top, `change`, for a change to the office files |
 | `disclosure` | a list of deciders for everything the team says outside itself |
 | `routines` | what is said to one of its workers at a time of day, `"18:00"`, or with a weekday, `"mon 09:00"`, in the office's zone |
@@ -78,9 +79,16 @@ tools:
 // tools/forecast.js
 const key = secrets.get("WEATHER_KEY")
 const reply = http.get("https://api.weather.example/v1/forecast?days=" + (input.days || 3),
-  { headers: { Authorization: secrets.text`Bearer ${key}` }, as: "json" })
-return reply.body.days.map(d => d.date + ": " + d.summary)
+  { headers: { Authorization: secrets.text`Bearer ${key}` }, as: "text" })
+if (reply.status < 200 || reply.status > 299) {
+  throw new Error("The weather service answered " + reply.status + ": " + reply.body.slice(0, 200))
+}
+return JSON.parse(reply.body).days.map(d => d.date + ": " + d.summary)
 ```
+
+A reply that is not a 2xx is no error to a script: ask for it as text, check its status, and parse it only after a 2xx. A tool that throws with the status and the start of the body keeps the service's reason, as "answered 401: Bad HTTP authentication header format". It goes back to the worker as the tool's error, and the team's people read it in the run's steps, and in Bulldog's entry to them when it fails the run, as a script a flow runs does; whoever asked is told only that the team could not answer.
+
+Hold as a secret only what the service never sends back. An identifier it does send back, such as a client id, is written plainly, or masking spoils whatever carries it.
 
 A worker has nothing of Bulldog's that its definition does not name, each by its path in `.bulldog/`: the talk tools, `tools/talk/talk.yaml`, for asking another team or a person, telling someone, and reading the thread; the notes tool, `tools/notes/notes.yaml`, for writing its team's notes; the docs tools, `tools/docs/docs.yaml`, for reading the docs of its team and the teams around it; the builder's tools, `tools/build/build.yaml`. Each thing Bulldog ships is a folder there with its page of the manual, named by its path, as `tools/talk` or `bridges/slack`. A worker Bulldog starts at the top, a team's lead or a routine's worker, names the ask Bulldog ships when anything it runs can wait for a yes: `ask: { machine: ./.bulldog/ask.yaml }`. From a team within, the paths begin `../.bulldog/`.
 
@@ -113,6 +121,114 @@ output: ${stages.check.output}
 
 On a change to the office, a rule's yes is taken as a referral: only a person approves a change.
 
+Rules build on each other in a list. A yes or a refusal ends the decision, so a rule that finds something and leaves the judging to another refers, with what it found as its note, and every decider after it, rule or worker, is given that referral. A note may be JSON: it reaches the next rule as JSON text, and is shown to people as it was written. No decider changes what it decides: to have something taken out, a disclosure's rule refuses and says what, and the lead says it again.
+
+```yaml
+# payments/team.yaml
+disclosure: [./finds-numbers.js, ./card-numbers.js]     # what both refer goes to Lee or Priya
+```
+
+```js
+// payments/finds-numbers.js
+const found = String(input.text).match(/\d{8,}/g) || []
+if (found.length === 0) return { says: "yes", note: "No long numbers." }
+return { says: "refer", note: { numbers: found } }
+```
+
+```js
+// payments/card-numbers.js
+const found = input.referrals.find((r) => r.by === "finds-numbers.js")
+const numbers = found ? JSON.parse(found.note).numbers : []
+const cards = numbers.filter((n) => n.length === 16)
+if (cards.length > 0) return { says: "refuse", note: "Take out the card ending " + cards.map((n) => n.slice(-4)).join(", ") + "." }
+return { says: "refer", note: "Long numbers, but no card." }
+```
+
+The second rule picks the first one's referral by its file's name, never by its place in the list, so another rule put before it changes nothing. This is the whole of its input, as payments' ledger answers Dana in the chat:
+
+```json
+{
+  "kind": "disclosure",
+  "decision": 1,
+  "team": "payments",
+  "team_called": "Payments",
+  "does": "Answer of Payments, to disclose",
+  "text": "Yes: card 4111111111111111 was charged twice on 3 Oct. I refunded one.",
+  "disclosure": {
+    "what": "answer",
+    "text": "Yes: card 4111111111111111 was charged twice on 3 Oct. I refunded one.",
+    "to": "Dana",
+    "read_at": "the chat on the screens",
+    "said_in": 1,
+    "notes": [{ "name": "refunds", "text": "# Refunds\n\nA charge taken twice within a minute is a duplicate. Refund the later one.\n" }]
+  },
+  "notes": [{ "name": "refunds", "text": "# Refunds\n\nA charge taken twice within a minute is a duplicate. Refund the later one.\n" }],
+  "request": { "number": 1, "asked": "was customer 4411 charged twice?", "asker": "Dana" },
+  "referrals": [{ "by": "finds-numbers.js", "kind": "rule", "note": "{\"numbers\":[\"4111111111111111\"]}" }],
+  "referral_goes_to": [{ "kind": "people", "list": "everything", "team": "payments", "to": "Lee or Priya" }],
+  "ends": "Your yes or your refusal ends it. A referral goes on, with your note, to Lee or Priya, on Payments's everything list."
+}
+```
+
+`what` is `answer`, `question`, `tell` or `sub`, a question to another team, which names it in `to_team` too. A decision on an action holds, in place of `text`, `disclosure` and `notes`, the `action`, with its `name`, `job`, `does` and `args`, the `worker` whose it is, and `said`, what the worker said with it; a change holds `change`, with who drafted it, why, every file, what it does and what it lets more by.
+
+## A heed
+
+A team may name one rule as its heed, which weighs what is said at a channel place before its lead starts on it. It answers `{ says: act | note, note }`: act, and the lead starts; note, and the message is kept in the request, marked noted, and nothing runs or is said. The lead is given noted messages in the thread when it next starts, and never the heed's note. A heed is no decider: nothing waits on it, nobody is asked, and it is asked only before a lead that is a worker.
+
+```yaml
+# in a team file
+heed: { rule: ./.bulldog/rules/for-us/for-us.yaml, threshold: 0.6 }
+# or, with no settings
+heed: ./.bulldog/rules/mentioned/mentioned.js
+```
+
+It is written as any rule is, a bare script or a definition, in the team's folder or among those Bulldog ships: `mentioned`, which acts on what names the bot or follows straight on its answer, and `for-us`, which asks a fast model of the rest; each has its page. Every key beside `rule` is a setting, handed to the rule whole; Bulldog reads none of them, and keeps no time limit of its own: for-us's is its `timeout`. It weighs only messages said at the request's own place by a person or a guest: a direct message, the chat, a routine's request, a sub-request, a reply to what the lead put to someone, and the opening of an issue start the lead with no heed. A heed that fails, runs out of time or answers anything else counts as act, and the team's people are told.
+
+It is given `said`, each message it weighs on its line; `request`, the request as its lead would be given it, with those messages as `new`, each marked `mentioned` when its bridge says it names the bot; and `settings`, `{}` for a heed named by its path alone. This is the whole of it, as Dana asks in #help:
+
+```json
+{
+  "said": "[Mon 5 Oct 2026 10:00 BST] Dana to Platform support: Raj, did the deploy go out?",
+  "settings": { "threshold": 0.6 },
+  "request": {
+    "number": 1,
+    "now": "2026-10-05T10:00:00+01:00",
+    "zone": "Europe/London",
+    "team": {
+      "name": "office", "called": "Platform support",
+      "about": "Help with the platform and with payments, asked in #help.",
+      "people": [{ "name": "al", "called": "Al", "title": "Runs the office." }]
+    },
+    "worker": "bot",
+    "workers": [],
+    "teams": [
+      { "name": "payments", "called": "Payments", "about": "Charges, refunds and the ledger. Holds customer data." },
+      { "name": "platform", "called": "Platform", "about": "GitLab, the pipelines and deploys." },
+      { "name": "support", "called": "Support", "about": "Customers' questions, and what they are told." }
+    ],
+    "asker": { "kind": "person", "name": "dana", "called": "Dana", "teams": ["support"] },
+    "origin": { "kind": "place", "bridge": "slack", "place": "#help/1700.1" },
+    "readers": [{ "kind": "person", "name": "dana", "called": "Dana", "teams": ["support"] }],
+    "guests_reading": 0,
+    "any_guest_reading": true,
+    "answer_goes_to": "Your last reply is your answer, said to Dana on slack, in #help/1700.1. An empty reply says nothing.",
+    "entries": [],
+    "entries_not_shown": 0,
+    "new": [{
+      "id": 1, "kind": "asked", "time": "2026-10-05T10:00:00+01:00",
+      "by": { "kind": "person", "name": "dana", "called": "Dana", "bridge": "slack", "id": "U0DANA00" },
+      "to": [{ "kind": "team", "name": "office", "called": "Platform support" }],
+      "text": "Raj, did the deploy go out?", "noted": false, "mentioned": false
+    }],
+    "subs": [],
+    "notes": [],
+    "notes_not_shown": "",
+    "said": "Raj, did the deploy go out?"
+  }
+}
+```
+
 ## A bridge
 
 A bridge is where things come in and go out. Each is named, with its settings, under `bridges` in `office.yaml`, and runs a folder with an in machine and an out machine: one Bulldog ships, which its `from` names, as `./.bulldog/bridges/slack`, used in place and kept current with Bulldog; or, with no `from`, the office's own folder of its name in `bridges/`. The settings list the places it listens in, each with the team asked there, the office when none is named, and whether guests may ask there. Each shipped bridge's page, as `bridges/slack`, gives its other settings.
@@ -141,6 +257,8 @@ stages:
       allow: [net:slack.com, "secret:SLACK_TOKEN@net:slack.com"]
 output: ${stages.say.output}
 ```
+
+An in machine listens or hears, and the input it takes says which. One that takes `cursor` listens: Bulldog keeps one run of it going, which asks the service what is new since the cursor and ends with what it heard and the cursor to go on from, so nothing said between its runs is missed. One that takes `delivery` hears: the service calls the office at `<office url>/bridges/<name>` with each thing said or pressed, and the in machine checks with the secret it holds that it is the service's. A service that only pushes, keeping nothing to read back from, must be heard, and must be able to reach that address. A Slack app that is heard names the address in both of its settings that call it, Event Subscriptions and Interactivity, or a choice pressed on a decision never arrives. The bridges Bulldog ships all listen.
 
 The in machine says who a person is, and so is a person's to write. So is a bridge's entry, its `from` and every setting but its places, since they say what it runs, where it listens and whom it signs in as; a builder may draft a change to its places.
 

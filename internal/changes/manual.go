@@ -13,8 +13,8 @@ import (
 // is written.
 const OfficePage = "office"
 
-// officePage says how an office is written, with a whole worker, rule and
-// bridge.
+// officePage says how an office is written, with a whole worker, rule,
+// heed and bridge.
 //
 //go:embed office.md
 var officePage string
@@ -24,7 +24,7 @@ var officePage string
 // corbie bulldog manual and by a model.
 func init() {
 	manual.Add(func() []manual.Page {
-		office := manual.Page{Name: OfficePage, Group: Group, Summary: "how an office is written, with a whole worker, rule and bridge", Text: officePage}
+		office := manual.Page{Name: OfficePage, Group: Group, Summary: "how an office is written, with a whole worker, rule, heed and bridge", Text: officePage}
 		return append([]manual.Page{office}, shipped.Pages()...)
 	})
 }
