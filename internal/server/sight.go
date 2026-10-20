@@ -226,7 +226,10 @@ type (
 		ModelName string    `json:"model_name,omitempty"`
 		ModelFrom string    `json:"model_from,omitempty"`
 		Tools     []toolOut `json:"tools"`
-		Runs      bool      `json:"runs"`
+		// MayAsk are the teams it may ask, by name, before any request
+		// above the one it works on leaves some out.
+		MayAsk []string `json:"may_ask"`
+		Runs   bool     `json:"runs"`
 	}
 	// toolOut is a tool with what it does and what its job is: a worker
 	// of the same team, named; another machine or a script, by its file;
@@ -315,11 +318,15 @@ func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any,
 	return out, nil
 }
 
-// workerOf gives a worker as it is written: its model as it is sent, and
-// its tools, each with what it does and what its job is, and who decides
-// each that waits for a yes.
+// workerOf gives a worker as it is written: its model as it is sent; its
+// tools, each with what it does and what its job is, and who decides each
+// that waits for a yes; and the teams it may ask.
 func workerOf(o *office.Office, w *office.Worker) (workerOut, error) {
-	out := workerOut{Name: w.Name, Type: w.Type, File: w.File, Model: w.Model, ModelName: w.ModelName, Tools: []toolOut{}, Runs: w.Runs()}
+	out := workerOut{Name: w.Name, Type: w.Type, File: w.File, Model: w.Model, ModelName: w.ModelName, Tools: []toolOut{}, MayAsk: []string{},
+		Runs: w.Runs()}
+	for _, t := range work.MayAsk(o, w.Team, w.Name, nil) {
+		out.MayAsk = append(out.MayAsk, t.Name)
+	}
 	if w.ModelName != "" {
 		if m, ok := o.Model(w.Team, w.ModelName); ok {
 			out.ModelFrom = m.Team

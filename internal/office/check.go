@@ -400,7 +400,7 @@ func (r *reading) toolsOf(w *Worker, def *machine.Definition) []Tool {
 		if strings.HasPrefix(script, "corbie:") {
 			continue
 		}
-		tool := Tool{Name: name, Does: t.Does, Kind: ToolMachine, Listed: t.List != nil}
+		tool := Tool{Name: name, Does: t.Does, Kind: ToolMachine, Args: t.Args, Listed: t.List != nil}
 		file := path.Join(dirOf(w.File), script+machine)
 		_, inOffice := r.files[file]
 		switch {

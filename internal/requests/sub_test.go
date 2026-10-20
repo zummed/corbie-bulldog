@@ -52,14 +52,14 @@ func TestRequestsOneSubRequestPerTicket(t *testing.T) {
 func TestRequestsSubKeepsTopOrigin(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
-	top, depth, err := d.Top(d.payments)
-	if err != nil || top.Number != d.dana || top.Origin.Place != thread || depth != 1 {
-		t.Errorf("payments' sub-request's top is %+v, %d below", top, depth)
+	top, above, err := d.Top(d.payments)
+	if err != nil || top.Number != d.dana || top.Origin.Place != thread || len(above) != 1 || above[0] != top {
+		t.Errorf("payments' sub-request's top is %+v, below %+v", top, above)
 	}
 	below := got[*requests.Request](t)(d.Sub(d.payments, d.Worker("ledger"), "platform", "When did the retry break?", "ticket-below")).Number
-	top, depth, err = d.Top(below)
-	if err != nil || top.Number != d.dana || top.Origin.Place != thread || depth != 2 {
-		t.Errorf("payments' own sub-request's top is %+v, %d below", top, depth)
+	top, above, err = d.Top(below)
+	if err != nil || top.Number != d.dana || top.Origin.Place != thread || len(above) != 2 || above[0] != top || above[1].Number != d.payments {
+		t.Errorf("payments' own sub-request's top is %+v, below %+v", top, above)
 	}
 }
 

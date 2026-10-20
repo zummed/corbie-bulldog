@@ -1,6 +1,7 @@
 package work
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/zummed/corbie/client"
 
+	"github.com/zummed/corbie-bulldog/internal/decisions"
 	"github.com/zummed/corbie-bulldog/internal/requests"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 	"github.com/zummed/corbie-bulldog/shipped"
@@ -339,6 +341,97 @@ func TestAskTeamIsRefusedEightLevelsDown(t *testing.T) {
 	})
 	b.chat("sam", "a1", "level 1")
 	holds(t, "the ninth ask", <-results, "already 8 levels of sub-requests below")
+}
+
+func TestWorkATeamAboveIsNotAsked(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, payments(t))
+	results := make(chan string, 3)
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		switch {
+		case strings.Contains(turn.Prompt(), "was 4411 charged twice?"):
+			switch turn.Number {
+			case 1:
+				results <- turn.Prompt()
+				return testkit.Use("ask_team", map[string]any{"team": "office", "question": "who is customer 4411?"})
+			case 2:
+				results <- turn.Last()
+				return testkit.Use("ask_team", map[string]any{"team": "billing", "question": "is 4411 owed?"})
+			}
+			results <- turn.Last()
+			return testkit.Say("Duplicate confirmed.")
+		case turn.Number == 1:
+			return testkit.Use("ask_team", map[string]any{"team": "payments", "question": "was 4411 charged twice?"})
+		}
+		return testkit.Say("bot heard: " + turn.Last())
+	})
+	n := b.chat("dana", "", "customer 4411 was charged twice")
+	sub := b.waitsOn(n, requests.KindSub).Sub
+	context, above, billing := <-results, <-results, <-results
+	holds(t, "the ledger's context", context, fmt.Sprintf("beneath request %d of Platform support", n), "- platform (", "- support (")
+	holdsNone(t, "the ledger's context", context, "- office (")
+	holds(t, "asking the office", above, fmt.Sprintf("This request came from Platform support, in request %d, and your answer goes back to it", n),
+		"no team was asked")
+	holds(t, "asking billing", billing, "you may ask platform or support.")
+	b.answered(n)
+	if subs := b.entries(sub, requests.KindSub); len(subs) != 0 {
+		t.Errorf("a team was asked from payments: %v", b.thread(sub))
+	}
+	decs, err := b.d.OfRequest(sub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(decs) != 1 || decs[0].Said.What != decisions.SaysAnswer {
+		t.Errorf("payments' sub-request has the decisions %+v", decs)
+	}
+	run := b.runs(sub)[0]
+	origin := b.input(run.Name)["request"].(map[string]any)["origin"].(map[string]any)
+	if from, _ := json.Marshal(origin["above"]); string(from) != fmt.Sprintf(`[{"number":%d,"team":"office"}]`, n) {
+		t.Errorf("the ledger is given it came from %s", from)
+	}
+}
+
+func TestWorkOwnAskTeamNarrowsTheTeamsItMayAsk(t *testing.T) {
+	t.Parallel()
+	files := work(t)
+	files["bot.yaml"] += `tools:
+  ask_team:
+    does: Ask payments, and wait for its answer
+    args:
+      type: object
+      properties:
+        team: { type: string, enum: [payments] }
+        question: { type: string }
+      required: [team, question]
+    job:
+      machine: ./.bulldog/call.yaml
+      input: { tool: ask_team, args: "${args}", unanswered: No answer came within 7 days. }
+`
+	b := newBench(t, files)
+	if may := MayAsk(b.office(), "office", "bot", nil); len(may) != 1 || may[0].Name != "payments" {
+		t.Errorf("the bot may ask %v", may)
+	}
+	if may := MayAsk(b.office(), "payments", "ledger", nil); len(may) != 3 {
+		t.Errorf("the ledger may ask %v", may)
+	}
+	results := make(chan string, 1)
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		switch turn.Number {
+		case 1:
+			return testkit.Use("ask_team", map[string]any{"team": "platform", "question": "did the deploy break?"})
+		case 2:
+			results <- turn.Last()
+		}
+		return testkit.Say("done")
+	})
+	n := b.chat("al", "", "the deploy broke")
+	holds(t, "the bot's context", b.prompt("the deploy broke"), "- payments (")
+	holdsNone(t, "the bot's context", b.prompt("the deploy broke"), "- platform (", "- support (")
+	holds(t, "asking platform", <-results, "at /team", "payments")
+	b.answered(n)
+	if subs := b.entries(n, requests.KindSub); len(subs) != 0 {
+		t.Errorf("a team was asked: %v", b.thread(n))
+	}
 }
 
 func TestWorkToolsActOnOwnRequestOnly(t *testing.T) {

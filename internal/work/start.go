@@ -399,16 +399,13 @@ func (w *Work) start(ctx context.Context, rd ready) bool {
 }
 
 // tooDeep refuses a sub-request of a request that is already Depth levels
-// below the request at the top of its tree, saying so in a sentence:
-// teams that ask each other in a ring would otherwise ask for ever.
-func (w *Work) tooDeep(n int64) error {
-	_, depth, err := w.requests.Top(n)
-	if err != nil {
-		return err
-	}
-	if depth >= Depth {
+// below the request at the top of its tree, given the requests above it,
+// saying so in a sentence: teams that ask each other in a ring would
+// otherwise ask for ever.
+func tooDeep(n int64, above []*requests.Request) error {
+	if len(above) >= Depth {
 		return requests.Refusal(fmt.Sprintf("Request %d is already %d levels of sub-requests below the request that began it, the most there may be, so no team is asked from it.",
-			n, depth))
+			n, len(above)))
 	}
 	return nil
 }

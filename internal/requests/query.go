@@ -118,21 +118,24 @@ func (s *Store) Tree(n int64) ([]Sub, error) {
 }
 
 // Top gives the request at the top of a request's tree, whose origin is
-// who in the end reads what is said beneath it, and how many levels below
-// it the request is.
-func (s *Store) Top(n int64) (*Request, int, error) {
+// who in the end reads what is said beneath it, and the requests above
+// the request, top first: none for the top itself.
+func (s *Store) Top(n int64) (*Request, []*Request, error) {
 	l, err := s.look(s.db)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
+	var above []*Request
 	r, err := l.req(n)
-	for depth := 0; err == nil; depth++ {
+	for err == nil {
 		if r.Parent == 0 {
-			return r, depth, nil
+			return r, above, nil
 		}
-		r, err = l.req(r.Parent)
+		if r, err = l.req(r.Parent); err == nil {
+			above = append([]*Request{r}, above...)
+		}
 	}
-	return nil, 0, err
+	return nil, nil, err
 }
 
 // Asks gives who asks a request, as the office is read now: a person, by

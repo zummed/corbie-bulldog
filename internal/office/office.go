@@ -242,6 +242,9 @@ type Tool struct {
 	Kind   string
 	Worker string
 	File   string
+	// Args is the shape of its arguments, in full form, as Corbie fills
+	// it out.
+	Args map[string]any
 	// Listed is a list: entry, which gives the tools its server lists,
 	// each named after the entry, as github_create_issue.
 	Listed bool

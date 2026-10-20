@@ -357,6 +357,10 @@ func (w *Work) askTeam(ctx context.Context, c *calling) (string, bool, error) {
 	if strings.TrimSpace(question) == "" {
 		return "A question needs words, and this one had none, so no team was asked.", false, nil
 	}
+	_, above, err := w.requests.Top(c.r.Number)
+	if err != nil {
+		return "", false, err
+	}
 	o := w.office
 	team := teamNamed(o, name)
 	switch {
@@ -365,13 +369,17 @@ func (w *Work) askTeam(ctx context.Context, c *calling) (string, bool, error) {
 			c.team.Called), false, nil
 	case team == nil:
 		var may []string
-		for _, t := range askable(o, c.team.Name) {
+		for _, t := range MayAsk(o, c.team.Name, c.worker, above) {
 			may = append(may, t.Name)
 		}
 		return fmt.Sprintf("The office has no team called %q, so no team was asked: you may ask %s.", name, orList(may)), false, nil
 	}
-	if err := w.tooDeep(c.r.Number); err != nil {
+	if err := tooDeep(c.r.Number, above); err != nil {
 		return "", false, err
+	}
+	if i := slices.IndexFunc(above, func(r *requests.Request) bool { return r.Team == team.Name }); i >= 0 {
+		return fmt.Sprintf("This request came from %s, in request %d, and your answer goes back to it: answer with what you need from %s, and no team was asked.",
+			inSentence(team.Called), above[i].Number, inSentence(team.Called)), false, nil
 	}
 	if c.team.HasDisclosure {
 		return w.disclose(ctx, c, decisions.Said{What: decisions.SaysSub, Team: team.Name, Text: question})

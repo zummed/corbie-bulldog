@@ -36,7 +36,7 @@ A request from something that keeps a status of its own, such as a GitLab issue 
 
 ## Sub-requests
 
-Work that needs another team becomes a sub-request: a request of its own to that team, with a run of its own, made by a tool Bulldog ships. It is asked at no place: it has the request that asked it, and its answer goes back to the run that asked. The team asked is told the origin at the top of the tree, which is who will in the end read what it says.
+Work that needs another team becomes a sub-request: a request of its own to that team, with a run of its own, made by a tool Bulldog ships. It is asked at no place: it has the request that asked it, and its answer goes back to the run that asked. The team asked is told the origin at the top of the tree, which is who will in the end read what it says. A team already asked above in the tree is not asked again beneath it: what the team below needs from it goes back in its answer.
 
 Who may say more in a sub-request is the team that asked it, its people and, through their runs, its workers, and the people of the team it went to. Whoever sees the request that asked it sees what was done in it, because sight goes down, and has no voice in it.
 

@@ -114,7 +114,7 @@
           B.el("span", {class: "wk-c2"}, faces(t.people, t))));
       } else if (tool.kind === "bulldog" && tool.name === TEAMS_TOOL) {
         others.push(row(B.el("span", {class: "wk-c1"}, toolName(tool)),
-          B.el("span", {class: "wk-c2"}, w.may_ask && w.may_ask.length ? inline("teams", w.may_ask.map(B.teamEl)) : B.el("span", {class: "muted"}, "other teams"))));
+          B.el("span", {class: "wk-c2"}, w.may_ask.length ? inline("teams", w.may_ask.map(B.teamEl)) : B.el("span", {class: "muted"}, "none"))));
       } else if (tool.kind === "bulldog" && tool.name === THREAD_TOOL) {
         can.push(row(B.el("span", {class: "wk-c1"}, toolName(tool)), B.el("span", {class: "wk-c2"}, "Thread")));
       } else if (tool.kind === "bulldog" && tool.name === NOTES_TOOL) {

@@ -247,6 +247,13 @@ func TestServerToolToldByWhereItResolves(t *testing.T) {
 			t.Errorf("the %s is shown a tool every agent has for blobs", c.worker)
 		}
 	}
+	var whole teamWhole
+	s.as("sam").get("/api/teams/office").is(http.StatusOK).into(&whole)
+	for _, w := range whole.Workers {
+		if !slices.Equal(w.MayAsk, []string{"garden"}) {
+			t.Errorf("the %s may ask %v", w.Name, w.MayAsk)
+		}
+	}
 }
 
 func TestServerBusyWorkerShownToItsTeam(t *testing.T) {

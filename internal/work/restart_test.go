@@ -608,8 +608,15 @@ func TestWorkSubRequestsAtMostEightDeep(t *testing.T) {
 	}
 	b := newBench(t, files)
 	n := b.chat("sam", "a1", "begin")
+	deep := func(n int64) error {
+		_, above, err := b.reqs.Top(n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tooDeep(n, above)
+	}
 	for i := 2; i <= 9; i++ {
-		if err := b.w.tooDeep(n); err != nil {
+		if err := deep(n); err != nil {
 			t.Fatalf("asking from level %d was refused: %v", i-2, err)
 		}
 		sub, err := b.reqs.Sub(n, b.reqs.Worker(fmt.Sprintf("w%d", i-1)), fmt.Sprintf("a%d", i), "and the next?", fmt.Sprint("ticket-", i))
@@ -618,7 +625,7 @@ func TestWorkSubRequestsAtMostEightDeep(t *testing.T) {
 		}
 		n = sub.Number
 	}
-	err := b.w.tooDeep(n)
+	err := deep(n)
 	var refusal requests.Refusal
 	if !errors.As(err, &refusal) || !strings.Contains(err.Error(), "already 8 levels") {
 		t.Errorf("asking from eight levels down gave %v", err)

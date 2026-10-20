@@ -37,7 +37,7 @@ func (w *Work) giving(o *office.Office, rd ready) (*giving, error) {
 	if err != nil {
 		return nil, err
 	}
-	top, _, err := w.requests.Top(r.Number)
+	top, above, err := w.requests.Top(r.Number)
 	if err != nil {
 		return nil, err
 	}
@@ -65,8 +65,9 @@ func (w *Work) giving(o *office.Office, rd ready) (*giving, error) {
 			}
 		}
 	}
-	return &giving{o: o, now: w.clock.Now().In(o.Zone), r: r, team: team, worker: rd.worker.Name, asker: asker, top: top, readers: readers,
-		subs: subs, notes: notes, open: open, thread: rd.thread, fresh: rd.fresh, again: rd.again}, nil
+	return &giving{o: o, now: w.clock.Now().In(o.Zone), r: r, team: team, worker: rd.worker.Name, asker: asker, top: top, above: above,
+		mayAsk: MayAsk(o, team.Name, rd.worker.Name, above), readers: readers, subs: subs, notes: notes, open: open, thread: rd.thread,
+		fresh: rd.fresh, again: rd.again}, nil
 }
 
 // A giving is everything a run is given, read once at its start.
@@ -78,6 +79,8 @@ type giving struct {
 	worker  string
 	asker   requests.Party
 	top     *requests.Request
+	above   []*requests.Request
+	mayAsk  []*office.Team
 	readers []requests.Party
 	subs    []requests.Sub
 	notes   []office.Note
@@ -119,9 +122,9 @@ func (g *giving) context() string {
 		line("The workers who sit with you, whom you use as tools: %s.", strings.Join(sit, ", "))
 	}
 	line("")
-	if teams := askable(g.o, g.team.Name); len(teams) > 0 {
+	if len(g.mayAsk) > 0 {
 		line("The teams of the office you may ask, by name:")
-		for _, t := range teams {
+		for _, t := range g.mayAsk {
 			line("- %s (%s): %s", t.Name, t.Called, orNothing(t.About))
 		}
 		line("")
@@ -183,8 +186,13 @@ func (g *giving) askedText() string {
 func (g *giving) whereText() string {
 	readers := partiesText(g.readers)
 	if g.r.Parent != 0 {
-		return fmt.Sprintf("It is a request from another team, asked at no place: your answer goes to %s, as its tool's result. "+
-			"What %s says may in the end be read %s, by %s.", g.asker.Name, calledTeam(g.o, g.asker.Team), originText(g.top.Origin), readers)
+		var from []string
+		for _, a := range g.above {
+			from = append(from, fmt.Sprintf("request %d of %s", a.Number, calledTeam(g.o, a.Team)))
+		}
+		return fmt.Sprintf("It is a request from another team, asked at no place, beneath %s: your answer goes to %s, as its tool's result. "+
+			"What %s says may in the end be read %s, by %s.", strings.Join(from, ", then "), g.asker.Name, calledTeam(g.o, g.asker.Team),
+			originText(g.top.Origin), readers)
 	}
 	return fmt.Sprintf("It was asked %s. Who will read the answer: %s.", originText(g.r.Origin), readers)
 }
@@ -328,7 +336,7 @@ func (g *giving) data() map[string]any {
 		}
 	}
 	var teams []any
-	for _, t := range askable(g.o, g.team.Name) {
+	for _, t := range g.mayAsk {
 		teams = append(teams, map[string]any{"name": t.Name, "called": t.Called, "about": t.About})
 	}
 	var readers []any
@@ -342,7 +350,7 @@ func (g *giving) data() map[string]any {
 		"workers":        colleagues(g.team, g.worker),
 		"teams":          teams,
 		"asker":          partyData(g.asker),
-		"origin":         originData(g.r, g.top),
+		"origin":         originData(g.r, g.top, g.above),
 		"readers":        readers,
 		"answer_goes_to": g.answerText(),
 		"entries":        entries, "entries_not_shown": left,
@@ -515,9 +523,13 @@ func originText(o requests.Origin) string {
 	return "at no place"
 }
 
-func originData(r, top *requests.Request) map[string]any {
+func originData(r, top *requests.Request, above []*requests.Request) map[string]any {
 	if r.Parent != 0 {
-		return map[string]any{"kind": "request", "top": originData(top, top)}
+		var from []any
+		for _, a := range above {
+			from = append(from, map[string]any{"number": a.Number, "team": a.Team})
+		}
+		return map[string]any{"kind": "request", "above": from, "top": originData(top, top, nil)}
 	}
 	d := map[string]any{"kind": r.Origin.Kind}
 	switch r.Origin.Kind {
@@ -596,16 +608,46 @@ func colleagues(t *office.Team, worker string) []string {
 	return sit
 }
 
-// askable gives the teams of the office a team's workers may ask: every
-// other.
-func askable(o *office.Office, team string) []*office.Team {
+// MayAsk gives the teams of the office a worker of a team may ask, in
+// the office's order: every team but its own and the teams of the
+// requests above the one it works on, and, where the worker's own
+// ask_team lists the teams it takes, only those.
+func MayAsk(o *office.Office, team, worker string, above []*requests.Request) []*office.Team {
+	only, listed := takes(o.Workers[worker])
 	var teams []*office.Team
 	for _, name := range o.Order {
-		if name != team {
-			teams = append(teams, o.Teams[name])
+		if name == team || slices.ContainsFunc(above, func(r *requests.Request) bool { return r.Team == name }) ||
+			listed && !slices.Contains(only, name) {
+			continue
 		}
+		teams = append(teams, o.Teams[name])
 	}
 	return teams
+}
+
+// takes gives the teams a worker's ask_team takes, as an enum on its team
+// lists them, and whether it lists any: one the worker writes in full, in
+// place of the talk tools' own.
+func takes(w *office.Worker) ([]string, bool) {
+	if w == nil {
+		return nil, false
+	}
+	for _, tool := range w.Held {
+		if tool.Name != toolAskTeam || tool.Kind != office.ToolBulldog {
+			continue
+		}
+		props, _ := tool.Args["properties"].(map[string]any)
+		team, _ := props["team"].(map[string]any)
+		enum, ok := team["enum"].([]any)
+		var names []string
+		for _, e := range enum {
+			if name, ok := e.(string); ok {
+				names = append(names, name)
+			}
+		}
+		return names, ok
+	}
+	return nil, false
 }
 
 func orNothing(about string) string {
