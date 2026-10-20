@@ -63,7 +63,9 @@ if (input.do === "hear") {
   const jql = "project in (" + projects.map(p => JSON.stringify(p)).join(", ") + ") AND updated >= -" + minutes + "m ORDER BY updated ASC"
   // Each new issue, comment and change of status, in the order it came:
   // what came at the cursor's own moment is heard unless the run before
-  // heard it.
+  // heard it. Left out is only what the bridge's own account wrote, which
+  // is logged with its id, its issue and why, and never its words, and is
+  // passed by the cursor as what is heard is.
   const things = []
   const add = (at, thing) => {
     if (at > since || (at === since && !seen.includes(thing.id))) things.push(Object.assign({ at: at }, thing))
@@ -81,10 +83,14 @@ if (input.do === "hear") {
       if (f.reporter && f.reporter.accountId !== me.accountId) {
         add(when(f.created), Object.assign({ id: "issue:" + issue.id, kind: "said", from: f.reporter.accountId,
           text: big((f.summary || "") + (f.description ? "\n\n" + f.description : "")) }, at))
+      } else if (f.reporter) {
+        add(when(f.created), Object.assign({ id: "issue:" + issue.id, left: "own" }, at))
       }
       for (const c of (f.comment && f.comment.comments) || []) {
         if (c.author && c.author.accountId !== me.accountId) {
           add(when(c.created), Object.assign({ id: "comment:" + c.id, kind: "said", from: c.author.accountId, text: big(c.body || "") }, at))
+        } else if (c.author) {
+          add(when(c.created), Object.assign({ id: "comment:" + c.id, left: "own" }, at))
         }
       }
       for (const h of (issue.changelog && issue.changelog.histories) || []) {
@@ -98,14 +104,29 @@ if (input.do === "hear") {
     token = found.nextPageToken
     if (!token || found.isLast) break
   }
+  // Up to the most one run hears, and what is left out among them.
   things.sort((a, b) => a.at - b.at)
-  const heard = things.slice(0, mostHeard)
-  if (!heard.length) return { heard: [], cursor: input.cursor }
-  // The cursor is the moment of the last thing heard, with every thing
-  // heard at that moment, so the next run neither drops nor repeats them.
-  const last = heard[heard.length - 1].at
-  const at = heard.filter(t => t.at === last).map(t => t.id)
-  for (const t of heard) delete t.at
+  const taken = []
+  let counted = 0
+  for (const t of things) {
+    if (!t.left && counted === mostHeard) break
+    if (!t.left) counted++
+    taken.push(t)
+  }
+  if (!taken.length) return { heard: [], cursor: input.cursor }
+  // The cursor is the moment of the last thing taken, with every thing
+  // taken at that moment, so the next run neither drops nor repeats them.
+  const last = taken[taken.length - 1].at
+  const at = taken.filter(t => t.at === last).map(t => t.id)
+  const heard = []
+  for (const t of taken) {
+    if (t.left) {
+      log("left out " + t.id + " in " + t.place + ": " + t.left)
+      continue
+    }
+    delete t.at
+    heard.push(t)
+  }
   return { heard: heard, cursor: { since: new Date(last).toISOString(), seen: last === since ? seen.concat(at) : at } }
 }
 

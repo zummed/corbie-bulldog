@@ -304,7 +304,7 @@ func (b *bench) chat(person, team, text string) int64 {
 // say is a person saying more in a request, on the screens.
 func (b *bench) say(n int64, person, text string) {
 	b.t.Helper()
-	if _, err := b.reqs.Say(n, b.reqs.Person(person), text, nil, requests.Screens); err != nil {
+	if _, err := b.reqs.Say(n, b.reqs.Person(person), text, nil, requests.Screens, false); err != nil {
 		b.t.Fatal(err)
 	}
 }

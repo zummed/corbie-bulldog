@@ -37,7 +37,7 @@ func (b *bench) lastAnswer(n int64) string {
 func TestNotedMessagesAreMarkedInWhatTheLeadIsGiven(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, heeding(t, "./for-us.js", map[string]string{"for-us.js": forUs}))
-	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "Raj, I'll look at it", nil)).Number
+	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "Raj, I'll look at it", nil, false)).Number
 	b.heeded(n, 1)
 	b.settled(n, requests.Answered)
 	b.inThread(n, "slack", "U0DANA00", "@bot what do you think?")
@@ -70,7 +70,7 @@ func TestReadThreadGivesTheThreadFromAnEntryOn(t *testing.T) {
 	if err := b.reqs.Readers("slack", "#help/1700.1", []string{"U0DANA00", "U0RAJ000"}); err != nil {
 		t.Fatal(err)
 	}
-	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "Raj, I'll look at it", nil)).Number
+	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "Raj, I'll look at it", nil, false)).Number
 	b.heeded(n, 1)
 	b.inThread(n, "slack", "U0RAJ000", "thanks @bot")
 	b.started(n, 1)
@@ -148,7 +148,7 @@ func TestReadThreadWithPlaceIsNewestFirstByEntry(t *testing.T) {
 		if err := b.reqs.Readers("slack", place, everyone); err != nil {
 			t.Fatal(err)
 		}
-		n := must(b.reqs.AskAt("slack", "#help", place, "", "U0DANA00", text, nil)).Number
+		n := must(b.reqs.AskAt("slack", "#help", place, "", "U0DANA00", text, nil, false)).Number
 		b.heeded(n, 1)
 		b.settled(n, requests.Answered)
 		return n
@@ -180,7 +180,7 @@ func TestWorkReadThreadReadsOnlyWhatItsReadersMay(t *testing.T) {
 	}
 	noted := func(place, from, text string) int64 {
 		t.Helper()
-		n := must(b.reqs.AskAt("slack", "#help", place, "", from, text, nil)).Number
+		n := must(b.reqs.AskAt("slack", "#help", place, "", from, text, nil, false)).Number
 		b.heeded(n, 1)
 		b.settled(n, requests.Answered)
 		return n
@@ -195,11 +195,11 @@ func TestWorkReadThreadReadsOnlyWhatItsReadersMay(t *testing.T) {
 	// Readers never reported: the asker alone.
 	noted("#help/3", "U0DANA00", "a word to nobody")
 	// In a direct message.
-	direct := must(b.reqs.AskAt("slack", "direct", "D0DANA00", "", "U0DANA00", "my own question", nil)).Number
+	direct := must(b.reqs.AskAt("slack", "direct", "D0DANA00", "", "U0DANA00", "my own question", nil, false)).Number
 	b.lastAnswer(direct)
 
 	reads("#help/5", everyone...)
-	n := must(b.reqs.AskAt("slack", "#help", "#help/5", "", "U0AL0000", "@bot what was said before?", nil)).Number
+	n := must(b.reqs.AskAt("slack", "#help", "#help/5", "", "U0AL0000", "@bot what was said before?", nil, false)).Number
 	read := b.lastAnswer(n)
 	holds(t, "what was said before", read, "] Dana to Platform support (Asked, noted): the deploy is at three\n")
 	holdsNone(t, "what was said before", read, "4242", "a word to nobody", "my own question", "what was said before?")

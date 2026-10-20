@@ -3,6 +3,7 @@ package bridges_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/fs"
 	"maps"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/zummed/corbie/client"
+	"github.com/zummed/corbie/instance"
 	"github.com/zummed/corbie/machine"
 
 	"github.com/zummed/corbie-bulldog/internal/testkit"
@@ -122,6 +124,14 @@ func (s *service) run(which string, input map[string]any) *client.Run {
 // what it heard and the cursor it ended with.
 func (s *service) heard(input map[string]any) ([]map[string]any, any) {
 	s.t.Helper()
+	things, cursor, _ := s.heardLogged(input)
+	return things, cursor
+}
+
+// heardLogged runs the in machine to its end, which must be well, and
+// gives what it heard, the cursor it ended with and the lines it logged.
+func (s *service) heardLogged(input map[string]any) ([]map[string]any, any, []string) {
+	s.t.Helper()
 	ended := s.run("in.yaml", input)
 	if ended.Status != "done" {
 		s.t.Fatalf("the in run ended %s: %s", ended.Status, ended.Error)
@@ -131,7 +141,22 @@ func (s *service) heard(input map[string]any) ([]map[string]any, any) {
 	for _, t := range out["heard"].([]any) {
 		things = append(things, t.(map[string]any))
 	}
-	return things, out["cursor"]
+	return things, out["cursor"], s.logged(ended.ID)
+}
+
+// logged gives the lines a run logged, as its record holds them.
+func (s *service) logged(run string) []string {
+	s.t.Helper()
+	var lines []string
+	_, err := s.corbie.Record(context.Background(), run, func(e client.Entry) {
+		if e.Job != "" && e.Name == instance.EmitLog {
+			lines = append(lines, fmt.Sprint(e.Data))
+		}
+	})
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	return lines
 }
 
 // A file is one an out run is given, as Bulldog gives it.

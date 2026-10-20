@@ -27,7 +27,7 @@ func (s *Store) AskInChat(person, team, text string, files []File) (*Request, er
 			return refuse("%s is not a person of the office, so nothing was asked", person)
 		}
 		var err error
-		r, err = c.ask(team, c.person(person), Origin{Kind: InChat}, "", text, files, Screens)
+		r, err = c.ask(team, c.person(person), Origin{Kind: InChat}, "", Entry{Text: text, In: Screens}, files)
 		return err
 	})
 	return r, err
@@ -36,9 +36,10 @@ func (s *Store) AskInChat(person, team, text string, files []File) (*Request, er
 // AskAt makes a request of what a bridge heard said in a place it listens
 // in, from the identity it checked: to the team the listed place names,
 // with where it was said, and the link of the source thing it is about if
-// any, as its origin. From a place not listed, or from a guest where
-// guests may not ask, it makes nothing.
-func (s *Store) AskAt(bridge, heard, place, about, from, text string, files []File) (*Request, error) {
+// any, as its origin, and whether the bridge marked it as naming its own
+// bot. From a place not listed, or from a guest where guests may not ask,
+// it makes nothing.
+func (s *Store) AskAt(bridge, heard, place, about, from, text string, files []File, mentioned bool) (*Request, error) {
 	var r *Request
 	err := s.write(func(c *change) error {
 		p, ok := c.o.Place(bridge, heard)
@@ -53,8 +54,8 @@ func (s *Store) AskAt(bridge, heard, place, about, from, text string, files []Fi
 			place = heard
 		}
 		var err error
-		r, err = c.ask(p.Team, asker, Origin{Kind: AtPlace, Bridge: bridge, Heard: heard, Place: place, About: about}, "", text, files,
-			Where{Bridge: bridge, Place: place})
+		r, err = c.ask(p.Team, asker, Origin{Kind: AtPlace, Bridge: bridge, Heard: heard, Place: place, About: about}, "",
+			Entry{Text: text, In: Where{Bridge: bridge, Place: place}, Mentioned: mentioned}, files)
 		return err
 	})
 	return r, err
@@ -77,15 +78,16 @@ func (s *Store) AskByRoutine(team string, routine office.Routine, by Who) (*Requ
 		}
 		origin := Origin{Kind: ByRoutine, Team: team, Known: c.era(IsTeam, team), At: routine.At, To: routine.To, Say: routine.Say, By: by}
 		var err error
-		r, err = c.ask(team, c.team(team), origin, routine.To, routine.Say, nil, Where{})
+		r, err = c.ask(team, c.team(team), origin, routine.To, Entry{Text: routine.Say}, nil)
 		return err
 	})
 	return r, err
 }
 
 // ask makes a request to a team that is in the office and has a lead
-// that can answer for it, with its asking as its first entry.
-func (c *change) ask(team string, asker Who, origin Origin, worker, text string, files []File, in Where) (*Request, error) {
+// that can answer for it, with its asking as its first entry: what was
+// asked, where it came in and whether it was marked mentioned.
+func (c *change) ask(team string, asker Who, origin Origin, worker string, asking Entry, files []File) (*Request, error) {
 	if err := c.askable(team); err != nil {
 		return nil, err
 	}
@@ -93,7 +95,8 @@ func (c *change) ask(team string, asker Who, origin Origin, worker, text string,
 	if err := c.keep(r); err != nil {
 		return nil, err
 	}
-	_, err := c.add(r, Entry{Kind: KindAsked, By: asker, To: []Who{teamOf(r)}, Text: text, In: in}, files, nil)
+	asking.Kind, asking.By, asking.To = KindAsked, asker, []Who{teamOf(r)}
+	_, err := c.add(r, asking, files, nil)
 	return r, err
 }
 
@@ -169,8 +172,8 @@ func (s *Store) Sub(parent int64, by Who, team, question, ticket string) (*Reque
 // check by Held once it is kept. One that could not be handed is given
 // with the error, and is held no longer, so the lead is waited on again.
 // To someone who may not see it the request is not there.
-func (s *Store) Say(n int64, by Who, text string, files []File, in Where) (*Entry, error) {
-	e, err := s.say(n, by, text, files, in)
+func (s *Store) Say(n int64, by Who, text string, files []File, in Where, mentioned bool) (*Entry, error) {
+	e, err := s.say(n, by, text, files, in, mentioned)
 	if err != nil || e.Kind != KindHeld || s.Held == nil {
 		return e, err
 	}
@@ -180,7 +183,7 @@ func (s *Store) Say(n int64, by Who, text string, files []File, in Where) (*Entr
 	return e, nil
 }
 
-func (s *Store) say(n int64, by Who, text string, files []File, in Where) (*Entry, error) {
+func (s *Store) say(n int64, by Who, text string, files []File, in Where, mentioned bool) (*Entry, error) {
 	var e *Entry
 	err := s.write(func(c *change) error {
 		r, err := c.req(n)
@@ -195,9 +198,9 @@ func (s *Store) say(n int64, by Who, text string, files []File, in Where) (*Entr
 			return c.mayNotSay(r, by)
 		}
 		if p := c.personOf(by); p != "" && c.leadPerson(r) == p {
-			answer := Entry{Kind: KindAnswer, By: by, To: []Who{r.Asker}, Text: text, In: in}
+			answer := Entry{Kind: KindAnswer, By: by, To: []Who{r.Asker}, Text: text, In: in, Mentioned: mentioned}
 			if c.o.Teams[r.Team].HasDisclosure {
-				answer = Entry{Kind: KindHeld, By: by, To: []Who{teamOf(r)}, Text: text, In: in, Read: r.Team, ReadKnown: r.TeamKnown}
+				answer = Entry{Kind: KindHeld, By: by, To: []Who{teamOf(r)}, Text: text, In: in, Read: r.Team, ReadKnown: r.TeamKnown, Mentioned: mentioned}
 			}
 			if e, err = c.add(r, answer, files, nil); err != nil {
 				return err
@@ -207,7 +210,7 @@ func (s *Store) say(n int64, by Who, text string, files []File, in Where) (*Entr
 		}
 		to := []Who{teamOf(r)}
 		read, known := c.layer(r, by, to, in)
-		e, err = c.add(r, Entry{Kind: KindSaid, By: by, To: to, Text: text, In: in, Read: read, ReadKnown: known}, files, nil)
+		e, err = c.add(r, Entry{Kind: KindSaid, By: by, To: to, Text: text, In: in, Read: read, ReadKnown: known, Mentioned: mentioned}, files, nil)
 		if err != nil {
 			return err
 		}
@@ -910,9 +913,9 @@ func (c *change) add(r *Request, e Entry, files []File, waits []Who) (*Entry, er
 	if e.To == nil {
 		e.To = []Who{}
 	}
-	res, err := c.tx.Exec(`INSERT INTO requests_entries(request, kind, by_, to_, at, text, came_in, read_team, read_known, answers, sub)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, r.Number, e.Kind, jsonOf(e.By), jsonOf(e.To), stamp(c.at), e.Text, jsonOf(e.In),
-		e.Read, e.ReadKnown, e.Answers, e.Sub)
+	res, err := c.tx.Exec(`INSERT INTO requests_entries(request, kind, by_, to_, at, text, came_in, read_team, read_known, answers, sub, mentioned)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, r.Number, e.Kind, jsonOf(e.By), jsonOf(e.To), stamp(c.at), e.Text, jsonOf(e.In),
+		e.Read, e.ReadKnown, e.Answers, e.Sub, e.Mentioned)
 	if err != nil {
 		return nil, failed(err)
 	}

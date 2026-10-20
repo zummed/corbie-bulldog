@@ -135,7 +135,7 @@ What each person may see is read from the files each time it is shown: being nam
 | see | its team file as read; each of its workers with its type, its model as it is sent, a model named by one word shown filled in from the nearest team that gives it, and its tools, each with what it does and what its job is: a worker of the team, by name, another machine or a script, by its file, or one of the tools Bulldog ships; a `list:` entry as the tools its server lists, named after it; which of them wait for a yes and who decides, in order, as the team file names them, a worker with the team it is of; its routines; its notes; its problems; which of its workers are at work, and on what; what was read in it, and its runs as they happen |
 | run | one of its routines now |
 
-A run is the team's its labels name. A worker of one team asked to decide for another runs as the team it decides for, labelled with it, as the decisions area says, and is watched by that team's people, not its own team's. A run of a team that has gone, or has been renamed, is watched by nobody.
+A run is the team's its labels name. A worker of one team asked to decide for another runs as the team it decides for, labelled with it, as the decisions area says, and is watched by that team's people, not its own team's. A run of a team that has gone, or has been renamed, is watched by nobody, and so is a bridge's run, whose record holds what was said in every place it listens in.
 
 | The people who decide a change | |
 |---|---|

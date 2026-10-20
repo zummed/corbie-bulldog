@@ -70,18 +70,38 @@ if (input.do === "hear") {
       events.push(...newer)
       if (newer.length < some.length || some.length < 100) break
     }
+    // Every comment and opening of an issue or a merge request is heard,
+    // and every change of its state. Left out is only what the bridge's
+    // own account did, GitLab's system notes, and what happened to
+    // anything else, each logged with its id, its project and why, and
+    // never its words.
     events.reverse()
+    const leave = (e, why) => log("left out event:" + e.id + " in " + project + ": " + why)
     for (const e of events) {
       if (heard.length >= mostHeard) break
       cursor[project] = Math.max(cursor[project], e.id)
-      if (e.author_id === me) continue
-      const from = String(e.author_id)
-      if (e.note && !e.note.system && (e.note.noteable_type === "Issue" || e.note.noteable_type === "MergeRequest")) {
-        const t = thing(project, e.note.noteable_type, e.note.noteable_iid)
-        heard.push({ id: "note:" + e.note.id, kind: "said", from: from, heard_in: project, place: t.place, about: { link: t.link }, text: big(e.note.body || "") })
+      if (e.author_id === me) {
+        leave(e, "own")
         continue
       }
-      if (e.target_type !== "Issue" && e.target_type !== "MergeRequest") continue
+      const from = String(e.author_id)
+      if (e.note && e.note.system) {
+        leave(e, "system")
+        continue
+      }
+      if (e.note) {
+        if (e.note.noteable_type === "Issue" || e.note.noteable_type === "MergeRequest") {
+          const t = thing(project, e.note.noteable_type, e.note.noteable_iid)
+          heard.push({ id: "note:" + e.note.id, kind: "said", from: from, heard_in: project, place: t.place, about: { link: t.link }, text: big(e.note.body || "") })
+        } else {
+          leave(e, e.note.noteable_type)
+        }
+        continue
+      }
+      if (e.target_type !== "Issue" && e.target_type !== "MergeRequest") {
+        leave(e, e.target_type || e.action_name)
+        continue
+      }
       const t = thing(project, e.target_type, e.target_iid)
       if (e.action_name === "opened") {
         // What was opened is read whole; one GitLab no longer gives, such
@@ -96,6 +116,8 @@ if (input.do === "hear") {
         const status = e.action_name === "accepted" ? "merged" : e.action_name
         heard.push({ id: "event:" + e.id, kind: "status", from: from, heard_in: project, place: t.place, about: { link: t.link },
           status: status, closed: status !== "reopened" })
+      } else {
+        leave(e, e.action_name)
       }
     }
   }

@@ -16,10 +16,12 @@ import (
 	"time"
 )
 
-// The bot token and the signing secret the stand-in Slack holds.
+// The bot token and the signing secret the stand-in Slack holds, and the
+// app's own user id there.
 const (
 	slackToken  = "xoxb-the-apps-own-token"
 	slackSigner = "the-signing-secret-8f2a"
+	slackApp    = "U0APP000"
 )
 
 // A slack stands in for Slack's Web API: it knows a few channels and who
@@ -30,6 +32,8 @@ type slack struct {
 	mu     sync.Mutex
 	posted []map[string]any
 	ts     int
+	// asked counts the calls of each method.
+	asked map[string]int
 	// gone are threads whose first message was deleted.
 	gone map[string]bool
 	// fail, when set, answers a method in place of Slack, with an error.
@@ -37,7 +41,7 @@ type slack struct {
 }
 
 func newSlack(t *testing.T) *slack {
-	sl := &slack{t: t, ts: 1700000000, gone: map[string]bool{}}
+	sl := &slack{t: t, ts: 1700000000, gone: map[string]bool{}, asked: map[string]int{}}
 	sl.Server = httptest.NewServer(http.HandlerFunc(sl.serve))
 	t.Cleanup(sl.Close)
 	return sl
@@ -74,7 +78,10 @@ func (sl *slack) serve(w http.ResponseWriter, r *http.Request) {
 	data, _ := io.ReadAll(r.Body)
 	json.Unmarshal(data, &body)
 	q := r.URL.Query()
+	sl.asked[method]++
 	switch method {
+	case "auth.test":
+		answer(map[string]any{"ok": true, "user_id": slackApp, "bot_id": "B01", "user": "bot"})
 	case "conversations.info":
 		channel := q.Get("channel")
 		answer(map[string]any{"ok": true, "channel": map[string]any{"id": channel, "name": map[string]string{"C0HELP00": "help"}[channel], "is_im": strings.HasPrefix(channel, "D")}})
@@ -155,6 +162,14 @@ func event(id string, e map[string]any) string {
 // what it says to answer Slack.
 func (s *service) hears(d map[string]any) ([]map[string]any, map[string]any) {
 	s.t.Helper()
+	things, answer, _ := s.hearsLogged(d)
+	return things, answer
+}
+
+// hearsLogged runs the in machine on a delivery, and gives what it heard,
+// what it says to answer Slack and the lines it logged.
+func (s *service) hearsLogged(d map[string]any) ([]map[string]any, map[string]any, []string) {
+	s.t.Helper()
 	ended := s.run("in.yaml", map[string]any{"settings": map[string]any{"places": map[string]any{"#help": map[string]any{"guests": true}}}, "delivery": d})
 	if ended.Status != "done" {
 		s.t.Fatalf("the in run ended %s: %s", ended.Status, ended.Error)
@@ -165,7 +180,7 @@ func (s *service) hears(d map[string]any) ([]map[string]any, map[string]any) {
 		things = append(things, t.(map[string]any))
 	}
 	answer, _ := out["answer"].(map[string]any)
-	return things, answer
+	return things, answer, s.logged(ended.ID)
 }
 
 func TestBridgesSlackDeliverySignedAndFresh(t *testing.T) {
@@ -330,5 +345,70 @@ func testSlackReplyToGoneThread(t *testing.T) {
 	sent(t, s.carry(map[string]any{"to": "C0HELP00/1700000001.000100", "text": "after the thread's start was deleted"}))
 	if len(sl.posted) != 1 || sl.posted[0]["thread_ts"] != nil || sl.posted[0]["channel"] != "C0HELP00" {
 		t.Errorf("Slack: the text is posted as %v", sl.posted)
+	}
+}
+
+func TestBridgesSlackMentionOfTheAppMarked(t *testing.T) {
+	t.Parallel()
+	sl, s := newSlackBridge(t)
+	said := func(id, text string) map[string]any {
+		t.Helper()
+		body := event(id, map[string]any{"type": "message", "channel": "C0HELP00", "channel_type": "channel", "user": "U0DANA00", "text": text, "ts": "1700000001.000100"})
+		things, _ := s.hears(delivery(body, "application/json", slackSigner, time.Now()))
+		if len(things) != 1 {
+			t.Fatalf("%q is heard as %v", text, things)
+		}
+		return things[0]
+	}
+	asked := func() int {
+		sl.mu.Lock()
+		defer sl.mu.Unlock()
+		return sl.asked["auth.test"]
+	}
+	for text, marked := range map[string]bool{
+		"<@" + slackApp + "> is the API down?": true,
+		"is it down, <@" + slackApp + "|bot>?": true,
+		"<@U0RAJ000> can you look?":            false,
+	} {
+		got := said("Ev-"+text, text)
+		if mentioned, given := got["mentioned"]; given != marked || given && mentioned != true {
+			t.Errorf("%q is heard as %v", text, got)
+		}
+	}
+	if n := asked(); n != 3 {
+		t.Errorf("Slack was asked who the app is %d times for three texts that name someone", n)
+	}
+	if got := said("Ev9", "is the API down?"); got["mentioned"] != nil || asked() != 3 {
+		t.Errorf("a text that names nobody is heard as %v, and Slack was asked who the app is %d times", got, asked())
+	}
+}
+
+func testSlackEveryMessageHandedOver(t *testing.T) {
+	sl, s := newSlackBridge(t)
+	at := func(id string, e map[string]any) map[string]any {
+		e["channel"], e["channel_type"] = "C0HELP00", "channel"
+		return delivery(event(id, e), "application/json", slackSigner, time.Now())
+	}
+	for id, e := range map[string]map[string]any{
+		"Ev1": {"type": "message", "user": "U0DANA00", "text": "at the top", "ts": "1700000001.000100"},
+		"Ev2": {"type": "message", "user": "U0AL0000", "text": "under it", "ts": "1700000002.000100", "thread_ts": "1700000001.000100"},
+		"Ev3": {"type": "message", "subtype": "thread_broadcast", "user": "U0AL0000", "text": "under it, and in the channel", "ts": "1700000003.000100", "thread_ts": "1700000001.000100"},
+		"Ev4": {"type": "message", "subtype": "file_share", "user": "U0GUEST0", "text": "this", "ts": "1700000004.000100",
+			"files": []any{map[string]any{"name": "receipt.png", "url_private": sl.URL + "/files/T01/receipt.png"}}},
+	} {
+		if things, _, logged := s.hearsLogged(at(id, e)); len(things) != 1 || things[0]["id"] != id || len(logged) != 0 {
+			t.Errorf("Slack: %s is heard as %v, and logged %q", id, things, logged)
+		}
+	}
+	for id, e := range map[string]map[string]any{
+		"Ev5": {"type": "message", "bot_id": "B07", "user": "U0OTHER0", "text": "the words of another bot", "ts": "1700000005.000100"},
+		"Ev6": {"type": "message", "bot_id": "B01", "text": "the app's own words", "ts": "1700000006.000100"},
+		"Ev7": {"type": "message", "subtype": "message_changed", "message": map[string]any{"user": "U0DANA00", "text": "the words edited"}, "ts": "1700000007.000100"},
+		"Ev8": {"type": "member_joined_channel", "user": "U0RAJ000"},
+	} {
+		want := map[string]string{"Ev5": "bot", "Ev6": "bot", "Ev7": "message_changed", "Ev8": "member_joined_channel"}[id]
+		if things, _, logged := s.hearsLogged(at(id, e)); len(things) != 0 || fmt.Sprint(logged) != "[left out "+id+" in C0HELP00: "+want+"]" {
+			t.Errorf("Slack: %s is heard as %v, and logged %q", id, things, logged)
+		}
 	}
 }

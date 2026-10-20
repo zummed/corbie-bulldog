@@ -128,9 +128,28 @@ if (input.do === "hear") {
     return sent ? message.channel + "/" + sent.ts : undefined
   }
 
+  // mentions says whether a text names the app, as <@its id>, which Slack
+  // says when asked who the app is; a text naming nobody asks nothing.
+  const mentions = text => {
+    if (!text.includes("<@")) return false
+    const me = must("auth.test").user_id
+    return text.includes("<@" + me + ">") || text.includes("<@" + me + "|")
+  }
+
+  // Every message said is heard. Left out is only what is no message, and
+  // what a bot said, the app among them, each logged with its id, its
+  // place and why, by Slack's own word for what it is, and never its
+  // words.
   const e = body.event || {}
   const said = !e.subtype || e.subtype === "file_share" || e.subtype === "thread_broadcast"
-  if (body.type !== "event_callback" || e.type !== "message" || e.bot_id || !e.user || !said) return { heard: [], answer: { status: 200 } }
+  let left = ""
+  if (body.type !== "event_callback" || e.type !== "message") left = e.type || body.type
+  else if (!said) left = e.subtype
+  else if (e.bot_id || !e.user) left = "bot"
+  if (left) {
+    log("left out " + (body.event_id || body.type) + " in " + (e.channel || "no channel") + ": " + left)
+    return { heard: [], answer: { status: 200 } }
+  }
   const direct = e.channel_type === "im"
   const where = direct ? { direct: true } : channelOf(e.channel)
   const files = []
@@ -149,6 +168,7 @@ if (input.do === "hear") {
     const answers = answered(e)
     if (answers) thing.answers = answers
   }
+  if (mentions(e.text || "")) thing.mentioned = true
   return { heard: [thing], answer: { status: 200 } }
 }
 

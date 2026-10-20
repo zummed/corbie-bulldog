@@ -210,3 +210,41 @@ func testGitLabErrorsByCode(t *testing.T) {
 }
 
 var _ = testkit.Monday
+
+func testGitLabEveryMessageHandedOver(t *testing.T) {
+	gl, s := newGitLabBridge(t)
+	_, cursor := s.listens(nil, func() {
+		gl.happens(map[string]any{"action_name": "opened", "target_type": "Issue", "target_iid": 7, "author_id": 1187})
+	})
+	note := func(id int, author int, noteable string, system bool) map[string]any {
+		return map[string]any{"action_name": "commented on", "target_type": "Note", "author_id": author,
+			"note": map[string]any{"id": id, "body": "the words of a comment", "noteable_type": noteable, "noteable_iid": 7, "system": system}}
+	}
+	gl.happens(note(9001, 1041, "Issue", false))
+	gl.happens(note(9002, 9, "Issue", false))
+	gl.happens(note(9003, 1041, "Issue", true))
+	gl.happens(note(9004, 1041, "Commit", false))
+	gl.happens(map[string]any{"action_name": "pushed to", "author_id": 1041})
+	gl.happens(map[string]any{"action_name": "updated", "target_type": "Issue", "target_iid": 7, "author_id": 1041})
+	gl.happens(note(9005, 1041, "MergeRequest", false))
+	things, _, logged := s.heardLogged(map[string]any{"settings": gitlabPlaces, "cursor": cursor})
+	gl.mu.Lock()
+	events := map[int]int{}
+	for _, e := range gl.events {
+		if n, ok := e["note"].(map[string]any); ok {
+			events[n["id"].(int)] = e["id"].(int)
+		}
+	}
+	pushed, updated := gl.events[2]["id"], gl.events[1]["id"]
+	gl.mu.Unlock()
+	want := []string{
+		fmt.Sprintf("left out event:%d in platform/api: own", events[9002]),
+		fmt.Sprintf("left out event:%d in platform/api: system", events[9003]),
+		fmt.Sprintf("left out event:%d in platform/api: Commit", events[9004]),
+		fmt.Sprintf("left out event:%v in platform/api: pushed to", pushed),
+		fmt.Sprintf("left out event:%v in platform/api: updated", updated),
+	}
+	if len(things) != 2 || things[0]["id"] != "note:9001" || things[1]["id"] != "note:9005" || fmt.Sprint(logged) != fmt.Sprint(want) {
+		t.Errorf("GitLab: what is heard is %v, and what is logged is %q", things, logged)
+	}
+}

@@ -272,6 +272,28 @@ func TestBridgesShippedLongTextSplit(t *testing.T) {
 	testJiraLongTextSplit(t)
 }
 
+func TestBridgesEveryMessageAtAListedPlaceHandedOver(t *testing.T) {
+	t.Parallel()
+	tg, s := newTelegramBridge(t)
+	_, cursor := s.heard(listen(nil))
+	tg.says(4471, "sam", "the hedge wants cutting")
+	group := map[string]any{"id": -1001, "type": "supergroup"}
+	tg.says(4472, "kit", "and the lawn")
+	bot := tg.hear("message", map[string]any{"from": map[string]any{"id": 777, "is_bot": true}, "chat": group, "text": "the words of another bot"})
+	tg.mu.Lock()
+	botMessage := tg.message
+	tg.mu.Unlock()
+	edited := tg.hear("edited_message", map[string]any{"from": map[string]any{"id": 4471, "is_bot": false}, "chat": group, "text": "the words edited"})
+	things, _, logged := s.heardLogged(listen(cursor))
+	want := []string{fmt.Sprintf("left out -1001:%d in -1001: bot", botMessage), fmt.Sprintf("left out update %d: edited_message", edited)}
+	if len(things) != 2 || things[0]["text"] != "the hedge wants cutting" || things[1]["text"] != "and the lawn" || fmt.Sprint(logged) != fmt.Sprint(want) {
+		t.Errorf("Telegram: what is heard is %v, and %d and %d are logged as %q", things, bot, edited, logged)
+	}
+	testSlackEveryMessageHandedOver(t)
+	testGitLabEveryMessageHandedOver(t)
+	testJiraEveryMessageHandedOver(t)
+}
+
 func TestBridgesTelegramThreadlessEveryMessageKept(t *testing.T) {
 	t.Parallel()
 	tg, s := newTelegramBridge(t)

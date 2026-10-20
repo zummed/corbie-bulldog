@@ -16,6 +16,8 @@ The in machine asks Telegram for what is new since its cursor, waiting up to fif
 - What the bot said, and what any other bot said.
 - Every kind of update but a message and a press of a button.
 
+Each is logged in the in run's record on Corbie, with its id, its place and why, and never its words.
+
 ## Example
 
 ```yaml
@@ -27,4 +29,4 @@ bridges:
 ## Changed
 
 - 0.1.0: first shipped.
-- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office.
+- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; logs what it leaves out.

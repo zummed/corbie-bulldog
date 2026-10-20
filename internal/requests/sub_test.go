@@ -140,7 +140,7 @@ func TestRequestsLateAnswerKeptOnce(t *testing.T) {
 		t.Errorf("the late answer given twice is %+v and %+v, in %v", first, again, lates())
 	}
 	// A later answer of the sub-request is late again.
-	must(t, errOf(d.Say(d.payments, d.Worker("bot"), "and the other charge?", nil, requests.Where{})))
+	must(t, errOf(d.Say(d.payments, d.Worker("bot"), "and the other charge?", nil, requests.Where{}, false)))
 	must(t, errOf(d.Answer(d.payments, d.Worker("ledger"), "Kept.", nil)))
 	if later := got[*requests.Entry](t)(d.Late(d.payments)); later.ID == first.ID || !slices.Equal(lates(), []string{"Refunded.", "Kept."}) {
 		t.Errorf("the later answer is %+v, in %v", later, lates())

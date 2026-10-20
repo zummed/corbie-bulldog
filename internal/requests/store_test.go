@@ -90,7 +90,7 @@ func TestRequestsToldAfterWritten(t *testing.T) {
 		seen = append(seen, len(d.thread(n)))
 	})
 	defer stop()
-	dana := got[*requests.Request](t)(d.AskAt("slack", "#help", thread, "", slackDana, "help", nil)).Number
+	dana := got[*requests.Request](t)(d.AskAt("slack", "#help", thread, "", slackDana, "help", nil, false)).Number
 	if !slices.Equal(told, []int64{dana}) || seen[0] != 1 {
 		t.Fatalf("asking told %v, seeing %v", told, seen)
 	}
@@ -114,7 +114,7 @@ func TestRequestsFailureNotARefusal(t *testing.T) {
 	for _, err := range []error{
 		errOf(d.View(d.dana, "dana")), errOf(d.List("dana", requests.Filter{})), errOf(d.WaitingOn("dana")),
 		errOf(d.Sees(d.dana, "dana")), errOf(d.MaySay(d.dana, d.Person("dana"), requests.Screens)),
-		errOf(d.Say(d.dana, d.Person("dana"), "more", nil, requests.Screens)), errOf(d.AskInChat("dana", "", "new", nil)),
+		errOf(d.Say(d.dana, d.Person("dana"), "more", nil, requests.Screens, false)), errOf(d.AskInChat("dana", "", "new", nil)),
 	} {
 		if err == nil || errors.Is(err, requests.ErrNotThere) || errors.As(err, &refusal) {
 			t.Errorf("a store that cannot be read is told as %v", err)

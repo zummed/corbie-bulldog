@@ -88,7 +88,7 @@ func TestAnEmptyAnswerIsTheTeamGivingNone(t *testing.T) {
 		t.Errorf("the thread is %v", b.thread(n))
 	}
 	// In a direct message, Kit is told so too.
-	direct := must(b.reqs.AskAt("telegram", office.Direct, "4472", "", "4472", "the boiler is cold", nil)).Number
+	direct := must(b.reqs.AskAt("telegram", office.Direct, "4472", "", "4472", "the boiler is cold", nil, false)).Number
 	b.settled(direct, requests.Answered)
 	if answers := b.entries(direct, requests.KindAnswer); len(answers) != 1 || answers[0].Text != "The house gave no answer." {
 		t.Errorf("the direct message's thread is %v", b.thread(direct))
@@ -116,7 +116,7 @@ func TestAnEmptyAnswerAtAChannelPlaceSaysNothing(t *testing.T) {
 	b.says(func(testkit.Turn) testkit.Reply { return testkit.Say("") })
 	// Dana says thanks in #help, and the bot replies with nothing: the
 	// request is answered, and nothing is said there.
-	help := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "thanks @bot", nil)).Number
+	help := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "thanks @bot", nil, false)).Number
 	holds(t, "the bot's context", b.prompt("thanks @bot"), "Your last reply is your answer, said to Dana on slack, in #help/1700.1. An empty reply says nothing.")
 	b.settled(help, requests.Answered)
 	if thread := must(b.reqs.Thread(help)); len(thread) != 1 || thread[0].Kind != requests.KindAsked {
@@ -124,7 +124,7 @@ func TestAnEmptyAnswerAtAChannelPlaceSaysNothing(t *testing.T) {
 	}
 	// A guest in #refunds is outside payments, yet the ledger's empty
 	// answer is asked of no disclosure.
-	refunds := must(b.reqs.AskAt("slack", "#refunds", "#refunds/1700.2", "", "U0GUEST1", "ok", nil)).Number
+	refunds := must(b.reqs.AskAt("slack", "#refunds", "#refunds/1700.2", "", "U0GUEST1", "ok", nil, false)).Number
 	b.settled(refunds, requests.Answered)
 	if thread := must(b.reqs.Thread(refunds)); len(thread) != 1 {
 		t.Errorf("the thread in #refunds is %v", b.thread(refunds))

@@ -372,7 +372,8 @@ func (g *giving) entryData(e requests.Entry) map[string]any {
 	for _, w := range e.To {
 		to = append(to, whoData(g.o, w))
 	}
-	return map[string]any{"id": e.ID, "kind": e.Kind, "by": whoData(g.o, e.By), "to": to, "time": g.dataTime(e.At), "text": e.Text, "noted": e.Noted}
+	return map[string]any{"id": e.ID, "kind": e.Kind, "by": whoData(g.o, e.By), "to": to, "time": g.dataTime(e.At), "text": e.Text, "noted": e.Noted,
+		"mentioned": e.Mentioned}
 }
 
 // dataTime gives a time as data: in the office's zone, with its offset.

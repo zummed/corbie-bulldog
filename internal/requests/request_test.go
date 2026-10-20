@@ -57,8 +57,8 @@ func TestRequestsNumbersGivenOnce(t *testing.T) {
 func TestRequestsGoToOneTeam(t *testing.T) {
 	t.Parallel()
 	d := open(t, house(t))
-	direct := got[*requests.Request](t)(d.AskAt("telegram", office.Direct, "4472", "", "4472", "hello", nil))
-	garden := got[*requests.Request](t)(d.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "the hedge", nil))
+	direct := got[*requests.Request](t)(d.AskAt("telegram", office.Direct, "4472", "", "4472", "hello", nil, false))
+	garden := got[*requests.Request](t)(d.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "the hedge", nil, false))
 	chat := got[*requests.Request](t)(d.AskInChat("kit", "", "the socket", nil))
 	picked := got[*requests.Request](t)(d.AskInChat("kit", "garden", "the lawn", nil))
 	friday := got[*requests.Request](t)(d.AskByRoutine("garden", d.o.Teams["garden"].Routines[0], requests.Who{}))
@@ -101,7 +101,7 @@ func TestRequestsLeadWhoIsAPersonWaitsAndAnswers(t *testing.T) {
 	if st := d.state(support.Number); st.Is != requests.Waiting || !slices.Equal(on(st), []string{"dana"}) {
 		t.Fatalf("support's sub-request stands %+v", st)
 	}
-	must(t, errOf(d.Say(support.Number, d.Person("dana"), "That a refund is on its way.", nil, requests.Screens)))
+	must(t, errOf(d.Say(support.Number, d.Person("dana"), "That a refund is on its way.", nil, requests.Screens, false)))
 	last := d.last(support.Number)
 	if d.state(support.Number).Is != requests.Answered || last.Kind != requests.KindAnswer || last.By != d.Person("dana") || last.Text != "That a refund is on its way." {
 		t.Errorf("support's sub-request ends %+v, standing %+v", last, d.state(support.Number))
@@ -197,7 +197,7 @@ func TestRequestsWorkersActInTheirOwnTeam(t *testing.T) {
 	// Who may not say more is told why.
 	for who, words := range map[requests.Who]string{d.Worker("ops"): "of workers, only those of the team that asked it",
 		d.Team("platform"): "only people do", requests.Bulldog: "only people do", d.Rule("payments/no-account-numbers.yaml", "payments"): "only people do"} {
-		if _, err := d.Say(d.payments, who, "me too", nil, requests.Where{}); !errors.As(err, &refusal) || !strings.Contains(err.Error(), words) {
+		if _, err := d.Say(d.payments, who, "me too", nil, requests.Where{}, false); !errors.As(err, &refusal) || !strings.Contains(err.Error(), words) {
 			t.Errorf("%+v saying more in payments' sub-request is told %v", who, err)
 		}
 	}
@@ -278,7 +278,7 @@ func TestRequestsRunToldWhoAsks(t *testing.T) {
 	if p := got[requests.Party](t)(d.Asks(d.dana)); p.Kind != requests.IsPerson || p.Called != "Dana" || !slices.Equal(p.Teams, []string{"support"}) {
 		t.Errorf("Dana's request is asked by %+v", p)
 	}
-	guest := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.02", "", "U0STRANGE", "hello?", nil))
+	guest := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.02", "", "U0STRANGE", "hello?", nil, false))
 	if p := got[requests.Party](t)(d.Asks(guest.Number)); p.Kind != requests.IsGuest || p.Bridge != "slack" || p.ID != "U0STRANGE" {
 		t.Errorf("the guest's request is asked by %+v", p)
 	}
@@ -294,7 +294,7 @@ func TestRequestsRunToldWhoAsks(t *testing.T) {
 func TestRequestsGuestJudgedByTheTeam(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
-	guest := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.02", "", "U0STRANGE", "refund me", nil))
+	guest := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.02", "", "U0STRANGE", "refund me", nil, false))
 	if lead, _, _ := d.Lead(guest.Number); lead != "bot" || d.state(guest.Number).Is != requests.Working {
 		t.Errorf("the guest's request goes to %s, standing %+v", lead, d.state(guest.Number))
 	}
@@ -370,7 +370,7 @@ func TestRequestsOriginReaders(t *testing.T) {
 	if d.sees(d.dana, "raj") || !d.sees(d.dana, "dana") {
 		t.Error("a report of no readers changed who reads the thread")
 	}
-	other := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.09", "", slackAl, "who reads this?", nil))
+	other := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.09", "", slackAl, "who reads this?", nil, false))
 	if d.sees(other.Number, "raj") || d.sees(other.Number, "dana") || !d.sees(other.Number, "al") {
 		t.Error("a thread never reported is read by more than its asker")
 	}
@@ -422,7 +422,7 @@ func TestRequestsEntriesInOrderNeverChanged(t *testing.T) {
 	h := open(t, house(t))
 	n := got[*requests.Request](t)(h.AskInChat("kit", "", "one", nil)).Number
 	for _, text := range []string{"two", "three", "four", "five"} {
-		must(t, errOf(h.Say(n, h.Person("kit"), text, nil, requests.Screens)))
+		must(t, errOf(h.Say(n, h.Person("kit"), text, nil, requests.Screens, false)))
 	}
 	var texts []string
 	for _, e := range h.thread(n) {
@@ -446,7 +446,7 @@ func TestRequestsFilesSeenWithTheirEntry(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
 	statement := requests.File{Name: "statement.pdf", Data: []byte("%PDF 4411")}
-	e := got[*requests.Entry](t)(d.Say(d.payments, d.Person("lee"), "the statement", []requests.File{statement}, requests.Screens))
+	e := got[*requests.Entry](t)(d.Say(d.payments, d.Person("lee"), "the statement", []requests.File{statement}, requests.Screens, false))
 	if len(e.Files) != 1 || e.Files[0].Name != "statement.pdf" || e.Read != "payments" {
 		t.Fatalf("Lee's entry is %+v", e)
 	}
@@ -496,10 +496,10 @@ func TestRequestsTooLargeRefusedNeverCut(t *testing.T) {
 	}
 	n := got[*requests.Request](t)(h.AskInChat("kit", "", "the socket", nil)).Number
 	huge := requests.File{Name: "photo.jpg", Data: make([]byte, requests.MaxFile+1)}
-	if _, err := h.Say(n, h.Person("kit"), "a photo", []requests.File{huge}, requests.Screens); !errors.As(err, &refusal) || !strings.Contains(err.Error(), "photo.jpg") {
+	if _, err := h.Say(n, h.Person("kit"), "a photo", []requests.File{huge}, requests.Screens, false); !errors.As(err, &refusal) || !strings.Contains(err.Error(), "photo.jpg") {
 		t.Errorf("a file too large is told %v", err)
 	}
-	if _, err := h.Say(n, h.Person("kit"), big, nil, requests.Screens); !errors.As(err, &refusal) {
+	if _, err := h.Say(n, h.Person("kit"), big, nil, requests.Screens, false); !errors.As(err, &refusal) {
 		t.Errorf("a reply too large is told %v", err)
 	}
 	if len(h.thread(n)) != 1 || h.count("requests_files") != 0 {
@@ -513,12 +513,12 @@ func TestRequestsRefusedEntryLeavesNoFile(t *testing.T) {
 	n := got[*requests.Request](t)(h.AskInChat("kit", "", "the socket", nil)).Number
 	good := requests.File{Name: "a.jpg", Data: []byte("a")}
 	huge := requests.File{Name: "b.jpg", Data: make([]byte, requests.MaxFile+1)}
-	if _, err := h.Say(n, h.Person("kit"), "photos", []requests.File{good, huge}, requests.Screens); err == nil {
+	if _, err := h.Say(n, h.Person("kit"), "photos", []requests.File{good, huge}, requests.Screens, false); err == nil {
 		t.Fatal("an entry with a file too large is kept")
 	}
 	_, err := h.db.Exec(`CREATE TRIGGER fail_file BEFORE INSERT ON requests_files WHEN NEW.name = 'bad.jpg' BEGIN SELECT RAISE(ABORT, 'the disk is full'); END`)
 	must(t, err)
-	if _, err := h.Say(n, h.Person("kit"), "photos", []requests.File{good, {Name: "bad.jpg", Data: []byte("b")}}, requests.Screens); err == nil {
+	if _, err := h.Say(n, h.Person("kit"), "photos", []requests.File{good, {Name: "bad.jpg", Data: []byte("b")}}, requests.Screens, false); err == nil {
 		t.Fatal("an entry whose file cannot be written is kept")
 	}
 	if len(h.thread(n)) != 1 || h.count("requests_files") != 0 {
@@ -546,7 +546,7 @@ func TestRequestsTimesInOfficeZone(t *testing.T) {
 	// reported.
 	d := open(t, work(t))
 	issue := "platform/api#51"
-	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "the retry is broken", nil)).Number
+	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "the retry is broken", nil, false)).Number
 	reported := d.clock.Now().In(time.FixedZone("EST", -5*3600))
 	must(t, errOf(d.Source("gitlab", issue, requests.Status{Status: "opened", By: requests.Identity("gitlab", gitlabAl), At: reported})))
 	v := got[*requests.View](t)(d.View(r, "al"))

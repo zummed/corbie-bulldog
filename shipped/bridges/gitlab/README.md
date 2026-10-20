@@ -17,6 +17,8 @@ The in machine asks GitLab what happened on each project since its cursor, resti
 - What the bridge's own account did, and GitLab's system notes.
 - What happened to anything but an issue or a merge request.
 
+Each is logged in the in run's record on Corbie, with its id, its place and why, and never its words.
+
 ## Example
 
 ```yaml
@@ -28,4 +30,4 @@ bridges:
 ## Changed
 
 - 0.1.0: first shipped.
-- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; reaches the host in `site`, and sends GITLAB_TOKEN there, in place of gitlab.com.
+- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; reaches the host in `site`, and sends GITLAB_TOKEN there, in place of gitlab.com; logs what it leaves out.

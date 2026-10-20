@@ -23,7 +23,7 @@ import (
 // tables.
 const (
 	Area    = "requests"
-	Version = 2
+	Version = 3
 )
 
 // The most a request keeps of one text and of one file. What is larger is
@@ -201,6 +201,9 @@ type Entry struct {
 	// team's heed: worked out when it is read, as the message itself is
 	// never changed.
 	Noted bool
+	// Mentioned says the bridge it was heard on marked it as naming the
+	// bridge's own bot.
+	Mentioned bool
 }
 
 // A FileHead names a file kept on an entry.
@@ -300,7 +303,7 @@ CREATE TABLE requests_entries(
 	kind TEXT NOT NULL, by_ TEXT NOT NULL, to_ TEXT NOT NULL, at TEXT NOT NULL,
 	text TEXT NOT NULL, came_in TEXT NOT NULL,
 	read_team TEXT NOT NULL DEFAULT '', read_known INTEGER NOT NULL DEFAULT 0,
-	answers INTEGER NOT NULL DEFAULT 0, sub INTEGER NOT NULL DEFAULT 0);
+	answers INTEGER NOT NULL DEFAULT 0, sub INTEGER NOT NULL DEFAULT 0, mentioned INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX requests_entries_request ON requests_entries(request, id);
 CREATE TABLE requests_files(
 	entry INTEGER NOT NULL REFERENCES requests_entries(id), name TEXT NOT NULL, data BLOB NOT NULL,

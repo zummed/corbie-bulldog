@@ -17,6 +17,8 @@ The in machine asks Jira for the issues of each project that changed since its c
 
 - What the bridge's own account wrote.
 
+Each is logged in the in run's record on Corbie, with its id, its place and why, and never its words.
+
 ## Example
 
 ```yaml
@@ -28,4 +30,4 @@ bridges:
 ## Changed
 
 - 0.1.0: first shipped.
-- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; reaches the host in `site`, and sends JIRA_TOKEN there, in place of example.atlassian.net.
+- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; reaches the host in `site`, and sends JIRA_TOKEN there, in place of example.atlassian.net; logs what it leaves out.

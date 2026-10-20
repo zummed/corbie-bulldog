@@ -257,7 +257,7 @@ func TestAWaitingCallWaitsOnAcrossARestart(t *testing.T) {
 	if err := reqs.Read(w.office()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := reqs.Say(sub, reqs.Person("dana"), "Yes, on Tuesday.", nil, requests.Screens); err != nil {
+	if _, err := reqs.Say(sub, reqs.Person("dana"), "Yes, on Tuesday.", nil, requests.Screens, false); err != nil {
 		t.Fatal(err)
 	}
 	w.db.Close()

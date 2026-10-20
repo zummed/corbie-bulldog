@@ -295,10 +295,12 @@ type thing struct {
 	// Threadless says its place holds no threads, as a chat does: what
 	// went before is said more in only by a reply.
 	Threadless bool
-	Readers    []string
-	Link       string
-	Answers    string
-	Text       string
+	// Mentioned says the service named the bridge's own bot in it.
+	Mentioned bool
+	Readers   []string
+	Link      string
+	Answers   string
+	Text      string
 	// TextBlob is where the text is, when it was given as a blob.
 	TextBlob string
 	Files    []any
@@ -351,6 +353,7 @@ func readHeard(output any) ran {
 		}
 		t.Closed, _ = m["closed"].(bool)
 		t.Threadless, _ = m["threadless"].(bool)
+		t.Mentioned, _ = m["mentioned"].(bool)
 		for _, r := range asList(m["readers"]) {
 			if id := text(r); id != "" {
 				t.Readers = append(t.Readers, id)
@@ -579,7 +582,7 @@ func (b *Bridges) said(o *office.Office, bridge string, t thing) (handing, error
 	if h, ok, err := b.goesOn(o, bridge, t, who, in); err != nil || ok {
 		return h, err
 	}
-	r, err := b.requests.AskAt(bridge, t.HeardIn, t.Place, t.Link, t.From, t.Text, t.got)
+	r, err := b.requests.AskAt(bridge, t.HeardIn, t.Place, t.Link, t.From, t.Text, t.got, t.Mentioned)
 	if isRefusal(err) {
 		return handing{problem: fmt.Sprintf("what %s said in %s was not asked: %v", t.From, t.HeardIn, err)}, b.sentence(bridge, t, cannotTake)
 	}
@@ -691,7 +694,7 @@ func (b *Bridges) answer(sent *thingRow, who requests.Who, person *office.Person
 
 // say writes what someone said in a request they may say more in.
 func (b *Bridges) say(n int64, who requests.Who, t thing, in requests.Where) (handing, error) {
-	e, err := b.requests.Say(n, who, t.Text, t.got, in)
+	e, err := b.requests.Say(n, who, t.Text, t.got, in, t.Mentioned)
 	switch {
 	case e != nil:
 		return handing{request: n, entry: e.ID}, err

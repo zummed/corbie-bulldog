@@ -230,3 +230,18 @@ func testJiraErrorsByCode(t *testing.T) {
 		t.Errorf("Jira: a 429 ends %s with %#v", r.Status, r.Output)
 	}
 }
+
+func testJiraEveryMessageHandedOver(t *testing.T) {
+	j, s := newJiraBridge(t)
+	opened := time.Now().Add(time.Second)
+	_, cursor := s.listensToJira(nil, func() { j.opened(opened, "To Do", "new", nil, nil) })
+	later := opened.Add(time.Second)
+	comment := func(id, author string, at time.Time) map[string]any {
+		return map[string]any{"id": id, "body": "the words of a comment", "created": stamp(at), "author": map[string]any{"accountId": author}}
+	}
+	j.opened(opened, "To Do", "new", []any{comment("2001", jiraBridge, later), comment("2002", "5b10ac8d82e05b22cc7d4ef5", later.Add(time.Second))}, nil)
+	things, _, logged := s.heardLogged(map[string]any{"settings": jiraSettings, "cursor": cursor})
+	if len(things) != 1 || things[0]["id"] != "comment:2002" || fmt.Sprint(logged) != "[left out comment:2001 in OPS-12: own]" {
+		t.Errorf("Jira: what is heard is %v, and what is logged is %q", things, logged)
+	}
+}

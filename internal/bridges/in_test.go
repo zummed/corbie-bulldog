@@ -3,6 +3,7 @@ package bridges_test
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -166,6 +167,26 @@ func TestBridgesWhatIsHeard(t *testing.T) {
 		if h.latest() != 0 || len(troubles) != 1 || !strings.Contains(troubles[0].Error, "no "+field) {
 			t.Errorf("a thing with no %s: troubles %v", field, troubles)
 		}
+	}
+}
+
+func TestBridgesMentionedKeptOnTheEntry(t *testing.T) {
+	t.Parallel()
+	d := open(t, work(t))
+	d.delivered("slack", said("U0DANA00", "#help", "C1/7.0", "<@U0APP000> is the API down?", "mentioned", true))
+	n := d.latest()
+	d.delivered("slack", said("U0AL0000", "#help", "C1/7.0", "it is slow for me too"))
+	d.delivered("slack", said("U0DANA00", "#help", "C1/7.0", "<@U0APP000> and now?", "mentioned", true))
+	es, err := d.requests.Thread(n)
+	must(t, err)
+	var marked []bool
+	for _, e := range es {
+		if e.Kind == requests.KindAsked || e.Kind == requests.KindSaid {
+			marked = append(marked, e.Mentioned)
+		}
+	}
+	if fmt.Sprint(marked) != "[true false true]" {
+		t.Errorf("of what was said, these are marked mentioned: %v", marked)
 	}
 }
 

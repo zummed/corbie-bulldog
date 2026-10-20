@@ -368,7 +368,7 @@ func longThread(t *testing.T, b *bench, entries int) (int64, int64) {
 			waiting = e.ID
 			continue
 		}
-		if _, err := reqs.Say(r.Number, reqs.Person("raj"), fmt.Sprintf("entry %d", i), nil, requests.Screens); err != nil {
+		if _, err := reqs.Say(r.Number, reqs.Person("raj"), fmt.Sprintf("entry %d", i), nil, requests.Screens, false); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -61,7 +61,7 @@ func TestRequestsStates(t *testing.T) {
 	support := got[*requests.Request](t)(d.Sub(d.dana, d.Worker("bot"), "support", "What did we tell 4411?", "ticket-support")).Number
 	decision := got[*requests.Entry](t)(d.Write(support, requests.Writing{Kind: "decision", By: d.Worker("bot"), To: []requests.Who{d.Person("dana")},
 		Text: "Tell 4411 of the refund", Waits: []requests.Who{d.Person("dana")}}))
-	must(t, errOf(d.Say(support, requests.Identity("slack", slackDana), "a refund", nil, requests.Where{Bridge: "slack", Place: "direct"})))
+	must(t, errOf(d.Say(support, requests.Identity("slack", slackDana), "a refund", nil, requests.Where{Bridge: "slack", Place: "direct"}, false)))
 	if st := d.state(support); st.Is != requests.Waiting || !slices.Equal(on(st), []string{"dana"}) {
 		t.Errorf("with Dana's answer said over the decision put to her, support's sub-request stands %+v", st)
 	}
@@ -110,7 +110,7 @@ func TestRequestsWhatWaitsOnAPerson(t *testing.T) {
 	if ws := got[[]requests.Wait](t)(d.WaitingOn("dana")); len(ws) != 1 || ws[0].Request != support || ws[0].Kind != requests.KindLead {
 		t.Errorf("what waits on Dana is %+v", ws)
 	}
-	must(t, errOf(d.Say(support, requests.Identity("slack", slackDana), "a refund", nil, requests.Where{Bridge: "slack", Place: "direct"})))
+	must(t, errOf(d.Say(support, requests.Identity("slack", slackDana), "a refund", nil, requests.Where{Bridge: "slack", Place: "direct"}, false)))
 	if ws := got[[]requests.Wait](t)(d.WaitingOn("dana")); len(ws) != 0 {
 		t.Errorf("once Dana answered, what waits on her is %+v", ws)
 	}
@@ -189,26 +189,26 @@ func TestRequestsWhoMaySayMore(t *testing.T) {
 	h := open(t, house(t))
 	kit := got[*requests.Request](t)(h.AskInChat("kit", "", "the socket", nil)).Number
 	must(t, errOf(h.Answer(kit, h.Worker("steward"), "Fixed.", nil)))
-	must(t, errOf(h.Say(kit, h.Person("kit"), "it sparked again", nil, requests.Screens)))
+	must(t, errOf(h.Say(kit, h.Person("kit"), "it sparked again", nil, requests.Screens, false)))
 	if last := h.last(kit); h.state(kit).Is != requests.Working || last.By != h.Person("kit") || last.To[0] != h.Team("office") {
 		t.Errorf("after Kit says more, the request ends %+v", last)
 	}
 
 	d := workDay(t)
 	raj := requests.Identity("slack", slackRaj)
-	if e := got[*requests.Entry](t)(d.Say(d.dana, raj, "same for 5512", nil, requests.Where{Bridge: "slack", Place: thread})); e.By != raj || e.To[0] != d.Team("office") || e.Read != "" {
+	if e := got[*requests.Entry](t)(d.Say(d.dana, raj, "same for 5512", nil, requests.Where{Bridge: "slack", Place: thread}, false)); e.By != raj || e.To[0] != d.Team("office") || e.Read != "" {
 		t.Errorf("Raj's entry in Dana's thread is %+v", e)
 	}
-	if e := got[*requests.Entry](t)(d.Say(d.dana, d.Person("raj"), "and 6623", nil, requests.Screens)); e.By != d.Person("raj") || e.To[0] != d.Team("office") {
+	if e := got[*requests.Entry](t)(d.Say(d.dana, d.Person("raj"), "and 6623", nil, requests.Screens, false)); e.By != d.Person("raj") || e.To[0] != d.Team("office") {
 		t.Errorf("Raj's entry on the screens is %+v", e)
 	}
 	must(t, errOf(d.Answer(d.payments, d.Worker("ledger"), "Duplicate confirmed; £40 refunded.", nil)))
-	if e := got[*requests.Entry](t)(d.Say(d.payments, d.Person("al"), "refund the fee too", nil, requests.Screens)); e.By != d.Person("al") || e.To[0] != d.Team("payments") || d.state(d.payments).Is != requests.Working {
+	if e := got[*requests.Entry](t)(d.Say(d.payments, d.Person("al"), "refund the fee too", nil, requests.Screens, false)); e.By != d.Person("al") || e.To[0] != d.Team("payments") || d.state(d.payments).Is != requests.Working {
 		t.Errorf("Al's entry in payments' sub-request is %+v", e)
 	}
 	for _, who := range []requests.Who{d.Person("dana"), d.Person("raj"), raj, requests.Identity("slack", slackDana)} {
 		may := got[bool](t)(d.MaySay(d.payments, who, requests.Screens))
-		_, err := d.Say(d.payments, who, "me too", nil, requests.Screens)
+		_, err := d.Say(d.payments, who, "me too", nil, requests.Screens, false)
 		var refusal requests.Refusal
 		if may || !errors.As(err, &refusal) {
 			t.Errorf("%+v may say more in payments' sub-request: %v", who, err)
@@ -244,7 +244,7 @@ func TestRequestsFailedRunLeavesAnswered(t *testing.T) {
 	if words != 1 {
 		t.Errorf("the error's words are in %d entries", words)
 	}
-	must(t, errOf(h.Say(n, h.Person("kit"), "try again", nil, requests.Screens)))
+	must(t, errOf(h.Say(n, h.Person("kit"), "try again", nil, requests.Screens, false)))
 	if h.state(n).Is != requests.Working {
 		t.Error("saying more does not make the request working")
 	}
@@ -264,7 +264,7 @@ func TestRequestsEmptyAnswerAtARoutineOrChannelSaysNothing(t *testing.T) {
 		t.Errorf("Sam is shown %q", shown)
 	}
 	// At a channel place, too.
-	garden := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "thanks", nil)).Number
+	garden := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "thanks", nil, false)).Number
 	if e := got[*requests.Entry](t)(h.Answer(garden, h.Worker("gardener"), "", nil)); e != nil || h.state(garden).Is != requests.Answered || len(h.thread(garden)) != 1 {
 		t.Errorf("the garden chat's request is answered with %+v, its thread %+v", e, h.thread(garden))
 	}
@@ -274,7 +274,7 @@ func TestRequestsEmptyAnswerAtARoutineOrChannelSaysNothing(t *testing.T) {
 	if e := got[*requests.Entry](t)(h.Answer(kit, h.Worker("steward"), "", nil)); e == nil || e.Kind != requests.KindAnswer || h.state(kit).Is != requests.Answered {
 		t.Errorf("Kit's request is answered with %+v", e)
 	}
-	direct := got[*requests.Request](t)(h.AskAt("telegram", office.Direct, "4472", "", "4472", "the socket", nil)).Number
+	direct := got[*requests.Request](t)(h.AskAt("telegram", office.Direct, "4472", "", "4472", "the socket", nil, false)).Number
 	if e := got[*requests.Entry](t)(h.Answer(direct, h.Worker("steward"), "", nil)); e == nil || e.Kind != requests.KindAnswer || h.state(direct).Is != requests.Answered {
 		t.Errorf("Kit's direct message is answered with %+v", e)
 	}
@@ -309,7 +309,7 @@ func TestRequestsStoppedOpenedOnlyByAPerson(t *testing.T) {
 	if !slices.Equal(toKit, []string{"stopped by Sam"}) || !holds(h.shows(n, "sam"), "work failed: cancelled") {
 		t.Errorf("after the stop, Bulldog tells Kit %q", toKit)
 	}
-	must(t, errOf(h.Say(n, h.Person("kit"), "please go on", nil, requests.Screens)))
+	must(t, errOf(h.Say(n, h.Person("kit"), "please go on", nil, requests.Screens, false)))
 	if r := got[*requests.Request](t)(h.Get(n)); r.Stopped || r.Answered {
 		t.Errorf("Kit's saying more did not open the request: %+v", r)
 	}
@@ -317,7 +317,7 @@ func TestRequestsStoppedOpenedOnlyByAPerson(t *testing.T) {
 	// payments' sub-request opens nothing.
 	d := workDay(t)
 	must(t, errOf(d.Stop(d.dana, d.Person("al"))))
-	must(t, errOf(d.Say(d.payments, d.Worker("bot"), "any news?", nil, requests.Where{})))
+	must(t, errOf(d.Say(d.payments, d.Worker("bot"), "any news?", nil, requests.Where{}, false)))
 	if r := got[*requests.Request](t)(d.Get(d.payments)); !r.Stopped || !r.Answered {
 		t.Errorf("what the cancelled run said opened the stopped sub-request: %+v", r)
 	}
@@ -325,7 +325,7 @@ func TestRequestsStoppedOpenedOnlyByAPerson(t *testing.T) {
 	// may say more there, and opens it.
 	d = workDay(t)
 	must(t, errOf(d.Stop(d.payments, d.Person("lee"))))
-	must(t, errOf(d.Say(d.payments, d.Worker("bot"), "any news?", nil, requests.Where{})))
+	must(t, errOf(d.Say(d.payments, d.Worker("bot"), "any news?", nil, requests.Where{}, false)))
 	if r := got[*requests.Request](t)(d.Get(d.payments)); r.Stopped || r.Answered || d.state(d.payments).Is != requests.Working {
 		t.Errorf("what the asking team's run said did not open the stopped sub-request: %+v", r)
 	}
@@ -426,7 +426,7 @@ func TestRequestsSourceStatusShown(t *testing.T) {
 	t.Parallel()
 	d := open(t, work(t))
 	issue := "platform/api#51"
-	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "the retry is broken", nil))
+	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "the retry is broken", nil, false))
 	al := requests.Identity("gitlab", gitlabAl)
 	must(t, errOf(d.Source("gitlab", issue, requests.Status{Status: "opened", By: al, At: d.clock.Now(), Link: "https://gitlab/51"})))
 	d.clock.Move(time.Hour)
@@ -444,7 +444,7 @@ func TestRequestsSourceStatusShown(t *testing.T) {
 	if told != 1 {
 		t.Errorf("the watchers are told %d times", told)
 	}
-	later := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "and the deploy", nil)).Number
+	later := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "and the deploy", nil, false)).Number
 	if n, ok, err := d.LatestAt("gitlab", issue); err != nil || !ok || n != later {
 		t.Errorf("the latest request at the issue is %d", n)
 	}
@@ -460,7 +460,7 @@ func TestRequestsClosedAtSourceStops(t *testing.T) {
 	t.Parallel()
 	d := open(t, work(t))
 	issue := "platform/api#51"
-	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "the retry is broken", nil)).Number
+	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "the retry is broken", nil, false)).Number
 	sub := got[*requests.Request](t)(d.Sub(r, d.Worker("ops"), "payments", "were charges doubled?", "t")).Number
 	al := requests.Identity("gitlab", gitlabAl)
 	stopped := got[[]int64](t)(d.Source("gitlab", issue, requests.Status{Status: "closed", Closed: true, By: al, At: d.clock.Now()}))
@@ -473,7 +473,7 @@ func TestRequestsClosedAtSourceStops(t *testing.T) {
 	if again := got[[]int64](t)(d.Source("gitlab", issue, requests.Status{Status: "reopened", By: al, At: d.clock.Now()})); len(again) != 0 || d.state(r).Is != requests.Answered {
 		t.Error("reopening the issue started something")
 	}
-	must(t, errOf(d.Say(r, al, "still broken", nil, requests.Where{Bridge: "gitlab", Place: issue})))
+	must(t, errOf(d.Say(r, al, "still broken", nil, requests.Where{Bridge: "gitlab", Place: issue}, false)))
 	if d.state(r).Is != requests.Working {
 		t.Error("Al's comment on the issue does not start its request again")
 	}
@@ -483,12 +483,12 @@ func TestRequestsSourceStatusNeverSet(t *testing.T) {
 	t.Parallel()
 	d := open(t, work(t))
 	issue := "platform/api#51"
-	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "the retry is broken", nil)).Number
+	r := got[*requests.Request](t)(d.AskAt("gitlab", "platform/api", issue, "", gitlabAl, "the retry is broken", nil, false)).Number
 	st := requests.Status{Status: "opened", By: requests.Identity("gitlab", gitlabAl), At: d.clock.Now()}
 	must(t, errOf(d.Source("gitlab", issue, st)))
 	must(t, errOf(d.Answer(r, d.Worker("ops"), "Fixed in 813.", nil)))
 	must(t, errOf(d.Stop(r, d.Person("al"))))
-	must(t, errOf(d.Say(r, d.Person("al"), "and again", nil, requests.Screens)))
+	must(t, errOf(d.Say(r, d.Person("al"), "and again", nil, requests.Screens, false)))
 	if got := got[*requests.Request](t)(d.Get(r)).Source; got == nil || got.Status != "opened" || got.Closed {
 		t.Errorf("the issue's status is %+v", got)
 	}
@@ -505,9 +505,9 @@ func TestRequestsHeldAnswerNotHandedWaitsOnTheLeadAgain(t *testing.T) {
 		return errors.New("the decisions cannot be read")
 	}
 	must(t, d.Readers("slack", "#help/1", []string{"U0DANA00"}))
-	asked := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1", "", "U0DANA00", "help", nil)).Number
+	asked := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1", "", "U0DANA00", "help", nil, false)).Number
 	support := got[*requests.Request](t)(d.Sub(asked, d.Worker("bot"), "support", "What did we tell 4411?", "t")).Number
-	e, err := d.Say(support, d.Person("dana"), "a refund", nil, requests.Screens)
+	e, err := d.Say(support, d.Person("dana"), "a refund", nil, requests.Screens, false)
 	if e == nil || e.Kind != requests.KindHeld || err == nil || !strings.Contains(err.Error(), "the decisions cannot be read") || !slices.Equal(handed, []int64{e.ID}) {
 		t.Fatalf("Dana's answer not handed is %+v, %v, handed %v", e, err, handed)
 	}
@@ -523,7 +523,7 @@ func TestRequestsNotedAnswersWithNothingSaid(t *testing.T) {
 	t.Parallel()
 	h := open(t, house(t))
 	heed := h.Rule("garden/for-us.js", "garden")
-	n := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "lovely weather", nil)).Number
+	n := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "lovely weather", nil, false)).Number
 	asking := h.thread(n)[0]
 	noted := got[[]requests.Entry](t)(h.Noted(n, heed, "Not for the garden (0.12)", []int64{asking.ID}))
 	if len(noted) != 1 || noted[0].Kind != requests.KindNoted || noted[0].By != heed || noted[0].Answers != asking.ID ||
@@ -554,7 +554,7 @@ func TestRequestsNotedAnswersWithNothingSaid(t *testing.T) {
 	}
 	// With no note, the entry says which rule noted it; only a message is
 	// noted.
-	more := got[*requests.Entry](t)(h.Say(n, requests.Identity("telegram", "4472"), "the roses are out", nil, kitInGarden))
+	more := got[*requests.Entry](t)(h.Say(n, requests.Identity("telegram", "4472"), "the roses are out", nil, kitInGarden, false))
 	if e := got[[]requests.Entry](t)(h.Noted(n, heed, " ", []int64{more.ID})); len(e) != 1 || e[0].Text != "Noted by garden/for-us.js" {
 		t.Errorf("noted with no note: %+v", e)
 	}
@@ -576,9 +576,9 @@ func TestRequestsNotedOnlyWhileNoAnswer(t *testing.T) {
 		must(t, errOf(h.Noted(n, heed, "Not for the garden", []int64{e.ID})))
 	}
 
-	n := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "lovely weather", nil)).Number
+	n := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "lovely weather", nil, false)).Number
 	note(n, &h.thread(n)[0])
-	must(t, errOf(h.Say(n, kit, "@gardener the roses?", nil, kitInGarden)))
+	must(t, errOf(h.Say(n, kit, "@gardener the roses?", nil, kitInGarden, false)))
 	if st := h.state(n); st.Is != requests.Working || st.Noted {
 		t.Errorf("asked of the gardener, the request is %+v", st)
 	}
@@ -587,7 +587,7 @@ func TestRequestsNotedOnlyWhileNoAnswer(t *testing.T) {
 		t.Errorf("answered by the gardener, the request is %+v", st)
 	}
 	// Later talk the heed notes leaves it answered, and is marked noted.
-	thanks := got[*requests.Entry](t)(h.Say(n, kit, "thanks", nil, kitInGarden))
+	thanks := got[*requests.Entry](t)(h.Say(n, kit, "thanks", nil, kitInGarden, false))
 	note(n, thanks)
 	if st := h.state(n); st.Is != requests.Answered || st.Noted {
 		t.Errorf("with the thanks noted, the request is %+v", st)
@@ -599,15 +599,15 @@ func TestRequestsNotedOnlyWhileNoAnswer(t *testing.T) {
 	}
 
 	// A quiet answer is an answer: later talk noted leaves it answered.
-	quiet := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "thanks @gardener", nil)).Number
+	quiet := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "thanks @gardener", nil, false)).Number
 	must(t, errOf(h.Answer(quiet, h.Worker("gardener"), "", nil)))
-	note(quiet, got[*requests.Entry](t)(h.Say(quiet, kit, "cheers", nil, kitInGarden)))
+	note(quiet, got[*requests.Entry](t)(h.Say(quiet, kit, "cheers", nil, kitInGarden, false)))
 	if st := h.state(quiet); st.Is != requests.Answered || st.Noted {
 		t.Errorf("answered quietly, the request is %+v", st)
 	}
 
 	// A noted request stopped holds its stop, and is no longer noted.
-	stopped := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "rain later", nil)).Number
+	stopped := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "rain later", nil, false)).Number
 	note(stopped, &h.thread(stopped)[0])
 	must(t, errOf(h.Stop(stopped, h.Person("sam"))))
 	if st := h.state(stopped); st.Is != requests.Answered || st.Noted {

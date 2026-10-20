@@ -197,7 +197,7 @@ func TestWorkQuestionToUnreachablePersonRefused(t *testing.T) {
 	// A guest asks in #help; then the Slack bridge stops with a problem,
 	// and nothing reaches the guest, who is reached only there.
 	_, let := b.hold("charged", testkit.Use("ask_person", map[string]any{"question": "which customer are you?"}))
-	r, err := b.reqs.AskAt("slack", "#help", "#help/1700.3", "", "U0GUEST1", "I was charged twice", nil)
+	r, err := b.reqs.AskAt("slack", "#help", "#help/1700.3", "", "U0GUEST1", "I was charged twice", nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -286,7 +286,7 @@ func TestTheAnswerOfALeadWhoIsAPersonIsTheToolsResult(t *testing.T) {
 	if runs := b.runs(s.Sub); len(runs) != 0 {
 		t.Errorf("a run started for a team whose lead is Dana: %+v", runs)
 	}
-	if _, err := b.reqs.Say(s.Sub, b.reqs.Person("dana"), "Yes, on Tuesday.", nil, requests.Screens); err != nil {
+	if _, err := b.reqs.Say(s.Sub, b.reqs.Person("dana"), "Yes, on Tuesday.", nil, requests.Screens, false); err != nil {
 		t.Fatal(err)
 	}
 	holds(t, "the bot's answer", b.answered(n).Text, "Dana answered for Support", "Yes, on Tuesday.")

@@ -488,7 +488,7 @@ func (s *site) sayMore(person string, w http.ResponseWriter, r *http.Request) (a
 		}
 		return map[string]int64{"entry": e.ID}, nil
 	}
-	e, err := s.Requests.Say(n, who, words, in.files, requests.Screens)
+	e, err := s.Requests.Say(n, who, words, in.files, requests.Screens, false)
 	if err != nil {
 		return nil, err
 	}

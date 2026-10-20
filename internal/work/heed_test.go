@@ -52,7 +52,7 @@ func (b *bench) heeded(n int64, count int) KeptRun {
 func (b *bench) inThread(n int64, bridge, id, text string) {
 	b.t.Helper()
 	r := must(b.reqs.Get(n))
-	if _, err := b.reqs.Say(n, requests.Identity(bridge, id), text, nil, requests.Where{Bridge: bridge, Place: r.Origin.Place}); err != nil {
+	if _, err := b.reqs.Say(n, requests.Identity(bridge, id), text, nil, requests.Where{Bridge: bridge, Place: r.Origin.Place}, false); err != nil {
 		b.t.Fatal(err)
 	}
 }
@@ -64,7 +64,7 @@ func TestAHeedWeighsWhatIsSaidAtAChannelPlace(t *testing.T) {
 	files["platform/team.yaml"] += "heed: ./for-us.js\n"
 	b := newBench(t, files)
 	// Dana's word to a colleague in #help is noted: the bot never starts.
-	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "Raj, I'll look at it", nil)).Number
+	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "Raj, I'll look at it", nil, false)).Number
 	if h := b.heeded(n, 1); h.Status != done || h.How != "note: Not for the bot." || h.Worker != "for-us.js" {
 		t.Errorf("the heed's run is %+v", h)
 	}
@@ -94,7 +94,7 @@ func TestAHeedWeighsWhatIsSaidAtAChannelPlace(t *testing.T) {
 	b.started(n, 2)
 	b.settled(n, requests.Answered)
 	// Nor is a direct message.
-	direct := must(b.reqs.AskAt("slack", "direct", "D0DANA00", "", "U0DANA00", "hello", nil)).Number
+	direct := must(b.reqs.AskAt("slack", "direct", "D0DANA00", "", "U0DANA00", "hello", nil, false)).Number
 	b.started(direct, 1)
 	b.settled(direct, requests.Answered)
 	if len(b.heeds(direct)) != 0 {
@@ -102,7 +102,7 @@ func TestAHeedWeighsWhatIsSaidAtAChannelPlace(t *testing.T) {
 	}
 	// The opening of an issue is addressed to whoever watches it, and is
 	// not weighed; a comment in it is.
-	issue := must(b.reqs.AskAt("gitlab", "platform/api", "platform/api#7", "https://gitlab.com/platform/api/-/issues/7", "1041", "the retry is broken", nil)).Number
+	issue := must(b.reqs.AskAt("gitlab", "platform/api", "platform/api#7", "https://gitlab.com/platform/api/-/issues/7", "1041", "the retry is broken", nil, false)).Number
 	b.started(issue, 1)
 	b.settled(issue, requests.Answered)
 	if len(b.heeds(issue)) != 0 {
@@ -130,7 +130,7 @@ func TestWorkAnAnswerToTheLeadIsNeverHeeded(t *testing.T) {
 		}
 		return testkit.Say("done")
 	})
-	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "@bot is the API down?", nil)).Number
+	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "@bot is the API down?", nil, false)).Number
 	q := b.waitsOn(n, requests.KindQuestion)
 	b.later(week)
 	b.until("the bot's run ends", func() bool { runs := b.runs(n); return len(runs) == 1 && runs[0].Status == done })
@@ -152,7 +152,7 @@ func TestWorkAnAnswerToTheLeadIsNeverHeeded(t *testing.T) {
 func TestWorkAHeedThatFailsStartsTheLead(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, heeding(t, "./for-us.js", map[string]string{"for-us.js": `throw new Error("the model is away")` + "\n"}))
-	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "is the API down?", nil)).Number
+	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "is the API down?", nil, false)).Number
 	if h := b.heeded(n, 1); h.Status != failed {
 		t.Errorf("the heed's run is %+v", h)
 	}
@@ -164,7 +164,7 @@ func TestWorkAHeedThatFailsStartsTheLead(t *testing.T) {
 	holds(t, "what the office's people are told", told[0].Text, "for-us.js failed: ", "the model is away", ". bot was started.")
 	// A heed that answers neither act nor note fails the same way.
 	b.rewrite(map[string]string{"for-us.js": `return { says: "maybe" }` + "\n"})
-	m := must(b.reqs.AskAt("slack", "#help", "#help/1700.2", "", "U0DANA00", "and the deploy?", nil)).Number
+	m := must(b.reqs.AskAt("slack", "#help", "#help/1700.2", "", "U0DANA00", "and the deploy?", nil, false)).Number
 	if h := b.heeded(m, 1); h.Status != failed || !strings.Contains(h.How, "neither act nor note") {
 		t.Errorf("the heed's run is %+v", h)
 	}
@@ -178,7 +178,7 @@ func TestWorkAHeedIsGivenItsSettings(t *testing.T) {
 	t.Parallel()
 	const echo = `return { says: "note", note: JSON.stringify(input.settings) + " " + input.request.new.length + " " + input.said }` + "\n"
 	b := newBench(t, heeding(t, "{ rule: ./for-us.js, threshold: 0.6, model: jev }", map[string]string{"for-us.js": echo}))
-	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "lovely weather", nil)).Number
+	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "lovely weather", nil, false)).Number
 	h := b.heeded(n, 1)
 	holds(t, "the heed's word", h.How, `{"model":"jev","threshold":0.6} 1 [Mon `, "] Dana to Platform support: lovely weather")
 	in := b.input(h.Name)
@@ -191,8 +191,21 @@ func TestWorkAHeedIsGivenItsSettings(t *testing.T) {
 	// A heed written as a bare path is given no settings, and given them
 	// all the same.
 	b.rewrite(map[string]string{"office.yaml": strings.Replace(b.file("office.yaml"), "heed: { rule: ./for-us.js, threshold: 0.6, model: jev }", "heed: ./for-us.js", 1)})
-	m := must(b.reqs.AskAt("slack", "#help", "#help/1700.2", "", "U0DANA00", "rain later", nil)).Number
+	m := must(b.reqs.AskAt("slack", "#help", "#help/1700.2", "", "U0DANA00", "rain later", nil, false)).Number
 	holds(t, "the heed's word", b.heeded(m, 1).How, "note: {} 1 ")
+	// What the bridge marked as naming the bot is given so.
+	mentioned := func(h KeptRun) any {
+		request, _ := b.input(h.Name)["request"].(map[string]any)
+		fresh, _ := request["new"].([]any)
+		if len(fresh) != 1 {
+			t.Fatalf("the heed is given as new %v", request["new"])
+		}
+		return fresh[0].(map[string]any)["mentioned"]
+	}
+	named := must(b.reqs.AskAt("slack", "#help", "#help/1700.3", "", "U0DANA00", "<@U0APP000> rain later?", nil, true)).Number
+	if got, unmarked := mentioned(b.heeded(named, 1)), mentioned(b.heeded(m, 1)); got != true || unmarked != false {
+		t.Errorf("the heed is given mentioned %v, and for what is not marked %v", got, unmarked)
+	}
 }
 
 func TestWorkAHeedRunIsTheTeams(t *testing.T) {
@@ -202,10 +215,10 @@ func TestWorkAHeedRunIsTheTeams(t *testing.T) {
 	b := newBench(t, files)
 	held, let := b.hold("hold on", testkit.Say("held"))
 	// The bot works on one request, which is all the office's room.
-	busy := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "@bot hold on", nil)).Number
+	busy := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "@bot hold on", nil, false)).Number
 	b.until("the bot's run is held", func() bool { return held() == 1 })
 	// A heed takes no room: it weighs another request all the same.
-	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.2", "", "U0DANA00", "Raj, I'll look", nil)).Number
+	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.2", "", "U0DANA00", "Raj, I'll look", nil, false)).Number
 	h := b.heeded(n, 1)
 	b.settled(n, requests.Answered)
 	runs := b.listed(map[string]string{LabelKind: KindHeed, requests.LabelRequest: fmt.Sprint(n)})
@@ -225,7 +238,7 @@ func TestWorkNoLeadWhileAHeedWeighs(t *testing.T) {
 		"for-us.yaml": "agent: for-us\ninput: [said]\nmodel: usual\nprompt: \"Weigh: ${input.said}\"\n",
 	}))
 	held, let := b.hold("Weigh:", testkit.Say(`{ "says": "act" }`))
-	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "@bot first", nil)).Number
+	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "@bot first", nil, false)).Number
 	b.until("the heed is held", func() bool { return held() == 1 })
 	// What Dana says while the heed weighs starts nothing.
 	b.inThread(n, "slack", "U0DANA00", "and second")

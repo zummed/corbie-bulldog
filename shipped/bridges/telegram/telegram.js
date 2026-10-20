@@ -108,7 +108,13 @@ if (input.do === "hear") {
   for (const u of updates) {
     cursor = Math.max(cursor, u.update_id + 1)
     if (first) continue
+    // Every message said is heard. Left out is only what a bot said, and
+    // any other kind of update, each logged with its id, its place and
+    // why, and never its words.
     const m = u.message
+    const q = u.callback_query
+    if (m && (!m.from || m.from.is_bot)) log("left out " + m.chat.id + ":" + m.message_id + " in " + m.chat.id + ": bot")
+    if (!m && !q) log("left out update " + u.update_id + ": " + (Object.keys(u).find(k => k !== "update_id") || "empty"))
     if (m && m.from && !m.from.is_bot) {
       const direct = m.chat.type === "private"
       const got = filesOf(m)
@@ -126,7 +132,6 @@ if (input.do === "hear") {
       }
       heard.push(thing)
     }
-    const q = u.callback_query
     if (q && q.from) {
       // The press is answered at once, so the person's client stops
       // waiting; what Bulldog says of it follows as a message.

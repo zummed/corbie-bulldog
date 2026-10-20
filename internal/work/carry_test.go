@@ -350,7 +350,7 @@ func TestNobodyWatchesABridgesRun(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
 	b.says(func(testkit.Turn) testkit.Reply { return testkit.Say("It is up.") })
-	n, err := b.reqs.AskAt("slack", "#help", "#help/1700.4", "", "U0DANA00", "is the API down?", nil)
+	n, err := b.reqs.AskAt("slack", "#help", "#help/1700.4", "", "U0DANA00", "is the API down?", nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}

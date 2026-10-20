@@ -123,7 +123,7 @@ func TestHeldAnswerOfALeadWhoIsAPersonRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e, err := b.reqs.Say(sub.Number, b.reqs.Person("dana"), "tell them to calm down", nil, requests.Screens)
+	e, err := b.reqs.Say(sub.Number, b.reqs.Person("dana"), "tell them to calm down", nil, requests.Screens, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestHeldAnswerOfALeadWhoIsAPersonRefused(t *testing.T) {
 		t.Fatalf("the refusal is %+v", r)
 	}
 	b.runner.answers(func(decisions.Start) (string, error, bool) { return `{"says":"yes"}`, nil, true })
-	e, err = b.reqs.Say(sub.Number, b.reqs.Person("dana"), "we are sorry, and have refunded you", nil, requests.Screens)
+	e, err = b.reqs.Say(sub.Number, b.reqs.Person("dana"), "we are sorry, and have refunded you", nil, requests.Screens, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +254,7 @@ func TestDisclosureDeciderShownWhatWouldLeave(t *testing.T) {
 	files := work(t)
 	files["office.yaml"] = strings.Replace(files["office.yaml"], `"#help": { guests: true }`, `"#help": { team: payments, guests: true }`, 1)
 	w := newBench(t, files)
-	dana, err := w.reqs.AskAt("slack", "#help", "C1/400.1", "", "U0DANA00", "is 4411 refunded?", nil)
+	dana, err := w.reqs.AskAt("slack", "#help", "C1/400.1", "", "U0DANA00", "is 4411 refunded?", nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -335,7 +335,7 @@ func TestHeldAnswerOfALeadWhoIsAPersonLeftByAStopIsHandedOnce(t *testing.T) {
 	// Bulldog stops after Dana's answer is kept and before it is handed to
 	// the disclosure check.
 	b.reqs.Held = func(*requests.Entry) error { return nil }
-	e, err := b.reqs.Say(sub.Number, b.reqs.Person("dana"), "we are sorry, and have refunded you", nil, requests.Screens)
+	e, err := b.reqs.Say(sub.Number, b.reqs.Person("dana"), "we are sorry, and have refunded you", nil, requests.Screens, false)
 	if err != nil || e.Kind != requests.KindHeld {
 		t.Fatalf("Dana's answer is %+v, %v", e, err)
 	}

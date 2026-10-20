@@ -26,7 +26,7 @@ func (d *desk) decide(n int64, worker, action, shown string, people ...string) *
 func TestRequestsTwoLayers(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
-	al := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.05", "", slackAl, "is the deploy done?", nil)).Number
+	al := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.05", "", slackAl, "is the deploy done?", nil, false)).Number
 	if first := d.thread(al)[0]; first.Read != "" {
 		t.Errorf("Al's asking in #help is what was read of %s", first.Read)
 	}
@@ -127,9 +127,9 @@ func TestRequestsRefusedDisclosure(t *testing.T) {
 	files["support/check.js"] = `return { says: "yes" }`
 	w := open(t, files)
 	must(t, w.Readers("slack", thread, []string{slackDana, slackAl}))
-	dana := got[*requests.Request](t)(w.AskAt("slack", "#help", thread, "", slackDana, "help", nil)).Number
+	dana := got[*requests.Request](t)(w.AskAt("slack", "#help", thread, "", slackDana, "help", nil, false)).Number
 	support := got[*requests.Request](t)(w.Sub(dana, w.Worker("bot"), "support", "What did we tell 4411?", "t")).Number
-	answer := got[*requests.Entry](t)(w.Say(support, w.Person("dana"), "a refund", []requests.File{{Name: "note.txt", Data: []byte("4411")}}, requests.Screens))
+	answer := got[*requests.Entry](t)(w.Say(support, w.Person("dana"), "a refund", []requests.File{{Name: "note.txt", Data: []byte("4411")}}, requests.Screens, false))
 	if answer.Kind != requests.KindHeld || answer.Read != "support" || w.state(support).Is != requests.Working || holds(w.shows(support, "al"), "a refund") {
 		t.Errorf("Dana's answer through a disclosure check is %+v, standing %+v", answer, w.state(support))
 	}
@@ -141,7 +141,7 @@ func TestRequestsRefusedDisclosure(t *testing.T) {
 	if st := w.state(support); st.Is != requests.Waiting || !slices.Equal(on(st), []string{"dana"}) {
 		t.Errorf("after the refusal support's sub-request stands %+v", st)
 	}
-	again := got[*requests.Entry](t)(w.Say(support, w.Person("dana"), "the £40 refund", []requests.File{{Name: "note.txt", Data: []byte("4411")}}, requests.Screens))
+	again := got[*requests.Entry](t)(w.Say(support, w.Person("dana"), "the £40 refund", []requests.File{{Name: "note.txt", Data: []byte("4411")}}, requests.Screens, false))
 	var refused requests.Refusal
 	if _, err := w.Disclose(answer.ID); !errors.As(err, &refused) {
 		t.Errorf("letting go an answer said again is told %v", err)
@@ -281,7 +281,7 @@ func TestRequestsEntryToSomeoneSeenByThem(t *testing.T) {
 	record := d.decide(d.payments, "ledger", "Refund one charge", "refund(card 4111, £40)", "raj")
 	must(t, errOf(d.Write(d.payments, requests.Writing{Kind: "decided", By: d.Person("raj"), To: []requests.Who{d.Worker("ledger")},
 		Text: "Refund one charge: yes from Raj", Answers: record.ID})))
-	must(t, errOf(d.Say(d.payments, d.Person("lee"), "inside payments", nil, requests.Screens)))
+	must(t, errOf(d.Say(d.payments, d.Person("lee"), "inside payments", nil, requests.Screens, false)))
 	v := got[*requests.View](t)(d.View(d.payments, "raj"))
 	var texts []string
 	for _, e := range v.Entries {
@@ -352,7 +352,7 @@ func TestRequestsSightFollowsTheFiles(t *testing.T) {
 	})
 	defer stop()
 	h.read(replace(t, files, "office.yaml", "people: [sam, kit]", "people: [kit]"))
-	must(t, errOf(h.Say(n, h.Person("kit"), "it sparked again", nil, requests.Screens)))
+	must(t, errOf(h.Say(n, h.Person("kit"), "it sparked again", nil, requests.Screens, false)))
 	if h.sees(n, "sam") || h.shows(n, "sam") != nil || len(told) != 0 {
 		t.Errorf("Sam, taken out of the house, sees %q of Kit's request, and is told of %v", h.shows(n, "sam"), told)
 	}
@@ -360,7 +360,7 @@ func TestRequestsSightFollowsTheFiles(t *testing.T) {
 		t.Errorf("the house's failure is carried to %+v", ds)
 	}
 	h.read(files)
-	must(t, errOf(h.Say(n, h.Person("kit"), "and again", nil, requests.Screens)))
+	must(t, errOf(h.Say(n, h.Person("kit"), "and again", nil, requests.Screens, false)))
 	if !h.sees(n, "sam") || !slices.Equal(told, []int64{n}) || !holds(h.shows(n, "sam"), "LEDGER_KEY") || len(h.shows(n, "sam")) != 5 {
 		t.Errorf("Sam, put back, sees %q and is told of %v", h.shows(n, "sam"), told)
 	}
@@ -390,13 +390,13 @@ func TestRequestsUnseenSameAsAbsent(t *testing.T) {
 		told = append(told, n)
 	})
 	defer stop()
-	must(t, errOf(d.Say(unseen, d.Person("dana"), "more", nil, requests.Screens)))
+	must(t, errOf(d.Say(unseen, d.Person("dana"), "more", nil, requests.Screens, false)))
 	_, e1 := d.View(unseen, "raj")
 	_, e2 := d.View(999, "raj")
 	_, e3 := d.MaySay(unseen, d.Person("raj"), requests.Screens)
 	_, e4 := d.MaySay(999, d.Person("raj"), requests.Screens)
-	_, e5 := d.Say(unseen, d.Person("raj"), "hi", nil, requests.Screens)
-	_, e6 := d.Say(999, d.Person("raj"), "hi", nil, requests.Screens)
+	_, e5 := d.Say(unseen, d.Person("raj"), "hi", nil, requests.Screens, false)
+	_, e6 := d.Say(999, d.Person("raj"), "hi", nil, requests.Screens, false)
 	_, e7 := d.File(unseen, 1, "a", "raj")
 	_, e8 := d.File(999, 1, "a", "raj")
 	for i, err := range []error{e1, e2, e3, e4, e5, e6, e7, e8} {
@@ -428,7 +428,7 @@ func TestRequestsNothingLeaksThroughANotice(t *testing.T) {
 	if ds := got[[]requests.Delivery](t)(h.Deliveries(team.ID)); len(ds) != 2 || ds[0].Person != "sam" || ds[1].Person != "kit" || ds[0].Origin != nil || ds[1].Origin != nil {
 		t.Errorf("the house's error is carried to %+v", ds)
 	}
-	said := got[*requests.Entry](t)(h.Say(n, h.Person("kit"), "again?", nil, requests.Screens))
+	said := got[*requests.Entry](t)(h.Say(n, h.Person("kit"), "again?", nil, requests.Screens, false))
 	if ds := got[[]requests.Delivery](t)(h.Deliveries(said.ID)); len(ds) != 0 {
 		t.Errorf("Kit's own words are carried to %+v", ds)
 	}
@@ -462,7 +462,7 @@ func TestRequestsNoFallbackRecipient(t *testing.T) {
 	// An entry may be to workers and teams, and to a guest who asked.
 	must(t, errOf(d.Write(d.payments, requests.Writing{Kind: "said", By: d.Worker("ledger"), To: []requests.Who{d.Worker("ledger"), d.Team("payments")}, Text: "y", Read: true})))
 	guest := requests.Identity("slack", "U0STRANGE")
-	n := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", "", guest.ID, "refund me", nil)).Number
+	n := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", "", guest.ID, "refund me", nil, false)).Number
 	must(t, errOf(d.Write(n, requests.Writing{Kind: "not disclosed", By: requests.Bulldog, To: []requests.Who{guest}, Text: "the office did not disclose its answer"})))
 }
 
@@ -632,7 +632,7 @@ func TestRequestsReusedTeamNameInheritsNothing(t *testing.T) {
 func TestRequestsGuestAsksOnlyWhereGuestsMay(t *testing.T) {
 	t.Parallel()
 	d := open(t, work(t))
-	guest := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", "", "U0STRANGE", "is the API down?", nil))
+	guest := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", "", "U0STRANGE", "is the API down?", nil, false))
 	if guest.Team != office.Top || guest.Asker != requests.Identity("slack", "U0STRANGE") {
 		t.Errorf("the guest's request is %+v", guest)
 	}
@@ -641,10 +641,10 @@ func TestRequestsGuestAsksOnlyWhereGuestsMay(t *testing.T) {
 		t.Errorf("the answer to the guest goes to %+v", ds)
 	}
 	var refusal requests.Refusal
-	if _, err := d.AskAt("slack", office.Direct, "D0STRANGE", "", "U0STRANGE", "hello", nil); !errors.As(err, &refusal) {
+	if _, err := d.AskAt("slack", office.Direct, "D0STRANGE", "", "U0STRANGE", "hello", nil, false); !errors.As(err, &refusal) {
 		t.Errorf("a direct message is told %v", err)
 	}
-	if _, err := d.AskAt("gitlab", "platform/api", "platform/api#60", "", "9999", "broken", nil); !errors.As(err, &refusal) {
+	if _, err := d.AskAt("gitlab", "platform/api", "platform/api#60", "", "9999", "broken", nil, false); !errors.As(err, &refusal) {
 		t.Errorf("a guest's comment on platform/api is told %v", err)
 	}
 	if d.count("requests_requests") != 1 {
@@ -657,15 +657,15 @@ func TestRequestsGuestSaysMoreAtOrigin(t *testing.T) {
 	d := open(t, work(t))
 	place := requests.Where{Bridge: "slack", Place: "#help/1700.07"}
 	guest := requests.Identity("slack", "U0STRANGE")
-	n := got[*requests.Request](t)(d.AskAt("slack", "#help", place.Place, "", guest.ID, "refund me", nil)).Number
+	n := got[*requests.Request](t)(d.AskAt("slack", "#help", place.Place, "", guest.ID, "refund me", nil, false)).Number
 	q := got[*requests.Entry](t)(d.Put(n, d.Worker("bot"), requests.KindQuestion, guest, "which customer?", nil))
 	if ds := got[[]requests.Delivery](t)(d.Deliveries(q.ID)); len(ds) != 1 || ds[0].Origin == nil || ds[0].Origin.Place != place.Place {
 		t.Errorf("the question to the guest goes to %+v", ds)
 	}
-	if e := got[*requests.Entry](t)(d.Say(n, guest, "customer 7", nil, place)); e.By != guest || e.To[0] != d.Team(office.Top) {
+	if e := got[*requests.Entry](t)(d.Say(n, guest, "customer 7", nil, place, false)); e.By != guest || e.To[0] != d.Team(office.Top) {
 		t.Errorf("the guest's reply is %+v", e)
 	}
-	if _, err := d.Say(n, guest, "me again", nil, requests.Where{Bridge: "slack", Place: office.Direct}); !errors.Is(err, requests.ErrNotThere) {
+	if _, err := d.Say(n, guest, "me again", nil, requests.Where{Bridge: "slack", Place: office.Direct}, false); !errors.Is(err, requests.ErrNotThere) {
 		t.Errorf("the guest saying more elsewhere is told %v", err)
 	}
 }
@@ -673,7 +673,7 @@ func TestRequestsGuestSaysMoreAtOrigin(t *testing.T) {
 func TestRequestsGuestLaterAPerson(t *testing.T) {
 	t.Parallel()
 	d := open(t, work(t))
-	n := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", "", "U0STRANGE", "refund me", nil)).Number
+	n := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", "", "U0STRANGE", "refund me", nil, false)).Number
 	d.read(replace(t, d.files, "office.yaml", "everyone:\n", "everyone:\n  jo:    { name: Jo, slack: U0STRANGE }\n"))
 	if !d.sees(n, "jo") {
 		t.Error("Jo does not see what she asked as a guest")
@@ -687,7 +687,7 @@ func TestRequestsGuestAsksAndNothingMore(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
 	guest := requests.Identity("slack", "U0STRANGE")
-	n := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", "", guest.ID, "refund me", nil)).Number
+	n := got[*requests.Request](t)(d.AskAt("slack", "#help", "#help/1700.07", "", guest.ID, "refund me", nil, false)).Number
 	var refusal requests.Refusal
 	if _, err := d.Write(n, requests.Writing{Kind: "decision", Text: "Refund", To: []requests.Who{guest}, Waits: []requests.Who{guest}}); !errors.As(err, &refusal) {
 		t.Errorf("a decision put to a guest is told %v", err)
