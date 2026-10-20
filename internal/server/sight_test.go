@@ -357,6 +357,8 @@ func TestServerNotesShownWithWhatARunIsGiven(t *testing.T) {
 func TestServerToolToldByWhereItResolves(t *testing.T) {
 	t.Parallel()
 	files := house(t)
+	// The fixer is given the docs tools too.
+	files["fixer.yaml"] = strings.Replace(files["fixer.yaml"], "tools_file: [./.bulldog/tools/talk/talk.yaml]", "tools_file: [./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/docs/docs.yaml]", 1)
 	// The gardener is given the house's sparks, a machine of another team;
 	// a tell of its own, written in place, which stands before the tell of
 	// the talk tools Bulldog ships; and a wait on the clock Bulldog ships,
@@ -406,6 +408,10 @@ func TestServerToolToldByWhereItResolves(t *testing.T) {
 			{Name: "sparks", Does: "Which circuit is what", Kind: "worker", Worker: "sparks", File: "sparks.yaml"},
 			{Name: "cut_power", Does: "Turn one circuit off", Kind: "script", File: "tools/cut-power.js", Waits: true, Deciders: []deciderOut{{Kind: "person", Name: "sam"}}},
 			{Name: "order_part", Does: "Order a part", Kind: "script", File: "tools/order.js", Waits: true, Deciders: []deciderOut{{Kind: "rule", Name: "small-orders.js"}, {Kind: "person", Name: "sam"}}},
+			{Name: "read_doc", Does: shippedDoes(shipped.Docs, "read_doc"), Kind: "bulldog", Kit: "docs"},
+		}},
+		{"office", "builder", []toolOut{
+			{Name: "office_put", Does: shippedDoes(shipped.Build, "office_put"), Kind: "bulldog", Kit: "build"},
 		}},
 		{"garden", "gardener", []toolOut{
 			{Name: "groundsman", Does: "Heavy work in the garden: digging, mowing and the shed", Kind: "worker", Worker: "groundsman", File: "garden/groundsman.yaml"},
