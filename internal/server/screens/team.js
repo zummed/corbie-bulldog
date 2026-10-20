@@ -359,7 +359,7 @@
       ])});
 
     const lead = whole ? byName(t, t.lead) : null;
-    if (whole && (lead || (t.decide || []).length)) {
+    if (whole && (lead || (t.decide || []).length || (t.workers || []).length)) {
       const near = lead ? [...reached(t, lead, new Set([lead.name]))].map((n) => byName(t, n)) : [];
       const holding = (name) => near.filter((w) => (w.tools || []).some((tl) => tl.kind === "bulldog" && tl.name === name));
       const tools = lead ? lead.tools || [] : [];
