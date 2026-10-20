@@ -200,7 +200,7 @@ Open without a key:
 
 **A thing the one looking may not see is not there**: it is answered exactly as one that does not exist. Without a key, the answer says so. What the rules refuse is answered with a sentence a person can read, and so is a body that cannot be read or is too large, which is never taken in part. A failure is a failure, said as one, and is in the log.
 
-**The streams show only what the one looking may see.** A `change` names a request they may see, what waits on them, or the office read again, and a screen fetches only what it names. A screen that connects, or falls behind, is sent `hello`, and fetches what it shows. A run's stream is Corbie's record of it, with every event in its place, so a screen that connects again goes on from where it was and nothing is shown twice.
+**The streams show only what the one looking may see.** A `change` names a request they may see, as it or a run on it changes, what waits on them, or the office read again, and a screen fetches only what it names. A screen that connects, or falls behind, is sent `hello`, and fetches what it shows. A run's stream is Corbie's record of it, with every event in its place, so a screen that connects again goes on from where it was and nothing is shown twice.
 
 **A file is served so that it can do nothing.** Only a picture or a PDF is shown, and anything else is downloaded; nothing put in is ever run as a page of the office.
 

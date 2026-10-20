@@ -137,7 +137,6 @@ func (w *Work) heeded(n *note, run *client.Run, e ending) {
 	case !first:
 		return
 	}
-	w.touch(n.Request)
 	switch {
 	case n.Stop != "":
 	case says == heedNote:

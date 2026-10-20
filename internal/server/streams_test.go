@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -49,6 +50,59 @@ func TestServerEventsStream(t *testing.T) {
 	// A comment once 25 seconds have gone with nothing to send.
 	b.clock.Move(StreamQuiet)
 	kit.until("a comment", func(e event) bool { return e.comment })
+}
+
+func TestServerEventsTellARunAsItStartsAndEnds(t *testing.T) {
+	t.Parallel()
+	files := house(t)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "people: [sam, kit]", "people: [sam, kit]\nruns: 1", 1)
+	b := newBench(t, files)
+	// The steward's turn on each request is held until the test lets it
+	// go.
+	gates := map[string]chan struct{}{"kettle": make(chan struct{}), "door": make(chan struct{})}
+	var once sync.Map
+	let := func(word string) {
+		if _, done := once.LoadOrStore(word, true); !done {
+			close(gates[word])
+		}
+	}
+	t.Cleanup(func() { let("kettle"); let("door") })
+	var mu sync.Mutex
+	held := map[string]bool{}
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		for word, gate := range gates {
+			if strings.Contains(turn.Prompt(), word) {
+				mu.Lock()
+				held[word] = true
+				mu.Unlock()
+				b.poke()
+				<-gate
+			}
+		}
+		return testkit.Say("done")
+	})
+	s := b.serve()
+	first := s.chat("kit", "", "is the kettle on?")
+	b.until("the first is held", func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return held["kettle"]
+	})
+	kit := s.as("kit").stream("/api/events")
+	kit.next()
+	second := s.chat("kit", "", "is the door locked?")
+	kit.until("the second is asked", changed(second))
+	for !slices.Contains(s.areasOf().Work.Queue(), second) {
+		kit.until("the runs are counted again", func(e event) bool { return e.data == Runs })
+	}
+	// Nothing is written to the second as its run starts, and it cannot
+	// end while its turn is held: its start alone names it.
+	let("kettle")
+	s.answered(first)
+	kit.until("the second's run starts", changed(second))
+	let("door")
+	kit.until("the second's run ends", changed(second))
+	s.answered(second)
 }
 
 func TestServerEventsFilteredBySight(t *testing.T) {

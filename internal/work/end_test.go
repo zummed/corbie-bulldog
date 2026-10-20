@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -380,6 +381,60 @@ func TestEachRunIsKeptWithItsRequest(t *testing.T) {
 	}
 	if !runs[1].Started.After(runs[0].Ended) {
 		t.Errorf("the second run started at %v, before the first ended at %v", runs[1].Started, runs[0].Ended)
+	}
+}
+
+func TestWorkRunToldAsItStartsAndEnds(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	// Each time a request is told of, how its lead's run and the request
+	// stood then.
+	var mu sync.Mutex
+	var told []string
+	b.reqs.Watch(func(n int64) {
+		runs, err := b.w.Runs(n)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		st, err := b.reqs.State(n)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		run := "none"
+		for _, r := range runs {
+			if r.Kind == KindWork {
+				run = map[bool]string{true: "going", false: "ended"}[r.Status == going]
+			}
+		}
+		mu.Lock()
+		told = append(told, fmt.Sprintf("%d %s %s", n, run, st.Is))
+		mu.Unlock()
+	})
+	seen := func() []string {
+		mu.Lock()
+		defer mu.Unlock()
+		return slices.Clone(told)
+	}
+	held, let := b.hold("sparked", testkit.Say("mended"))
+	n := b.chat("kit", "", "the kitchen socket sparked")
+	b.until("the steward is held", func() bool { return held() == 1 })
+	if start := fmt.Sprintf("%d going %s", n, requests.Working); !slices.Contains(seen(), start) {
+		t.Errorf("the request is not told of as its run starts: %v", seen())
+	}
+	let()
+	b.settled(n, requests.Answered)
+	b.still()
+	// The run's end is told before its answer is written.
+	if end := fmt.Sprintf("%d ended %s", n, requests.Working); !slices.Contains(seen(), end) {
+		t.Errorf("the request is not told of as its run ends: %v", seen())
+	}
+	// Being told starts nothing more: the office goes still.
+	before := len(seen())
+	b.still()
+	if after := seen(); len(after) != before {
+		t.Errorf("the office, still, went on telling: %v", after[before:])
 	}
 }
 

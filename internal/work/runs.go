@@ -277,7 +277,6 @@ func (w *Work) lost(ctx context.Context, n *note) {
 		}
 		return
 	}
-	w.touch(n.Request)
 	if n.Stop == stopped {
 		return
 	}
@@ -287,14 +286,18 @@ func (w *Work) lost(ctx context.Context, n *note) {
 }
 
 // endOther keeps how a run ended that is no lead's or heed's on a
-// request: a decider's, a bridge's or a clock's. A clock that ended has
-// the clocks looked for, so its routine gets another.
+// request: a decider's, a bridge's or a clock's. A decider's that ended is
+// told to whoever watches its request; a clock that ended has the clocks
+// looked for, so its routine gets another.
 func (w *Work) endOther(n *note, e ending) {
 	first, err := w.end(n.Name, e)
 	if err != nil {
 		w.Log("how the run %s ended could not be kept, so it is read again in %v: %v", n.Name, Again, err)
 		w.showAgain(n.Name)
 		return
+	}
+	if first && n.Request != 0 {
+		w.requests.Tell(n.Request)
 	}
 	if first && n.Kind == KindClock {
 		w.clockSync = true
@@ -341,7 +344,6 @@ func (w *Work) take(ctx context.Context, n *note, run *client.Run, e ending) {
 	case !first:
 		return
 	}
-	w.touch(n.Request)
 	if err := w.said(ctx, n, run, e); err != nil {
 		w.trouble(n.Request, n.Team, fmt.Sprintf("Bulldog could not write how the run of %s ended: %v", n.Worker, err))
 	}

@@ -178,12 +178,16 @@ func unstamp(s string) (time.Time, error) {
 
 func storeFailed(err error) error { return fmt.Errorf("the work's part of the store failed: %w", err) }
 
-// keep notes a run before its start is sent.
+// keep notes a run before its start is sent, and tells whoever watches
+// its request.
 func (w *Work) keep(n *note) error {
 	_, err := w.db.Exec(`INSERT INTO work_runs(name, kind, team, request, worker, labels, seen, since, noted, status, again)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, n.Name, n.Kind, n.Team, n.Request, n.Worker, labelsKey(n.Labels), n.Seen, n.Since, stamp(n.Noted), going, n.Again)
 	if err != nil {
 		return storeFailed(err)
+	}
+	if n.Request != 0 {
+		w.requests.Tell(n.Request)
 	}
 	return nil
 }
@@ -295,8 +299,9 @@ func endIn(db execer, name string, e ending) (bool, error) {
 func (w *Work) end(name string, e ending) (bool, error) { return endIn(w.db, name, e) }
 
 // endWork keeps how a run on a request ended, once, and marks its request
-// to be looked at for its next run, in one write; for a heed that let
-// through what it weighed, acted keeps that the lead starts on what is new.
+// to be looked at for its next run, in one write, which whoever watches
+// the request is told of, the work among them; for a heed that let through
+// what it weighed, acted keeps that the lead starts on what is new.
 func (w *Work) endWork(n *note, e ending, acted bool) (bool, error) {
 	tx, err := w.db.Begin()
 	if err != nil {
@@ -313,6 +318,7 @@ func (w *Work) endWork(n *note, e ending, acted bool) (bool, error) {
 	if err := tx.Commit(); err != nil {
 		return false, storeFailed(err)
 	}
+	w.requests.Tell(n.Request)
 	return true, nil
 }
 
