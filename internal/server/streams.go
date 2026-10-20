@@ -221,13 +221,23 @@ func (s *site) watch(person string, w http.ResponseWriter, r *http.Request) {
 }
 
 // run gives a run to whoever may watch it, as it is kept: its kind, its
-// team and request, its worker and how it stands.
+// team and request, its worker and how it stands; and, of a lead's run,
+// what it was given.
 func (s *site) run(person string, w http.ResponseWriter, r *http.Request) (any, error) {
-	kept, err := s.Work.Watched(r.PathValue("run"), person)
+	name := r.PathValue("run")
+	kept, err := s.Work.Watched(name, person)
 	if err != nil {
 		return nil, err
 	}
-	return runOf(kept), nil
+	out := runOf(kept)
+	given, err := s.Work.Given(name, person)
+	if err != nil {
+		return nil, err
+	}
+	if given != nil {
+		out.Given = givenOf(given, s.Requests.Party)
+	}
+	return out, nil
 }
 
 // A seenOut is one thing a run did, as a screen watching it is sent it:

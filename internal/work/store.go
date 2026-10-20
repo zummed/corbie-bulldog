@@ -187,22 +187,11 @@ func (w *Work) keep(n *note) error {
 
 // sent keeps that a lead's run on a request was started, once its start
 // has gone: the request has nothing waiting to start or let through by its
-// heed, and what was given to waiting tools before the run's thread is let
-// go.
+// heed. What was given to waiting tools is kept, so what was new for each
+// run can be worked out again when it is shown.
 func (w *Work) sent(n *note) error {
-	tx, err := w.db.Begin()
-	if err != nil {
-		return storeFailed(err)
-	}
-	defer tx.Rollback()
-	if _, err := tx.Exec(`INSERT INTO work_requests(request, pending, again, acted) VALUES (?, 0, 0, 0)
+	if _, err := w.db.Exec(`INSERT INTO work_requests(request, pending, again, acted) VALUES (?, 0, 0, 0)
 		ON CONFLICT(request) DO UPDATE SET pending = 0, again = 0, acted = 0`, n.Request); err != nil {
-		return storeFailed(err)
-	}
-	if _, err := tx.Exec(`DELETE FROM work_given WHERE request = ? AND entry <= ?`, n.Request, n.Seen); err != nil {
-		return storeFailed(err)
-	}
-	if err := tx.Commit(); err != nil {
 		return storeFailed(err)
 	}
 	return nil

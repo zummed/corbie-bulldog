@@ -63,7 +63,7 @@ func (w *Work) weigh(ctx context.Context, rd ready, heed *office.Heed, rule *off
 			w.Log("request %d: %v", r.Number, err)
 		}
 	}
-	g, err := w.giving(w.office, rd)
+	g, err := w.giving(w.office, rd, rd.worker.Name)
 	if err != nil {
 		fail("what it is given could not be put together", err)
 		return

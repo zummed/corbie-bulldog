@@ -109,6 +109,14 @@ func TestWorkAnswerGoesToOnePlace(t *testing.T) {
 	if said != "and the fuse?" || strings.Contains(said, reply.Text) {
 		t.Errorf("the second run is given %q", said)
 	}
+	// Worked out again when shown, it was new for that run all the same.
+	given, err := b.w.Given(run.Name, "kit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(given.New) != 1 || given.New[0].Text != "and the fuse?" {
+		t.Errorf("the second run is shown given %+v as new", given.New)
+	}
 }
 
 func TestAskPersonIsRefusedForWhomItMayNotAsk(t *testing.T) {

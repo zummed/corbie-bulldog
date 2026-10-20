@@ -183,15 +183,35 @@ B.answersTo = function (team) {
 // band gives one band of a team's room, In, Team or Out: its label beside
 // the rows it holds, each a label and what it says, nested beneath when
 // it holds more.
-B.band = function (label, rows) {
+B.band = function (label, rows, ...more) {
   const shown = rows.filter((r) => r && r[1] !== null && r[1] !== undefined && r[1] !== "");
   if (!shown.length) return null;
   return B.el("section", {class: "band", "aria-label": label},
-    B.el("div", {class: "band-label"}, label),
+    B.el("div", {class: "band-label"}, label, ...more),
     B.el("div", {class: "band-rows"}, shown.map(([k, v, under]) => B.el("div", {class: "band-row"},
       B.el("div", {class: "band-k"}, k), B.el("div", {class: "band-v"}, v),
       under ? B.el("div", {class: "band-under"}, under) : null))));
 };
+
+// notesInfo gives the (i) of a team's notes.
+B.notesInfo = function () {
+  return B.info("About notes", "Given whole to every run of this team, up to 50,000 characters, in name order.");
+};
+
+// givenEl gives how much of a note a run is given, when not all of it.
+B.givenEl = function (n) {
+  if (n.given === n.size) return null;
+  return n.given ? B.el("span", {class: "status cut"}, "cut")
+    : B.el("span", {class: "status not-given"}, "not given");
+};
+
+// The words a thread's entries are read by, for their kinds; Bulldog's
+// own have none, and an entry of a decision is "Decision" where the
+// decision is not at hand.
+const ENTRY = {asked: "Asked", said: "Said", question: "Question", told: "Told", replied: "Reply", sub: "Sub-request",
+  answer: "Answer", late: "Late answer", held: "Held", decide: "Asked to decide", decided: "Verdict", referred: "Referred",
+  notice: "Notice", noted: "Noted", decision: "Decision", bulldog: ""};
+B.entryWord = function (kind) { return kind in ENTRY ? ENTRY[kind] : kind; };
 
 // heedEl gives a team's heed: its rule, a rule Bulldog ships linked to
 // Shipped, and whether a problem stops it, to those who see it; else Set,

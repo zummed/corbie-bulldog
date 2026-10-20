@@ -4,6 +4,17 @@
 .run-view .run-machine .ic { width: 26px; height: 26px; font-size: 11px; }
 .run-view .run-name { word-break: break-all; }
 
+/* Given: a band above the events, its entries drawn small */
+.run-given:empty { display: none; }
+.run-given .band-label { display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; gap: 4px; }
+.run-given .run-list { display: flex; flex-direction: column; gap: 4px; }
+.run-given summary .status { margin-left: 10px; }
+.run-given details > .thread { margin-top: 6px; }
+.run-given .entry { padding: 6px 0 8px 16px; }
+.run-given .entry::before { top: 11px; }
+.run-given .entry .k { min-width: 0; }
+.run-given .entry.said .body, .run-given .entry.asked .body { font-size: inherit; font-weight: inherit; }
+
 .run-view .events .row { flex-wrap: nowrap; gap: 0 12px; }
 .run-view .events .ev { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; flex: 1 1 auto; min-width: 0; }
 .run-view .events .ev.d2 { padding-left: 48px; }

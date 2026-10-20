@@ -1,5 +1,6 @@
 // Run: one run as it happens, each thing it does as a line, the runs of
-// its colleagues indented beneath the calls that started them.
+// its colleagues indented beneath the calls that started them; and, of a
+// lead's run, what it was given.
 (function () {
   "use strict";
 
@@ -80,6 +81,46 @@
     return B.el("div", {class: "why"}, B.kv([["Refused", s.refused], ["Layer", s.layer], ["Fix", s.fix]]));
   }
 
+  // entriesEl gives entries of a thread as a run was given them: each by
+  // its word, who said it and to whom, when, and its text.
+  function entriesEl(entries) {
+    if (!entries.length) return B.el("span", {class: "faint"}, "None");
+    return B.el("div", {class: "thread"}, entries.map((e) => B.el("article", {class: "entry " + e.kind},
+      B.el("div", {class: "hd"},
+        B.el("span", {class: "k"}, B.entryWord(e.kind)),
+        B.party(e.by),
+        e.to.length ? [B.el("span", {class: "faint", "aria-hidden": "true"}, "→"), e.to.map(B.party)] : null,
+        e.noted ? B.el("span", {class: "tag"}, "Noted") : null,
+        B.el("span", {class: "at"}, B.whenEl(e.at))),
+      e.text ? B.el("div", {class: "body"}, e.text) : null)));
+  }
+
+  // givenBand gives what a lead's run was given, worked out as it is
+  // shown: the team's notes, each with its size and whether it was cut or
+  // not given; the docs it read; the teams it may ask; the thread it was
+  // shown, folded, with how many entries were not; and what was new for
+  // it.
+  function givenBand(g) {
+    const none = () => B.el("span", {class: "faint"}, "None");
+    const list = (items, row) => items.length ? B.el("div", {class: "run-list"}, items.map(row)) : none();
+    const notes = list(g.notes, (n) => B.el("div", {class: "line"}, B.el("span", {class: "mono"}, n.name),
+      B.el("span", {class: "mono faint"}, n.size.toLocaleString("en-GB") + " characters"), B.givenEl(n)));
+    const docs = g.record_gone ? B.el("span", {class: "faint"}, "Gone")
+      : list(g.docs, (d) => B.el("div", {class: "line"}, B.el("span", {class: "mono"}, d.name), B.teamEl(d.team)));
+    const asks = g.may_ask.length ? B.el("span", {class: "line"}, g.may_ask.map(B.teamEl)) : none();
+    const thread = g.thread.length ? B.el("details", {},
+      B.el("summary", {}, B.el("span", {class: "mono"}, String(g.thread.length)),
+        g.not_shown ? B.el("span", {class: "status cut"}, g.not_shown + " not shown") : null),
+      entriesEl(g.thread)) : none();
+    return B.band("Given", [
+      [B.el("span", {class: "line"}, "Notes", ...B.notesInfo()), notes],
+      ["Docs", docs],
+      ["Can ask", asks],
+      ["Thread", thread],
+      ["New", entriesEl(g.new)],
+    ], ...B.info("About given", "Worked out again from the request and the office's files as they are now."));
+  }
+
   // The kinds of run, by the word their labels give.
   const KIND = {work: "Work", heed: "Heed", decide: "Decide", clock: "Clock"};
 
@@ -95,12 +136,21 @@
     const machineSlot = B.el("span", {class: "run-machine"});
     const statusEl = B.el("span", {class: "status working live"}, "working");
     const meta = B.el("div", {});
+    const given = B.el("div", {class: "run-given"});
+    const drawGiven = (g) => given.replaceChildren(g ? givenBand(g) : "");
+    drawGiven(run.given);
+    // Once the run has ended, what it was given is fetched again, with
+    // every doc it read.
+    const ended = () => {
+      if (!run.given) return;
+      B.api("/api/runs/" + encodeURIComponent(name)).then((r) => { if (given.isConnected) drawGiven(r.given); }, B.trouble);
+    };
     const rows = B.el("div", {class: "events rows"});
     const root = B.el("div", {class: "run-view"},
       B.head([B.teamEl(run.team), reqLink].filter(Boolean),
         B.el("span", {class: "run-title"}, "Run", machineSlot), statusEl),
       B.el("div", {class: "cols"},
-        B.el("div", {class: "main"}, B.sect("Events", rows)),
+        B.el("div", {class: "main"}, given, B.sect("Events", rows)),
         B.el("div", {class: "side"}, meta)));
 
     const drawMeta = (at) => meta.replaceChildren(B.kv([
@@ -112,11 +162,11 @@
     ]));
     drawMeta(null);
 
-    setTimeout(() => { if (root.isConnected) watch(name, root, rows, machineSlot, statusEl, drawMeta); }, 0);
+    setTimeout(() => { if (root.isConnected) watch(name, root, rows, machineSlot, statusEl, drawMeta, ended); }, 0);
     return root;
   }
 
-  function watch(name, root, rows, machineSlot, statusEl, drawMeta) {
+  function watch(name, root, rows, machineSlot, statusEl, drawMeta, ended) {
     if (current) current();
 
     const depth = {};     // run → how far below the run watched it is
@@ -249,6 +299,7 @@
         stop();
         for (const run of Object.keys(held)) settle(run);
         setStatus(end[0], end[1]);
+        ended();
       } else if (s.kind === "failed" && !s.machine) {
         // Bulldog itself failed in following the run.
         stop();

@@ -612,6 +612,85 @@ func TestServerRunWatchedByItsTeam(t *testing.T) {
 	watched(t, d.s.as("al"), ops, http.StatusNotFound)
 }
 
+func TestServerRunGivenWorkedOutWhenShown(t *testing.T) {
+	t.Parallel()
+	files := workOffice(t)
+	files["notes/hours.md"] = "Support answers from nine to five.\n"
+	b := newBench(t, files)
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		switch {
+		case !strings.Contains(turn.System, "You answer what is asked in #help"):
+			return testkit.Say("done")
+		case strings.Contains(turn.Prompt(), "@bot thanks"):
+			return testkit.Say("")
+		case turn.Number == 1:
+			return testkit.Use("read_doc", map[string]any{"name": "help/refunds.md"})
+		}
+		return testkit.Say("A charge taken twice is refunded within five working days.")
+	})
+	s := b.serve()
+	al := s.as("al")
+	readers := []any{"U0DANA00", "U0AL0000"}
+	s.delivered("slack", thing("said", "U0DANA00", "#help", "#help/1800.1", "readers", readers, "text", "@bot how long does a refund take?"))
+	n := s.at("slack", "#help/1800.1")
+	s.answered(n)
+	s.delivered("slack", thing("said", "U0DANA00", "#help", "#help/1800.1", "readers", readers, "text", "@bot thanks"))
+	v := al.until(n, "has two runs ended", func(v viewOut) bool {
+		return len(v.Runs) == 2 && v.Runs[0].Ended != nil && v.Runs[1].Ended != nil
+	})
+	given := func(run string) *givenOut {
+		t.Helper()
+		var out runOut
+		al.get("/api/runs/" + url.PathEscape(run)).is(http.StatusOK).into(&out)
+		if out.Given == nil {
+			t.Fatalf("Al is given nothing of what %s was given", run)
+		}
+		return out.Given
+	}
+	texts := func(entries []entryOut) []string {
+		var all []string
+		for _, e := range entries {
+			all = append(all, e.Text)
+		}
+		return all
+	}
+
+	// The first run was given the office's notes whole, read the refunds
+	// doc, may ask the two teams the bot's ask_team takes, and was shown
+	// nothing before what Dana asked, which was new for it, as hers.
+	first := given(v.Runs[0].Name)
+	if !slices.Equal(first.Notes, []noteGivenOut{{Name: "hours", Size: 35, Given: 35}}) {
+		t.Errorf("the first run was given the notes %+v", first.Notes)
+	}
+	if !slices.Equal(first.Docs, []docReadOut{{Name: "help/refunds", Team: "office"}}) || first.RecordGone {
+		t.Errorf("the first run read the docs %+v", first.Docs)
+	}
+	if !slices.Equal(first.MayAsk, []string{"payments", "platform"}) {
+		t.Errorf("the first run may ask %v", first.MayAsk)
+	}
+	if len(first.Thread) != 0 || first.NotShown != 0 || !slices.Equal(texts(first.New), []string{"@bot how long does a refund take?"}) ||
+		first.New[0].By.Kind != "person" || first.New[0].By.Name != "dana" {
+		t.Errorf("the first run was shown %+v, and new for it was %+v", first.Thread, first.New)
+	}
+
+	// The second was shown the ask and the answer, and only her thanks was
+	// new for it; it read no doc.
+	second := given(v.Runs[1].Name)
+	if !slices.Equal(texts(second.Thread), []string{"@bot how long does a refund take?", "A charge taken twice is refunded within five working days."}) ||
+		!slices.Equal(texts(second.New), []string{"@bot thanks"}) || len(second.Docs) != 0 {
+		t.Errorf("the second run was shown %v, new for it was %v, and it read %+v", texts(second.Thread), texts(second.New), second.Docs)
+	}
+
+	// Worked out when shown, a note written since is among the notes; and
+	// Dana, who may not watch the run, is not given it.
+	b.write(map[string]string{"notes/rota.md": "Al.\n"})
+	b.until("the rota is among what the run is shown given", func() bool {
+		b.clock.Move(0)
+		return len(given(v.Runs[1].Name).Notes) == 2
+	})
+	s.as("dana").get("/api/runs/" + url.PathEscape(v.Runs[1].Name)).is(http.StatusNotFound)
+}
+
 func TestServerFilesAndHistoryForDeciders(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, house(t))

@@ -1,11 +1,15 @@
 package work
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/zummed/corbie/client"
 
 	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/requests"
@@ -18,16 +22,124 @@ import (
 // to it, as text; everything it is to know, as text a model reads well,
 // with what is new last; and the same as data.
 func (w *Work) given(o *office.Office, rd ready) (map[string]any, error) {
-	g, err := w.giving(o, rd)
+	g, err := w.giving(o, rd, rd.worker.Name)
 	if err != nil {
 		return nil, err
 	}
 	return map[string]any{"said": g.said(), "context": g.context(), "request": g.data()}, nil
 }
 
-// giving reads everything a lead's run on a request is given, as it is
-// when the run starts.
-func (w *Work) giving(o *office.Office, rd ready) (*giving, error) {
+// A Given is what a lead's run on a request was given, as it is shown to
+// those who may watch the run: the team's notes, each with how much of
+// it a run is given; the docs the run read; the teams it may ask; the
+// thread it was shown, less what was new for it, with how many entries
+// were left out; and what was new for it. RecordGone says Corbie keeps
+// the run's record no more, so which docs it read is not known.
+type Given struct {
+	Notes      []NoteGiven
+	Docs       []office.Doc
+	RecordGone bool
+	MayAsk     []string
+	Thread     []requests.Entry
+	NotShown   int
+	New        []requests.Entry
+}
+
+// Given gives what a lead's run on a request was given, to a person who
+// may watch it, worked out again from its request and the office as they
+// are now and kept nowhere: the thread as it stood when the run was
+// noted, and what was new for it since the run before. Any other run,
+// and one of a team no longer in the office, was given nothing to show.
+func (w *Work) Given(run, person string) (*Given, error) {
+	n, err := w.watchable(run, person)
+	if err != nil {
+		return nil, err
+	}
+	if n == nil {
+		return nil, ErrNoWatch
+	}
+	o := w.keeper.Office()
+	if n.Kind != KindWork || o == nil || o.Teams[n.Team] == nil {
+		return nil, nil
+	}
+	r, err := w.requests.Get(n.Request)
+	if err != nil {
+		return nil, err
+	}
+	thread, err := w.requests.Thread(n.Request)
+	if err != nil {
+		return nil, err
+	}
+	thread = slices.DeleteFunc(thread, func(e requests.Entry) bool { return e.ID > n.Seen })
+	runs, err := w.notesOf(n.Request, KindWork)
+	if err != nil {
+		return nil, err
+	}
+	var mark int64
+	for _, before := range runs {
+		if before.Name == n.Name {
+			break
+		}
+		if before.Status != unsent {
+			mark = max(mark, before.Seen)
+		}
+	}
+	tools, err := w.givenTo(n.Request)
+	if err != nil {
+		return nil, err
+	}
+	g, err := w.giving(o, ready{r: r, fresh: fresh(r, thread, mark, n.Again, tools), thread: thread, again: n.Again}, n.Worker)
+	if err != nil {
+		return nil, err
+	}
+	shown, left := window(g.before(), g.entryText)
+	given := &Given{Notes: NotesGiven(g.notes), Thread: shown, NotShown: left, New: g.fresh}
+	for _, t := range g.mayAsk {
+		given.MayAsk = append(given.MayAsk, t.Name)
+	}
+	given.Docs, given.RecordGone, err = w.docsRead(o, n)
+	return given, err
+}
+
+// docsRead gives the docs a run read with read_doc, it or anything below
+// it, in the order first read, each a doc its team reads now; and whether
+// Corbie keeps its record no more.
+func (w *Work) docsRead(o *office.Office, n *note) ([]office.Doc, bool, error) {
+	docs, err := o.DocsFor(n.Team)
+	if err != nil {
+		return nil, false, err
+	}
+	var read []office.Doc
+	_, err = w.corbie.Record(context.Background(), n.Name, func(e client.Entry) {
+		for _, ask := range e.Asks {
+			if ask.Job == nil {
+				continue
+			}
+			in, _ := ask.Job.Input.(map[string]any)
+			args, _ := in["args"].(map[string]any)
+			if in["tool"] != toolReadDoc {
+				continue
+			}
+			name := strings.TrimSuffix(strings.TrimSpace(str(args["name"])), ".md")
+			if i := slices.IndexFunc(docs, func(d office.Doc) bool { return d.Name == name }); i >= 0 && !slices.Contains(read, docs[i]) {
+				read = append(read, docs[i])
+			}
+		}
+	})
+	switch {
+	case errors.Is(err, client.ErrNoRun):
+		return nil, true, nil
+	case errors.Is(err, client.ErrNoRecord):
+		return nil, false, nil
+	case err != nil:
+		return nil, false, fmt.Errorf("the record of %s could not be read: %w", n.Name, err)
+	}
+	return read, false, nil
+}
+
+// giving reads everything a run of a worker on a request is given, as it
+// is when the run starts.
+func (w *Work) giving(o *office.Office, rd ready, worker string) (*giving, error) {
 	r := rd.r
 	team := o.Teams[r.Team]
 	if team == nil {
@@ -69,8 +181,8 @@ func (w *Work) giving(o *office.Office, rd ready) (*giving, error) {
 			}
 		}
 	}
-	return &giving{o: o, now: w.clock.Now().In(o.Zone), r: r, team: team, worker: rd.worker.Name, asker: asker, top: top, above: above,
-		mayAsk: MayAsk(o, team.Name, rd.worker.Name, above), readers: readers, guests: guests, anyGuest: anyGuest, subs: subs, notes: notes, open: open, thread: rd.thread,
+	return &giving{o: o, now: w.clock.Now().In(o.Zone), r: r, team: team, worker: worker, asker: asker, top: top, above: above,
+		mayAsk: MayAsk(o, team.Name, worker, above), readers: readers, guests: guests, anyGuest: anyGuest, subs: subs, notes: notes, open: open, thread: rd.thread,
 		fresh: rd.fresh, again: rd.again}, nil
 }
 

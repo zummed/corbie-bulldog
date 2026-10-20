@@ -152,6 +152,32 @@ type (
 		Says    string     `json:"says,omitempty"`
 		How     string     `json:"how,omitempty"`
 		Tokens  int        `json:"tokens"`
+		// Given is what a lead's run was given, on the run's own page.
+		Given *givenOut `json:"given,omitempty"`
+	}
+	// givenOut is what a lead's run was given, worked out when shown:
+	// the team's notes, each with its size and how much of it a run is
+	// given, in characters; the docs it read, each with its team, unless
+	// Corbie keeps its record no more; the teams it may ask; the thread
+	// it was shown, with how many entries were not shown; and what was
+	// new for it.
+	givenOut struct {
+		Notes      []noteGivenOut `json:"notes"`
+		Docs       []docReadOut   `json:"docs"`
+		RecordGone bool           `json:"record_gone,omitempty"`
+		MayAsk     []string       `json:"may_ask"`
+		Thread     []entryOut     `json:"thread"`
+		NotShown   int            `json:"not_shown"`
+		New        []entryOut     `json:"new"`
+	}
+	noteGivenOut struct {
+		Name  string `json:"name"`
+		Size  int    `json:"size"`
+		Given int    `json:"given"`
+	}
+	docReadOut struct {
+		Name string `json:"name"`
+		Team string `json:"team"`
 	}
 	recordOut struct {
 		Run    string          `json:"run"`
@@ -677,6 +703,26 @@ func runOf(r work.KeptRun) runOut {
 	}
 	if !r.Ended.IsZero() {
 		out.Ended = &r.Ended
+	}
+	return out
+}
+
+// givenOf gives what a lead's run was given, each entry by and put to
+// whoever the office names now.
+func givenOf(g *work.Given, party func(requests.Who) requests.Party) *givenOut {
+	out := &givenOut{Notes: []noteGivenOut{}, Docs: []docReadOut{}, RecordGone: g.RecordGone, MayAsk: orEmpty(g.MayAsk),
+		Thread: []entryOut{}, NotShown: g.NotShown, New: []entryOut{}}
+	for _, n := range g.Notes {
+		out.Notes = append(out.Notes, noteGivenOut{Name: n.Name, Size: n.Size, Given: n.Given})
+	}
+	for _, d := range g.Docs {
+		out.Docs = append(out.Docs, docReadOut{Name: d.Name, Team: d.Team})
+	}
+	for _, e := range g.Thread {
+		out.Thread = append(out.Thread, entryOf(e, nil, party))
+	}
+	for _, e := range g.New {
+		out.New = append(out.New, entryOf(e, nil, party))
 	}
 	return out
 }

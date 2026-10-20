@@ -298,21 +298,14 @@
       r.script ? B.el("span", {class: "faint small"}, "Script") : B.reachEl(r.reach)), "te-rules"));
   }
 
-  // givenEl gives how much of a note a run is given, when not all of it.
-  function givenEl(n) {
-    if (n.given === n.size) return null;
-    return n.given ? B.el("span", {class: "status cut"}, "cut")
-      : B.el("span", {class: "status not-given"}, "not given");
-  }
-
   function notes(t) {
     if (!t.notes || !t.notes.length) return null;
     return B.sect(B.label("Notes", B.el("span", {class: "count"}, String(t.notes.length)),
-      ...B.info("About notes", "Given whole to every run of this team, up to 50,000 characters, in name order.")),
+      ...B.notesInfo()),
     rows("notes", t.notes, (n) => {
       const d = B.el("details", {open: state.open.has(n.name)},
         B.el("summary", {}, B.el("span", {class: "mono"}, n.name),
-          B.el("span", {class: "mono faint te-size"}, n.size.toLocaleString("en-GB") + " characters"), givenEl(n)),
+          B.el("span", {class: "mono faint te-size"}, n.size.toLocaleString("en-GB") + " characters"), B.givenEl(n)),
         B.el("pre", {}, n.text));
       d.addEventListener("toggle", () => { if (d.open) state.open.add(n.name); else state.open.delete(n.name); });
       return B.el("div", {class: "row te-note"}, d);

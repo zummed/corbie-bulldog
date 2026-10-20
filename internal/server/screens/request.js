@@ -208,14 +208,9 @@
   // whom it waits on.
   function waitsOn(w) { return w.kind === "person" ? "p:" + w.name : w.kind === "guest" ? "g:" + w.id : ""; }
 
-  // The words a thread's entries are read by, for their kinds; Bulldog's
-  // own have none, and what was done of a decision is named by its kind.
-  const ENTRY = {asked: "Asked", said: "Said", question: "Question", told: "Told", replied: "Reply", sub: "Sub-request",
-    answer: "Answer", late: "Late answer", held: "Held", decide: "Asked to decide", decided: "Verdict", referred: "Referred",
-    notice: "Notice", noted: "Noted", bulldog: ""};
-
+  // An entry of a decision is named by the decision's kind.
   function labelOf(v, e) {
-    if (e.kind !== "decision") return e.kind in ENTRY ? ENTRY[e.kind] : e.kind;
+    if (e.kind !== "decision") return B.entryWord(e.kind);
     const d = (v.decisions || []).find((x) => x.id === e.decision);
     return d ? KIND[d.kind] || d.kind : "Decision";
   }
