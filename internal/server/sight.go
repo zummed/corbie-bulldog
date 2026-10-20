@@ -62,11 +62,12 @@ type (
 		Out      *machineOut `json:"out,omitempty"`
 	}
 	// machineOut is one of a bridge's machines, by its file, with the
-	// hosts it may connect to and each secret it may send, with where.
+	// hosts it may connect to and each secret it may send, with where,
+	// once Corbie has checked it.
 	machineOut struct {
 		File    string      `json:"file"`
-		Hosts   []string    `json:"hosts"`
-		Secrets []secretOut `json:"secrets"`
+		Hosts   []string    `json:"hosts,omitzero"`
+		Secrets []secretOut `json:"secrets,omitzero"`
 	}
 	// secretOut is a secret a machine may send, by its name, and each
 	// place it may send it: a host, or * for anywhere.
@@ -234,10 +235,10 @@ func (s *site) bridgeOf(o *office.Office, b *office.Bridge, failing *failingOut,
 // has checked it, the hosts it may connect to and each secret it may send,
 // with where.
 func machineOf(o *office.Office, file string, d *machine.Draft) *machineOut {
-	out := &machineOut{File: file, Hosts: []string{}, Secrets: []secretOut{}}
 	if d == nil {
-		return out
+		return &machineOut{File: file}
 	}
+	out := &machineOut{File: file, Hosts: []string{}, Secrets: []secretOut{}}
 	for _, entry := range changes.Allowed(o, file, d) {
 		kind, scope, _ := strings.Cut(entry, ":")
 		switch kind {

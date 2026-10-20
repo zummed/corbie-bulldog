@@ -592,6 +592,11 @@ func TestServerProblemsShownToTheirTeams(t *testing.T) {
 	if !strings.Contains(problems("al"), `"bridge":"gitlab"`) || strings.Contains(problems("dana"), "gitlab") {
 		t.Errorf("Al sees %s, and Dana %s", problems("al"), problems("dana"))
 	}
+	// Its machines, never checked, are given to Al by their files alone.
+	if gitlab := bridgeIn(t, s.meOf("al"), "gitlab"); gitlab.Status != "stopped" ||
+		!reflect.DeepEqual(gitlab.In, &machineOut{File: "bridges/gitlab/in.yaml"}) || !reflect.DeepEqual(gitlab.Out, &machineOut{File: "bridges/gitlab/out.yaml"}) {
+		t.Errorf("Al sees the stopped GitLab bridge as %+v, in %+v, out %+v", gitlab, gitlab.In, gitlab.Out)
+	}
 	b.says(playRefund)
 	s.delivered("slack", thing("said", "U0DANA00", "#help", "#help/1800.1", "text", "is the API up?"))
 	s.answered(s.at("slack", "#help/1800.1"))

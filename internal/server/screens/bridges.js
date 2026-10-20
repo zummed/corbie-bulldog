@@ -66,9 +66,10 @@
   }
 
   // machineEl gives one of a bridge's machines, to those who see it: its
-  // file, then the hosts it may connect to and each secret it may send,
-  // with where, nested beneath.
+  // file, then, once Corbie has checked it, the hosts it may connect to and
+  // each secret it may send, with where, nested beneath.
   function machineEl(m) {
+    if (!m.hosts) return B.el("span", {class: "mono"}, m.file);
     const none = B.el("span", {class: "faint"}, "None");
     return B.el("div", {class: "br-machine"},
       B.el("span", {class: "mono"}, m.file),
