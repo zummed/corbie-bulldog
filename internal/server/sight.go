@@ -44,9 +44,10 @@ type (
 		// Runs are how many runs it lets work at once, how many are at
 		// work and how many requests wait their turn.
 		Runs runsOut `json:"runs"`
-		// Change is who decides a change, in the order the walk asks them.
-		Change  []deciderOut `json:"change"`
-		Bridges []bridgeOut  `json:"bridges"`
+		// OfficePut is who decides an office_put of the top team's own
+		// files, in the order the walk asks them.
+		OfficePut []deciderOut `json:"office_put"`
+		Bridges   []bridgeOut  `json:"bridges"`
 	}
 	runsOut struct {
 		Limit   int `json:"limit"`
@@ -227,8 +228,8 @@ func (s *site) me(person string, w http.ResponseWriter, r *http.Request) (any, e
 	load := s.Work.Load()
 	out := meOut{Me: me, Teams: []teamOut{}, People: []personOut{}, Waiting: len(waits), Problems: problems,
 		Office: officeOut{Name: o.Name(), About: o.TopTeam().About, Zone: o.Zone.String(),
-			Runs:   runsOut{Limit: o.Runs, Working: load.Working, Queued: load.Queued},
-			Change: walked(o, office.Top, changes.ToolPut)}}
+			Runs:      runsOut{Limit: o.Runs, Working: load.Working, Queued: load.Queued},
+			OfficePut: walked(o, office.Top, changes.ToolPut)}}
 	if out.Changes, err = s.ownChanges(o, person); err != nil {
 		return nil, err
 	}
@@ -675,7 +676,7 @@ type (
 	// with the request's first line, by its kind: queued, with its place
 	// in the queue; heed, its heed's rule weighing it in a run; question,
 	// put by a worker to people it waits on; a decision of it waiting, by
-	// the decision's own kind, action, disclosure or change, with what it
+	// the decision's own kind, action or disclosure, with what it
 	// is and whom it waits on; sub, a sub-request it asked that is open,
 	// with its team and where it stands; or lead, waiting on its lead who
 	// is a person. Or it is one the team answered last, answered, with its

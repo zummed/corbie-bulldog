@@ -15,7 +15,7 @@
   // change, and who decides a change.
   B.officeHead = function (at, ...right) {
     const shown = parts.filter(([key]) => key !== "changes" || B.me.me.decides_changes);
-    const o = B.me.office, change = o.change || [];
+    const o = B.me.office, change = o.office_put || [];
     const said = (word, ...what) => B.el("span", {class: "line of-said"}, B.el("span", {class: "of-word"}, word), ...what);
     return B.el("div", {class: "of-head"},
       B.head(null, o.name, ...right),
@@ -24,7 +24,7 @@
       B.el("div", {class: "line of-strip"},
         said("Zone", B.el("span", {class: "mono"}, o.zone)),
         said("Runs", B.runsEl()),
-        change.length ? said("Change", B.chain(change)) : null));
+        change.length ? said("office_put", B.chain(change)) : null));
   };
 
   const moved = {bridges: "bridges", shipped: "bulldog", changes: "changes"};

@@ -159,8 +159,8 @@ func TestServerEveryoneSeesTheOffice(t *testing.T) {
 	if raj.Title != "Backend." || !slices.Equal(raj.Bridges, []string{"slack", "gitlab"}) {
 		t.Errorf("Dana sees Raj as %+v", raj)
 	}
-	if want := []deciderOut{{Kind: "person", Name: "al"}}; !reflect.DeepEqual(me.Office.Change, want) {
-		t.Errorf("Dana is told a change is decided by %+v", me.Office.Change)
+	if want := []deciderOut{{Kind: "person", Name: "al"}}; !reflect.DeepEqual(me.Office.OfficePut, want) {
+		t.Errorf("Dana is told a change is decided by %+v", me.Office.OfficePut)
 	}
 	if me.Office.Runs != (runsOut{Limit: 3}) {
 		t.Errorf("Dana is told the runs are %+v", me.Office.Runs)
