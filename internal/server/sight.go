@@ -9,6 +9,7 @@ import (
 	"github.com/zummed/corbie/machine"
 	"github.com/zummed/corbie/permission"
 
+	"github.com/zummed/corbie-bulldog/internal/bridges"
 	"github.com/zummed/corbie-bulldog/internal/changes"
 	"github.com/zummed/corbie-bulldog/internal/decisions"
 	"github.com/zummed/corbie-bulldog/internal/office"
@@ -69,8 +70,9 @@ type (
 		Hosts   []string    `json:"hosts,omitzero"`
 		Secrets []secretOut `json:"secrets,omitzero"`
 	}
-	// secretOut is a secret a machine may send, by its name, and each
-	// place it may send it: a host, or * for anywhere.
+	// secretOut is a secret a machine may send, by its name, * for every
+	// secret, and each place it may send it: a host, * for anywhere, or,
+	// as written, a host over any connection, a program or a path.
 	secretOut struct {
 		Name string   `json:"name"`
 		To   []string `json:"to"`
@@ -225,21 +227,29 @@ func (s *site) bridgeOf(o *office.Office, b *office.Bridge, failing *failingOut,
 	}
 	if whole {
 		out.Settings = b.Settings
-		out.In = machineOf(o, b.Dir()+"/in.yaml", b.In)
-		out.Out = machineOf(o, b.Dir()+"/out.yaml", b.Out)
+		out.In = machineOf(o, b.Dir()+"/in.yaml", b.In, b.Settings)
+		out.Out = machineOf(o, b.Dir()+"/out.yaml", b.Out, b.Settings)
 	}
 	return out
 }
 
 // machineOf gives one of a bridge's machines by its file, and, once Corbie
 // has checked it, the hosts it may connect to and each secret it may send,
-// with where.
-func machineOf(o *office.Office, file string, d *machine.Draft) *machineOut {
+// with where: each entry as the bridge's settings fill it, and a group as
+// what it stands for of these.
+func machineOf(o *office.Office, file string, d *machine.Draft, settings any) *machineOut {
 	if d == nil {
 		return &machineOut{File: file}
 	}
 	out := &machineOut{File: file, Hosts: []string{}, Secrets: []secretOut{}}
+	fill := machine.NewEvaluator(time.Time{}, nil)
+	scope := machine.Scope{"input": map[string]any{bridges.InputSettings: settings}}
+	var entries []string
 	for _, entry := range changes.Allowed(o, file, d) {
+		entries = append(entries, reached(filled(fill, scope, entry))...)
+	}
+	slices.Sort(entries)
+	for _, entry := range slices.Compact(entries) {
 		kind, scope, _ := strings.Cut(entry, ":")
 		switch kind {
 		case permission.Net:
@@ -256,6 +266,34 @@ func machineOf(o *office.Office, file string, d *machine.Draft) *machineOut {
 		}
 	}
 	return out
+}
+
+// filled gives a permission as Corbie fills it from a bridge's settings,
+// given as its input in scope, when its job starts, or as written when it reads anything else of its
+// input or the settings do not fill it to a permission.
+func filled(fill *machine.Evaluator, scope machine.Scope, entry string) string {
+	for _, r := range machine.Reads(entry, "input") {
+		if r.Name != bridges.InputSettings {
+			return entry
+		}
+	}
+	v, err := fill.Text(entry, scope, entry)
+	if s, ok := v.(string); ok && err == nil && permission.CheckWritten(s) == nil {
+		return s
+	}
+	return entry
+}
+
+// reached gives a permission as the hosts and secrets it reaches: a group
+// as what it stands for of them, and anything else as it is.
+func reached(entry string) []string {
+	switch entry {
+	case "network":
+		return []string{permission.Net + ":*"}
+	case "all":
+		return []string{permission.Net + ":*", permission.Secret + ":*@*"}
+	}
+	return []string{entry}
 }
 
 // teamOf gives a team as everyone sees it, with the people that stand as

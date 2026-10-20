@@ -212,9 +212,18 @@ func TestServerBridgeSettingsAndReachToChangeDeciders(t *testing.T) {
 	}
 	files["bridges/slack/in.yaml"] = strings.Replace(files["bridges/slack/in.yaml"], job,
 		`input: { fail: "${event.data.fail}" }, allow: [net:slack.com, "secret:SLACK_TOKEN@net:slack.com", "secret:SLACK_SIGNING_SECRET@*"] }`, 1)
+	// The GitLab bridge's in machine reaches the site its settings name,
+	// and a host its cursor gives, which is known only once it runs; its out machine reaches anything.
+	files["bridges/gitlab/in.yaml"] = strings.Replace(files["bridges/gitlab/in.yaml"], job,
+		`input: { fail: "${event.data.fail}" }, allow: ["net:${input.settings.site}", "net:${input.cursor}", "secret:GITLAB_TOKEN@net:${input.settings.site}", "secret:GITLAB_TOKEN@net.unencrypted:${input.settings.site}"] }`, 1)
+	files["bridges/gitlab/out.yaml"] = strings.Replace(files["bridges/gitlab/out.yaml"], job,
+		`input: { fail: "${event.data.fail}" }, allow: [network, all, "secret:SIGNER@exec:gpg"] }`, 1)
 	s := newBench(t, files).serve()
 	al := s.meOf("al")
 	slack, gitlab := bridgeIn(t, al, "slack"), bridgeIn(t, al, "gitlab")
+	if gitlab.Status != "running" {
+		t.Fatalf("the GitLab bridge is %s", gitlab.Status)
+	}
 	want := map[string]any{"places": map[string]any{"#help": map[string]any{"guests": true}}}
 	if !reflect.DeepEqual(slack.Settings, want) {
 		t.Errorf("Al is given the Slack bridge's settings as %#v", slack.Settings)
@@ -229,6 +238,16 @@ func TestServerBridgeSettingsAndReachToChangeDeciders(t *testing.T) {
 	}
 	if settings, ok := gitlab.Settings.(map[string]any); !ok || settings["site"] != "gitlab.com" {
 		t.Errorf("Al is given the GitLab bridge's settings as %#v", gitlab.Settings)
+	}
+	in = &machineOut{File: "bridges/gitlab/in.yaml", Hosts: []string{"${input.cursor}", "gitlab.com"},
+		Secrets: []secretOut{{Name: "GITLAB_TOKEN", To: []string{"net.unencrypted:gitlab.com", "gitlab.com"}}}}
+	if !reflect.DeepEqual(gitlab.In, in) {
+		t.Errorf("Al is given the GitLab bridge's in machine as %+v", gitlab.In)
+	}
+	out := &machineOut{File: "bridges/gitlab/out.yaml", Hosts: []string{"*"},
+		Secrets: []secretOut{{Name: "*", To: []string{"*"}}, {Name: "SIGNER", To: []string{"exec:gpg"}}}}
+	if !reflect.DeepEqual(gitlab.Out, out) {
+		t.Errorf("Al is given the GitLab bridge's out machine as %+v", gitlab.Out)
 	}
 	r := s.as("dana").get("/api/me").is(http.StatusOK)
 	var dana meOut

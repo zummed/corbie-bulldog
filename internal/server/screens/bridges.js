@@ -65,6 +65,19 @@
     return host === "*" ? "Anywhere" : B.el("span", {class: "mono"}, host);
   }
 
+  // The places a secret may go that are no host reached over an encrypted
+  // connection, by how they are written.
+  const destinations = {"net.unencrypted": "Unencrypted", "exec": "Program", "fs.write": "File"};
+
+  // toEl gives where a secret may go: a host or anywhere, or, labelled, a
+  // host over any connection, a program or a path.
+  function toEl(to) {
+    const i = to.indexOf(":");
+    const label = i < 0 ? undefined : destinations[to.slice(0, i)];
+    if (!label) return hostEl(to);
+    return B.el("span", {class: "line"}, B.el("span", {class: "faint"}, label), B.el("span", {class: "mono"}, to.slice(i + 1)));
+  }
+
   // machineEl gives one of a bridge's machines, to those who see it: its
   // file, then, once Corbie has checked it, the hosts it may connect to and
   // each secret it may send, with where, nested beneath.
@@ -76,7 +89,7 @@
       B.kv([
         ["Hosts", m.hosts.length ? B.el("span", {class: "line"}, m.hosts.map(hostEl)) : none],
         ["Secrets", m.secrets.length ? B.el("div", {class: "br-secrets"}, m.secrets.map((x) =>
-          B.el("div", {class: "line"}, B.el("span", {class: "mono"}, x.name), B.el("span", {class: "faint"}, "→"), ...x.to.map(hostEl)))) : none],
+          B.el("div", {class: "line"}, x.name === "*" ? "Every" : B.el("span", {class: "mono"}, x.name), B.el("span", {class: "faint"}, "→"), ...x.to.map(toEl)))) : none],
       ]));
   }
 
