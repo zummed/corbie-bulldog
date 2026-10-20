@@ -236,6 +236,9 @@ func TestServerToolToldByWhereItResolves(t *testing.T) {
 			{Name: "wait", Does: "Wait until Monday", Kind: "machine"},
 			{Name: "ask_team", Does: shippedDoes(shipped.Talk, "ask_team"), Kind: "bulldog"},
 		}},
+		{"office", "bins", []toolOut{
+			{Name: "which", Kind: "script", File: "tools/bins.js"},
+		}},
 	} {
 		got := tools(c.team, c.worker)
 		for _, want := range c.want {

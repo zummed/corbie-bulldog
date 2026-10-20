@@ -586,11 +586,12 @@ func mayDo(may, entry string) string {
 	return may + " use " + entry
 }
 
-// tellTools says each tool a worker gains or loses, and each that comes to
-// wait for a yes, or no longer does, which lets more by.
+// tellTools says each tool, stage or job a worker gains or loses, and
+// each that comes to wait for a yes, or no longer does, which lets more by.
 func tellTools(t *telling, files []string, who string, a, b *office.Worker) {
-	waitsA, waitsB := t.waits(a), t.waits(b)
+	waitsA, waitsB := waits(a), waits(b)
 	var had []string
+	part := b.Part()
 	if a != nil {
 		had = a.Tools
 	}
@@ -605,58 +606,31 @@ func tellTools(t *telling, files []string, who string, a, b *office.Worker) {
 		case !slices.Contains(had, tool) && listed[tool]:
 			t.say(false, files, "%s has the tools the server of %s lists, as %s_<tool>.", who, tool, tool)
 		case !slices.Contains(had, tool) && waitsB[tool]:
-			t.say(false, files, "%s has the tool %s, which waits for a yes.", who, tool)
+			t.say(false, files, "%s has the %s %s, which waits for a yes.", who, part, tool)
 		case !slices.Contains(had, tool):
-			t.say(false, files, "%s has the tool %s.", who, tool)
+			t.say(false, files, "%s has the %s %s.", who, part, tool)
 		case waitsA[tool] && !waitsB[tool]:
-			t.say(true, files, "%s tool %s no longer waits for a yes.", of(who), tool)
+			t.say(true, files, "%s %s %s no longer waits for a yes.", of(who), part, tool)
 		case !waitsA[tool] && waitsB[tool]:
-			t.say(false, files, "%s tool %s now waits for a yes.", of(who), tool)
+			t.say(false, files, "%s %s %s now waits for a yes.", of(who), part, tool)
 		}
 	}
 	for _, tool := range had {
 		if !slices.Contains(b.Tools, tool) {
-			t.say(false, files, "%s no longer has the tool %s.", who, tool)
+			t.say(false, files, "%s no longer has the %s %s.", who, a.Part(), tool)
 		}
 	}
 }
 
-// waits gives which of an agent's tools wait for a yes, keeping what
-// could not be read.
-func (t *telling) waits(w *office.Worker) map[string]bool {
-	out, err := Waits(w)
-	if err != nil {
-		t.failed = append(t.failed, err)
+// waits gives which of what a worker runs by name wait for a yes.
+func waits(w *office.Worker) map[string]bool {
+	out := map[string]bool{}
+	if w != nil {
+		for _, tool := range w.Held {
+			out[tool.Name] = tool.Waits
+		}
 	}
 	return out
-}
-
-// Waits gives which of a worker's tools wait for a yes, as Corbie read it:
-// those marked for approval, and those that declare a permission the agent
-// lists to be asked about, a script's declaring the agent's own allow with
-// its own, as Corbie holds it. A worker that is not an agent, or that
-// Corbie could not read, has none.
-func Waits(w *office.Worker) (map[string]bool, error) {
-	out := map[string]bool{}
-	if w == nil || w.Draft == nil || w.Draft.Definition.Type != "agent" {
-		return out, nil
-	}
-	var a agent.Agent
-	if err := json.Unmarshal(w.Draft.Definition.Body, &a); err != nil {
-		return out, fmt.Errorf("which of %s tools wait for a yes cannot be read from Corbie's reading of it: %w", of(w.Name), err)
-	}
-	def := w.Draft.Definition
-	for name, tool := range a.Tools {
-		if tool.Job == nil {
-			continue
-		}
-		allow := tool.Job.Allow
-		if !tool.Job.Alone && !tool.Job.IsMachine() {
-			allow = append(slices.Clone(def.Allow), allow...)
-		}
-		out[name] = tool.Job.Approve || permission.Declares(allow, def.AskAbout)
-	}
-	return out, nil
 }
 
 // changedIn says whether any file differs between two readings.

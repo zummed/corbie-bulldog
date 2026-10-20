@@ -88,6 +88,18 @@ func TestServerCheckListsTheWorkOffice(t *testing.T) {
 	if !strings.Contains(out.String(), "ledger, an agent") || !strings.Contains(out.String(), "it cannot run") || !strings.Contains(out.String(), "  bot, an agent, with the model") {
 		t.Errorf("the rest of the office does not read:\n%s", out.String())
 	}
+	// A flow is listed with its stages, and one that waits for a yes with
+	// who decides it.
+	house := testkit.Files(t, examples.House())
+	house["bins.yaml"] = strings.Replace(house["bins.yaml"], "input: { request: \"${input.request}\" } }", "input: { request: \"${input.request}\" }, approve: true }", 1)
+	house["bins.yaml"] += "ask: { machine: ./.bulldog/ask.yaml }\n"
+	out.Reset()
+	if err := Check(testkit.Folder(t, house), &out); err != nil {
+		t.Fatalf("the house is checked with %v:\n%s", err, out.String())
+	}
+	if part := "  bins, a flow\n    stages: which\n    which waits for a yes, decided by sam\n"; !strings.Contains(out.String(), part) {
+		t.Errorf("the listing holds no %q:\n%s", part, out.String())
+	}
 }
 
 func TestServerCheckReportsEveryProblem(t *testing.T) {

@@ -6,18 +6,16 @@ import (
 	"io"
 	"strings"
 
-	"github.com/zummed/corbie-bulldog/internal/changes"
 	"github.com/zummed/corbie-bulldog/internal/decisions"
 	"github.com/zummed/corbie-bulldog/internal/office"
 )
 
 // Check reads the office in a folder as the server would, with no Corbie
 // and nothing written, and says what it found: each team, its workers
-// with the model each is sent and its tools, who decides each that waits
-// for a yes, each bridge, and how many runs the office has at work at
-// once. Every problem of the reading is its error, in the words the
-// reading gives it, each with its file, together with any worker whose
-// tools could not be read.
+// with the model each is sent and its tools, stages or jobs, who decides
+// each that waits for a yes, each bridge, and how many runs the office has
+// at work at once. Every problem of the reading is its error, in the words
+// the reading gives it, each with its file.
 func Check(dir string, out io.Writer) error {
 	o, err := office.Read(dir)
 	if o == nil {
@@ -26,23 +24,15 @@ func Check(dir string, out io.Writer) error {
 		}
 		return err
 	}
-	var failed []string
 	for _, name := range o.Order {
-		failed = append(failed, listTeam(out, o, o.Teams[name])...)
+		listTeam(out, o, o.Teams[name])
 	}
 	for _, name := range o.BridgeOrder {
 		listBridge(out, o, o.Bridges[name])
 	}
 	fmt.Fprintf(out, "%s at work at once\n", count(o.Runs, "run", "runs"))
-	var wrong []string
 	if len(o.Problems) > 0 {
-		wrong = append(wrong, "the office reads, and "+listed(o.Problems))
-	}
-	if len(failed) > 0 {
-		wrong = append(wrong, "which tools wait for a yes cannot all be read: "+strings.Join(failed, "; "))
-	}
-	if len(wrong) > 0 {
-		return errors.New(strings.Join(wrong, "\n"))
+		return errors.New("the office reads, and " + listed(o.Problems))
 	}
 	return nil
 }
@@ -65,9 +55,8 @@ func count(n int, one, many string) string {
 	return fmt.Sprintf("%d %s", n, many)
 }
 
-// listTeam says what a team is, and each of its workers, and gives what
-// could not be read of them.
-func listTeam(out io.Writer, o *office.Office, t *office.Team) []string {
+// listTeam says what a team is, and each of its workers.
+func listTeam(out io.Writer, o *office.Office, t *office.Team) {
 	head := t.Called + ", the top team"
 	if t.Within != "" {
 		head = fmt.Sprintf("%s (%s), within %s", t.Called, t.Name, o.Teams[t.Within].Called)
@@ -100,18 +89,15 @@ func listTeam(out io.Writer, o *office.Office, t *office.Team) []string {
 	for _, r := range t.Routines {
 		fmt.Fprintf(out, "  routine at %s, to %s: %s\n", r.At, r.To, r.Say)
 	}
-	var failed []string
 	for _, name := range t.Workers {
-		if err := listWorker(out, o, t, o.Workers[name]); err != nil {
-			failed = append(failed, err.Error())
-		}
+		listWorker(out, o, t, o.Workers[name])
 	}
-	return failed
 }
 
 // listWorker says what a worker is: its type, the model it is sent, its
-// tools, and who decides each that waits for a yes.
-func listWorker(out io.Writer, o *office.Office, t *office.Team, w *office.Worker) error {
+// tools, a flow's stages or a statechart's jobs, and who decides each that
+// waits for a yes.
+func listWorker(out io.Writer, o *office.Office, t *office.Team, w *office.Worker) {
 	line := fmt.Sprintf("  %s, %s", w.Name, article(w.Type))
 	if w.Model != "" {
 		line += ", with the model " + w.Model
@@ -126,15 +112,13 @@ func listWorker(out io.Writer, o *office.Office, t *office.Team, w *office.Worke
 	}
 	fmt.Fprintln(out, line)
 	if len(w.Tools) > 0 {
-		fmt.Fprintf(out, "    tools: %s\n", strings.Join(w.Tools, ", "))
+		fmt.Fprintf(out, "    %ss: %s\n", w.Part(), strings.Join(w.Tools, ", "))
 	}
-	waits, err := changes.Waits(w)
-	for _, tool := range w.Tools {
-		if waits[tool] {
-			fmt.Fprintf(out, "    %s waits for a yes, decided by %s\n", tool, decidedBy(o, t.Name, tool))
+	for _, tool := range w.Held {
+		if tool.Waits {
+			fmt.Fprintf(out, "    %s waits for a yes, decided by %s\n", tool.Name, decidedBy(o, t.Name, tool.Name))
 		}
 	}
-	return err
 }
 
 // decidedBy says who decides a key of a team, in the order the walk asks

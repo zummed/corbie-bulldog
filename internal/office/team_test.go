@@ -363,9 +363,54 @@ func TestOfficeToolsFromFilledDefinition(t *testing.T) {
 	}
 	// A tool given only by a tools file may be decided on.
 	reads(t, replace(t, house(t), "office.yaml", "everything: [sam]", "everything: [sam]\n  clerk: [sam]"))
-	if o.Workers["bins"].Tools != nil {
-		t.Errorf("a flow holds %v", o.Workers["bins"].Tools)
+	waits := map[string]bool{}
+	for _, tool := range o.Workers["fixer"].Held {
+		waits[tool.Name] = tool.Waits
 	}
+	if !waits["cut_power"] || !waits["order_part"] || waits["sparks"] {
+		t.Errorf("the fixer's tools that wait for a yes: %v", waits)
+	}
+}
+
+func TestOfficeWhatAFlowsStagesAndAStatechartsJobsRun(t *testing.T) {
+	t.Parallel()
+	// runs fails unless a worker runs just what is wanted, by name, what
+	// each job is and whether it waits for a yes.
+	runs := func(o *office.Office, worker string, want ...office.Tool) {
+		t.Helper()
+		got := o.Workers[worker].Held
+		if !slices.EqualFunc(got, want, func(a, b office.Tool) bool {
+			return a.Name == b.Name && a.Kind == b.Kind && a.Worker == b.Worker && a.File == b.File && a.Waits == b.Waits
+		}) {
+			t.Errorf("%s runs %+v", worker, got)
+		}
+	}
+	runs(reads(t, house(t)), "bins", office.Tool{Name: "which", Kind: office.ToolScript, File: "tools/bins.js"})
+
+	// A held job is decided by its stage's name, so a key may name one.
+	reads(t, replace(t, house(t), "office.yaml", "everything: [sam]", "everything: [sam]\n  which: [sam]"))
+	_, problems := read(t, replace(t, house(t), "office.yaml", "everything: [sam]", "everything: [sam]\n  whcih: [sam]"))
+	says(t, problems.OfTeam("office"), "whcih", "names no tool")
+
+	// A worker a flow runs is called by it, and the flow, the lead, still
+	// names the ask, since the fixer's cut_power waits for a yes.
+	steward := "flow: steward\ninput: [said, context]\nstages:\n  mend: { job: { machine: ./fixer.yaml, input: { said: \"${input.said}\" } } }\n" +
+		"output: ${stages.mend.output}\nask: { machine: ./.bulldog/ask.yaml }\n"
+	runs(reads(t, with(house(t), map[string]string{"steward.yaml": steward})), "steward",
+		office.Tool{Name: "mend", Kind: office.ToolWorker, Worker: "fixer", File: "fixer.yaml"})
+	_, problems = read(t, with(house(t), map[string]string{"steward.yaml": strings.Replace(steward, "ask: { machine: ./.bulldog/ask.yaml }\n", "", 1)}))
+	says(t, problems, "steward", "ask")
+
+	// A statechart runs a state's one job by the state's name, and each
+	// named job by its own.
+	porch := "statechart: porch\ninput: [said]\ninitial: asking\nstates:\n" +
+		"  asking:\n    job: { machine: ./sparks.yaml, input: { said: \"Which circuit is the porch?\" } }\n    on: { done: locking }\n" +
+		"  locking:\n    jobs:\n      lock: { script: ./tools/cut-power.js, input: { circuit: porch }, approve: true }\n    on: { done: locked }\n" +
+		"  locked: { end: done }\n"
+	o := reads(t, replace(t, with(house(t), map[string]string{"porch.yaml": porch}), "office.yaml", "everything: [sam]", "everything: [sam]\n  lock: [kit]"))
+	runs(o, "porch",
+		office.Tool{Name: "asking", Kind: office.ToolWorker, Worker: "sparks", File: "sparks.yaml"},
+		office.Tool{Name: "lock", Kind: office.ToolScript, File: "tools/cut-power.js", Waits: true})
 }
 
 func TestAboutIsOneLine(t *testing.T) {

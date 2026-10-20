@@ -241,7 +241,8 @@ type (
 		MayAsk []string `json:"may_ask"`
 		Runs   bool     `json:"runs"`
 	}
-	// toolOut is a tool with what it does and what its job is: a worker
+	// toolOut is a tool, a flow's stage or a statechart's job, with what
+	// it does and what its job is: a worker
 	// of the same team, named; another machine or a script, by its file;
 	// or one of the tools Bulldog ships. One that waits for a yes gives
 	// who decides it, in the order its walk asks them, and none when
@@ -308,11 +309,7 @@ func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any,
 		out.Models = append(out.Models, modelOut{Name: m.Name, Text: m.Text})
 	}
 	for _, name := range t.Workers {
-		wk, err := workerOf(o, o.Workers[name])
-		if err != nil {
-			return nil, err
-		}
-		out.Workers = append(out.Workers, wk)
+		out.Workers = append(out.Workers, workerOf(o, o.Workers[name]))
 	}
 	notes, err := o.Notes(t.Name)
 	if err != nil {
@@ -413,9 +410,10 @@ type docText struct {
 }
 
 // workerOf gives a worker as it is written: its model as it is sent; its
-// tools, each with what it does and what its job is, and who decides each
-// that waits for a yes; and the teams it may ask.
-func workerOf(o *office.Office, w *office.Worker) (workerOut, error) {
+// tools, a flow's stages or a statechart's jobs, each with what it does
+// and what its job is, and who decides each that waits for a yes; and the
+// teams it may ask.
+func workerOf(o *office.Office, w *office.Worker) workerOut {
 	out := workerOut{Name: w.Name, Type: w.Type, File: w.File, Model: w.Model, ModelName: w.ModelName, Tools: []toolOut{}, MayAsk: []string{},
 		Runs: w.Runs()}
 	for _, t := range work.MayAsk(o, w.Team, w.Name, nil) {
@@ -426,18 +424,14 @@ func workerOf(o *office.Office, w *office.Worker) (workerOut, error) {
 			out.ModelFrom = m.Team
 		}
 	}
-	waits, err := changes.Waits(w)
-	if err != nil {
-		return workerOut{}, err
-	}
 	for _, tool := range w.Held {
-		t := toolOut{Name: tool.Name, Does: tool.Does, Kind: tool.Kind, Worker: tool.Worker, File: tool.File, Listed: tool.Listed, Waits: waits[tool.Name]}
+		t := toolOut{Name: tool.Name, Does: tool.Does, Kind: tool.Kind, Worker: tool.Worker, File: tool.File, Listed: tool.Listed, Waits: tool.Waits}
 		if t.Waits {
 			t.Deciders = walked(o, w.Team, tool.Name)
 		}
 		out.Tools = append(out.Tools, t)
 	}
-	return out, nil
+	return out
 }
 
 // atWork gives the team's workers that are at work on its open requests,

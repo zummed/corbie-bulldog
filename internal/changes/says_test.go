@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/zummed/corbie-bulldog/examples"
-	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 )
 
@@ -412,19 +411,4 @@ func TestChangesAMoveIsSaidOnce(t *testing.T) {
 	hasNo(t, all, "clerk joins")
 	hasNo(t, all, "clerk leaves")
 	hasNo(t, all, "clerk.yaml is")
-}
-
-func TestChangesWaitsNamesTheToolsThatWaitForAYes(t *testing.T) {
-	t.Parallel()
-	o, err := office.Read(testkit.Folder(t, house(t)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	waits, failed := Waits(o.Workers["fixer"])
-	if failed != nil || !waits["cut_power"] || !waits["order_part"] || waits["sparks"] {
-		t.Errorf("the fixer's tools that wait: %v, %v", waits, failed)
-	}
-	if waits, failed := Waits(o.Workers["bins"]); failed != nil || len(waits) != 0 {
-		t.Errorf("a flow's tools that wait: %v, %v", waits, failed)
-	}
 }

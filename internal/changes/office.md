@@ -46,7 +46,7 @@ routines:
 | `about` | one line saying what the team looks after; workers choosing whom to ask are given it |
 | `people` | the team's people, by the names `everyone` writes them under |
 | `lead` | the one worker or person of the team that answers for it |
-| `decide` | ordered lists of deciders: `everything`; the name of a tool a worker of the team holds; and at the top, `change`, for a change to the office files |
+| `decide` | ordered lists of deciders: `everything`; the name of a tool a worker of the team holds, a stage of a flow or a job of a statechart; and at the top, `change`, for a change to the office files |
 | `disclosure` | a list of deciders for everything the team says outside itself |
 | `routines` | what is said to one of its workers at a time of day, `"18:00"`, or with a weekday, `"mon 09:00"`, in the office's zone |
 | `models` | models by a name of the team's, each written as Corbie writes one, naming the secret that holds its key and never a key |

@@ -91,10 +91,23 @@
       paged(key, rows, PAGE, B.el("div", {class: "rows"}), (b) => B.el("div", {class: "row"}, b)));
   }
 
+  // parts gives a flow's stages or a statechart's jobs, each with what it
+  // runs: a worker of the team, one of Bulldog's tools, or a file.
+  function parts(w, t) {
+    return [group("stages", w.type === "flow" ? "Stages" : "Jobs", (w.tools || []).map((tool) => row(
+      B.el("span", {class: "wk-c1"}, toolName(tool)),
+      B.el("span", {class: "wk-c2 line"},
+        tool.kind === "worker" ? B.workerEl(tool.worker, t.name, {bare: true}) : null,
+        tool.kind === "bulldog" ? B.el("span", {class: "tag"}, "Bulldog") : null,
+        authorisation(tool, t)),
+      tool.kind === "worker" ? null : fileEl(tool.file))))];
+  }
+
   // groups sorts the worker's tools by what they reach: what it can do
   // itself, whom it can ask, and the changes it can draft. Tools that do
   // not say what they reach are listed as they are.
   function groups(w, t) {
+    if (w.type === "flow" || w.type === "statechart") return parts(w, t);
     const tools = w.tools || [];
     if (!tools.some((tool) => tool.kind)) {
       return [group("tools", "Tools", tools.map((tool) => row(B.el("span", {class: "wk-c1 mono"}, tool.name),

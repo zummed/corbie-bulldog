@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"path"
 	"regexp"
 	"slices"
@@ -16,13 +15,13 @@ import (
 
 	"github.com/zummed/corbie-bulldog/shipped"
 	"github.com/zummed/corbie/agent"
+	"github.com/zummed/corbie/flow"
 	"github.com/zummed/corbie/machine"
+	"github.com/zummed/corbie/permission"
+	"github.com/zummed/corbie/statechart"
 
-	// The machine types a definition may be, and the plugins and model
-	// services Corbie checks a definition against.
-	_ "github.com/zummed/corbie/flow"
+	// The plugins and model services Corbie checks a definition against.
 	_ "github.com/zummed/corbie/plugin/bundled"
-	_ "github.com/zummed/corbie/statechart"
 )
 
 // isType says whether a definition's first key is a type of machine.
@@ -380,48 +379,95 @@ func needsAsk(d *machine.Draft) bool {
 	return held && d.Definition.Ask == nil
 }
 
-// toolsOf gives the tools an agent's definition holds, as Corbie filled it
-// out, but for those every agent has for blobs, in the order of their
-// names. What each tool's job is, is told by where it resolves from the
-// worker's folder: a tool whose job is the call Bulldog ships is Bulldog's;
-// a script is a script; a machine that is a file of the office is a worker
-// of the same team, or another machine; and a machine that is no file was
-// written in place.
+// toolsOf gives what a worker's definition runs by name, as Corbie filled
+// it out, in the order of their names: an agent's tools, but for those
+// every agent has for blobs; a flow's stages; and a statechart's jobs, a
+// state's one job by the state's name and each of its named jobs by its
+// own, as Corbie names the jobs it runs. What each job is, is told by
+// where it resolves from the worker's folder: a job that is the call
+// Bulldog ships is Bulldog's; a script is a script; a machine that is a
+// file of the office is a worker of the same team, or another machine;
+// and a machine that is no file was written in place.
 func (r *reading) toolsOf(w *Worker, def *machine.Definition) []Tool {
-	if def.Type != "agent" {
-		return nil
-	}
-	var a agent.Agent
-	if json.Unmarshal(def.Body, &a) != nil {
-		return nil
-	}
 	var tools []Tool
-	for _, name := range slices.Sorted(maps.Keys(a.Tools)) {
-		t := a.Tools[name]
-		var script, machine string
-		if t.Job != nil {
-			script, machine = t.Job.Script, t.Job.Machine
+	switch def.Type {
+	case "agent":
+		var a agent.Agent
+		if json.Unmarshal(def.Body, &a) != nil {
+			return nil
 		}
-		if strings.HasPrefix(script, "corbie:") {
-			continue
+		for name, t := range a.Tools {
+			if t.Job != nil && strings.HasPrefix(t.Job.Script, "corbie:") {
+				continue
+			}
+			tool := r.tool(w, def, name, t.Job)
+			tool.Does, tool.Args, tool.Listed = t.Does, t.Args, t.List != nil
+			tools = append(tools, tool)
 		}
-		tool := Tool{Name: name, Does: t.Does, Kind: ToolMachine, Args: t.Args, Listed: t.List != nil}
-		file := path.Join(dirOf(w.File), script+machine)
-		_, inOffice := r.files[file]
-		switch {
-		case file == path.Join(shipped.Dir, shipped.Call):
-			tool.Kind = ToolBulldog
-		case script != "":
-			tool.Kind, tool.File = ToolScript, file
-		case inOffice:
-			tool.File = file
-			if other := r.workerOf(file); other != nil && other.Team == w.Team {
-				tool.Kind, tool.Worker = ToolWorker, other.Name
+	case "flow":
+		var f flow.Flow
+		if json.Unmarshal(def.Body, &f) != nil {
+			return nil
+		}
+		for name, s := range f.Stages {
+			tools = append(tools, r.tool(w, def, name, s.Job))
+		}
+	case "statechart":
+		var c statechart.Chart
+		if json.Unmarshal(def.Body, &c) != nil {
+			return nil
+		}
+		var states func(map[string]*statechart.State)
+		states = func(held map[string]*statechart.State) {
+			for name, s := range held {
+				if s == nil {
+					continue
+				}
+				if s.Job != nil {
+					tools = append(tools, r.tool(w, def, name, s.Job))
+				}
+				for job, spec := range s.Jobs {
+					tools = append(tools, r.tool(w, def, job, spec))
+				}
+				states(s.States)
 			}
 		}
-		tools = append(tools, tool)
+		states(c.States)
 	}
+	slices.SortFunc(tools, func(a, b Tool) int { return strings.Compare(a.Name, b.Name) })
 	return tools
+}
+
+// tool gives one job a worker's definition runs by name: what it is, told
+// by where it resolves from the worker's folder, and whether it waits for
+// a yes, as Corbie holds a job: marked for approval, or declaring a
+// permission the definition lists to be asked about, a script's declaring
+// the definition's own allow with its own.
+func (r *reading) tool(w *Worker, def *machine.Definition, name string, job *machine.JobSpec) Tool {
+	tool := Tool{Name: name, Kind: ToolMachine}
+	var script, machine string
+	if job != nil {
+		script, machine = job.Script, job.Machine
+		allow := job.Allow
+		if !job.Alone && !job.IsMachine() {
+			allow = append(slices.Clone(def.Allow), allow...)
+		}
+		tool.Waits = job.Approve || permission.Declares(allow, def.AskAbout)
+	}
+	file := path.Join(dirOf(w.File), script+machine)
+	_, inOffice := r.files[file]
+	switch {
+	case file == path.Join(shipped.Dir, shipped.Call):
+		tool.Kind = ToolBulldog
+	case script != "":
+		tool.Kind, tool.File = ToolScript, file
+	case inOffice:
+		tool.File = file
+		if other := r.workerOf(file); other != nil && other.Team == w.Team {
+			tool.Kind, tool.Worker = ToolWorker, other.Name
+		}
+	}
+	return tool
 }
 
 // toolNames gives the names of tools.
@@ -606,10 +652,10 @@ func (r *reading) checkBridges() {
 	}
 }
 
-// checkKeys reports a decide key that names no tool of the team's
-// workers, and a team whose lead cannot run. While a worker's definition
-// is one Corbie did not fill out, its tools are not known, and no key is
-// said to name none.
+// checkKeys reports a decide key that names nothing the team's workers
+// run by name, a tool, a stage or a job, and a team whose lead cannot
+// run. While a worker's definition is one Corbie did not fill out, what
+// it runs is not known, and no key is said to name nothing.
 func (r *reading) checkKeys() {
 	for _, team := range r.o.Order {
 		t := r.o.Teams[team]
@@ -644,7 +690,7 @@ func (r *reading) checkKeys() {
 					}
 				}
 				r.report(Problem{File: t.File, Line: line, Team: team,
-					Text: fmt.Sprintf("decide: %s names no tool any worker of %s holds, so it decides nothing", list.Key, called(t))})
+					Text: fmt.Sprintf("decide: %s names no tool, stage or job of any worker of %s, so it decides nothing", list.Key, called(t))})
 			}
 		}
 	}

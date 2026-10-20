@@ -214,9 +214,10 @@ type Worker struct {
 	// Draft is the definition filled out and checked by Corbie, nil while
 	// it has a problem: such a worker is given no run.
 	Draft *machine.Draft
-	// Tools are the tools its definition holds, as Corbie fills it out, by
-	// name; Held are the same tools, each with what it does and what its
-	// job is.
+	// Tools are what its definition runs by name, as Corbie fills it out:
+	// an agent's tools, a flow's stages, a statechart's jobs; Held are the
+	// same, each with what it does, what its job is and whether it waits
+	// for a yes.
 	Tools []string
 	Held  []Tool
 	// AtTop says Bulldog starts it at the top: it is its team's lead or
@@ -231,17 +232,31 @@ type Worker struct {
 // Runs says whether the worker may be given a run.
 func (w *Worker) Runs() bool { return w.Draft != nil }
 
-// A Tool is one a worker's definition holds: its name, its does line as
-// written, and what its job is, told by where the job resolves. Its
-// Worker is the worker of the same team its job is, and its File the file
-// of the office its job runs, by its path in the office; a machine written
-// in place has neither.
+// Part gives what one of the jobs its definition runs by name is called:
+// an agent's tool, a flow's stage, a statechart's job.
+func (w *Worker) Part() string {
+	switch w.Type {
+	case "flow":
+		return "stage"
+	case "statechart":
+		return "job"
+	}
+	return "tool"
+}
+
+// A Tool is one job a worker's definition runs by name: an agent's tool,
+// a flow's stage or a statechart's job. It has its name, an agent's does
+// line as written, and what its job is, told by where the job resolves.
+// Its Worker is the worker of the same team its job is, and its File the
+// file of the office its job runs, by its path in the office; a machine
+// written in place has neither. Waits says Corbie holds the job for a yes.
 type Tool struct {
 	Name   string
 	Does   string
 	Kind   string
 	Worker string
 	File   string
+	Waits  bool
 	// Args is the shape of its arguments, in full form, as Corbie fills
 	// it out.
 	Args map[string]any
