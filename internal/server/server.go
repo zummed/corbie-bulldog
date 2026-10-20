@@ -74,9 +74,9 @@ func Shown(address string) string {
 // started, waits for it, and closes the store. A start goes in order: it
 // says which Corbie the office is on, opens the store, makes sure no
 // other server is serving the office, and only then reads the office's
-// folder, opens every area in the store, and says what the reading found
-// and, at the first start of a new version, what changed in each thing
-// Bulldog ships that the office uses; it takes the address it listens on,
+// folder, opens every area in the store, and says what the reading found;
+// it takes the address it listens on, says at the first start of a new
+// version what changed in each thing Bulldog ships that the office uses,
 // and only then starts its own run and the office's work, and gives each
 // person the link they sign in with. An address that cannot be taken
 // starts nothing.
@@ -117,16 +117,6 @@ func Serve(ctx context.Context, opt Options) error {
 	r.office()
 	r.problems()
 	r.shown = keeper.Office()
-	version := cmp.Or(opt.Version, "dev")
-	before, upgraded, err := ran(db, version)
-	if err != nil {
-		return err
-	}
-	if upgraded {
-		for _, line := range changedLines(keeper.Office(), before) {
-			say("%s", line)
-		}
-	}
 
 	listener, err := net.Listen("tcp", opt.Listen)
 	if err != nil {
@@ -134,6 +124,19 @@ func Serve(ctx context.Context, opt Options) error {
 	}
 	r.url = strings.TrimRight(cmp.Or(opt.URL, "http://"+listener.Addr().String()), "/")
 	say("listening on %s", listener.Addr())
+	// The version is kept only by a start that listens, so one that
+	// cannot still says what changed when it next starts.
+	version := cmp.Or(opt.Version, "dev")
+	before, upgraded, err := ran(db, version)
+	if err != nil {
+		listener.Close()
+		return err
+	}
+	if upgraded {
+		for _, line := range changedLines(keeper.Office(), before) {
+			say("%s", line)
+		}
+	}
 	s := &site{Areas: areas, db: db, clock: opt.Clock, url: r.url, say: say, screens: &screens{}, asked: make(chan string, Asked),
 		version: version, before: before}
 	areas.Bridges.SignedIn = s.signedIn
