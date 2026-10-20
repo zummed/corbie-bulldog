@@ -100,6 +100,11 @@ func TestOfficeUnknownModelNameStopsWorker(t *testing.T) {
 	if p.Refuses || o.Workers["clerk"].Runs() || !o.Workers["fixer"].Runs() {
 		t.Errorf("the problem %v stops the wrong workers", p)
 	}
+	// The steward, which calls the clerk, cannot run either, and says once
+	// that the clerk is why, as of a colleague Corbie refuses.
+	if got := problems.OfWorker("steward"); len(got) != 1 || !strings.Contains(got[0].Text, "it uses clerk") || strings.Contains(got[0].Text, `"cheap"`) {
+		t.Errorf("the steward's problems are %v", got)
+	}
 	// A word is always a name, even one that is a model's own name.
 	_, problems = read(t, replace(t, house(t), "clerk.yaml", "model: usual", "model: claude-sonnet-5-5"))
 	says(t, problems.OfWorker("clerk"), "clerk.yaml", "claude-sonnet-5-5", "no model of that name")

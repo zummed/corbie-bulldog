@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"path"
 	"regexp"
 	"slices"
@@ -64,7 +65,8 @@ func (r *reading) loader(dir string, uses *[]string) func(string) ([]byte, error
 		}
 		filled, _, _, problems := r.fill(contents, r.teamAt(dirOf(full)), full)
 		if len(problems) > 0 {
-			return nil, errors.New(strings.Join(problems, "; "))
+			r.unfilled[full] = strings.Join(problems, "; ")
+			return nil, errors.New(r.unfilled[full])
 		}
 		return filled, nil
 	}
@@ -325,15 +327,16 @@ func (r *reading) checkWorker(w *Worker) {
 }
 
 // colleagues says once what Corbie found wrong in a worker's definition
-// that is in the file of another worker it uses: that one cannot run, and
-// its problems are said on it. Corbie refuses a definition when it refuses
-// one the definition runs, so the worker cannot run either.
+// that is in the file of another worker it uses, or that kept that file's
+// models from being filled in: that one cannot run, and its problems are
+// said on it. Corbie refuses a definition when it refuses one the
+// definition runs, so the worker cannot run either.
 func (r *reading) colleagues(w *Worker, problems Problems) Problems {
 	var kept Problems
 	var used []string
 	for _, p := range problems {
-		other := r.workerOf(p.File)
-		if other == nil || other == w {
+		other := r.blamed(w, p)
+		if other == nil {
 			kept = append(kept, p)
 			continue
 		}
@@ -345,6 +348,22 @@ func (r *reading) colleagues(w *Worker, problems Problems) Problems {
 		}
 	}
 	return kept
+}
+
+// blamed gives the worker other than w whose file a problem of w's
+// definition is of: the file Corbie names, or a file whose models could
+// not be filled in, which Corbie says only it cannot read, with what was
+// said of it; or nil.
+func (r *reading) blamed(w *Worker, p Problem) *Worker {
+	if other := r.workerOf(p.File); other != nil && other != w {
+		return other
+	}
+	for _, file := range slices.Sorted(maps.Keys(r.unfilled)) {
+		if other := r.workerOf(file); other != nil && other != w && strings.HasSuffix(p.Text, r.unfilled[file]) {
+			return other
+		}
+	}
+	return nil
 }
 
 // workerOf gives the worker whose file is a file of the office, or nil.

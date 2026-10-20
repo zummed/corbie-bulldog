@@ -50,7 +50,7 @@ func Parse(dir string, given map[string][]byte) (*Office, Problems) {
 		Teams: map[string]*Team{}, People: map[string]*Person{}, Workers: map[string]*Worker{},
 		Rules: map[string]*Rule{}, Bridges: map[string]*Bridge{},
 		Files: slices.Sorted(maps.Keys(files)),
-	}, names: map[string]string{}, filledOut: map[string]bool{}}
+	}, names: map[string]string{}, filledOut: map[string]bool{}, unfilled: map[string]string{}}
 	if _, ok := files[OfficeFile]; !ok {
 		r.refuse(Problem{File: OfficeFile, Text: "there is no office.yaml, the top team's file, so this is not an office"})
 		return r.o, r.problems
@@ -84,6 +84,9 @@ type reading struct {
 	// filledOut are the workers whose definitions Corbie filled out, so
 	// that the tools they hold are known.
 	filledOut map[string]bool
+	// unfilled gives, for each file of the office whose models could not
+	// be filled in when another definition named it, what was said.
+	unfilled map[string]string
 }
 
 func (r *reading) refuse(p Problem) {
