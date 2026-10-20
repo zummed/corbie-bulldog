@@ -343,8 +343,10 @@ type Bridge struct {
 	// From is the folder Bulldog ships that it runs, as
 	// .bulldog/bridges/slack, or empty when it runs its own.
 	From string
-	// Settings are as written, handed whole to both machines.
+	// Settings are as written, handed whole to both machines, and Line is
+	// where in office.yaml its entry is written.
 	Settings any
+	Line     int
 	// Places are those it listens in, in the order written.
 	Places []Place
 	// Listens says its in machine takes a cursor, and Hears that it takes
@@ -373,6 +375,24 @@ func Takes(m *machine.Draft, name string) bool {
 	names, _ := m.Definition.Input["properties"].(map[string]any)
 	_, ok := names[name]
 	return ok
+}
+
+// unfit says how settings do not fit the shape a machine's input gives its
+// settings, or "" when they fit or it gives none.
+func unfit(m *machine.Draft, settings any) string {
+	names, _ := m.Definition.Input["properties"].(map[string]any)
+	shape, ok := names["settings"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	schema, err := machine.CompileShape(map[string]any{"type": "object", "properties": map[string]any{"settings": shape}})
+	if err == nil {
+		err = machine.Fits(schema, map[string]any{"settings": settings})
+	}
+	if err != nil {
+		return err.Error()
+	}
+	return ""
 }
 
 // A Place is one a bridge listens in, by its name in the bridge's words.

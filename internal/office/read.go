@@ -816,6 +816,7 @@ func (r *reading) readBridges() {
 		if b == nil {
 			continue
 		}
+		b.Line = k.Line
 		if v.Kind != yaml.MappingNode {
 			stop(b, v.Line, OfficeFile, "bridges: %s's settings are a mapping, as { places: { direct: {} } }, and these are %s", b.Name, describe(v))
 		} else if err := v.Decode(&b.Settings); err != nil {

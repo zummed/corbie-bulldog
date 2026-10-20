@@ -29,4 +29,4 @@ bridges:
 ## Changed
 
 - 0.1.0: first shipped.
-- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; logs what it leaves out.
+- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; logs what it leaves out; takes no setting but those above, each checked when the office is read.

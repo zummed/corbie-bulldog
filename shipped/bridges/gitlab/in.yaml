@@ -7,7 +7,19 @@
 # GitLab at the settings' site, as gitlab.com, with the token that is the
 # Corbie secret GITLAB_TOKEN.
 statechart: gitlab-in
-input: { settings: any, cursor: any }
+input:
+  type: object
+  required: [settings, cursor]
+  properties:
+    settings:
+      type: object
+      required: [site]
+      additionalProperties: false
+      properties:
+        from: { type: string }
+        site: { type: string }
+        places: { type: object }
+    cursor: {}
 initial: listening
 states:
   listening:

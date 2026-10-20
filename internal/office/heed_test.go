@@ -64,6 +64,21 @@ func TestATeamsHeedIsOneRule(t *testing.T) {
 	if !o.Workers["gardener"].Runs() {
 		t.Error("the gardener does not run")
 	}
+	// Settings that do not fit what the rule takes stop only the heed,
+	// said on the team file at the heed's line.
+	o, problems = read(t, heeded(t, "{ rule: ../.bulldog/rules/for-us/for-us.yaml, threshold: high, treshold: 0.6 }", nil))
+	if o == nil {
+		t.Fatalf("the house does not read: %v", problems)
+	}
+	if h := o.Teams["garden"].Heed; h == nil || h.Runs() || len(h.Problems) != 1 {
+		t.Errorf("the garden's heed is %#v", h)
+	}
+	if p := says(t, problems, "garden/team.yaml", "heed", "/settings/threshold", "treshold"); p.Line != o.Teams["garden"].Heed.Line || p.Refuses {
+		t.Errorf("the heed's settings are said as %#v", p)
+	}
+	if o := reads(t, heeded(t, "{ rule: ../.bulldog/rules/for-us/for-us.yaml, timeout: 5s, threshold: 0.6 }", nil)); !o.Teams["garden"].Heed.Runs() {
+		t.Errorf("the garden's heed with settings that fit is %#v", o.Teams["garden"].Heed)
+	}
 }
 
 func TestOfficeHeedWithPersonLeadIsAProblemOfTheHeed(t *testing.T) {

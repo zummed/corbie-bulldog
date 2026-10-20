@@ -511,7 +511,8 @@ func toolNames(tools []Tool) []string {
 // checkRules has Corbie check each rule the lists and the heeds name that
 // is a definition, as it is written, with its models named by one word
 // filled in from its team's; a refused one is reported on each team that
-// names it, and is a problem of each heed that names it. Each line of a
+// names it, and is a problem of each heed that names it, as are a heed's
+// settings that do not fit those its rule's input takes. Each line of a
 // rule written for an older Bulldog is reported on each team whose lists
 // name the rule, and is no problem of a heed. A rule Bulldog ships is of
 // no team: it is read from what Bulldog ships, and checked as it ships,
@@ -547,6 +548,13 @@ func (r *reading) checkRules() {
 				r.problems = append(r.problems, p)
 				if t.Heed != nil && t.Heed.Rule == name {
 					t.Heed.Problems = append(t.Heed.Problems, p)
+				}
+			}
+			if h := t.Heed; h != nil && h.Rule == name && rule.Draft != nil {
+				if text := unfit(rule.Draft, h.Settings); text != "" {
+					p := Problem{File: t.File, Line: h.Line, Team: team, Text: fmt.Sprintf("heed: its settings do not fit what %s takes: %s", h.Written, text)}
+					h.Problems = append(h.Problems, p)
+					r.report(p)
 				}
 			}
 			if i < listed {
@@ -630,7 +638,8 @@ func (r *reading) oldWords(files ...string) Problems {
 // checkBridges has Corbie check both machines of each bridge, with their
 // models named by one word filled in from the office's; the machines of a
 // bridge Bulldog ships name none. An in machine takes a cursor, and
-// listens, or a delivery, and hears.
+// listens, or a delivery, and hears. Settings that do not fit those either
+// machine's input takes stop the bridge.
 func (r *reading) checkBridges() {
 	for _, name := range r.o.BridgeOrder {
 		b := r.o.Bridges[name]
@@ -662,6 +671,10 @@ func (r *reading) checkBridges() {
 			if err != nil {
 				b.Problems = append(b.Problems, corbieSays(err, p)...)
 				continue
+			}
+			if text := unfit(draft, b.Settings); text != "" {
+				b.Problems = append(b.Problems, Problem{File: OfficeFile, Line: b.Line, Team: Top, Bridge: name,
+					Text: fmt.Sprintf("bridges: %s's settings do not fit what its %s takes: %s", name, which, text)})
 			}
 			if which == "out.yaml" {
 				b.Out = draft

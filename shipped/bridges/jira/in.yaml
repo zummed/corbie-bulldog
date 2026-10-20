@@ -8,7 +8,20 @@
 # signs in as the settings' email with the API token that is the Corbie
 # secret JIRA_TOKEN.
 statechart: jira-in
-input: { settings: any, cursor: any }
+input:
+  type: object
+  required: [settings, cursor]
+  properties:
+    settings:
+      type: object
+      required: [site, email]
+      additionalProperties: false
+      properties:
+        from: { type: string }
+        site: { type: string }
+        email: { type: string }
+        places: { type: object }
+    cursor: {}
 initial: listening
 states:
   listening:

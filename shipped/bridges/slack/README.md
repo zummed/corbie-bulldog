@@ -36,4 +36,4 @@ bridges:
 ## Changed
 
 - 0.1.0: first shipped.
-- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; logs what it leaves out, and marks a message that names the app as mentioned; listens over Socket Mode in place of being called at the office's address: may now connect to wss-primary.slack.com and wss-backup.slack.com, needs SLACK_APP_TOKEN, and no longer needs SLACK_SIGNING_SECRET; sends answers as Markdown, which Slack shows, and writes the app's own mention as its name.
+- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; logs what it leaves out, and marks a message that names the app as mentioned; listens over Socket Mode in place of being called at the office's address: may now connect to wss-primary.slack.com and wss-backup.slack.com, needs SLACK_APP_TOKEN, and no longer needs SLACK_SIGNING_SECRET; sends answers as Markdown, which Slack shows, and writes the app's own mention as its name; takes no setting but those above, each checked when the office is read.
