@@ -231,7 +231,7 @@ func (d *Decisions) advance(o *office.Office, dec *Decision, fx *effects) error 
 func (d *Decisions) ask(o *office.Office, dec *Decision, stages []Stage, i int) error {
 	d.stopRun(dec.ID)
 	dec.Step++
-	dec.At = &Stand{Kind: stages[i].Kind, Name: stages[i].Name, Since: d.Now()}
+	dec.At = &Stand{Kind: stages[i].Kind, Name: stages[i].Name, Since: d.Now(), Advises: stages[i].Advises}
 	if err := save(d.db, dec); err != nil {
 		return err
 	}
@@ -323,7 +323,12 @@ func (d *Decisions) taken(ctx context.Context, id int64, step int, out []byte, f
 		d.state.Unlock()
 		says, note := result(out, failure)
 		w := Word{Kind: dec.At.Kind, Name: dec.At.Name, Called: calledOf(o, dec.At.Kind, dec.At.Name), Note: note, At: d.Now()}
-		if dec.Kind == OfChange && says == SaysYes {
+		switch {
+		case says == SaysYes && dec.At.Advises:
+			// It advises, as it was told: its yes goes on, as a
+			// referral does, as a recommendation.
+			says, w.Recommends = SaysRefer, true
+		case dec.Kind == OfChange && says == SaysYes:
 			says, w.Note = SaysRefer, "it said yes, and only a person's yes approves a change, so it is taken as a referral"+noted(note)
 		}
 		switch says {
@@ -373,8 +378,9 @@ func result(out []byte, failure error) (says, note string) {
 	return *r.Says, note
 }
 
-// refer keeps a rule's or worker's referral, as an entry to whoever the
-// decision is for.
+// refer keeps a rule's or worker's referral, or the yes of one that
+// advises as its recommendation, as an entry to whoever the decision is
+// for.
 func (d *Decisions) refer(o *office.Office, dec *Decision, w Word) error {
 	dec.Referrals = append(dec.Referrals, w)
 	if err := save(d.db, dec); err != nil {
@@ -387,8 +393,11 @@ func (d *Decisions) refer(o *office.Office, dec *Decision, w Word) error {
 	if err != nil {
 		return err
 	}
-	_, err = d.requests.Write(dec.Request, requests.Writing{Kind: KindReferred, By: d.whoOf(dec, w), To: to, Read: true, Decision: dec.ID,
-		Text: "referred by " + w.Called + noted(w.Note)})
+	kind, text := KindReferred, "referred by "+w.Called+noted(w.Note)
+	if w.Recommends {
+		kind, text = KindRecommended, w.Called+" recommends yes"+noted(w.Note)
+	}
+	_, err = d.requests.Write(dec.Request, requests.Writing{Kind: kind, By: d.whoOf(dec, w), To: to, Read: true, Decision: dec.ID, Text: text})
 	return err
 }
 

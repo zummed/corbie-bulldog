@@ -69,23 +69,26 @@ const (
 )
 
 // A Stand is where a walk stands: a rule or a worker asked, since a time,
-// or people.
+// and whether it was asked to advise; or people.
 type Stand struct {
-	Kind  string    `json:"kind"`
-	Name  string    `json:"name,omitzero"`
-	Since time.Time `json:"since"`
+	Kind    string    `json:"kind"`
+	Name    string    `json:"name,omitzero"`
+	Since   time.Time `json:"since"`
+	Advises bool      `json:"advises,omitzero"`
 }
 
 // A Word is one decider's word on a decision: a referral with its note,
-// or the yes or refusal that ended it.
+// the yes of one that advises, passed on as a recommendation, or the yes
+// or refusal that ended it.
 type Word struct {
 	// Kind is a person, a worker, a rule, or Bulldog's own, and Name is
 	// the person's or the worker's name or the rule's path.
-	Kind   string    `json:"kind"`
-	Name   string    `json:"name,omitzero"`
-	Called string    `json:"called"`
-	Note   string    `json:"note,omitzero"`
-	At     time.Time `json:"at"`
+	Kind       string    `json:"kind"`
+	Name       string    `json:"name,omitzero"`
+	Called     string    `json:"called"`
+	Note       string    `json:"note,omitzero"`
+	At         time.Time `json:"at"`
+	Recommends bool      `json:"recommends,omitzero"`
 }
 
 // An Ask is an ask's run waiting on its ticket, as work hands it in.

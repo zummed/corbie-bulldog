@@ -19,16 +19,21 @@ func (d *Decisions) input(o *office.Office, dec *Decision, stages []Stage, at in
 	in := map[string]any{"kind": dec.Kind, "decision": dec.ID, "team": dec.Team, "team_called": called(o, dec.Team), "does": d.Does(o, dec)}
 	referrals := []map[string]any{}
 	for _, w := range dec.Referrals {
-		referrals = append(referrals, map[string]any{"by": w.Called, "kind": w.Kind, "note": w.Note})
+		says := SaysRefer
+		if w.Recommends {
+			says = SaysYes
+		}
+		referrals = append(referrals, map[string]any{"by": w.Called, "kind": w.Kind, "says": says, "note": w.Note})
 	}
 	in["referrals"] = referrals
+	in["advises"] = stages[at].Advises
 	after := beyond(stages, dec, at)
 	goes := []map[string]any{}
 	for _, s := range after {
 		goes = append(goes, map[string]any{"kind": s.Kind, "to": d.stageCalled(o, s), "list": s.List, "team": s.Team})
 	}
 	in["referral_goes_to"] = goes
-	in["ends"] = ends(dec, d.referWords(o, dec, after))
+	in["ends"] = ends(dec, stages[at].Advises, d.referWords(o, dec, after))
 	asked, err := d.served(o, dec)
 	if err != nil {
 		return nil, "", err
@@ -116,7 +121,13 @@ func (d *Decisions) referWords(o *office.Office, dec *Decision, after []Stage) s
 	return where
 }
 
-func ends(dec *Decision, where string) string {
+// ends says what a decider's word does: a yes or a refusal ends it, but
+// for one that advises, whose yes goes on as a recommendation, and for a
+// change, which only a person approves.
+func ends(dec *Decision, advises bool, where string) string {
+	if advises {
+		return "You advise on it: a refusal from you ends it. Your yes does not end it: it goes on as a recommendation, with your note, to " + where + ". A referral goes on, with your note, the same way."
+	}
 	if dec.Kind == OfChange {
 		return "A refusal from you ends it. Only a person approves a change, so your yes is taken as a referral. A referral goes on, with your note, to " + where + "."
 	}
@@ -383,6 +394,10 @@ func (d *Decisions) shown(o *office.Office, dec *Decision, people []string) (str
 		fmt.Fprintf(&b, "For request %d, asked by %s: %s\n", dec.Request, asked["asker"], firstLine(asked["asked"].(string)))
 	}
 	for _, w := range dec.Referrals {
+		if w.Recommends {
+			fmt.Fprintf(&b, "%s recommends yes%s\n", w.Called, noted(w.Note))
+			continue
+		}
 		fmt.Fprintf(&b, "%s referred it%s\n", w.Called, noted(w.Note))
 	}
 	fmt.Fprintf(&b, "Asked: %s.\n", names(o, people))

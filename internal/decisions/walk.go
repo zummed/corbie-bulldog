@@ -20,9 +20,12 @@ type Stage struct {
 	Kind   string
 	Name   string
 	People []string
-	// Team and List are the list it is on.
-	Team string
-	List string
+	// Team and List are the list it is on, and Advises whether the rule or
+	// worker is marked there to advise: its yes goes on as a
+	// recommendation.
+	Team    string
+	List    string
+	Advises bool
 }
 
 func (s Stage) is(kind, name string) bool { return s.Kind == kind && s.Name == name }
@@ -147,7 +150,7 @@ func listed(ds []office.Decider, team, list string, o *office.Office) []Stage {
 	for _, d := range ds {
 		switch {
 		case d.Kind != office.IsPerson:
-			stages = append(stages, Stage{Kind: d.Kind, Name: d.Name, Team: team, List: list})
+			stages = append(stages, Stage{Kind: d.Kind, Name: d.Name, Team: team, List: list, Advises: d.Advises})
 		case o.People[d.Name] != nil && !slices.Contains(people, d.Name):
 			people = append(people, d.Name)
 		}

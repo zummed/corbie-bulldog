@@ -46,7 +46,8 @@ const (
 )
 
 // What a decider answers: a rule or a worker any of the three, and a
-// person yes or refuse alone.
+// person yes or refuse alone. The yes of a rule or a worker that advises
+// ends nothing, and goes on as a recommendation.
 const (
 	SaysYes    = "yes"
 	SaysRefuse = "refuse"
@@ -65,6 +66,9 @@ const (
 	KindDecided = "decided"
 	// KindReferred is a rule's or a worker's referral, with its note.
 	KindReferred = "referred"
+	// KindRecommended is the yes of a rule or a worker that advises,
+	// passed on as a recommendation, with its note.
+	KindRecommended = "recommended"
 	// KindNotice is Bulldog telling someone asked that they are asked no
 	// longer, or that a direct message could not be sent.
 	KindNotice = "notice"
