@@ -552,8 +552,24 @@ func TestServerWordsOnABridgeShownAsTheirs(t *testing.T) {
 	if _, err := reqs.Write(r.Number, requests.Writing{Kind: requests.KindBulldog, By: requests.Bulldog, To: []requests.Who{dana}, Text: "Both are refunded."}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := reqs.Answer(r.Number, reqs.Worker("bot"), "4411 and 4412 are refunded.", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reqs.Say(r.Number, reqs.Person("al"), "Closing this one.", nil, requests.Screens, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reqs.Source("slack", "#help/1700.1", requests.Status{Status: "done", By: requests.Identity("slack", "U0AL0000"), At: b.clock.Now()}); err != nil {
+		t.Fatal(err)
+	}
 	guest, err := reqs.AskAt("slack", "#help", "#help/1800.1", "", "U0GUEST0", "please refund me", nil, false)
 	if err != nil {
+		t.Fatal(err)
+	}
+	walk, err := reqs.AskByRoutine("office", office.Routine{At: "mon 09:00", To: "bot", Say: "What is still open?"}, reqs.Person("al"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reqs.Answer(walk.Number, reqs.Worker("bot"), "", nil); err != nil {
 		t.Fatal(err)
 	}
 	s := b.serve()
@@ -572,6 +588,27 @@ func TestServerWordsOnABridgeShownAsTheirs(t *testing.T) {
 	if at < 0 || len(v.Entries[at].To) != 1 || v.Entries[at].To[0].Kind != requests.IsPerson || v.Entries[at].To[0].Name != "dana" {
 		t.Errorf("Bulldog's entry to Dana is shown to %+v", v.Entries)
 	}
+	// So are a worker's answer, Al's words on the screens, and his status
+	// at the source.
+	at = slices.IndexFunc(v.Entries, func(e entryOut) bool { return e.Text == "4411 and 4412 are refunded." })
+	if at < 0 || v.Entries[at].By.Kind != requests.IsWorker || v.Entries[at].By.Name != "bot" || v.Entries[at].By.Team != "office" ||
+		len(v.Entries[at].To) != 1 || v.Entries[at].To[0].Name != "dana" {
+		t.Errorf("the bot's answer is shown as %+v", v.Entries)
+	}
+	at = slices.IndexFunc(v.Entries, func(e entryOut) bool { return e.Text == "Closing this one." })
+	if at < 0 || v.Entries[at].By.Kind != requests.IsPerson || v.Entries[at].By.Name != "al" || v.Entries[at].By.Called != "Al" {
+		t.Errorf("Al's words are shown as %+v", v.Entries)
+	}
+	if v.Source == nil || v.Source.By.Kind != requests.IsPerson || v.Source.By.Name != "al" {
+		t.Errorf("the status at the source is shown as %+v", v.Source)
+	}
+	// Who ran a routine now is shown as the office names them.
+	var w viewOut
+	routine := s.as("al").get("/api/requests/" + itoa(walk.Number)).is(http.StatusOK)
+	routine.into(&w)
+	if w.Origin == nil || w.Origin.Kind != requests.ByRoutine || w.Origin.By == nil || w.Origin.By.Kind != requests.IsPerson || w.Origin.By.Name != "al" {
+		t.Errorf("the routine run now is shown as %+v", w.Origin)
+	}
 	// Someone the office does not name stays a guest of the bridge.
 	var g viewOut
 	s.as("al").get("/api/requests/" + itoa(guest.Number)).is(http.StatusOK).into(&g)
@@ -580,7 +617,7 @@ func TestServerWordsOnABridgeShownAsTheirs(t *testing.T) {
 	}
 	// What Bulldog keeps of who someone is never leaves it.
 	list := s.as("al").get("/api/requests").is(http.StatusOK)
-	for _, body := range [][]byte{reply.body, list.body} {
+	for _, body := range [][]byte{reply.body, routine.body, list.body} {
 		if bytes.Contains(body, []byte(`"known"`)) {
 			t.Errorf("an answer gives known: %s", body)
 		}
