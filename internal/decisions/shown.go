@@ -205,6 +205,65 @@ func (d *Decisions) disclosure(o *office.Office, dec *Decision) (map[string]any,
 	return out, nil
 }
 
+// A Leaving is what a disclosure would let out, as the people asked to
+// decide it are shown it: what it is, an answer, a question, a tell or a
+// sub-request, and its text; whom it is to; the origin at the top of its
+// tree, where it may in the end be read; and the requests it goes through
+// from that top, ending with the team a sub-request would ask, not yet
+// made.
+type Leaving struct {
+	What    string
+	Text    string
+	To      requests.Party
+	ReadAt  requests.Origin
+	Through []Through
+}
+
+// A Through is one request a disclosure goes through: its number, 0 for a
+// sub-request not yet made, and its team.
+type Through struct {
+	Number int64
+	Team   string
+}
+
+// Leaving gives what a disclosure would let out, as the office is read
+// now.
+func (d *Decisions) Leaving(dec *Decision) (*Leaving, error) {
+	if dec.Kind != OfDisclosure {
+		return nil, nil
+	}
+	s := dec.Said
+	out := &Leaving{What: s.What, Text: s.Text}
+	switch s.What {
+	case SaysAnswer:
+		asks, err := d.requests.Asks(s.Request)
+		if err != nil {
+			return nil, err
+		}
+		out.To = asks
+	case SaysSub:
+		out.To = d.requests.Party(requests.Who{Kind: requests.IsTeam, Name: s.Team})
+	default:
+		out.To = d.requests.Party(s.To)
+	}
+	r, err := d.requests.Get(s.Request)
+	if err != nil {
+		return nil, err
+	}
+	top, above, err := d.requests.Top(s.Request)
+	if err != nil {
+		return nil, err
+	}
+	out.ReadAt = top.Origin
+	for _, a := range append(above, r) {
+		out.Through = append(out.Through, Through{Number: a.Number, Team: a.Team})
+	}
+	if s.What == SaysSub {
+		out.Through = append(out.Through, Through{Team: s.Team})
+	}
+	return out, nil
+}
+
 // readAt says where what is said in a request will be read in the end:
 // the origin at the top of its tree.
 func (d *Decisions) readAt(n int64) (string, error) {

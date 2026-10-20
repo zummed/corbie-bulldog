@@ -191,7 +191,8 @@ func TestServerTheHousesDay(t *testing.T) {
 	if cut.Kind != decisions.OfAction || cut.Team != "office" || !slices.Equal(cut.Asked, []string{"sam"}) {
 		t.Errorf("Sam is shown the cut as %+v", cut)
 	}
-	if v := kit.view(n); len(v.Decisions) != 0 || v.State != requests.Waiting || len(v.On) != 1 || v.On[0].Name != "sam" {
+	// Kit, of the house too, sees the cut and its walk, but is not asked it.
+	if v := kit.view(n); len(v.Decisions) != 1 || v.Decisions[0].Mine || len(v.Decisions[0].Stages) != 1 || v.State != requests.Waiting || len(v.On) != 1 || v.On[0].Name != "sam" {
 		t.Errorf("Kit is shown the request %s on %+v, with the decisions %+v", v.State, v.On, v.Decisions)
 	}
 	question := b.deliver("telegram", "4471", "Turn one circuit off")
@@ -349,7 +350,7 @@ func TestServerTheWorkOfficesRefundDay(t *testing.T) {
 		refund[0].Referrals[0].Note != "A refund of ch_2 is for Lee or Priya." || !slices.Equal(refund[0].Asked, []string{"lee", "priya"}) {
 		t.Fatalf("Lee is shown the refund as %+v", refund)
 	}
-	if d := dana.view(payments).Decisions; len(d) != 0 {
+	if d := dana.view(payments).Decisions; len(d) != 1 || d[0].Mine || d[0].Referrals != nil || d[0].Stages != nil || d[0].Args != nil {
 		t.Errorf("Dana is shown the decisions %+v", d)
 	}
 	decide := "/api/requests/" + itoa(payments) + "/decisions/" + itoa(refund[0].ID)
@@ -379,7 +380,7 @@ func TestServerTheWorkOfficesRefundDay(t *testing.T) {
 	// seen only by Lee and Priya.
 	for _, p := range []string{"dana", "al", "raj"} {
 		top := people[p].view(n)
-		if !top.Whole || top.State != requests.Answered || len(top.Subs) != 2 {
+		if !top.Whole || top.State != requests.Answered || top.Label != "" || len(top.Subs) != 2 || top.Answer == nil || top.Answer.State != answerSaid {
 			t.Errorf("%s is shown Dana's request as %+v", p, top)
 		}
 		subs := map[string]string{}
@@ -401,6 +402,9 @@ func TestServerTheWorkOfficesRefundDay(t *testing.T) {
 		sub := people[p].view(payments)
 		if !sub.Read || len(sub.Records) == 0 {
 			t.Errorf("%s is not shown what payments read", p)
+		}
+		if d := sub.Disclosure; d == nil || !d.Set || !d.Needed || len(d.Deciders) == 0 {
+			t.Errorf("%s is shown payments' disclosure as %+v", p, d)
 		}
 		holds(t, p+"'s view of payments' request", string(people[p].get("/api/requests/"+itoa(payments)).body), "4111 1111 1111 1111")
 		people[p].get("/api/requests/" + itoa(n)).is(http.StatusNotFound)
@@ -433,4 +437,108 @@ func TestServerTheWorkOfficesRefundDay(t *testing.T) {
 		t.Errorf("Al is shown the guest's request as asked by %+v", v.Asker)
 	}
 	dana.get("/api/requests/" + itoa(guest)).is(http.StatusNotFound)
+}
+
+func TestServerDecisionGivenAsFarAsEachSees(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, refundsDay(t))
+	b.says(playRefund)
+	s := b.serve()
+	dana, lee, priya := s.signIn("dana"), s.signIn("lee"), s.signIn("priya")
+	s.delivered("slack", thing("said", "U0DANA00", "#help", "#help/1700.1", "readers", []any{"U0DANA00", "U0AL0000", "U0RAJ000"},
+		"text", "customer 4411 was charged twice after Tuesday's release; refund one and tell me what broke"))
+	n := s.at("slack", "#help/1700.1")
+	platform, payments := s.subOf(n, "platform"), s.subOf(n, "payments")
+	s.answered(platform)
+	b.deliver("slack", "U0LEE000", "Refund one charge")
+	refund := lee.view(payments).Decisions
+	if len(refund) != 1 {
+		t.Fatalf("Lee is shown the decisions %+v", refund)
+	}
+	lee.post("/api/requests/"+itoa(payments)+"/decisions/"+itoa(refund[0].ID), map[string]string{"says": "yes", "note": "A duplicate, plainly."}).is(http.StatusOK)
+	s.answered(payments)
+	holds(t, "Lee's view of payments' request", lee.view(payments).all(), "to disclose: approved by disclosure.js")
+
+	// Dana, who sees what was done, is given the refund as what it is, and
+	// who ended it, with nothing of its notes, its walk or its arguments,
+	// and nothing of payments' disclosure, which is what payments read.
+	sub := dana.view(n).Subs[slices.IndexFunc(dana.view(n).Subs, func(s subOut) bool { return s.Team == "payments" })]
+	for where, ds := range map[string][]decisionOut{"payments' request": dana.view(payments).Decisions, "her request": sub.Decisions} {
+		if len(ds) != 1 || ds[0].Kind != decisions.OfAction || ds[0].Ended != decisions.Yes || ds[0].By == nil || ds[0].By.Name != "lee" ||
+			ds[0].By.Note != "" || ds[0].Referrals != nil || ds[0].Stages != nil || ds[0].Args != nil || ds[0].Leaving != nil {
+			t.Errorf("Dana is shown the decisions of %s as %+v", where, ds)
+		}
+	}
+	holdsNone(t, "Dana's view of payments' request", string(dana.get("/api/requests/"+itoa(payments)).body), "A duplicate, plainly.", "is for Lee or Priya", "disclosure.js")
+	// Lee, who decided it, and Priya, asked it, both of payments, are
+	// given its notes, its walk and its arguments, and payments'
+	// disclosure; neither was asked the disclosure, so neither is shown
+	// what it let out.
+	for _, p := range []*browser{lee, priya} {
+		ds := p.view(payments).Decisions
+		action := slices.IndexFunc(ds, func(d decisionOut) bool { return d.Kind == decisions.OfAction })
+		disclosure := slices.IndexFunc(ds, func(d decisionOut) bool { return d.Kind == decisions.OfDisclosure })
+		if len(ds) != 2 || action < 0 || disclosure < 0 {
+			t.Fatalf("payments' people are shown the decisions %+v", ds)
+		}
+		a := ds[action]
+		if a.By.Note != "A duplicate, plainly." || len(a.Referrals) != 1 || len(a.Stages) != 3 || !strings.Contains(string(a.Args), "ch_2") || a.Leaving != nil {
+			t.Errorf("payments' people are shown the refund as %+v", a)
+		}
+		if d := ds[disclosure]; d.What != decisions.SaysAnswer || d.Ended != decisions.Yes || len(d.Stages) == 0 || d.Leaving != nil {
+			t.Errorf("payments' people are shown its disclosure as %+v", d)
+		}
+	}
+}
+
+func TestServerARequestNotedQuietOrStopped(t *testing.T) {
+	t.Parallel()
+	files := workOffice(t)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "\nlead: bot\n", "\nlead: bot\nheed: ./for-us.js\n", 1)
+	files["for-us.js"] = `if (String(input.said).includes("@bot")) return { says: "act" }
+return { says: "note", note: "Not for the bot." }
+`
+	b := newBench(t, files)
+	b.says(func(testkit.Turn) testkit.Reply { return testkit.Say("") })
+	s := b.serve()
+	dana, al := s.as("dana"), s.as("al")
+	readers := []any{"U0DANA00", "U0AL0000"}
+
+	// Dana's word to Raj in #help is noted: she sees it tagged Noted, and
+	// the request Noted, with no answer to wait on; Al, of the office,
+	// also sees the heed's run, which said note, and its note.
+	s.delivered("slack", thing("said", "U0DANA00", "#help", "#help/1700.1", "readers", readers, "text", "Raj, I'll look at it"))
+	noted := s.at("slack", "#help/1700.1")
+	v := dana.until(noted, "is noted", func(v viewOut) bool { return v.Label == labelNoted })
+	if v.State != requests.Answered || len(v.Entries) != 1 || !v.Entries[0].Noted || v.Answer != nil || v.Runs != nil {
+		t.Errorf("Dana is shown the noted request as %+v", v)
+	}
+	holdsNone(t, "Dana's view of the noted request", string(dana.get("/api/requests/"+itoa(noted)).body), "Not for the bot.", "for-us.js")
+	v = al.view(noted)
+	if len(v.Runs) != 1 || v.Runs[0].Kind != "heed" || v.Runs[0].Says != "note" || v.Runs[0].How != "Not for the bot." || v.Runs[0].Worker != "for-us.js" ||
+		len(v.Entries) != 2 || v.Entries[1].Kind != requests.KindNoted || v.Entries[1].Answers != v.Entries[0].ID {
+		t.Errorf("Al is shown the noted request as %+v", v)
+	}
+	if v.Disclosure == nil || v.Disclosure.Set {
+		t.Errorf("Al is shown the office's disclosure as %+v", v.Disclosure)
+	}
+
+	// Asked of the bot, which answers with nothing, the request is quiet.
+	s.delivered("slack", thing("said", "U0DANA00", "#help", "#help/1700.2", "readers", readers, "text", "@bot is the API down?"))
+	quiet := s.at("slack", "#help/1700.2")
+	v = dana.until(quiet, "is answered with nothing", func(v viewOut) bool { return v.State == requests.Answered })
+	if v.Label != labelQuiet || v.Answer == nil || v.Answer.State != answerQuiet || len(v.Entries) != 1 || v.Entries[0].Noted {
+		t.Errorf("Dana is shown the quiet request as %+v", v)
+	}
+	if v := al.view(quiet); len(v.Runs) != 2 || v.Runs[0].Says != "act" || v.Runs[1].Kind != "work" {
+		t.Errorf("Al is shown the quiet request's runs as %+v", v.Runs)
+	}
+
+	// Said more of, and stopped by Al, it is stopped.
+	s.delivered("slack", thing("said", "U0DANA00", "#help", "#help/1700.2", "readers", readers, "text", "@bot hello?"))
+	al.until(quiet, "is working again", func(v viewOut) bool { return v.State != requests.Answered })
+	al.post("/api/requests/"+itoa(quiet)+"/stop", "").is(http.StatusOK)
+	if v := dana.until(quiet, "is stopped", func(v viewOut) bool { return v.Label == labelStopped }); v.Answer == nil || v.Answer.State != answerSaid {
+		t.Errorf("Dana is shown the stopped request as %+v", v)
+	}
 }

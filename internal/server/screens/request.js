@@ -1,11 +1,15 @@
-// One request: its thread, what waits on the one looking in it, its
-// sub-requests, its authorisations, what its team read and its runs. The
-// desk draws a decision and an answer to a question with the same parts.
+// One request: its thread, what waits on the one looking in it, and its
+// way in bands: In, where it was asked, by whom, and its heed; Team, its
+// team's lead and runs; Out, the teams and people it asked, its
+// decisions, its disclosure and where its answer goes; then what its team
+// read. The desk draws a decision and an answer to a question with the
+// same parts.
 (function () {
   "use strict";
 
-  const KIND = {action: "Authorisation · action", disclosure: "Disclosure", change: "Change"};
+  const KIND = {action: "Authorisation", disclosure: "Disclosure", change: "Change"};
   const ENDED = {yes: "approved", refused: "refused", withdrawn: "withdrawn"};
+  const WHAT = {answer: "Answer", question: "Question", tell: "Tell", sub: "Sub-request"};
   const FEW = 3; // of a long list of people, how many are drawn before +N
 
   // clip gives a text on one line, no longer than n.
@@ -84,9 +88,12 @@
       B.whenEl(w.at));
   }
 
-  // chain gives a decision's deciders in order: those who referred it,
-  // then whoever ended it, or those it waits on, the one looking first.
+  // chain gives a decision's deciders in order: to its team's people and
+  // those asked it, its walk, each who referred it with their note, whoever
+  // ended it, and those it waits on marked; to anyone else, whoever ended
+  // it, or those it waits on, the one looking first.
   function chain(d) {
+    if (d.stages && d.stages.length) return walked(d);
     const links = (d.referrals || []).map((w) => word(w, d.team, "past"));
     if (d.ended && d.by) links.push(word(d.by, d.team, "rq-by"));
     else if (!d.ended && d.asked && d.asked.length) {
@@ -95,6 +102,21 @@
     }
     if (!links.length) return null;
     return B.el("span", {class: "chain"}, links.map((l, i) => [i ? B.el("span", {class: "then"}, "→") : null, l]));
+  }
+
+  // walked gives a decision's walk: each decider that referred it faint,
+  // with its note; whoever ended it, with theirs; each asked now marked.
+  function walked(d) {
+    const same = (w, s) => w && w.kind === s.kind && w.name === s.name;
+    return B.el("span", {class: "chain"}, d.stages.map((s, i) => {
+      const referred = (d.referrals || []).find((w) => same(w, s));
+      const by = d.ended && same(d.by, s);
+      const now = !d.ended && s.kind === "person" && (d.asked || []).includes(s.name);
+      const shown = referred || by ? word(referred || d.by, d.team, by ? "rq-by" : "past")
+        : B.el("span", {class: "rq-word"}, B.deciderEl(s, d.team));
+      return [i ? B.el("span", {class: "then", "aria-hidden": "true"}, "›") : null, shown,
+        now ? B.el("span", {class: "rq-now", "aria-label": "asked now"}, "◂") : null];
+    }));
   }
 
   function ending(d) {
@@ -117,9 +139,28 @@
     return B.el("section", {class: "ask-card rq-card"},
       B.el("div", {class: "line"}, B.el("span", {class: "rq-kind"}, KIND[d.kind] || d.kind), B.teamEl(d.team)),
       B.el("div", {class: "what"}, d.does),
+      d.leaving ? leaving(d.leaving) : null,
+      d.kind === "action" && args(d.args) ? B.el("div", {class: "mono small"}, args(d.args)) : null,
       chain(d),
       B.el("div", {class: "act"}, B.field("Note", note), yes, no));
   };
+
+  // leaving gives what a disclosure would let out: its text, whom it is
+  // to, where it may in the end be read, and the requests it goes through
+  // from the top, the one a sub-request would make last.
+  function leaving(l) {
+    const through = B.el("span", {class: "chain rq-through"}, (l.through || []).map((t, i) => [
+      i ? B.el("span", {class: "then", "aria-hidden": "true"}, "›") : null,
+      B.el("span", {class: "rq-pill"}, B.teamCalled(t.team), t.number ? B.el("span", {class: "mono faint"}, "#" + t.number) : B.el("span", {class: "tag"}, "New"))]));
+    return [
+      B.el("div", {class: "rq-leaving"}, l.text),
+      B.kv([
+        [WHAT[l.what] || l.what, through],
+        ["To", B.party(l.to)],
+        [B.el("span", {class: "line"}, "Read", l.what === "sub" ? B.info("About Read", "What leaves may in the end be read here: the team asked is not bound by this team's disclosure.") : null), B.way(l.read_at)],
+      ]),
+    ];
+  }
 
   // replyForm answers a question put to the one looking.
   B.replyForm = function (request, entry) {
@@ -171,6 +212,7 @@
   // of those it was put to.
   function entry(v, e, state) {
     const mine = state.waits.has(e.id);
+    const heed = state.noted.get(e.id);
     const putTo = (e.to || []).some((w) => state.on.has(waitsOn(w)));
     const open = (e.kind === "question" || e.kind === "decide") && (mine || (!state.answered.has(e.id) && v.state === "waiting" && putTo));
     const cls = ["entry", e.kind,
@@ -186,12 +228,15 @@
         to.length ? [arrow(), few(to, B.party, true)] : null,
         where(e.in),
         e.read ? B.el("span", {class: "rq-read"}, B.icon("lock"), "Read · " + B.teamCalled(e.read)) : null,
+        e.noted ? B.el("span", {class: "tag"}, "Noted") : null,
         B.el("span", {class: "at"}, B.whenEl(e.at))),
       e.kind === "sub" && e.sub ? B.el("div", {class: "rq-branch"}, B.icon("branch"), B.el("a", {class: "mono", href: "#/r/" + e.sub}, "#" + e.sub)) : null,
       e.text ? B.el("div", {class: "body"}, e.text) : null,
       e.files && e.files.length ? B.el("div", {class: "files"}, e.files.map((f) =>
         B.el("a", {class: "who rq-file", href: f.url}, B.icon("file"), f.name, B.el("span", {class: "faint"}, B.size(f.size))))) : null,
       e.carried && e.carried.length ? B.el("div", {class: "foot"}, foot(e.carried)) : null,
+      heed ? B.el("div", {class: "rq-heed"}, B.icon("lock"), "Noted", B.el("span", {class: "faint"}, "·"), B.party(heed.by),
+        B.el("span", {class: "faint"}, "·"), B.el("span", {class: "rq-note"}, heed.text)) : null,
       e.kind === "question" && mine ? B.replyForm(v, e) : null);
     div.dataset.id = e.id;
     return div;
@@ -212,12 +257,14 @@
       waits: new Set(v.waits_on_me || []),
       answered: new Set(v.entries.map((e) => e.answers).filter(Boolean)),
       on: new Set((v.on || []).map(waitsOn).filter(Boolean)),
+      noted: new Map(v.entries.filter((e) => e.kind === "noted").map((e) => [e.answers, e])),
     };
-    const drawn = v.entries.map((e) => entry(v, e, state));
+    const shown = v.entries.filter((e) => e.kind !== "noted" || !v.entries.some((m) => m.id === e.answers));
+    const drawn = shown.map((e) => entry(v, e, state));
     if (v.before) {
       const button = B.el("button", {class: "btn ghost sm rq-earlier", type: "button"}, "Earlier");
       button.addEventListener("click", () => earlier(box, v, button));
-      const at = v.entries.findIndex((e) => e.id >= v.before);
+      const at = shown.findIndex((e) => e.id >= v.before);
       drawn.splice(at < 0 ? drawn.length : at, 0, button);
     }
     box.replaceChildren(...drawn);
@@ -289,6 +336,7 @@
           B.teamEl(s.team),
           B.status(s)),
         s.question ? B.el("div", {class: "rq-q", title: s.question}, clip(s.question, 140)) : null,
+        s.decisions && s.decisions.length ? B.el("div", {class: "rq-decs"}, s.decisions.map(authorisation)) : null,
         s.answer ? B.el("div", {class: "rq-a"}, s.answer) : null);
       let kids = null;
       const show = (on) => {
@@ -310,11 +358,13 @@
     return B.el("div", {}, paged(ul, list, 20, draw, depth === 0 ? "subs" : null));
   }
 
-  function authorisation(d) {
+  // authorisation gives one decision: its kind, unless the row it is
+  // under names it, what it is and how it stands, and its walk or who
+  // ended it.
+  function authorisation(d, kindless) {
     const why = d.why && !(d.by && d.by.note === d.why) ? d.why : null;
     return B.el("div", {class: "rq-auth"},
-      B.el("div", {class: "line"}, B.el("span", {class: "rq-kind"}, KIND[d.kind] || d.kind), B.teamEl(d.team), B.el("span", {class: "rq-end"}, ending(d))),
-      B.el("div", {class: "rq-does"}, d.does),
+      B.el("div", {class: "line"}, kindless === true ? null : B.el("span", {class: "rq-kind"}, KIND[d.kind] || d.kind), B.el("span", {class: "rq-does"}, d.does), B.el("span", {class: "rq-end"}, ending(d))),
       chain(d),
       why ? B.el("div", {class: "mono small muted"}, why) : null);
   }
@@ -408,19 +458,112 @@
       B.el("div", {class: "sealed rq-sealed"}, paged(B.el("div", {class: "rq-records"}), sorted, 20, (r) => record(r, teams.length), "records")));
   }
 
-  const RUN = {going: "working live", failed: "failed", cancelled: "rq-gone"};
+  const RUN = {going: "working live", failed: "failed", cancelled: "rq-gone", lost: "failed", unsent: "failed"};
+  const ENDS = {going: "working", done: "done", failed: "failed", cancelled: "cancelled", lost: "lost", unsent: "unsent"};
+  const HEED = {act: "act", note: "noted"};
 
+  // runRow gives one run: its kind, its worker or rule, when it started
+  // and ended, how it ended, a heed's act or note, and its word on it.
   function runRow(r) {
-    return B.el("div", {class: "row rq-run"},
-      B.el("span", {class: "grow"}, r.worker ? B.workerEl(r.worker, r.team, {bare: true}) : B.el("span", {class: "mono"}, r.name)),
-      B.el("span", {class: "kind"}, r.kind),
-      B.el("span", {class: "status " + (RUN[r.status] || ""), title: r.how || null}, r.status),
-      B.whenEl(r.started),
-      r.tokens ? B.el("span", {class: "mono small faint"}, r.tokens + " tok") : null,
-      B.el("a", {class: "btn ghost sm", href: "#/run/" + encodeURIComponent(r.name), "aria-label": "Watch " + (r.worker || r.name)}, "Watch"));
+    const ends = r.says || ENDS[r.status] || r.status;
+    return B.el("div", {class: "rq-run"},
+      B.el("div", {class: "line"},
+        B.el("span", {class: "kind"}, r.kind),
+        r.kind === "heed" ? B.ruleEl(r.worker) : r.worker ? B.workerEl(r.worker, r.team, {bare: true}) : B.el("span", {class: "mono"}, r.name),
+        B.el("span", {class: "rq-end status " + (HEED[r.says] || RUN[r.status] || "")}, ends)),
+      B.el("div", {class: "line"},
+        B.el("span", {class: "mono small faint"}, B.when(r.started) + "–" + (r.ended ? B.when(r.ended) : "")),
+        r.tokens ? B.el("span", {class: "mono small faint"}, r.tokens + " tok") : null,
+        B.el("a", {class: "rq-end rq-jump", href: "#/run/" + encodeURIComponent(r.name), "aria-label": "Watch " + (r.worker || r.name)}, "Watch")),
+      r.how ? B.el("div", {class: "rq-note small"}, r.how) : null);
   }
 
-  function counted(label, n) { return B.label(label, B.el("span", {class: "count"}, n)); }
+  // The way, in bands
+
+  // inBand gives where a request was asked, by whom, and, to its team's
+  // people, what its heed last said.
+  function inBand(v) {
+    const heeds = (v.runs || []).filter((r) => r.kind === "heed");
+    const heed = heeds[heeds.length - 1];
+    const way = v.parent ? ["Beneath", B.el("a", {class: "mono", href: "#/r/" + v.parent}, "#" + v.parent)]
+      : v.origin && v.origin.bridge ? ["Place", B.way(v.origin)]
+      : v.origin && v.origin.kind === "routine" ? ["Routine", B.way(v.origin)]
+      : ["Chat", B.el("span", {class: "mono"}, "screens")];
+    const asker = v.asker ? B.el("span", {class: "line"}, B.party(v.asker), (v.asker.teams || []).map((t) => B.el("span", {class: "tag"}, B.teamCalled(t)))) : null;
+    const routineBy = v.origin && v.origin.by ? ["Run now", B.party(v.origin.by)] : null;
+    return B.band("In", [way, ["Asker", asker], routineBy,
+      heed ? ["Heed", B.el("span", {class: "line"}, B.el("span", {class: "status " + (HEED[heed.says] || RUN[heed.status] || "")}, heed.says || ENDS[heed.status] || heed.status),
+        B.ruleEl(heed.worker))] : null]);
+  }
+
+  // teamBand gives the team a request went to and its lead, with its
+  // runs beneath, to its people.
+  function teamBand(v) {
+    const t = B.team(v.team);
+    const lead = t && t.lead ? (B.person(t.lead) ? B.personEl(t.lead) : B.workerEl(t.lead, v.team, {bare: true})) : null;
+    const runs = v.runs || [];
+    return B.band("Team", [["Team", B.el("span", {class: "line"}, B.teamEl(v.team), lead ? [B.el("span", {class: "faint", "aria-hidden": "true"}, "›"), lead] : null),
+      runs.length ? paged(B.el("div", {class: "rq-runs"}), runs, 8, runRow, "runs") : null]]);
+  }
+
+  // answerTo gives where a request's answer goes: the run that asked a
+  // sub-request, the place or the chat it was asked in, or the people of a
+  // routine's team.
+  function answerTo(v) {
+    if (v.parent) return B.el("span", {class: "line"}, B.el("a", {class: "mono", href: "#/r/" + v.parent}, "#" + v.parent), B.el("span", {class: "faint"}, "›"), B.el("span", {class: "mono"}, "ask_team"));
+    if (v.origin && v.origin.kind === "routine") return B.el("span", {class: "line"}, "People of", B.teamEl(v.origin.team));
+    if (v.origin && v.origin.kind === "chat") return B.el("span", {class: "line"}, B.way(v.origin), B.el("span", {class: "faint"}, "›"), "screens");
+    return B.way(v.origin);
+  }
+
+  const ANSWER = {waits: "waiting", held: "held", said: "", quiet: "quiet", "not delivered": "failed"};
+
+  // outBand gives what a request asked of other teams and of people, its
+  // decisions, to its team's people its disclosure, and where its answer
+  // goes and how it stands.
+  function outBand(v) {
+    if (v.label === "noted") return null;
+    const ds = v.decisions || [];
+    const held = ds.filter((d) => d.kind === "disclosure" && d.what === "sub" && !d.ended);
+    const subs = v.subs || [];
+    const teams = subs.length || held.length ? B.el("div", {},
+      held.map((d) => B.el("div", {class: "rq-auth"}, B.el("div", {class: "line"}, B.el("span", {class: "tag"}, "Held · Disclosure"), B.el("span", {class: "rq-does"}, d.does), B.el("span", {class: "rq-end"}, ending(d))), chain(d))),
+      subs.length ? subTree(subs, 0) : null) : null;
+    const questions = v.questions || [];
+    const people = questions.length ? B.el("div", {class: "rq-asks"}, questions.map((q) => B.el("div", {class: "line"},
+      B.party(q.by), arrow(), few(q.to, B.party, true),
+      B.el("a", {class: "rq-end status" + (q.answered ? "" : " waiting"), href: "#/r/" + v.number, onclick: (ev) => { ev.preventDefault(); scrollTo(q.entry); }}, q.answered ? "answered" : "open")))) : null;
+    const decs = ds.filter((d) => d.kind !== "disclosure");
+    const disclosure = v.disclosure ? disclosureOf(v, ds.filter((d) => d.kind === "disclosure" && d.what !== "sub")) : null;
+    const a = v.answer;
+    const answer = a ? B.el("span", {class: "line"}, answerTo(v),
+      a.entry ? B.el("a", {class: "status " + ANSWER[a.state], href: "#/r/" + v.number, onclick: (ev) => { ev.preventDefault(); scrollTo(a.entry); }}, a.state)
+        : B.el("span", {class: "status " + ANSWER[a.state]}, a.state),
+      a.why ? B.el("span", {class: "mono small muted"}, a.why) : null) : null;
+    return B.band("Out", [
+      ["Teams", teams ? B.el("span", {class: "count"}, subs.length + held.length) : B.el("span", {class: "faint"}, "None"), teams],
+      ["People", people ? B.el("span", {class: "count"}, questions.length) : B.el("span", {class: "faint"}, "None"), people],
+      decs.length ? ["Authorisation", B.el("span", {class: "count"}, decs.length), paged(B.el("div", {class: "rq-list"}), decs, 6, (d) => authorisation(d, true), "auths")] : null,
+      disclosure,
+      answer ? ["Answer", answer] : null]);
+  }
+
+  // disclosureOf gives a request's Disclosure row: None when its team sets
+  // none, Not needed when only the team reads the answer, or who decides
+  // it; with the disclosures of what it said beneath.
+  function disclosureOf(v, ds) {
+    const d = v.disclosure;
+    const value = !d.set ? B.el("span", {class: "faint"}, "None")
+      : !d.needed ? B.el("span", {class: "line"}, "Not needed", B.info("About Not needed", "Read only by people of " + B.teamCalled(v.team) + "."))
+      : B.chain(d.deciders || [], v.team);
+    return ["Disclosure", value, ds.length ? B.el("div", {class: "rq-list"}, ds.map((d) => authorisation(d, true))) : null];
+  }
+
+  // scrollTo brings an entry of the thread into view, when it is drawn.
+  function scrollTo(id) {
+    const at = document.querySelector('.thread [data-id="' + id + '"]');
+    if (at) at.scrollIntoView({behavior: "smooth", block: "center"});
+  }
 
   // The view
 
@@ -432,10 +575,7 @@
     const asked = v.entries.find((e) => e.kind === "asked");
     const first = asked ? firstLine(asked.text) : "";
 
-    const decisions = v.decisions || [];
-    const mine = decisions.filter((d) => d.mine && !d.ended);
-    const subs = v.subs || [];
-    const runs = v.runs || [];
+    const mine = (v.decisions || []).filter((d) => d.mine && !d.ended);
     const records = v.records || [];
 
     const crumbs = [B.el("a", {href: "#/requests"}, "Requests"), v.parent ? B.el("a", {class: "mono", href: "#/r/" + v.parent}, "#" + v.parent) : null].filter(Boolean);
@@ -447,11 +587,8 @@
       B.whenEl(v.source.at)) : null;
 
     return B.el("div", {class: "rq"},
-      B.head(crumbs, title, v.whole && v.state ? B.status({state: v.state, on: v.on}) : null, stop),
+      B.head(crumbs, title, v.whole && v.state ? B.status(v) : null, stop),
       v.whole ? B.el("div", {class: "rq-meta"}, B.kv([
-        ["Team", v.team ? B.teamEl(v.team) : null],
-        ["Asker", v.asker ? B.party(v.asker) : null],
-        v.parent ? ["Beneath", B.el("a", {class: "mono", href: "#/r/" + v.parent}, "#" + v.parent)] : ["Origin", B.origin(v.origin)],
         ["Made", B.whenEl(v.made)],
         ["Source", source],
       ])) : null,
@@ -463,9 +600,7 @@
           compose(v)),
         B.el("div", {class: "side"},
           mine.length ? B.sect("Waiting on you", B.el("div", {class: "stack"}, mine.map((d) => B.decisionCard(v, d)))) : null,
-          subs.length ? B.sect(counted("Sub-requests", subs.length), subTree(subs, 0)) : null,
-          decisions.length ? B.sect(counted("Authorisations", decisions.length), paged(B.el("div", {}), decisions, 6, authorisation, "auths")) : null,
-          records.length ? read(records, v.team) : null,
-          runs.length ? B.sect(counted("Runs", runs.length), paged(B.el("div", {class: "rows"}), runs, 8, runRow, "runs")) : null)));
+          v.whole ? B.el("section", {class: "bands rq-way", "aria-label": "Way"}, inBand(v), teamBand(v), outBand(v)) : null,
+          records.length ? read(records, v.team) : null)));
   }, "requests", (what) => what === "office" || what.startsWith("request:"));
 })();

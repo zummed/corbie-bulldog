@@ -257,7 +257,7 @@ func TestRequestsEmptyAnswerAtARoutineOrChannelSaysNothing(t *testing.T) {
 	if e := got[*requests.Entry](t)(h.Answer(monday, h.Worker("steward"), " \n", nil)); e != nil {
 		t.Errorf("the empty answer is the entry %+v", e)
 	}
-	if thread := h.thread(monday); h.state(monday).Is != requests.Answered || len(thread) != 1 || thread[0].Kind != requests.KindAsked {
+	if thread := h.thread(monday); h.state(monday).Is != requests.Answered || !h.state(monday).Quiet || len(thread) != 1 || thread[0].Kind != requests.KindAsked {
 		t.Errorf("the routine's request stands %+v, with the thread %+v", h.state(monday), thread)
 	}
 	if shown := h.shows(monday, "sam"); len(shown) != 1 {
@@ -265,13 +265,13 @@ func TestRequestsEmptyAnswerAtARoutineOrChannelSaysNothing(t *testing.T) {
 	}
 	// At a channel place, too.
 	garden := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "thanks", nil, false)).Number
-	if e := got[*requests.Entry](t)(h.Answer(garden, h.Worker("gardener"), "", nil)); e != nil || h.state(garden).Is != requests.Answered || len(h.thread(garden)) != 1 {
+	if e := got[*requests.Entry](t)(h.Answer(garden, h.Worker("gardener"), "", nil)); e != nil || h.state(garden).Is != requests.Answered || !h.state(garden).Quiet || len(h.thread(garden)) != 1 {
 		t.Errorf("the garden chat's request is answered with %+v, its thread %+v", e, h.thread(garden))
 	}
 	// Any other request's empty answer is an answer all the same: in the
 	// chat, and in a direct message.
 	kit := got[*requests.Request](t)(h.AskInChat("kit", "", "the socket", nil)).Number
-	if e := got[*requests.Entry](t)(h.Answer(kit, h.Worker("steward"), "", nil)); e == nil || e.Kind != requests.KindAnswer || h.state(kit).Is != requests.Answered {
+	if e := got[*requests.Entry](t)(h.Answer(kit, h.Worker("steward"), "", nil)); e == nil || e.Kind != requests.KindAnswer || h.state(kit).Is != requests.Answered || h.state(kit).Quiet {
 		t.Errorf("Kit's request is answered with %+v", e)
 	}
 	direct := got[*requests.Request](t)(h.AskAt("telegram", office.Direct, "4472", "", "4472", "the socket", nil, false)).Number
@@ -583,13 +583,13 @@ func TestRequestsNotedOnlyWhileNoAnswer(t *testing.T) {
 		t.Errorf("asked of the gardener, the request is %+v", st)
 	}
 	must(t, errOf(h.Answer(n, h.Worker("gardener"), "Prune in March.", nil)))
-	if st := h.state(n); st.Is != requests.Answered || st.Noted {
+	if st := h.state(n); st.Is != requests.Answered || st.Noted || st.Quiet {
 		t.Errorf("answered by the gardener, the request is %+v", st)
 	}
 	// Later talk the heed notes leaves it answered, and is marked noted.
 	thanks := got[*requests.Entry](t)(h.Say(n, kit, "thanks", nil, kitInGarden, false))
 	note(n, thanks)
-	if st := h.state(n); st.Is != requests.Answered || st.Noted {
+	if st := h.state(n); st.Is != requests.Answered || st.Noted || st.Quiet {
 		t.Errorf("with the thanks noted, the request is %+v", st)
 	}
 	for _, e := range h.thread(n) {
@@ -602,7 +602,7 @@ func TestRequestsNotedOnlyWhileNoAnswer(t *testing.T) {
 	quiet := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "thanks @gardener", nil, false)).Number
 	must(t, errOf(h.Answer(quiet, h.Worker("gardener"), "", nil)))
 	note(quiet, got[*requests.Entry](t)(h.Say(quiet, kit, "cheers", nil, kitInGarden, false)))
-	if st := h.state(quiet); st.Is != requests.Answered || st.Noted {
+	if st := h.state(quiet); st.Is != requests.Answered || st.Noted || !st.Quiet {
 		t.Errorf("answered quietly, the request is %+v", st)
 	}
 
@@ -610,7 +610,7 @@ func TestRequestsNotedOnlyWhileNoAnswer(t *testing.T) {
 	stopped := got[*requests.Request](t)(h.AskAt("telegram", "garden-chat", "garden-chat", "", "4472", "rain later", nil, false)).Number
 	note(stopped, &h.thread(stopped)[0])
 	must(t, errOf(h.Stop(stopped, h.Person("sam"))))
-	if st := h.state(stopped); st.Is != requests.Answered || st.Noted {
+	if st := h.state(stopped); st.Is != requests.Answered || st.Noted || !st.Stopped {
 		t.Errorf("stopped, the noted request is %+v", st)
 	}
 }

@@ -62,6 +62,22 @@ func walk(o *office.Office, dec *Decision) (stages []Stage, why string) {
 	return stages, ""
 }
 
+// Walked gives whom a decision is asked of, in order, in the office as it
+// is read now, as its walk asks them.
+func (dec *Decision) Walked(o *office.Office) []Stage {
+	stages, _ := walk(o, dec)
+	return stages
+}
+
+// Args gives the arguments a held action would be given, nil for any
+// other decision.
+func (dec *Decision) Args() json.RawMessage {
+	if dec.Kind != OfAction || dec.Job == nil {
+		return nil
+	}
+	return dec.Job.args()
+}
+
 // Walk gives whom a team's decision is asked of, in order, in the office
 // as it is read, with no decision needed: the team's list of the first
 // key it writes one of, a held job's name or a listed tool's entry, or

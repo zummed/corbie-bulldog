@@ -240,7 +240,7 @@ func TestRefusedQuestionStaysInside(t *testing.T) {
 func TestDisclosureDeciderShownWhatWouldLeave(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
-	_, sub := b.helpRequest()
+	top, sub := b.helpRequest()
 	b.ledgerAnswers(sub, "Duplicate confirmed; £40 refunded.")
 	r := b.runner.next(t)
 	rel := r.Input["disclosure"].(map[string]any)
@@ -268,7 +268,7 @@ func TestDisclosureDeciderShownWhatWouldLeave(t *testing.T) {
 		t.Fatalf("the rule is given %v", r.Input)
 	}
 	r.says(decisions.SaysYes, "")
-	b.disclose(decisions.Said{What: decisions.SaysSub, Request: sub, By: b.reqs.Worker("ledger"), Team: "platform", Text: "what deployed?"})
+	q := b.disclose(decisions.Said{What: decisions.SaysSub, Request: sub, By: b.reqs.Worker("ledger"), Team: "platform", Text: "what deployed?"})
 	r = b.runner.next(t)
 	rel = r.Input["disclosure"].(map[string]any)
 	if rel["what"] != "sub" || rel["to"] != "Platform" || rel["said_in"] != sub || r.Input["does"] != "Question to Platform, to disclose" {
@@ -278,6 +278,21 @@ func TestDisclosureDeciderShownWhatWouldLeave(t *testing.T) {
 	b.until("Lee is asked", func() bool { return len(b.waitingFor("lee")) == 1 })
 	if text := b.waitingFor("lee")[0].Text; !strings.Contains(text, "no-account-numbers.yaml referred it: unsure") || !strings.Contains(text, "what deployed?") {
 		t.Fatalf("Lee is shown %s", text)
+	}
+	// On the screens, Lee is shown what would leave, whom it is to, where
+	// it may in the end be read, and the requests it goes through.
+	dec, err := b.d.Get(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l, err := b.d.Leaving(dec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	through := []decisions.Through{{Number: top, Team: "office"}, {Number: sub, Team: "payments"}, {Team: "platform"}}
+	if l.What != "sub" || l.Text != "what deployed?" || l.To.Kind != requests.IsTeam || l.To.Name != "platform" ||
+		l.ReadAt.Bridge != "slack" || l.ReadAt.Heard != "#help" || !slices.Equal(l.Through, through) {
+		t.Errorf("Lee is shown what would leave as %+v", l)
 	}
 }
 

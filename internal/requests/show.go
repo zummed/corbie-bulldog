@@ -13,13 +13,18 @@ const (
 )
 
 // A State is where a request stands: working, waiting on someone, whom,
-// or answered. Noted labels an answered request with no answer in it,
-// said or quiet: its team's heed noted every message in it, so its lead
-// never started, nothing was said, and it waits on nobody.
+// or answered. An answered request is labelled by at most one of three:
+// Stopped, when it was stopped and nothing since has opened it; Noted,
+// when there is no answer in it, said or quiet: its team's heed noted
+// every message in it, so its lead never started, nothing was said, and
+// it waits on nobody; and Quiet, when its lead answered the last message
+// heeded with nothing, so nothing was said.
 type State struct {
-	Is    string
-	On    []Party
-	Noted bool
+	Is      string
+	On      []Party
+	Stopped bool
+	Noted   bool
+	Quiet   bool
 }
 
 // The kinds of party a Party describes, beyond those of a Who.
@@ -109,7 +114,10 @@ func (l *look) state(r *Request, ws []wait, es []Entry) State {
 	on := l.waitingOn(r, ws)
 	switch {
 	case len(on) == 0 && l.answered(r, ws):
-		return State{Is: Answered, Noted: l.noted(r, es)}
+		st := State{Is: Answered, Stopped: r.Stopped}
+		st.Noted = !st.Stopped && l.noted(r, es)
+		st.Quiet = !st.Stopped && !st.Noted && l.current(r, es) == nil
+		return st
 	case len(on) == 0:
 		return State{Is: Working}
 	}
@@ -126,6 +134,23 @@ func (l *look) state(r *Request, ws []wait, es []Entry) State {
 func (l *look) noted(r *Request, es []Entry) bool {
 	unnoted := func(e Entry) bool { return (e.Kind == KindAsked || e.Kind == KindSaid) && !e.Noted }
 	return !slices.ContainsFunc(es, unnoted) && l.answerOf(r, es) == nil
+}
+
+// current gives the answer to the last message in a request that was not
+// noted: its lead's, or Bulldog's entry to its asker saying why there is
+// none. It is nil while the message has none, or its lead answered it
+// with nothing.
+func (l *look) current(r *Request, es []Entry) *Entry {
+	answer := l.answerOf(r, es)
+	for _, e := range slices.Backward(es) {
+		switch {
+		case answer != nil && e.ID == answer.ID:
+			return answer
+		case (e.Kind == KindAsked || e.Kind == KindSaid) && !e.Noted:
+			return nil
+		}
+	}
+	return nil
 }
 
 // A Summary is a request as a list shows it. Of a request someone sees
@@ -306,6 +331,9 @@ type View struct {
 	State  State
 	Source *Status
 	Made   time.Time
+	// Answer is the entry that answers the last message in it not noted,
+	// 0 while there is none.
+	Answer int64
 	// Read says they see what was read of its team.
 	Read    bool
 	Entries []Entry
@@ -365,6 +393,9 @@ func (s *Store) View(n int64, person string) (*View, error) {
 	if r.Parent == 0 {
 		origin := r.Origin
 		v.Origin = &origin
+	}
+	if answer := l.current(r, es); answer != nil {
+		v.Answer = answer.ID
 	}
 	v.Read = l.seesRead(r.Team, r.TeamKnown, person)
 	if v.Subs, err = l.tree(n); err != nil {

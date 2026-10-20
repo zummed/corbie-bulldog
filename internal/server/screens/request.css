@@ -73,6 +73,24 @@ form.reply .field { flex: 1 1 240px; }
 .rq-send { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
 .rq-send .field { flex: 1 1 240px; }
 
+/* The side: what waits on the one looking, then the way in bands */
+.rq-way { border-bottom: 1px solid var(--line); }
+.rq-way .band { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.rq-way .band-row { grid-template-columns: 96px minmax(0, 1fr); }
+.rq-way .band-under { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; margin-left: 8px; }
+.rq-runs, .rq-asks, .rq-list, .rq-decs { display: flex; flex-direction: column; gap: 8px; }
+.rq-run .kind { min-width: 36px; }
+.rq-run .rq-end, .rq-asks .rq-end { margin-left: auto; }
+.rq-jump { font: var(--small) var(--mono); }
+.rq-now { color: var(--wait); font: var(--data) var(--mono); }
+.rq-decs { margin-top: 6px; padding-left: 12px; border-left: 1.5px solid var(--line); }
+.rq-heed { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 6px; padding: 4px 8px; font: var(--small) var(--mono); color: var(--ink2);
+  background: repeating-linear-gradient(135deg, var(--hatch-a) 0 6px, var(--hatch-b) 6px 12px); border-left: 2px solid var(--ink3); }
+.rq-heed .ic { width: 14px; height: 14px; }
+.rq-heed .ic svg { width: 12px; height: 12px; }
+.rq-leaving { padding: 8px 12px; border: 1.5px dashed var(--wait); background: var(--field); white-space: pre-wrap; word-break: break-word; }
+.rq-pill { display: inline-flex; align-items: baseline; gap: 6px; padding: 1px 8px; border: 1.5px solid var(--ink); font-size: var(--data); }
+
 /* The side */
 .rq-kind { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink2); }
 .rq-card .rq-kind { color: var(--wait); }
@@ -80,8 +98,7 @@ form.reply .field { flex: 1 1 240px; }
 .rq-word { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: var(--data); }
 .rq-note { color: var(--ink2); font-style: italic; }
 .rq-asked { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; padding: 1px 6px; border: 1.5px solid var(--wait); }
-.rq-auth { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--faint); }
-.rq-auth:first-child { border-top: 1px solid var(--line); }
+.rq-auth { display: flex; flex-direction: column; gap: 4px; padding: 2px 0; }
 .rq-end { margin-left: auto; }
 .rq-does { font-weight: 500; }
 .status.rq-gone { color: var(--ink3); }
@@ -106,5 +123,3 @@ form.reply .field { flex: 1 1 240px; }
 .rq-record .events .x { flex-basis: 160px; }
 .rq-record .events .words .x { font-size: 13px; }
 
-.rq-run .kind { min-width: 40px; }
-.rq-run .btn { margin-left: auto; }

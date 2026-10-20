@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/zummed/corbie-bulldog/internal/bridges"
@@ -39,6 +40,7 @@ type (
 		Origin *originOut `json:"origin,omitempty"`
 		Parent int64      `json:"parent,omitempty"`
 		State  string     `json:"state,omitempty"`
+		Label  string     `json:"label,omitempty"`
 		On     []partyOut `json:"on,omitempty"`
 		Source *sourceOut `json:"source,omitempty"`
 		First  string     `json:"first,omitempty"`
@@ -86,20 +88,53 @@ type (
 		Before    int64         `json:"before,omitempty"`
 		Subs      []subOut      `json:"subs"`
 		Decisions []decisionOut `json:"decisions"`
-		// Runs are its runs, and Records what each read, as Corbie keeps
-		// it, to the people of its team.
-		Runs    []runOut    `json:"runs,omitempty"`
-		Records []recordOut `json:"records,omitempty"`
-		Waits   []int64     `json:"waits_on_me"`
+		// Questions are those put to people in it that the one looking
+		// sees, and Answer where its answer stands, to whoever sees what
+		// was done.
+		Questions []questionOut `json:"questions"`
+		Answer    *answerOut    `json:"answer,omitempty"`
+		// Disclosure, Runs, and Records, what each run read as Corbie
+		// keeps it, are given to the people of its team.
+		Disclosure *disclosureOut `json:"disclosure,omitempty"`
+		Runs       []runOut       `json:"runs,omitempty"`
+		Records    []recordOut    `json:"records,omitempty"`
+		Waits      []int64        `json:"waits_on_me"`
 	}
 	subOut struct {
-		Number   int64      `json:"number"`
-		Team     string     `json:"team"`
-		Question string     `json:"question"`
-		State    string     `json:"state"`
-		On       []partyOut `json:"on,omitempty"`
-		Answer   string     `json:"answer,omitempty"`
-		Subs     []subOut   `json:"subs"`
+		Number    int64         `json:"number"`
+		Team      string        `json:"team"`
+		Question  string        `json:"question"`
+		State     string        `json:"state"`
+		Label     string        `json:"label,omitempty"`
+		On        []partyOut    `json:"on,omitempty"`
+		Answer    string        `json:"answer,omitempty"`
+		Decisions []decisionOut `json:"decisions"`
+		Subs      []subOut      `json:"subs"`
+	}
+	// questionOut is a question put to people, and whether it is
+	// answered.
+	questionOut struct {
+		Entry    int64      `json:"entry"`
+		By       partyOut   `json:"by"`
+		To       []partyOut `json:"to"`
+		At       time.Time  `json:"at"`
+		Answered bool       `json:"answered"`
+	}
+	// answerOut is where a request's answer stands: it waits, is held by
+	// its team's disclosure, to the team's people alone, was said, or
+	// not delivered, with why, or its lead answered with nothing.
+	answerOut struct {
+		State string `json:"state"`
+		Entry int64  `json:"entry,omitempty"`
+		Why   string `json:"why,omitempty"`
+	}
+	// disclosureOut is whether a request's team sets a disclosure, who
+	// decides it in the order the walk asks them, and whether its answer
+	// needs it: whether anyone who reads the answer is outside the team.
+	disclosureOut struct {
+		Set      bool         `json:"set"`
+		Needed   bool         `json:"needed"`
+		Deciders []deciderOut `json:"deciders,omitempty"`
 	}
 	runOut struct {
 		Name    string     `json:"name"`
@@ -109,6 +144,7 @@ type (
 		Started time.Time  `json:"started"`
 		Ended   *time.Time `json:"ended,omitempty"`
 		Status  string     `json:"status"`
+		Says    string     `json:"says,omitempty"`
 		How     string     `json:"how,omitempty"`
 		Tokens  int        `json:"tokens"`
 	}
@@ -131,6 +167,7 @@ type (
 		Read    string         `json:"read,omitempty"`
 		Answers int64          `json:"answers,omitempty"`
 		Sub     int64          `json:"sub,omitempty"`
+		Noted   bool           `json:"noted,omitempty"`
 		Carried []carriedOut   `json:"carried,omitempty"`
 	}
 	fileOut struct {
@@ -145,17 +182,39 @@ type (
 		State  string `json:"state"`
 		Why    string `json:"why,omitempty"`
 	}
+	// decisionOut is a decision: what it is, who it waits on, and how it
+	// ended and who ended it, with the notes, the walk and an action's
+	// arguments to its team's people and those asked it, and what a
+	// disclosure would let out to those asked it alone.
 	decisionOut struct {
-		ID        int64     `json:"id"`
-		Kind      string    `json:"kind"`
-		Team      string    `json:"team"`
-		Does      string    `json:"does"`
-		Asked     []string  `json:"asked"`
-		Referrals []wordOut `json:"referrals"`
-		Ended     string    `json:"ended,omitempty"`
-		By        *wordOut  `json:"by,omitempty"`
-		Why       string    `json:"why,omitempty"`
-		Mine      bool      `json:"mine"`
+		ID        int64           `json:"id"`
+		Kind      string          `json:"kind"`
+		Team      string          `json:"team"`
+		Does      string          `json:"does"`
+		What      string          `json:"what,omitempty"`
+		Asked     []string        `json:"asked"`
+		Ended     string          `json:"ended,omitempty"`
+		By        *wordOut        `json:"by,omitempty"`
+		Why       string          `json:"why,omitempty"`
+		Mine      bool            `json:"mine"`
+		Referrals []wordOut       `json:"referrals,omitempty"`
+		Stages    []deciderOut    `json:"stages,omitempty"`
+		Args      json.RawMessage `json:"args,omitempty"`
+		Leaving   *leavingOut     `json:"leaving,omitempty"`
+	}
+	// leavingOut is what a disclosure would let out: what it is, its
+	// text, whom it is to, where it may in the end be read, and the
+	// requests it goes through from the top.
+	leavingOut struct {
+		What    string       `json:"what"`
+		Text    string       `json:"text"`
+		To      partyOut     `json:"to"`
+		ReadAt  *originOut   `json:"read_at"`
+		Through []throughOut `json:"through"`
+	}
+	throughOut struct {
+		Number int64  `json:"number,omitempty"`
+		Team   string `json:"team"`
 	}
 	// wordOut is a decider's word, with the team a worker is of.
 	wordOut struct {
@@ -164,21 +223,78 @@ type (
 	}
 )
 
-// decisionOf gives a decision as the one looking was asked it, built from
-// the office as read now, each worker that referred or ended it with the
-// team it is of.
-func decisionOf(o *office.Office, d *decisions.Decision, person string) decisionOut {
-	out := decisionOut{ID: d.ID, Kind: d.Kind, Team: d.Team, Does: d.Does(o), Asked: orEmpty(d.Asked), Referrals: []wordOut{},
+// decisionsOf gives the decisions of a request as the one looking may
+// see them, built from the office as read now: each they were asked; a
+// held action or a change, when they see what was done of the request;
+// and a disclosure, what was read of its team until it is let go, when
+// they are of the team.
+func (s *site) decisionsOf(o *office.Office, n int64, person string, done bool) ([]decisionOut, error) {
+	ds, err := s.Decisions.OfRequest(n)
+	if err != nil {
+		return nil, err
+	}
+	out := []decisionOut{}
+	for _, d := range ds {
+		people, err := s.Requests.People(d.Team)
+		if err != nil {
+			return nil, err
+		}
+		asked, ofTeam := slices.Contains(d.WasAsked, person), slices.Contains(people, person)
+		if !asked && !ofTeam && (!done || d.Kind == decisions.OfDisclosure) {
+			continue
+		}
+		dec, err := s.decisionOf(o, d, person, asked, ofTeam)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, dec)
+	}
+	return out, nil
+}
+
+// decisionOf gives a decision: what it is, who it waits on, and how it
+// ended and who ended it, to whoever sees it; each note, the walk and an
+// action's arguments to the people of its team and those asked it, each
+// worker that referred or ended it with the team it is of; and what a
+// disclosure would let out to those asked it alone.
+func (s *site) decisionOf(o *office.Office, d *decisions.Decision, person string, asked, ofTeam bool) (decisionOut, error) {
+	out := decisionOut{ID: d.ID, Kind: d.Kind, Team: d.Team, Does: d.Does(o), Asked: orEmpty(d.Asked),
 		Ended: d.Ended, Why: d.Why, Mine: d.Ended == "" && slices.Contains(d.Asked, person)}
-	word := func(w decisions.Word) wordOut { return wordOut{Word: w, Team: teamOfWorker(o, w.Kind, w.Name)} }
-	for _, w := range d.Referrals {
-		out.Referrals = append(out.Referrals, word(w))
+	if d.Said != nil {
+		out.What = d.Said.What
+	}
+	sees := asked || ofTeam
+	word := func(w decisions.Word) wordOut {
+		if !sees {
+			w.Note = ""
+		}
+		return wordOut{Word: w, Team: teamOfWorker(o, w.Kind, w.Name)}
 	}
 	if d.By != nil {
 		by := word(*d.By)
 		out.By = &by
 	}
-	return out
+	if !sees {
+		return out, nil
+	}
+	out.Referrals = []wordOut{}
+	for _, w := range d.Referrals {
+		out.Referrals = append(out.Referrals, word(w))
+	}
+	out.Stages = deciders(o, d.Walked(o))
+	out.Args = d.Args()
+	if !asked {
+		return out, nil
+	}
+	l, err := s.Decisions.Leaving(d)
+	if err != nil || l == nil {
+		return out, err
+	}
+	out.Leaving = &leavingOut{What: l.What, Text: l.Text, To: partyOf(l.To), ReadAt: originOf(&l.ReadAt, s.Requests.Party), Through: []throughOut{}}
+	for _, t := range l.Through {
+		out.Leaving.Through = append(out.Leaving.Through, throughOut{Number: t.Number, Team: t.Team})
+	}
+	return out, nil
 }
 
 // partyOf gives someone as the office is read now.
@@ -290,19 +406,78 @@ func summaryOf(sum requests.Summary, origin *requests.Origin, party func(request
 	asker := partyOf(sum.Asker)
 	made := sum.Made
 	out := summaryOut{Number: sum.Number, Whole: true, Team: sum.Team, Asker: &asker, Parent: sum.Parent,
-		State: sum.State.Is, On: partiesOf(sum.State.On), First: sum.First, Made: &made}
-	if origin != nil {
-		out.Origin = &originOut{Kind: origin.Kind, Bridge: origin.Bridge, Heard: origin.Heard, Place: origin.Place, About: origin.About,
-			Team: origin.Team, At: origin.At, To: origin.To, Say: origin.Say}
-		if origin.By.Kind != "" {
-			by := partyOf(party(origin.By))
-			out.Origin.By = &by
-		}
-	}
+		State: sum.State.Is, Label: labelOf(sum.State), On: partiesOf(sum.State.On), First: sum.First, Made: &made, Origin: originOf(origin, party)}
 	if st := sum.Source; st != nil {
 		out.Source = &sourceOut{Status: st.Status, Closed: st.Closed, By: partyOf(party(st.By)), At: st.At, Link: st.Link}
 	}
 	return out
+}
+
+// originOf gives where a request was asked, with the person who ran a
+// routine now as party gives them.
+func originOf(origin *requests.Origin, party func(requests.Who) requests.Party) *originOut {
+	if origin == nil {
+		return nil
+	}
+	out := &originOut{Kind: origin.Kind, Bridge: origin.Bridge, Heard: origin.Heard, Place: origin.Place, About: origin.About,
+		Team: origin.Team, At: origin.At, To: origin.To, Say: origin.Say}
+	if origin.By.Kind != "" {
+		by := partyOf(party(origin.By))
+		out.By = &by
+	}
+	return out
+}
+
+// The labels of an answered request, one at most: stopped, noted, or
+// quiet, when its lead answered with nothing.
+const (
+	labelStopped = "stopped"
+	labelNoted   = "noted"
+	labelQuiet   = "quiet"
+)
+
+func labelOf(st requests.State) string {
+	switch {
+	case st.Stopped:
+		return labelStopped
+	case st.Noted:
+		return labelNoted
+	case st.Quiet:
+		return labelQuiet
+	}
+	return ""
+}
+
+// The states of a request's answer.
+const (
+	answerWaits        = "waits"
+	answerHeld         = "held"
+	answerSaid         = "said"
+	answerQuiet        = "quiet"
+	answerNotDelivered = "not delivered"
+)
+
+// answerOf gives where a request's answer stands: none in a noted
+// request; held, to the people of its team alone, while its disclosure
+// holds it; said, or not delivered when its bridge gave it up, with why;
+// quiet when its lead answered with nothing; and otherwise waiting.
+func answerOf(v *requests.View, held bool, carried []bridges.Carried) *answerOut {
+	switch {
+	case v.State.Noted:
+		return nil
+	case held:
+		return &answerOut{State: answerHeld}
+	case v.Answer != 0:
+		for _, c := range carried {
+			if c.Entry == v.Answer && c.State == bridges.GivenUp {
+				return &answerOut{State: answerNotDelivered, Entry: v.Answer, Why: c.Why}
+			}
+		}
+		return &answerOut{State: answerSaid, Entry: v.Answer}
+	case v.State.Quiet:
+		return &answerOut{State: answerQuiet}
+	}
+	return &answerOut{State: answerWaits}
 }
 
 // request gives one request as the one looking sees it: what was done,
@@ -327,7 +502,14 @@ func (s *site) request(person string, w http.ResponseWriter, r *http.Request) (a
 		return nil, err
 	}
 	sum := requests.Summary{Number: v.Number, Whole: v.Whole, Team: v.Team, Asker: v.Asker, State: v.State, Source: v.Source, Made: v.Made, Parent: v.Parent}
-	out := viewOut{summaryOut: summaryOf(sum, v.Origin, s.Requests.Party), Read: v.Read, Entries: []entryOut{}, Subs: subsOf(v.Subs), Decisions: []decisionOut{}, Waits: []int64{}}
+	o, err := s.office()
+	if err != nil {
+		return nil, err
+	}
+	out := viewOut{summaryOut: summaryOf(sum, v.Origin, s.Requests.Party), Read: v.Read, Entries: []entryOut{}, Questions: questionsOf(v.Entries, s.Requests.Party), Waits: []int64{}}
+	if out.Subs, err = s.subsOf(o, v.Subs, person); err != nil {
+		return nil, err
+	}
 	open := map[int64]bool{}
 	for _, wt := range waits {
 		if wt.Request == n && wt.Entry != 0 {
@@ -347,20 +529,20 @@ func (s *site) request(person string, w http.ResponseWriter, r *http.Request) (a
 	for _, e := range shown {
 		out.Entries = append(out.Entries, entryOf(e, carried, s.Requests.Party))
 	}
-	ds, err := s.Decisions.OfRequest(n)
-	if err != nil {
+	if out.Decisions, err = s.decisionsOf(o, n, person, v.Whole); err != nil {
 		return nil, err
 	}
-	o, err := s.office()
-	if err != nil {
-		return nil, err
+	if !v.Whole {
+		return out, nil
 	}
-	for _, d := range ds {
-		if slices.Contains(d.WasAsked, person) {
-			out.Decisions = append(out.Decisions, decisionOf(o, d, person))
-		}
-	}
+	held := v.Read && slices.ContainsFunc(out.Decisions, func(d decisionOut) bool {
+		return d.Kind == decisions.OfDisclosure && d.What == decisions.SaysAnswer && d.Ended == ""
+	})
+	out.Answer = answerOf(v, held, carried)
 	if v.Read {
+		if out.Disclosure, err = s.disclosureOf(o, n, v.Team); err != nil {
+			return nil, err
+		}
 		runs, err := s.Work.Runs(n)
 		if err != nil {
 			return nil, err
@@ -379,19 +561,71 @@ func (s *site) request(person string, w http.ResponseWriter, r *http.Request) (a
 	return out, nil
 }
 
-// subsOf gives sub-requests as the request above them shows them.
-func subsOf(subs []requests.Sub) []subOut {
+// subsOf gives sub-requests as the request above them shows them, each
+// with its decisions as the one looking may see them.
+func (s *site) subsOf(o *office.Office, subs []requests.Sub, person string) ([]subOut, error) {
 	out := []subOut{}
 	for _, sub := range subs {
-		out = append(out, subOut{Number: sub.Number, Team: sub.Team, Question: sub.Question, State: sub.State.Is, On: partiesOf(sub.State.On),
-			Answer: sub.Answer, Subs: subsOf(sub.Subs)})
+		ds, err := s.decisionsOf(o, sub.Number, person, true)
+		if err != nil {
+			return nil, err
+		}
+		below, err := s.subsOf(o, sub.Subs, person)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, subOut{Number: sub.Number, Team: sub.Team, Question: sub.Question, State: sub.State.Is, Label: labelOf(sub.State),
+			On: partiesOf(sub.State.On), Answer: sub.Answer, Decisions: ds, Subs: below})
+	}
+	return out, nil
+}
+
+// questionsOf gives the questions put to people among the entries of a
+// request, each with whether it is answered.
+func questionsOf(es []requests.Entry, party func(requests.Who) requests.Party) []questionOut {
+	out := []questionOut{}
+	for _, e := range es {
+		if e.Kind != requests.KindQuestion {
+			continue
+		}
+		to := []partyOut{}
+		for _, w := range e.To {
+			to = append(to, partyOf(party(w)))
+		}
+		answered := slices.ContainsFunc(es, func(a requests.Entry) bool { return a.Answers == e.ID })
+		out = append(out, questionOut{Entry: e.ID, By: partyOf(party(e.By)), To: to, At: e.At, Answered: answered})
 	}
 	return out
+}
+
+// disclosureOf gives whether a request's team sets a disclosure, who
+// decides it, and whether its answer needs it, by the test work makes:
+// whether anyone who reads it is outside the team.
+func (s *site) disclosureOf(o *office.Office, n int64, team string) (*disclosureOut, error) {
+	t := o.Teams[team]
+	if t == nil {
+		return nil, nil
+	}
+	if !t.HasDisclosure {
+		return &disclosureOut{}, nil
+	}
+	r, err := s.Requests.Get(n)
+	if err != nil {
+		return nil, err
+	}
+	needed, err := s.Requests.Leaves(n, r.Asker)
+	if err != nil {
+		return nil, err
+	}
+	return &disclosureOut{Set: true, Needed: needed, Deciders: deciders(o, decisions.Disclosure(o, team))}, nil
 }
 
 // runOf gives a run on a request as it is kept with it.
 func runOf(r work.KeptRun) runOut {
 	out := runOut{Name: r.Name, Kind: r.Kind, Team: r.Team, Worker: r.Worker, Started: r.Started, Status: r.Status, How: r.How, Tokens: r.Tokens}
+	if r.Kind == work.KindHeed && r.Status == "done" {
+		out.Says, out.How, _ = strings.Cut(r.How, ": ")
+	}
 	if !r.Ended.IsZero() {
 		out.Ended = &r.Ended
 	}
@@ -468,7 +702,8 @@ func entryOf(e requests.Entry, carried []bridges.Carried, party func(requests.Wh
 	for _, w := range e.To {
 		to = append(to, partyOf(party(w)))
 	}
-	out := entryOut{ID: e.ID, Kind: e.Kind, By: partyOf(party(e.By)), To: to, At: e.At, Text: e.Text, Files: []fileOut{}, In: e.In, Read: e.Read, Answers: e.Answers, Sub: e.Sub}
+	out := entryOut{ID: e.ID, Kind: e.Kind, By: partyOf(party(e.By)), To: to, At: e.At, Text: e.Text, Files: []fileOut{}, In: e.In, Read: e.Read,
+		Answers: e.Answers, Sub: e.Sub, Noted: e.Noted}
 	for i, f := range e.Files {
 		out.Files = append(out.Files, fileOut{Name: f.Name, Size: f.Size, URL: fmt.Sprintf("/files/%d-%d", e.ID, i)})
 	}

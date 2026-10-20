@@ -253,12 +253,29 @@ B.origin = function (o) {
   return o.kind;
 };
 
-// status gives a dot and a word: working, waiting · whom, answered; and,
-// for a request from an issue, its status at its source.
+// way gives where a request was asked, as the way to it: a bridge, the
+// place listed, then the place itself where it is narrower; the chat; a
+// routine's time and worker.
+B.way = function (o) {
+  if (!o) return "";
+  const sep = () => B.el("span", {class: "faint", "aria-hidden": "true"}, "›");
+  switch (o.kind) {
+    case "chat": return B.el("span", {class: "who"}, B.icon("chat"), "Chat");
+    case "routine": return B.el("span", {class: "line"}, B.icon("clock"), B.el("span", {class: "mono"}, o.at), sep(), o.team ? B.workerEl(o.to, o.team, {bare: true}) : o.to);
+  }
+  if (!o.bridge) return o.kind;
+  const heard = o.heard || o.place;
+  return B.el("span", {class: "line"}, B.placeEl(o.bridge, heard), o.place && o.place !== heard ? [sep(), B.el("span", {class: "mono"}, o.place)] : null);
+};
+
+// status gives a dot and a word: working, waiting · whom, answered, or
+// what labels an answered request, stopped, noted or quiet; and, for a
+// request from an issue, its status at its source.
 B.status = function (r) {
   if (r.source) return B.el("span", {class: "status", title: "at its source, " + B.when(r.source.at)}, r.source.status);
   const on = r.on && r.on.length ? " · " + r.on.map(B.partyWord).join(", ") : "";
-  return B.el("span", {class: "status " + r.state + (r.state === "working" ? " live" : "")}, r.state + (r.state === "waiting" ? on : ""));
+  const word = r.state === "answered" && r.label ? r.label : r.state;
+  return B.el("span", {class: "status " + word + (r.state === "working" ? " live" : "")}, word + (r.state === "waiting" ? on : ""));
 };
 
 // bridgeStatus gives a bridge's one status: running, stopped, or, to the

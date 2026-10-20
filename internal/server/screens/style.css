@@ -147,6 +147,10 @@ main { max-width: var(--page); margin: 0 auto; padding: var(--space) 24px 64px; 
 .status.running { color: var(--good); } .status.running::before { background: var(--good); }
 .status.stopped { color: var(--ink3); } .status.stopped::before { background: transparent; border: 1.5px solid var(--ink3); }
 .status.failing { color: var(--bad); } .status.failing::before { background: var(--bad); border-radius: 1px; }
+.status.quiet { color: var(--ink2); } .status.quiet::before { background: transparent; border: 1.5px solid var(--ink2); }
+.status.noted { color: var(--ink3); } .status.noted::before { background: transparent; border: 1.5px dashed var(--ink3); }
+.status.act { color: var(--plan); } .status.act::before { background: var(--plan); border-radius: 1px; }
+.status.held { color: var(--ink2); } .status.held::before { background: var(--ink3); border-radius: 1px; }
 .status.live::before { animation: pulse 2.4s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) { .status.live::before { animation: none; } }
