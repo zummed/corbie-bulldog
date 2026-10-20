@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zummed/corbie-bulldog/internal/bridges"
 	"github.com/zummed/corbie-bulldog/internal/changes"
@@ -54,6 +55,28 @@ const (
 // routes gives what the server answers. Only the screens' first page, its
 // own files, the sign-in and the address of each bridge that hears are
 // answered without a key.
+// after gives a channel told once a time has passed by the office's
+// clock: the computer's own timer for the wall clock, which is told to
+// move only once a second, and one that moves with any other, as a
+// test's, which then never waits on the computer's.
+func after(clock work.Clock) func(time.Duration) <-chan time.Time {
+	if _, wall := clock.(work.Wall); wall {
+		return time.After
+	}
+	return func(d time.Duration) <-chan time.Time {
+		at, passed := clock.Now().Add(d), make(chan time.Time, 1)
+		moved, unwatch := clock.Watch()
+		go func() {
+			defer unwatch()
+			for clock.Now().Before(at) {
+				<-moved
+			}
+			passed <- clock.Now()
+		}()
+		return passed
+	}
+}
+
 func routes(s *site) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.home)
@@ -61,7 +84,7 @@ func routes(s *site) http.Handler {
 	mux.HandleFunc("POST /signin", s.askLink)
 	mux.HandleFunc("GET /signin/{link}", s.linkPage)
 	mux.HandleFunc("POST /signin/{link}", s.pressLink)
-	mux.Handle("POST /bridges/{name}", &bridges.Address{Bridges: s.Bridges, Hear: s.Work.Hear})
+	mux.Handle("POST /bridges/{name}", &bridges.Address{Bridges: s.Bridges, Hear: s.Work.Hear, After: after(s.clock)})
 
 	mux.HandleFunc("GET /api/me", s.api(s.me))
 	mux.HandleFunc("POST /api/me/key", s.api(s.replaceKey))

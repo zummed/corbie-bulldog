@@ -48,7 +48,7 @@ The detailed rules behind the [Bridges overview](../bridges.md). Requirements ar
 **R-bridges-08** A bridge that hears has an address on the server, `/bridges/<name>`; what arrives there is handed unread, as the delivery, to a new in run, and the address takes no sign-in, since the in machine checks with the secret it holds that the delivery is the service's. Being called there is the service speaking, not Bulldog.
 *Accept:* a POST to `/bridges/slack` with a body and two headers starts one in run whose `delivery` holds the method, the headers and the body exactly as sent. A stand-in in machine that finds the signature wrong ends with nothing heard, and nothing is taken.
 
-**R-bridges-09** The answer to the caller is what the in run says to answer, if the run ends within two seconds, and otherwise that the delivery was received; a run that ends later is still taken.
+**R-bridges-09** The answer to the caller is what the in run says to answer, if the run ends within two seconds by the office's clock, and otherwise that the delivery was received; a run that ends later is still taken.
 *Accept:* a stand-in in machine ends at once with an answer body `challenge-1`; the caller receives `challenge-1`. Another takes five seconds; the caller is answered as received after two, and the thing it heard is taken when it ends.
 
 **C-bridges-04** A delivery larger than the server takes is refused with a status that says so, and is never passed on cut short. An in machine given half a body reads it as something else, or as nothing. *Test:* `bridges_oversized_delivery_refused`
