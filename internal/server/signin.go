@@ -6,6 +6,7 @@ import (
 	"html"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/zummed/corbie-bulldog/internal/bridges"
@@ -76,7 +77,7 @@ func (s *site) home(w http.ResponseWriter, r *http.Request) {
 		case err != nil:
 			s.failed(w, r, err)
 		case person == "":
-			s.signInPage(w, http.StatusOK)
+			s.signInPage(w, http.StatusOK, "")
 		default:
 			keep(w, r, key)
 			s.movingOn(w)
@@ -88,22 +89,46 @@ func (s *site) home(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		s.failed(w, r, err)
 	case person == "":
-		s.signInPage(w, http.StatusOK)
+		s.signInPage(w, http.StatusOK, "")
 	default:
 		theScreens(w)
 	}
 }
 
-// signInPage asks for a name, to send that person a one-time link.
-func (s *site) signInPage(w http.ResponseWriter, status int) {
-	body := `<p>Open the link the server printed for you, or give your name, as the office writes it, and a link that signs you in once is sent to you on your first bridge that carries it.</p>
-<form id="signin"><label>Your name <input name="name" autocomplete="username" required></label> <button>Send me a link</button></form>
-<p id="said" role="status"></p>
-<script src="/static/signin.js"></script>`
-	if s.Keeper.Office() == nil {
-		body = `<p>The office does not read well yet, so nobody signs in until it does. Its problems are in the server's log.</p>`
+// signInPage gives each way to sign in the office has, saying first what
+// came of signing in, when anything did: a button for each sign-in method
+// that runs; a name and password, when anyone may set a password; and a
+// name, to send that person a one-time link. What it shows says nothing
+// of who is in the office.
+func (s *site) signInPage(w http.ResponseWriter, status int, said string) {
+	o := s.Keeper.Office()
+	if o == nil {
+		s.page(w, status, `<p>The office does not read well yet, so nobody signs in until it does. Its problems are in the server's log.</p>`)
+		return
 	}
-	s.page(w, status, body)
+	var b strings.Builder
+	if said != "" {
+		fmt.Fprintf(&b, "<p class=\"signin-said\" role=\"alert\">%s</p>\n", html.EscapeString(said))
+	}
+	var methods []string
+	for _, name := range o.SignInOrder {
+		if m := o.SignIns[name]; m.Runs() {
+			methods = append(methods, fmt.Sprintf(`<a class="signin-with" href="/signin/%s">Sign in with %s</a>`, html.EscapeString(name), html.EscapeString(methodCalled(m))))
+		}
+	}
+	if len(methods) > 0 {
+		fmt.Fprintf(&b, "<div class=\"signin-methods\">%s</div>\n", strings.Join(methods, ""))
+	}
+	if slices.ContainsFunc(o.Everyone, func(name string) bool { return o.People[name].Password }) {
+		b.WriteString(`<form id="password"><label>Your name <input name="name" autocomplete="username" required></label><label>Password <input name="password" type="password" autocomplete="current-password" required></label><button>Sign in</button></form>
+<p id="password-said" class="signin-said" role="status"></p>
+`)
+	}
+	b.WriteString(`<form id="signin"><label>Your name <input name="name" autocomplete="username" required></label><button>Send me a link</button></form>
+<p class="signin-about">A link that signs you in once is sent to you on the first of your bridges that carries it, or open the link the server printed for you.</p>
+<p id="said" role="status"></p>
+<script src="/static/signin.js"></script>`)
+	s.page(w, status, b.String())
 }
 
 // movingOn is the page that moves on to the screens once the key is kept.
@@ -166,7 +191,7 @@ func (s *site) linkPage(w http.ResponseWriter, r *http.Request) {
 // in an address does, and uses it up.
 func (s *site) pressLink(w http.ResponseWriter, r *http.Request) {
 	if s.Keeper.Office() == nil {
-		s.signInPage(w, http.StatusNotFound)
+		s.signInPage(w, http.StatusNotFound, "")
 		return
 	}
 	person, err := useLink(s.db, r.PathValue("link"), s.clock.Now())

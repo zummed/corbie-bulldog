@@ -8,7 +8,7 @@
 (function () {
   "use strict";
 
-  const kinds = {bridge: "Bridge", tools: "Tools", rule: "Rule"};
+  const kinds = {bridge: "Bridge", tools: "Tools", rule: "Rule", "sign-in": "Sign-in"};
 
   // valueEl gives a setting's value as it is shipped: a mapping or a list
   // in a row, and anything else as text.
@@ -17,10 +17,10 @@
     return B.el("span", {class: "mono"}, typeof v === "object" ? JSON.stringify(v) : String(v));
   }
 
-  // settingsEl gives a thing's settings, but for a bridge's from, which
-  // is the line that uses it.
+  // settingsEl gives a thing's settings, but for a bridge's or a sign-in
+  // method's from, which is the line that uses it.
   function settingsEl(t) {
-    const settings = t.settings.filter((s) => !(t.kind === "bridge" && s.name === "from"));
+    const settings = t.settings.filter((s) => !((t.kind === "bridge" || t.kind === "sign-in") && s.name === "from"));
     if (!settings.length) return null;
     return B.kv(settings.map((s) => [B.el("span", {class: "line bi-setting"}, B.el("span", {class: "mono"}, s.name),
       s.about ? B.info("About " + s.name, s.about) : ""), valueEl(s.value)]));
@@ -48,9 +48,10 @@
   }
 
   // whoEl gives who uses a thing at one place: the office's file, for a
-  // bridge; a worker; a team.
+  // bridge or a sign-in method; a worker; a team.
   function whoEl(u) {
     if (u.bridge) return B.el("a", {class: "mono", href: "#/office/bridges"}, "office.yaml");
+    if (u.signin) return B.el("a", {class: "mono", href: "#/office/signin"}, "office.yaml");
     if (u.worker) return B.workerEl(u.worker, u.team, {bare: true});
     return B.teamEl(u.team);
   }
