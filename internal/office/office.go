@@ -331,12 +331,13 @@ func (o *Office) Whose(paths []string) string {
 	return whose
 }
 
-// folderOf gives the innermost team whose folder holds a path.
+// folderOf gives the innermost team whose folder holds a path, or the
+// top team, whether or not the office read one.
 func (o *Office) folderOf(p string) string {
-	best := Top
+	best, longest := Top, 0
 	for name, t := range o.Teams {
-		if t.Dir != "" && strings.HasPrefix(p, t.Dir+"/") && len(t.Dir) > len(o.Teams[best].Dir) {
-			best = name
+		if t.Dir != "" && strings.HasPrefix(p, t.Dir+"/") && len(t.Dir) > longest {
+			best, longest = name, len(t.Dir)
 		}
 	}
 	return best

@@ -76,6 +76,20 @@ func TestTeamsAreKnownByTheirFolders(t *testing.T) {
 	}
 }
 
+func TestAWriteIsWhoseWithNoTopTeamRead(t *testing.T) {
+	t.Parallel()
+	// An office.yaml that does not read leaves the teams within it.
+	o := &office.Office{Teams: map[string]*office.Team{
+		"garden": {Name: "garden", Dir: "garden", File: "garden/team.yaml", Within: office.Top},
+		"shed":   {Name: "shed", Dir: "garden/shed", File: "garden/shed/team.yaml", Within: "garden"},
+	}}
+	for file, whose := range map[string]string{"garden/shed/notes/key.md": "shed", "garden/shed/team.yaml": "garden", "garden/notes/lawn.md": "garden", "office.yaml": office.Top} {
+		if got := o.Whose([]string{file}); got != whose {
+			t.Errorf("a write of %s is %s's, not %s's", file, got, whose)
+		}
+	}
+}
+
 func TestOfficeNameIsOnlyWords(t *testing.T) {
 	t.Parallel()
 	for _, name := range []string{`""`, `"🌱 !!"`, `The Garden, and the Pond`} {
