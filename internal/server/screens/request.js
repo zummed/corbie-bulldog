@@ -465,10 +465,13 @@
   const REPEATS = /(\.[0-9]+)?(#[0-9]+)?(@[0-9]+)?$/;
 
   // colleagues gives the colleagues a run's record shows it calling, each
-  // by the tool it was called as and its worker, with how its run ended
-  // and the colleagues it called in turn. Bulldog's own machines, the ask
-  // among them, are not colleagues.
-  function colleagues(rec) {
+  // by the tool it was called as and, when it is a worker of the team, its
+  // worker, with how its run ended and the colleagues it called in turn.
+  // Bulldog's own machines, the ask among them, are not colleagues. A
+  // machine's path is written from its caller's folder, and it is a
+  // worker when it lies in the team's folder itself, where a worker's run
+  // starts; of any other run the folder is not known.
+  function colleagues(rec, folder) {
     const under = {}, ended = {};
     for (const ev of rec && Array.isArray(rec.events) ? rec.events : []) {
       if (ev.name !== undefined) continue;
@@ -476,12 +479,30 @@
       for (const a of ev.asks || []) {
         const machine = a.job && a.job.machine || "";
         if (a.kind !== "child" || !a.child || /(^|\/)\.bulldog\//.test(machine)) continue;
-        const worker = /\.ya?ml$/.test(machine) ? machine.split("/").pop().replace(/\.ya?ml$/, "") : "";
-        (under[ev.id] = under[ev.id] || []).push({id: a.child, tool: a.name.replace(REPEATS, ""), worker});
+        (under[ev.id] = under[ev.id] || []).push({id: a.child, tool: a.name.replace(REPEATS, ""), machine});
       }
     }
-    const tree = (id) => (under[id] || []).map((c) => ({...c, status: ended[c.id] || "going", below: tree(c.id)}));
-    return tree(rec ? rec.run : "");
+    const tree = (id, from) => (under[id] || []).map(({machine, ...c}) => {
+      const at = from === null ? null : within(from, machine);
+      const worker = at !== null && /^[^/]+\.ya?ml$/.test(at) ? at.replace(/\.ya?ml$/, "") : "";
+      const next = at === null ? from : at.includes("/") ? at.slice(0, at.lastIndexOf("/")) : "";
+      return {...c, worker, status: ended[c.id] || "going", below: tree(c.id, next)};
+    });
+    return tree(rec ? rec.run : "", folder);
+  }
+
+  // within gives a machine's path, as its caller names it from its own
+  // folder, from the team's folder; or null when it is no path, as a
+  // machine written in place is not.
+  function within(from, machine) {
+    if (!/^\.\.?\//.test(machine)) return null;
+    const parts = [];
+    for (const s of (from + "/" + machine).split("/")) {
+      if (s === "" || s === ".") continue;
+      if (s === ".." && parts.length && parts[parts.length - 1] !== "..") parts.pop();
+      else parts.push(s);
+    }
+    return parts.join("/");
   }
 
   // callsEl gives colleague calls as a tree: the tool, the worker it
@@ -512,7 +533,7 @@
         r.tokens ? B.el("span", {class: "mono small faint"}, r.tokens + " tok") : null,
         B.el("a", {class: "rq-end rq-jump", href: "#/run/" + encodeURIComponent(r.name), "aria-label": "Watch " + (r.worker || r.name)}, "Watch")),
       r.how ? B.el("div", {class: "rq-note small"}, r.how) : null,
-      callsEl(colleagues(rec), r.team));
+      callsEl(colleagues(rec, r.kind === "work" ? "" : null), r.team));
   }
 
   // The way, in bands
