@@ -35,7 +35,7 @@ people: [sam, kit]
 lead: steward
 decide:
   everything: [sam]
-  order_part: [./small-orders.js, sam]
+  order_part: [./small-orders.js, clerk: advise, sam]   # the clerk looks at what the rule refers; Sam decides
 routines:
   - { at: "mon 09:00", to: steward, say: "Walk round: what is still open?" }
 ```
@@ -53,7 +53,7 @@ routines:
 | `models` | models by a name of the team's, each written as Corbie writes one, naming the secret that holds its key and never a key |
 | `zone`, `everyone`, `bridges`, `runs` | the top team's only |
 
-A decider is a person, a worker of any team by its name, or a rule by its path, in the team's own folder, as `./small-orders.js`, or among those Bulldog ships, in `.bulldog/rules/` at the top of the office. In a list every rule and worker comes before every person.
+A decider is a person, a worker of any team by its name, or a rule by its path, in the team's own folder, as `./small-orders.js`, or among those Bulldog ships, in `.bulldog/rules/` at the top of the office. In a list every rule and worker comes before every person. A rule or a worker may be marked to advise, as `clerk: advise`: it may refuse, which ends the decision, or refer, but its yes never approves; it goes on to the next decider as a recommendation, as a referral would, and is shown as "clerk recommends yes" with its note. A person is never marked to advise. The same worker may advise on one list and decide plainly on another.
 
 The people of the office, how each is reached, who decides a change to the office, a bridge's in machine, and a bridge's entry with its `from` and every setting but its places are a person's to write: a builder's draft that changes any of them is refused, and from outside you say what you would write there and let the person write it.
 
@@ -96,7 +96,7 @@ A tool whose job says `approve: true` waits for a yes, decided by the team's lis
 
 ## A rule
 
-A rule decides from what it is given, and gives back `{ says: yes | refuse | refer, note }`. A refer sends the decision on to the next decider with its note; the referrals before it are its input's `referrals`. A rule that needs nothing more is a bare script:
+A rule decides from what it is given, and gives back `{ says: yes | refuse | refer, note }`. A refer sends the decision on to the next decider with its note; the referrals before it are its input's `referrals`, each with its `says`, `refer`, or `yes` for the recommendation of one that advises. Its input's `advises` is true when its list marks it to advise: its yes then goes on as a recommendation to whoever its `referral_goes_to` names. A rule that needs nothing more is a bare script:
 
 ```js
 // small-orders.js
@@ -121,7 +121,7 @@ output: ${stages.check.output}
 
 On a change to the office, a rule's yes is taken as a referral: only a person approves a change.
 
-Rules build on each other in a list. A yes or a refusal ends the decision, so a rule that finds something and leaves the judging to another refers, with what it found as its note, and every decider after it, rule or worker, is given that referral. A note may be JSON: it reaches the next rule as JSON text, and is shown to people as it was written. No decider changes what it decides: to have something taken out, a disclosure's rule refuses and says what, and the lead says it again.
+Rules build on each other in a list. A yes or a refusal ends the decision, but for the yes of one that advises, so a rule that finds something and leaves the judging to another refers, with what it found as its note, and every decider after it, rule or worker, is given that referral. A note may be JSON: it reaches the next rule as JSON text, and is shown to people as it was written. No decider changes what it decides: to have something taken out, a disclosure's rule refuses and says what, and the lead says it again.
 
 ```yaml
 # payments/team.yaml
@@ -164,8 +164,9 @@ The second rule picks the first one's referral by its file's name, never by its 
   },
   "notes": [{ "name": "refunds", "text": "# Refunds\n\nA charge taken twice within a minute is a duplicate. Refund the later one.\n" }],
   "request": { "number": 1, "asked": "was customer 4411 charged twice?", "asker": "Dana" },
-  "referrals": [{ "by": "finds-numbers.js", "kind": "rule", "note": "{\"numbers\":[\"4111111111111111\"]}" }],
+  "referrals": [{ "by": "finds-numbers.js", "kind": "rule", "says": "refer", "note": "{\"numbers\":[\"4111111111111111\"]}" }],
   "referral_goes_to": [{ "kind": "people", "list": "everything", "team": "payments", "to": "Lee or Priya" }],
+  "advises": false,
   "ends": "Your yes or your refusal ends it. A referral goes on, with your note, to Lee or Priya, on Payments' everything list."
 }
 ```
