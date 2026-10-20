@@ -455,8 +455,25 @@ func TestBridgesInRunReadAfterRestart(t *testing.T) {
 	if got := d.thread(1); len(got) != 1 {
 		t.Errorf("what was heard is %v", got)
 	}
-	if next := d.listening("telegram"); next.Input["cursor"] != float64(3) {
+	next := d.listening("telegram")
+	if next.Input["cursor"] != float64(3) {
 		t.Errorf("the next run is given %v", next.Input["cursor"])
+	}
+	// What a listening run handed over before a restart is handed back
+	// again with its end, after one more thing, and what it handed over
+	// before it failed is taken all the same: each is taken once.
+	boiler := said("4472", "direct", "4472", "the boiler is cold")
+	_, err = d.Handed("telegram", bridges.End{Handed: []any{[]any{boiler}}})
+	must(t, err)
+	d.restart()
+	light := said("4471", "direct", "4471", "the hall light flickers")
+	_, err = d.InEnded("telegram", next.Labels["run"], bridges.End{Handed: []any{[]any{boiler}, []any{light}}, Failed: "the runner stopped"})
+	must(t, err)
+	if boilers, lights := d.thread(2), d.thread(1); len(boilers) != 1 || len(lights) != 2 || d.latest() != 2 {
+		t.Errorf("what was handed over is taken as %v and %v", boilers, lights)
+	}
+	if troubles, err := d.Troubles(); err != nil || len(troubles) != 1 || troubles[0].Error != "the runner stopped" {
+		t.Errorf("the troubles are %v: %v", troubles, err)
 	}
 	// A delivery's run going when the server stopped, which its service
 	// was answered as received, is found again and taken when it ends.

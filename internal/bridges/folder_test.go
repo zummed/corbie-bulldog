@@ -96,8 +96,7 @@ func TestBridgesSettingsPassedUnread(t *testing.T) {
 	// A bridge that runs the folder Bulldog ships is handed its from with
 	// the rest.
 	shipped := open(t, testkit.Files(t, examples.Work()))
-	s, err = shipped.Hear("slack", bridges.Delivery{})
-	must(t, err)
+	s = shipped.listening("slack")
 	if settings := s.Input["settings"].(map[string]any); settings["from"] != "./.bulldog/bridges/slack" || s.Machine != shipped.o.Bridges["slack"].In {
 		t.Errorf("the shipped Slack is handed %#v", settings)
 	}

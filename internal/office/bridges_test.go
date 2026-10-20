@@ -43,7 +43,7 @@ func broken(t *testing.T, files map[string]string, bridge string, others ...stri
 func TestTheBridgesInTheFiles(t *testing.T) {
 	t.Parallel()
 	o := reads(t, work(t))
-	if !slices.Equal(o.BridgeOrder, []string{"slack", "gitlab"}) || !o.Bridges["slack"].Hears || !o.Bridges["gitlab"].Listens {
+	if !slices.Equal(o.BridgeOrder, []string{"slack", "gitlab"}) || !o.Bridges["slack"].Listens || !o.Bridges["gitlab"].Listens {
 		t.Errorf("the bridges are %v", o.BridgeOrder)
 	}
 	if !reflect.DeepEqual(o.Bridges["slack"].Settings, map[string]any{"from": "./.bulldog/bridges/slack", "places": map[string]any{"#help": map[string]any{"guests": true}}}) {

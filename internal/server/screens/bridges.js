@@ -90,7 +90,7 @@
       ...B.info("About hearing", "The service calls this address with each thing said or pressed; it must be able to reach it."),
       B.el("span", {class: "mono"}, b.address));
     if (b.listens) return B.el("span", {class: "line"}, "Listens",
-      ...B.info("About listening", "Asks the service for what is new since last time; nothing is missed between."));
+      ...B.info("About listening", "Reaches out to the service for each thing said or pressed, so the service needs no address here."));
     return "";
   }
 

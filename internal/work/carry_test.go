@@ -36,13 +36,13 @@ func (b *bench) going(kind, bridge string) []*client.Run {
 }
 
 // listening stays until a bridge's listening run waits on what it hears,
-// and gives it.
-func (b *bench) listening(bridge string) string {
+// and gives it: one of none given, when runs before it are.
+func (b *bench) listening(bridge string, before ...string) string {
 	b.t.Helper()
 	run := ""
 	b.until(bridge+" listens", func() bool {
 		for _, r := range b.going(bridges.KindIn, bridge) {
-			if slices.Contains(r.Tickets, standin.Heard) {
+			if slices.Contains(r.Tickets, standin.Heard) && !slices.Contains(before, r.ID) {
 				run = r.ID
 			}
 		}
@@ -172,6 +172,77 @@ func TestABridgeListensOneRunAtATime(t *testing.T) {
 	})
 	if notes := b.w.runsOfKind(t, bridges.KindOut); len(notes) != 1 || notes[0].Status != done || notes[0].Request != 0 {
 		t.Errorf("the out run is kept as %+v", notes)
+	}
+}
+
+// hand has a stand-in listening run hand over things while it goes on,
+// and stays until it waits again.
+func (b *bench) hand(run string, things ...map[string]any) {
+	b.t.Helper()
+	handed := []any{}
+	for _, t := range things {
+		handed = append(handed, t)
+	}
+	ticket := b.corbie.Waiting(b.t, run, standin.Heard)
+	if _, err := b.corbie.Reply(ctx, run, ticket, map[string]any{"hand": handed}, 0); err != nil {
+		b.t.Fatal(err)
+	}
+	b.corbie.Until(b.t, "run "+run+" waits again", func() bool {
+		tickets, err := b.corbie.Tickets(ctx, run)
+		if err != nil {
+			b.t.Fatal(err)
+		}
+		return tickets[standin.Heard] != "" && tickets[standin.Heard] != ticket
+	})
+}
+
+func TestABridgesListeningRunHandsOverAsItGoes(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	run := b.listening("telegram")
+	said := thing("said", "4472", "direct", "4472", "text", "the kitchen socket sparked")
+	b.hand(run, said)
+	n := b.at("telegram", "4472")
+	if b.listening("telegram") != run || len(b.going(bridges.KindIn, "telegram")) != 1 {
+		t.Fatalf("the listening run %s does not go on after handing over", run)
+	}
+	// Handed over again, and heard again at the end, it is taken once.
+	b.hand(run, said)
+	b.hear(run, 3, said)
+	if next := b.listening("telegram", run); b.input(next)["cursor"] != float64(3) {
+		t.Errorf("the next listening run %s is given %v", next, b.input(next))
+	}
+	if asks := b.entries(n, requests.KindAsked); len(asks) != 1 || b.at("telegram", "4472") != n {
+		t.Errorf("what Kit said is taken as %v", b.thread(n))
+	}
+}
+
+func TestAListeningRunsHandoversAreTakenAfterARestart(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	run := b.listening("telegram")
+	// While Bulldog is away the run hands over, and goes on: it is read
+	// again from its start when Bulldog is back.
+	b.halt()
+	b.hand(run, thing("said", "4472", "direct", "4472", "text", "the boiler is cold"))
+	b.restart()
+	first := b.at("telegram", "4472")
+	if b.listening("telegram") != run {
+		t.Fatalf("the listening run %s is not waited on after a restart", run)
+	}
+	// While Bulldog is away the run hands over and ends: what it handed
+	// over is taken with how it ended.
+	b.halt()
+	b.hand(run, thing("said", "4471", "direct", "4471", "text", "the hall light flickers"))
+	b.hear(run, 4)
+	b.corbie.Ended(t, run)
+	b.restart()
+	second := b.at("telegram", "4471")
+	if second == first || len(b.entries(first, requests.KindAsked)) != 1 || len(b.entries(second, requests.KindAsked)) != 1 {
+		t.Errorf("what was handed over while away is taken as %v and %v", b.thread(first), b.thread(second))
+	}
+	if next := b.listening("telegram", run); b.input(next)["cursor"] != float64(4) {
+		t.Errorf("the next listening run %s is given %v", next, b.input(next))
 	}
 }
 

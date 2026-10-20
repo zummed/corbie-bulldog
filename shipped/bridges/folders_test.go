@@ -35,7 +35,7 @@ func TestBridgesShippedFoldersAreChecked(t *testing.T) {
 	if problems.Refuse() || len(o.Problems) > 0 {
 		t.Fatalf("the shipped bridges read with\n%v", problems)
 	}
-	for name, want := range map[string][3]bool{"telegram": {true, false, true}, "slack": {false, true, true}, "gitlab": {true, false, false}, "jira": {true, false, false}} {
+	for name, want := range map[string][3]bool{"telegram": {true, false, true}, "slack": {true, false, true}, "gitlab": {true, false, false}, "jira": {true, false, false}} {
 		b := o.Bridges[name]
 		direct := slices.Contains(b.Out.Definition.Input, "direct")
 		if !b.Runs() || b.Dir() != ".bulldog/bridges/"+name || b.Listens != want[0] || b.Hears != want[1] || direct != want[2] {

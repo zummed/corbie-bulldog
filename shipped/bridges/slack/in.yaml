@@ -1,23 +1,24 @@
-# The Slack bridge's in machine. It hears: Slack calls the office at the
-# bridge's address with each event and each press of a button, and this
-# takes only what Slack signed, with the signing secret, in the last five
-# minutes. It says what was heard, by who Slack says sent it, and what to
-# answer Slack. The app's signing secret is the Corbie secret
-# SLACK_SIGNING_SECRET, and its bot token SLACK_TOKEN, with which it reads
-# a channel's name and who is in it, the files said there, and what the app
-# last said in a person's conversation with it, which what they type there
-# answers: the app needs the im:history scope for that, and a run without
-# it fails, saying so. The signing secret is the key the delivery's
-# signature is checked with, which Corbie lets only a secret bound to
-# anywhere be: a key that can sign can forge, so a host bound to it would
-# limit nothing (corbie manual crypto). The job's allow list is what limits
-# it: slack.com and files.slack.com, and nothing written or run.
+# The Slack bridge's in machine. It listens over Socket Mode: with the
+# app's app-level token, the Corbie secret SLACK_APP_TOKEN, it asks Slack
+# for a connection, and over it hears each event and each press of a
+# button as Slack sends it, handing each over as it is heard and only then
+# telling Slack it was received. It ends when Slack warns that it will
+# close the connection, or after four minutes, well within its time limit,
+# and Bulldog starts the next. With the app's bot token, SLACK_TOKEN, it
+# reads a channel's name and who is in it, the files said there, and what
+# the app last said in a person's conversation with it, which what they
+# type there answers: the app needs the im:history scope for that, and a
+# run without it fails, saying so. The job's allow list is what limits it:
+# slack.com, files.slack.com and the hosts Slack's connections are made
+# to, and nothing written or run.
 flow: slack-in
-input: [settings, delivery]
+input: [settings, cursor]
 stages:
   hear:
     job:
       script: ./slack.js
-      input: { do: hear, settings: "${input.settings}", delivery: "${input.delivery}" }
-      allow: [net:slack.com, net:files.slack.com, "secret:SLACK_TOKEN@net:slack.com", "secret:SLACK_TOKEN@net:files.slack.com", "secret:SLACK_SIGNING_SECRET@*"]
+      input: { do: hear, settings: "${input.settings}", cursor: "${input.cursor}" }
+      allow: [net:slack.com, net:files.slack.com, net:wss-primary.slack.com, net:wss-backup.slack.com,
+        "secret:SLACK_TOKEN@net:slack.com", "secret:SLACK_TOKEN@net:files.slack.com", "secret:SLACK_APP_TOKEN@net:slack.com"]
+      timeout: 5m
 output: ${stages.hear.output}

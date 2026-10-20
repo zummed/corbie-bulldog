@@ -4,7 +4,7 @@
 // a speaker is, and how each thing is carried once, in order, place by
 // place. It never speaks to Corbie: whoever drives Corbie asks it which
 // runs to start, starts them with the labels it gives, and hands it back
-// how each ended. What it keeps, it keeps in its own part of the store:
+// what a listening run hands over as it goes and how each ended. What it keeps, it keeps in its own part of the store:
 // each bridge's cursor and the trouble of its last run, the things heard,
 // and every thing carried, with how its runs went.
 package bridges
@@ -54,6 +54,10 @@ const (
 	InputDelivery = "delivery"
 	InputDirect   = "direct"
 )
+
+// EmitHeard is the name a listening run emits a list of things under, to
+// hand over what it heard while it goes on.
+const EmitHeard = "heard"
 
 // The most a delivery may be, which is well within what Corbie sends a run
 // as its input; the runs a thing is carried by at most; how long the slowest pause between runs grows to; how long the
@@ -106,11 +110,14 @@ type Start struct {
 	Labels  map[string]string
 }
 
-// An End is how a run ended: its output, or the error Corbie gave for it.
-// Fetch reads a blob of the run's output by the path it was shown with,
-// for the files an in run heard; it is used before the run's record can go.
+// An End is how a run ended: its output, or the error Corbie gave for it,
+// and for a listening run what it handed over as it went, each emit of it
+// a list of things, in order. Fetch reads a blob of the run's output, or
+// of what it handed over, by the path it was shown with, for the files an
+// in run heard; it is used before the run's record can go.
 type End struct {
 	Output any
+	Handed []any
 	Failed string
 	Fetch  func(path string) ([]byte, error)
 }

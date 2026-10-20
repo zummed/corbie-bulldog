@@ -167,7 +167,7 @@ var reaches = map[string]struct {
 	"tools/talk":       {"0.2.0", nil},
 	"bridges/gitlab":   {"0.2.0", []string{"net:${input.settings.site}", "secret:GITLAB_TOKEN@net:${input.settings.site}"}},
 	"bridges/jira":     {"0.2.0", []string{"net:${input.settings.site}", "secret:JIRA_TOKEN@net:${input.settings.site}"}},
-	"bridges/slack":    {"0.2.0", []string{"net:files.slack.com", "net:slack.com", "secret:SLACK_SIGNING_SECRET@*", "secret:SLACK_TOKEN@net:files.slack.com", "secret:SLACK_TOKEN@net:slack.com"}},
+	"bridges/slack":    {"0.2.0", []string{"net:files.slack.com", "net:slack.com", "net:wss-backup.slack.com", "net:wss-primary.slack.com", "secret:SLACK_APP_TOKEN@net:slack.com", "secret:SLACK_TOKEN@net:files.slack.com", "secret:SLACK_TOKEN@net:slack.com"}},
 	"bridges/telegram": {"0.2.0", []string{"net:api.telegram.org", "secret:TELEGRAM_TOKEN@net:api.telegram.org"}},
 	"rules/for-us":     {"0.2.0", []string{"net:api.typesafe.ai", "secret:TYPESAFE_KEY@net:api.typesafe.ai"}},
 	"rules/mentioned":  {"0.2.0", nil},

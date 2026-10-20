@@ -47,6 +47,7 @@ func (w *Work) update(ctx context.Context, u client.Update) {
 	}
 	if !r.HasEnded() {
 		w.roots[r.ID] = true
+		w.follow(ctx, r)
 		if hasCome(r) {
 			w.came[r.ID] = true
 		}
@@ -308,9 +309,15 @@ func (w *Work) endOther(n *note, e ending) {
 // what it said.
 func (w *Work) take(ctx context.Context, n *note, run *client.Run, e ending) {
 	if isBridge(n.Kind) {
-		end := bridges.End{Failed: e.how}
+		handed, err := w.handedBy(ctx, n)
+		if err != nil {
+			w.Log("what the %s run %s of the bridge %s handed over could not be read, so it is read again in %v: %v", n.Kind, n.Name, n.Worker, Again, err)
+			w.showAgain(n.Name)
+			return
+		}
+		end := bridges.End{Handed: handed, Failed: e.how}
 		if e.status == done {
-			end = bridges.End{Output: run.Output}
+			end = bridges.End{Handed: handed, Output: run.Output}
 		}
 		if !w.handBack(ctx, n, end) {
 			return

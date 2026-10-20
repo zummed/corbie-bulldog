@@ -1,11 +1,13 @@
-Slack: Slack calls the office with what is said and each press of a button; it answers in the thread, and carries questions and decisions to a person directly.
+Slack: listens over Socket Mode for what is said and each press of a button; it answers in the thread, and carries questions and decisions to a person directly.
 
-The in machine hears: Slack calls the office at `/bridges/slack`, for its Event Subscriptions and its Interactivity alike, and only what Slack signed in the last five minutes is taken. A file said in Slack is read; a file in an answer is named, not sent. A message that names the app is marked as mentioned, for a team's heed.
+The in machine listens: it opens a connection to Slack with the app-level token, so the office needs no address Slack can reach, and hands over each thing as Slack sends it, then tells Slack it was received. Each run listens a few minutes and the next connects again. A file said in Slack is read; a file in an answer is named, not sent. A message that names the app is marked as mentioned, for a team's heed. The app needs Socket Mode turned on, with its Event Subscriptions, for the message events, and its Interactivity.
+
+A thing is lost if the runner stops after handing it over and telling Slack it was received, and before the handover is written down: Corbie does not yet let a script wait until what it hands over is kept.
 
 ## Needs
 
 - `SLACK_TOKEN`, the app's bot token, for `slack.com` and `files.slack.com`. The app needs the `im:history` scope to read what a person types in their conversation with it.
-- `SLACK_SIGNING_SECRET`, the app's signing secret, which checks each delivery and reaches no host.
+- `SLACK_APP_TOKEN`, the app-level token, with the `connections:write` scope, for `slack.com`, which gives the connection's address on `wss-primary.slack.com` or `wss-backup.slack.com`.
 
 ## Settings
 
@@ -16,9 +18,8 @@ The in machine hears: Slack calls the office at `/bridges/slack`, for its Event 
 
 - What the app said, and what any other bot said.
 - Edits, deletions, joins, and every event that is not a message.
-- A delivery Slack did not sign, or signed more than five minutes before.
 
-What a bot said and what is no message are each logged in the in run's record on Corbie, with its id, its place and why, and never its words; a delivery not signed is answered why.
+Each is logged in the in run's record on Corbie, with its id, its place and why, and never its words, and told to Slack as received.
 
 ## Example
 
@@ -35,4 +36,4 @@ bridges:
 ## Changed
 
 - 0.1.0: first shipped.
-- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; logs what it leaves out, and marks a message that names the app as mentioned.
+- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; logs what it leaves out, and marks a message that names the app as mentioned; listens over Socket Mode in place of being called at the office's address: may now connect to wss-primary.slack.com and wss-backup.slack.com, needs SLACK_APP_TOKEN, and no longer needs SLACK_SIGNING_SECRET.

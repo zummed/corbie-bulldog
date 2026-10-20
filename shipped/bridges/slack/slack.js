@@ -1,8 +1,13 @@
 // The Slack bridge's script, for both its machines: input.do is hear, for
 // the in machine, or say, for the out machine. It speaks Slack's Web API
-// with the app's bot token, which it holds only as a handle.
+// with the app's bot token, and listens over Socket Mode with the app's
+// app-level token, holding each only as a handle.
 const api = "https://slack.com/api"
-const bearer = () => secrets.text`Bearer ${secrets.get("SLACK_TOKEN")}`
+const bearer = token => secrets.text`Bearer ${secrets.get(token)}`
+
+// How long one listening run listens, well within its job's time limit:
+// then it ends, and the next run connects again.
+const listenFor = 4 * 60 * 1000
 
 // Slack takes up to 40,000 characters in a message's text, and 3,000 in a
 // section that a message with buttons holds. A string's length here counts
@@ -22,11 +27,12 @@ const refusedFor = ["channel_not_found", "not_in_channel", "is_archived", "msg_t
 // which it no longer has: the text is then said in the place, not in reply.
 const threadGone = ["thread_not_found", "cannot_reply_to_message"]
 
-// call calls a method of the Web API, and gives Slack's answer, which says
-// by ok whether it went and by error why not. A failure of the call
-// itself is thrown. No error made here holds the address called.
-function call(method, body, query) {
-  const options = { headers: { Authorization: bearer() }, as: "text", timeout: 30 }
+// call calls a method of the Web API with a token, the bot's unless
+// another is named, and gives Slack's answer, which says by ok whether it
+// went and by error why not. A failure of the call itself is thrown. No
+// error made here holds the address called.
+function call(method, body, query, token) {
+  const options = { headers: { Authorization: bearer(token || "SLACK_TOKEN") }, as: "text", timeout: 30 }
   if (body) options.json = body
   if (query) options.query = query
   const reply = body ? http.post(api + "/" + method, options) : http.get(api + "/" + method, options)
@@ -42,8 +48,8 @@ function call(method, body, query) {
 
 // must gives Slack's answer to a call that must go: while hearing, any
 // error is a fault of the bridge.
-function must(method, body, query) {
-  const answer = call(method, body, query)
+function must(method, body, query, token) {
+  const answer = call(method, body, query, token)
   if (!answer.ok) throw new Error("Slack refused " + method + ": " + answer.error)
   return answer
 }
@@ -53,36 +59,7 @@ function must(method, body, query) {
 const big = text => (text.length > 16384 ? blobs.make(text) : text)
 
 if (input.do === "hear") {
-  const d = input.delivery
-  const header = name => {
-    for (const k of Object.keys(d.headers || {})) if (k.toLowerCase() === name.toLowerCase()) return d.headers[k]
-    return ""
-  }
-  // Only what Slack signed in the last five minutes is taken: an older
-  // delivery sent again is a replay. The signature is compared by hashes
-  // of both, so how long the comparison takes says nothing of how much of
-  // a forged signature was right.
-  const at = Number(header("X-Slack-Request-Timestamp"))
-  if (!at || Math.abs(Date.now() / 1000 - at) > 300) return { heard: [], answer: { status: 401, body: "not signed in the last five minutes" } }
-  const signed = "v0=" + crypto.hmac("v0:" + header("X-Slack-Request-Timestamp") + ":" + d.body, { key: secrets.get("SLACK_SIGNING_SECRET"), algorithm: "sha256", as: "hex" })
-  const hashed = text => crypto.hash(text, { algorithm: "sha256", as: "hex" })
-  if (hashed(signed) !== hashed(header("X-Slack-Signature"))) return { heard: [], answer: { status: 401, body: "not signed by Slack" } }
-
-  // A press of a button comes as a form holding payload.
-  let body
-  if (header("Content-Type").startsWith("application/x-www-form-urlencoded")) {
-    const form = {}
-    for (const pair of d.body.split("&")) {
-      const [k, v] = pair.split("=")
-      form[decodeURIComponent(k)] = decodeURIComponent((v || "").replace(/\+/g, " "))
-    }
-    body = JSON.parse(form.payload || "{}")
-  } else {
-    body = JSON.parse(d.body)
-  }
-  if (body.type === "url_verification") return { heard: [], answer: { status: 200, body: body.challenge } }
-
-  // heardIn gives the listed place a channel is, by its name as a person
+  // channelOf gives the listed place a channel is, by its name as a person
   // writes it, as #help, and who can read it, by who is in it.
   const channelOf = channel => {
     const info = must("conversations.info", null, { channel: channel })
@@ -98,7 +75,8 @@ if (input.do === "hear") {
     return { name: "#" + info.channel.name, readers: readers }
   }
 
-  if (body.type === "block_actions") {
+  // pressed gives the choice a press of a button made.
+  const pressed = body => {
     const action = (body.actions || [])[0] || {}
     const value = String(action.value || "")
     const cut = value.indexOf(":")
@@ -106,13 +84,10 @@ if (input.do === "hear") {
     const container = body.container || {}
     const where = channel ? channelOf(channel) : { direct: true }
     return {
-      heard: [{
-        id: "press:" + body.user.id + ":" + action.action_ts, kind: "choice", from: body.user.id,
-        heard_in: where.direct ? "direct" : where.name,
-        place: where.direct ? body.user.id : channel + "/" + (container.thread_ts || container.message_ts),
-        answers: cut < 0 ? value : value.slice(0, cut), choice: cut < 0 ? "" : value.slice(cut + 1),
-      }],
-      answer: { status: 200 },
+      id: "press:" + body.user.id + ":" + action.action_ts, kind: "choice", from: body.user.id,
+      heard_in: where.direct ? "direct" : where.name,
+      place: where.direct ? body.user.id : channel + "/" + (container.thread_ts || container.message_ts),
+      answers: cut < 0 ? value : value.slice(0, cut), choice: cut < 0 ? "" : value.slice(cut + 1),
     }
   }
 
@@ -136,40 +111,75 @@ if (input.do === "hear") {
     return text.includes("<@" + me + ">") || text.includes("<@" + me + "|")
   }
 
-  // Every message said is heard. Left out is only what is no message, and
-  // what a bot said, the app among them, each logged with its id, its
-  // place and why, by Slack's own word for what it is, and never its
-  // words.
-  const e = body.event || {}
-  const said = !e.subtype || e.subtype === "file_share" || e.subtype === "thread_broadcast" || e.subtype === "me_message"
-  let left = ""
-  if (body.type !== "event_callback" || e.type !== "message") left = e.type || body.type
-  else if (!said) left = e.subtype
-  else if (e.bot_id || !e.user) left = "bot"
-  if (left) {
-    log("left out " + (body.event_id || body.type) + " in " + (e.channel || "no channel") + ": " + left)
-    return { heard: [], answer: { status: 200 } }
+  // heard gives the thing an envelope holds: a press of a button, or a
+  // message said. Every message said is heard. Left out is only what is
+  // no message, and what a bot said, the app among them, each logged with
+  // its id, its place and why, by Slack's own word for what it is, and
+  // never its words.
+  const heard = envelope => {
+    const body = envelope.payload || {}
+    if (envelope.type === "interactive" && body.type === "block_actions") return pressed(body)
+    const e = body.event || {}
+    const said = !e.subtype || e.subtype === "file_share" || e.subtype === "thread_broadcast" || e.subtype === "me_message"
+    let left = ""
+    if (envelope.type !== "events_api" || body.type !== "event_callback" || e.type !== "message") left = e.type || body.type || envelope.type
+    else if (!said) left = e.subtype
+    else if (e.bot_id || !e.user) left = "bot"
+    if (left) {
+      log("left out " + (body.event_id || envelope.envelope_id) + " in " + (e.channel || "no channel") + ": " + left)
+      return null
+    }
+    const direct = e.channel_type === "im"
+    const where = direct ? { direct: true } : channelOf(e.channel)
+    const files = []
+    for (const f of e.files || []) {
+      const got = http.get(f.url_private, { headers: { Authorization: bearer("SLACK_TOKEN") }, as: "bytes", timeout: 60 })
+      if (got.status !== 200) throw new Error("Slack answered status " + got.status + " for the file " + f.name)
+      files.push({ name: f.name, data: got.body })
+    }
+    const thing = {
+      id: body.event_id || e.client_msg_id || e.channel + "/" + e.ts, kind: "said", from: e.user,
+      heard_in: direct ? "direct" : where.name,
+      place: direct ? e.user : e.channel + "/" + (e.thread_ts || e.ts),
+      readers: where.readers || [], text: big(e.text || ""), files: files,
+    }
+    if (direct) {
+      const answers = answered(e)
+      if (answers) thing.answers = answers
+    }
+    if (mentions(e.text || "")) thing.mentioned = true
+    return thing
   }
-  const direct = e.channel_type === "im"
-  const where = direct ? { direct: true } : channelOf(e.channel)
-  const files = []
-  for (const f of e.files || []) {
-    const got = http.get(f.url_private, { headers: { Authorization: bearer() }, as: "bytes", timeout: 60 })
-    if (got.status !== 200) throw new Error("Slack answered status " + got.status + " for the file " + f.name)
-    files.push({ name: f.name, data: got.body })
+
+  // Slack gives the app-level token the address of a connection, good for
+  // one, over which it sends each event and each press of a button in an
+  // envelope. Each is handed over as it is heard, and only then
+  // acknowledged: Slack sends again one it is not told was received. The
+  // run ends when Slack warns that it will close the connection, when it
+  // has closed it, or when the run has listened its while, and the next
+  // run connects again. Slack keeps nothing to read back, so the cursor
+  // says nothing.
+  const link = must("apps.connections.open", {}, null, "SLACK_APP_TOKEN")
+  const socket = websocket.connect(link.url, { timeout: 30 })
+  const until = Date.now() + listenFor
+  for (let left = listenFor; left > 0; left = until - Date.now()) {
+    let message
+    try {
+      message = socket.receive({ timeout: Math.ceil(left / 1000) })
+    } catch (e) {
+      if (e.code === "timeout") break
+      throw e
+    }
+    if (message === null) break
+    const envelope = JSON.parse(message)
+    if (envelope.type === "disconnect") break
+    if (!envelope.envelope_id) continue
+    const thing = heard(envelope)
+    if (thing) emit("heard", [thing])
+    socket.send(JSON.stringify({ envelope_id: envelope.envelope_id }))
   }
-  const thing = {
-    id: body.event_id || e.client_msg_id || e.channel + "/" + e.ts, kind: "said", from: e.user,
-    heard_in: direct ? "direct" : where.name,
-    place: direct ? e.user : e.channel + "/" + (e.thread_ts || e.ts),
-    readers: where.readers || [], text: big(e.text || ""), files: files,
-  }
-  if (direct) {
-    const answers = answered(e)
-    if (answers) thing.answers = answers
-  }
-  if (mentions(e.text || "")) thing.mentioned = true
-  return { heard: [thing], answer: { status: 200 } }
+  socket.close()
+  return { heard: [], cursor: 0 }
 }
 
 // split cuts text into parts Slack takes, in order, never inside a

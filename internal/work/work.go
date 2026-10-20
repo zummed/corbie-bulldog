@@ -211,6 +211,12 @@ type Work struct {
 	// hearing are those waiting for what to answer a delivery's service,
 	// by the run that hears it.
 	hearing map[string]chan *bridges.Answer
+	// following are the bridges' listening runs whose records are read as
+	// they are written, and handed what they handed over, not yet taken.
+	following map[string]bool
+	handed    []handover
+	// followers are the goroutines that read them.
+	followers sync.WaitGroup
 }
 
 // A call is a run below a run on a request that waits on its ticket: a
@@ -240,7 +246,7 @@ func New(db *sql.DB, c Corbie, clock Clock, identity string, a Areas) (*Work, er
 		changes: a.Changes, bridges: a.Bridges, read: map[string]*office.Office{},
 		roots: map[string]bool{}, calls: map[string]call{}, unknown: map[string]bool{}, cancelled: map[string]bool{},
 		queued: map[int64]bool{}, troubled: map[int64]string{}, later: map[string]time.Time{}, came: map[string]bool{},
-		dirty: map[int64]bool{}, wake: make(chan struct{}, 1), hearing: map[string]chan *bridges.Answer{}}
+		dirty: map[int64]bool{}, wake: make(chan struct{}, 1), hearing: map[string]chan *bridges.Answer{}, following: map[string]bool{}}
 	a.Requests.Runs = w.records
 	a.Requests.Watch(w.touch)
 	a.Decisions.Run = w.decider
@@ -359,6 +365,7 @@ func (w *Work) Run(ctx context.Context) error {
 	watching.Go(func() { w.watch(ctx) })
 	defer func() {
 		watching.Wait()
+		w.followers.Wait()
 		w.running.Store(false)
 		w.decide.Close()
 	}()
@@ -458,6 +465,7 @@ func (w *Work) step(ctx context.Context) bool {
 		w.update(ctx, u)
 		did = true
 	}
+	did = w.handOver(ctx) || did
 	if w.listed && !w.settled && !w.held("settle") {
 		w.settle(ctx)
 		did = true

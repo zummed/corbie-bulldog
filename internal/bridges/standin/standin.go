@@ -1,8 +1,9 @@
 // Package standin gives a stand-in bridge: a bridge folder written for the
 // tests and the demo, whose machines answer as they are told to. Its in
-// machine waits on a ticket, and ends with what it is answered, or fails
-// with the words it is given as fail; so does its out machine. It reaches
-// no service and needs no key.
+// machine waits on a ticket, and ends with what it is answered, fails with
+// the words it is given as fail, or hands over the things it is given as
+// hand and waits again; its out machine ends or fails alike. It reaches no
+// service and needs no key.
 package standin
 
 import (
@@ -17,14 +18,20 @@ const (
 	Carried = "carried"
 )
 
-// The stand-in's script: it fails with the words it is given.
-const script = `throw new Error(input.fail)
+// The stand-in's script: it hands over the things it is given, or fails
+// with the words it is given.
+const script = `if (input.hand !== undefined) {
+  emit("heard", input.hand)
+  return null
+}
+throw new Error(input.fail)
 `
 
 // in is the stand-in in machine, with the input it takes, cursor or
 // delivery, as %s.
 const in = `# A stand-in bridge's in machine: it waits for what it heard, and ends
-# with it, or fails with the words given as fail.
+# with it, fails with the words given as fail, or hands over the things
+# given as hand and waits again.
 statechart: standin-in
 input: [settings, %s]
 initial: waiting
@@ -34,7 +41,11 @@ states:
     on:
       heard:
         - { go: failing, when: "${event.data.fail !== undefined}" }
+        - { go: handing, when: "${event.data.hand !== undefined}" }
         - { go: ended }
+  handing:
+    job: { script: ./standin.js, input: { hand: "${event.data.hand}" } }
+    on: { done: waiting }
   ended: { end: done, output: "${event.data}" }
   failing:
     job: { script: ./standin.js, input: { fail: "${event.data.fail}" } }

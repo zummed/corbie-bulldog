@@ -1,34 +1,39 @@
 package bridges_test
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/coder/websocket"
+	"github.com/zummed/corbie/client"
+
+	"github.com/zummed/corbie-bulldog/internal/testkit"
 )
 
-// The bot token and the signing secret the stand-in Slack holds, and the
+// The bot token and the app-level token the stand-in Slack holds, and the
 // app's own user id there.
 const (
-	slackToken  = "xoxb-the-apps-own-token"
-	slackSigner = "the-signing-secret-8f2a"
-	slackApp    = "U0APP000"
+	slackToken    = "xoxb-the-apps-own-token"
+	slackAppToken = "xapp-the-apps-level-token"
+	slackApp      = "U0APP000"
 )
 
-// A slack stands in for Slack's Web API: it knows a few channels and who
-// is in them, keeps what the app posted, and answers as Slack does.
+// A slack stands in for Slack's Web API and its Socket Mode: it knows a
+// few channels and who is in them, keeps what the app posted, answers as
+// Slack does, and sends a connection the envelopes a test gives it,
+// telling the test each one acknowledged.
 type slack struct {
 	*httptest.Server
 	t      *testing.T
+	s      *service
 	mu     sync.Mutex
 	posted []map[string]any
 	ts     int
@@ -38,16 +43,24 @@ type slack struct {
 	gone map[string]bool
 	// fail, when set, answers a method in place of Slack, with an error.
 	fail func(method string) (string, bool)
+	// envelopes are sent to the connection open, and the id of each
+	// envelope it acknowledges is sent to acks.
+	envelopes chan map[string]any
+	acks      chan string
 }
 
 func newSlack(t *testing.T) *slack {
-	sl := &slack{t: t, ts: 1700000000, gone: map[string]bool{}, asked: map[string]int{}}
+	sl := &slack{t: t, ts: 1700000000, gone: map[string]bool{}, asked: map[string]int{}, envelopes: make(chan map[string]any), acks: make(chan string, 16)}
 	sl.Server = httptest.NewServer(http.HandlerFunc(sl.serve))
 	t.Cleanup(sl.Close)
 	return sl
 }
 
 func (sl *slack) serve(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/link/") {
+		sl.connected(w, r)
+		return
+	}
 	sl.mu.Lock()
 	defer sl.mu.Unlock()
 	answer := func(v map[string]any) {
@@ -61,6 +74,14 @@ func (sl *slack) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Write([]byte("the file " + r.URL.Path))
+		return
+	case r.URL.Path == "/api/apps.connections.open":
+		sl.asked["apps.connections.open"]++
+		if r.Header.Get("Authorization") != "Bearer "+slackAppToken {
+			answer(map[string]any{"ok": false, "error": "invalid_auth"})
+			return
+		}
+		answer(map[string]any{"ok": true, "url": "ws://" + strings.TrimPrefix(sl.URL, "http://") + "/link/?ticket=t1"})
 		return
 	}
 	method, _ := strings.CutPrefix(r.URL.Path, "/api/")
@@ -134,86 +155,187 @@ func (sl *slack) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// connected is a Socket Mode connection, as Slack keeps one: it says
+// hello, then sends each envelope the test gives it, and tells the test
+// the id of each envelope acknowledged, until the bridge closes it.
+func (sl *slack) connected(w http.ResponseWriter, r *http.Request) {
+	conn, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer conn.CloseNow()
+	ctx := context.Background()
+	closed := make(chan struct{})
+	go func() {
+		defer close(closed)
+		for {
+			_, data, err := conn.Read(ctx)
+			if err != nil {
+				return
+			}
+			var ack struct {
+				EnvelopeID string `json:"envelope_id"`
+			}
+			json.Unmarshal(data, &ack)
+			sl.acks <- ack.EnvelopeID
+		}
+	}()
+	send := func(v map[string]any) {
+		data, _ := json.Marshal(v)
+		conn.Write(ctx, websocket.MessageText, data)
+	}
+	send(map[string]any{"type": "hello", "num_connections": 1})
+	for {
+		select {
+		case <-closed:
+			return
+		case e := <-sl.envelopes:
+			send(e)
+		}
+	}
+}
+
 // newSlackBridge gives the shipped Slack bridge, pointed at a stand-in
 // Slack, in a Corbie of the test's own.
 func newSlackBridge(t *testing.T) (*slack, *service) {
 	sl := newSlack(t)
-	return sl, newService(t, pointed(t, "slack", sl.Server, "files.slack.com", "slack.com"),
-		map[string]string{"SLACK_TOKEN": slackToken, "SLACK_SIGNING_SECRET": slackSigner})
+	sl.s = newService(t, pointed(t, "slack", sl.Server, "files.slack.com", "slack.com", "wss-primary.slack.com"),
+		map[string]string{"SLACK_TOKEN": slackToken, "SLACK_APP_TOKEN": slackAppToken})
+	return sl, sl.s
 }
 
-// delivery gives what Slack sends the bridge's address with a body, signed
-// with a secret at a time.
-func delivery(body, contentType, secret string, at time.Time) map[string]any {
-	ts := fmt.Sprint(at.Unix())
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte("v0:" + ts + ":" + body))
-	return map[string]any{"method": "POST", "body": body, "headers": map[string]any{
-		"Content-Type": contentType, "X-Slack-Request-Timestamp": ts, "X-Slack-Signature": "v0=" + hex.EncodeToString(mac.Sum(nil)),
-	}}
+// envelopes counts the envelopes the stand-ins send, so each has an id of
+// its own.
+var envelopes struct {
+	sync.Mutex
+	n int
 }
 
-func event(id string, e map[string]any) string {
-	data, _ := json.Marshal(map[string]any{"type": "event_callback", "event_id": id, "event": e})
-	return string(data)
+// envelope gives what Slack sends over a connection: a payload of a kind,
+// in an envelope with an id of its own.
+func envelope(kind string, payload any) map[string]any {
+	envelopes.Lock()
+	defer envelopes.Unlock()
+	envelopes.n++
+	return map[string]any{"envelope_id": fmt.Sprintf("env-%d", envelopes.n), "type": kind, "payload": payload, "accepts_response_payload": false}
 }
 
-// hears runs the in machine on a delivery, and gives what it heard and
-// what it says to answer Slack.
-func (s *service) hears(d map[string]any) ([]map[string]any, map[string]any) {
-	s.t.Helper()
-	things, answer, _ := s.hearsLogged(d)
-	return things, answer
+// event gives an envelope of an event with an id.
+func event(id string, e map[string]any) map[string]any {
+	return envelope("events_api", map[string]any{"type": "event_callback", "event_id": id, "event": e})
 }
 
-// hearsLogged runs the in machine on a delivery, and gives what it heard,
-// what it says to answer Slack and the lines it logged.
-func (s *service) hearsLogged(d map[string]any) ([]map[string]any, map[string]any, []string) {
-	s.t.Helper()
-	ended := s.run("in.yaml", map[string]any{"settings": map[string]any{"places": map[string]any{"#help": map[string]any{"guests": true}}}, "delivery": d})
-	if ended.Status != "done" {
-		s.t.Fatalf("the in run ended %s: %s", ended.Status, ended.Error)
+// hears has a listening run of the in machine sent envelopes, and gives
+// what it handed over.
+func (sl *slack) hears(sent ...map[string]any) []map[string]any {
+	sl.t.Helper()
+	things, _, _ := sl.hearsLogged(sent...)
+	return things
+}
+
+// hearsLogged has a listening run of the in machine sent envelopes, each
+// once the one before is acknowledged, and then Slack's warning that it
+// will close the connection, and gives what it handed over, the lines it
+// logged and the ids of the envelopes acknowledged.
+func (sl *slack) hearsLogged(sent ...map[string]any) ([]map[string]any, []string, []string) {
+	sl.t.Helper()
+	run := sl.s.start("in.yaml", map[string]any{"settings": map[string]any{"places": map[string]any{"#help": map[string]any{"guests": true}}}, "cursor": nil})
+	var acks []string
+	for _, e := range sent {
+		sl.send(e)
+		acks = append(acks, sl.acked())
 	}
-	out := ended.Output.(map[string]any)
+	sl.send(map[string]any{"type": "disconnect", "reason": "warning"})
+	ended := sl.s.corbie.Ended(sl.t, run)
+	out, _ := ended.Output.(map[string]any)
+	if ended.Status != "done" || out["cursor"] == nil || len(out["heard"].([]any)) != 0 {
+		sl.t.Fatalf("the in run ended %s with %v: %s", ended.Status, ended.Output, ended.Error)
+	}
+	return sl.handed(run), sl.s.logged(run), acks
+}
+
+// send sends the connection open an envelope.
+func (sl *slack) send(e map[string]any) {
+	sl.t.Helper()
+	select {
+	case sl.envelopes <- e:
+	case <-time.After(testkit.Patience):
+		sl.t.Fatalf("no in run listened for %v", e)
+	}
+}
+
+// acked gives the id of the next envelope acknowledged.
+func (sl *slack) acked() string {
+	sl.t.Helper()
+	select {
+	case ack := <-sl.acks:
+		return ack
+	case <-time.After(testkit.Patience):
+		sl.t.Fatal("no envelope was acknowledged")
+	}
+	return ""
+}
+
+// handed gives the things a run handed over, as its record holds them.
+func (sl *slack) handed(run string) []map[string]any {
+	sl.t.Helper()
 	var things []map[string]any
-	for _, t := range out["heard"].([]any) {
-		things = append(things, t.(map[string]any))
+	_, err := sl.s.corbie.Record(context.Background(), run, func(e client.Entry) {
+		if e.Job != "" && e.Name == "heard" {
+			for _, t := range e.Data.([]any) {
+				things = append(things, t.(map[string]any))
+			}
+		}
+	})
+	if err != nil {
+		sl.t.Fatal(err)
 	}
-	answer, _ := out["answer"].(map[string]any)
-	return things, answer, s.logged(ended.ID)
+	return things
 }
 
-func TestBridgesSlackDeliverySignedAndFresh(t *testing.T) {
+func TestBridgesSlackEveryEnvelopeAcknowledged(t *testing.T) {
 	t.Parallel()
-	_, s := newSlackBridge(t)
-	body := event("Ev1", map[string]any{"type": "message", "channel": "C0HELP00", "channel_type": "channel", "user": "U0DANA00", "text": "hello", "ts": "1700000001.000100"})
-	if things, answer := s.hears(delivery(body, "application/json", slackSigner, time.Now())); len(things) != 1 || answer["status"] != float64(200) {
-		t.Errorf("a signed delivery is heard as %v, answered %v", things, answer)
+	sl, s := newSlackBridge(t)
+	run := s.start("in.yaml", map[string]any{"settings": map[string]any{}, "cursor": nil})
+	// A message is handed over while the run goes on, and acknowledged.
+	said := event("Ev1", map[string]any{"type": "message", "channel": "C0HELP00", "channel_type": "channel", "user": "U0DANA00", "text": "hello", "ts": "1700000001.000100"})
+	sl.send(said)
+	if ack := sl.acked(); ack != said["envelope_id"] {
+		t.Errorf("the message is acknowledged as %q", ack)
 	}
-	if things, answer := s.hears(delivery(body, "application/json", "another-secret", time.Now())); len(things) != 0 || answer["status"] != float64(401) {
-		t.Errorf("a delivery signed with another secret is heard as %v, answered %v", things, answer)
+	s.corbie.Until(t, "the message is handed over", func() bool { return len(sl.handed(run)) == 1 })
+	if r, err := s.corbie.Show(context.Background(), run); err != nil || r.HasEnded() {
+		t.Fatalf("the run %s has ended after one message: %v", run, err)
 	}
-	if things, answer := s.hears(delivery(body, "application/json", slackSigner, time.Now().Add(-6*time.Minute))); len(things) != 0 || answer["status"] != float64(401) {
-		t.Errorf("a delivery signed six minutes ago is heard as %v, answered %v", things, answer)
+	// What is left out is acknowledged too, as is every kind of envelope.
+	left := []map[string]any{
+		event("Ev2", map[string]any{"type": "message", "channel": "C0HELP00", "channel_type": "channel", "bot_id": "B07", "text": "a bot", "ts": "1700000002.000100"}),
+		envelope("slash_commands", map[string]any{"command": "/refund", "text": "4411", "channel_id": "C0HELP00"}),
+		envelope("interactive", map[string]any{"type": "view_submission"}),
 	}
-	tampered := delivery(body, "application/json", slackSigner, time.Now())
-	tampered["body"] = strings.Replace(body, "U0DANA00", "U0LEE000", 1)
-	if things, _ := s.hears(tampered); len(things) != 0 {
-		t.Errorf("a delivery changed after it was signed is heard as %v", things)
+	for _, e := range left {
+		sl.send(e)
+		if ack := sl.acked(); ack != e["envelope_id"] {
+			t.Errorf("%v is acknowledged as %q", e["type"], ack)
+		}
 	}
-	challenge := `{"type":"url_verification","challenge":"challenge-1"}`
-	if _, answer := s.hears(delivery(challenge, "application/json", slackSigner, time.Now())); answer["body"] != "challenge-1" {
-		t.Errorf("Slack's challenge is answered %v", answer)
+	sl.send(map[string]any{"type": "disconnect", "reason": "warning"})
+	ended := s.corbie.Ended(t, run)
+	sl.mu.Lock()
+	connections := sl.asked["apps.connections.open"]
+	sl.mu.Unlock()
+	if ended.Status != "done" || len(sl.handed(run)) != 1 || connections != 1 {
+		t.Errorf("the run ended %s with %v, having handed over %v", ended.Status, ended.Output, sl.handed(run))
 	}
 }
 
 func TestBridgesSlackPlaceIsTheThread(t *testing.T) {
 	t.Parallel()
-	sl, s := newSlackBridge(t)
+	sl, _ := newSlackBridge(t)
 	top := event("Ev1", map[string]any{"type": "message", "channel": "C0HELP00", "channel_type": "channel", "user": "U0DANA00", "text": "at the top", "ts": "1700000001.000100"})
 	under := event("Ev2", map[string]any{"type": "message", "channel": "C0HELP00", "channel_type": "channel", "user": "U0AL0000", "text": "under it", "ts": "1700000009.000100", "thread_ts": "1700000001.000100"})
-	a, _ := s.hears(delivery(top, "application/json", slackSigner, time.Now()))
-	b, _ := s.hears(delivery(under, "application/json", slackSigner, time.Now()))
+	a := sl.hears(top)
+	b := sl.hears(under)
 	if len(a) != 1 || len(b) != 1 || a[0]["place"] != "C0HELP00/1700000001.000100" || b[0]["place"] != a[0]["place"] || a[0]["heard_in"] != "#help" || b[0]["heard_in"] != "#help" {
 		t.Errorf("the top is heard as %v, and the reply as %v", a, b)
 	}
@@ -222,18 +344,18 @@ func TestBridgesSlackPlaceIsTheThread(t *testing.T) {
 	}
 	// What is said to the app directly is the sender's direct place.
 	dm := event("Ev3", map[string]any{"type": "message", "channel": "D0DANA00", "channel_type": "im", "user": "U0DANA00", "text": "to you", "ts": "1700000010.000100"})
-	if c, _ := s.hears(delivery(dm, "application/json", slackSigner, time.Now())); len(c) != 1 || c[0]["heard_in"] != "direct" || c[0]["place"] != "U0DANA00" {
+	if c := sl.hears(dm); len(c) != 1 || c[0]["heard_in"] != "direct" || c[0]["place"] != "U0DANA00" {
 		t.Errorf("a direct message is heard as %v", c)
 	}
 	// What the app itself posted is not heard.
 	own := event("Ev4", map[string]any{"type": "message", "channel": "C0HELP00", "channel_type": "channel", "bot_id": "B01", "text": "the answer", "ts": "1700000011.000100"})
-	if c, _ := s.hears(delivery(own, "application/json", slackSigner, time.Now())); len(c) != 0 {
+	if c := sl.hears(own); len(c) != 0 {
 		t.Errorf("the app's own message is heard as %v", c)
 	}
 	// A file said is read out of Slack.
 	file := event("Ev5", map[string]any{"type": "message", "subtype": "file_share", "channel": "C0HELP00", "channel_type": "channel", "user": "U0DANA00", "text": "this",
 		"ts": "1700000012.000100", "files": []any{map[string]any{"name": "receipt.png", "url_private": sl.URL + "/files/T01/receipt.png"}}})
-	c, _ := s.hears(delivery(file, "application/json", slackSigner, time.Now()))
+	c := sl.hears(file)
 	if len(c) != 1 || len(c[0]["files"].([]any)) != 1 {
 		t.Fatalf("a file is heard as %v", c)
 	}
@@ -253,15 +375,14 @@ func TestBridgesSlackChoicesAreButtons(t *testing.T) {
 	if !strings.Contains(string(actions), `"value":"r12:yes"`) || !strings.Contains(string(actions), `"value":"r12:no"`) {
 		t.Errorf("the buttons are %s", actions)
 	}
-	payload, _ := json.Marshal(map[string]any{"type": "block_actions", "user": map[string]any{"id": "U0LEE000", "username": "lee"},
+	press := envelope("interactive", map[string]any{"type": "block_actions", "user": map[string]any{"id": "U0LEE000", "username": "lee"},
 		"channel":   map[string]any{"id": "D0LEE000"},
 		"container": map[string]any{"message_ts": "1700000001.000100", "channel_id": "D0LEE000"},
 		"actions":   []any{map[string]any{"action_id": "choice-0", "value": "r12:yes", "action_ts": "1700000002.1"}}})
-	form := "payload=" + url.QueryEscape(string(payload))
-	things, answer := s.hears(delivery(form, "application/x-www-form-urlencoded", slackSigner, time.Now()))
+	things := sl.hears(press)
 	if len(things) != 1 || things[0]["kind"] != "choice" || things[0]["choice"] != "yes" || things[0]["answers"] != "r12" ||
-		things[0]["from"] != "U0LEE000" || things[0]["heard_in"] != "direct" || things[0]["place"] != "U0LEE000" || answer["status"] != float64(200) {
-		t.Errorf("Lee's press is heard as %v, answered %v", things, answer)
+		things[0]["from"] != "U0LEE000" || things[0]["heard_in"] != "direct" || things[0]["place"] != "U0LEE000" {
+		t.Errorf("Lee's press is heard as %v", things)
 	}
 	// An answer goes into its thread, with its files.
 	sent(t, s.carry(map[string]any{"to": "C0HELP00/1700000001.000100", "text": "Duplicate confirmed.",
@@ -273,34 +394,34 @@ func TestBridgesSlackChoicesAreButtons(t *testing.T) {
 
 func TestBridgesSlackDirectReplyAnswersWhatWasSent(t *testing.T) {
 	t.Parallel()
-	_, s := newSlackBridge(t)
+	sl, s := newSlackBridge(t)
 	// A question carried to Priya directly, and her typed reply in her
 	// conversation with the app.
 	ref := sent(t, s.carry(map[string]any{"to": "U0PRI000", "direct": true, "text": "Which card?", "choices": []any{}, "ref": "r7"}))
 	reply := event("Ev7", map[string]any{"type": "message", "channel": "D0PRI000", "channel_type": "im", "user": "U0PRI000", "text": "the visa", "ts": "1800000000.000100"})
-	things, _ := s.hears(delivery(reply, "application/json", slackSigner, time.Now()))
+	things := sl.hears(reply)
 	if len(things) != 1 || things[0]["answers"] != ref || things[0]["place"] != "U0PRI000" || things[0]["heard_in"] != "direct" {
 		t.Errorf("the reply is heard as %v, and what was sent is %s", things, ref)
 	}
 	// A reply under the app's message answers that message.
 	under := event("Ev8", map[string]any{"type": "message", "channel": "D0PRI000", "channel_type": "im", "user": "U0PRI000", "text": "under it",
 		"ts": "1800000001.000100", "thread_ts": "1700000099.000100"})
-	if things, _ := s.hears(delivery(under, "application/json", slackSigner, time.Now())); len(things) != 1 || things[0]["answers"] != "D0PRI000/1700000099.000100" {
+	if things := sl.hears(under); len(things) != 1 || things[0]["answers"] != "D0PRI000/1700000099.000100" {
 		t.Errorf("a reply under a message is heard as %v", things)
 	}
 	// In a conversation the app has said nothing in, a message answers
 	// nothing.
 	first := event("Ev9", map[string]any{"type": "message", "channel": "D0DANA00", "channel_type": "im", "user": "U0DANA00", "text": "hello", "ts": "1800000002.000100"})
-	if things, _ := s.hears(delivery(first, "application/json", slackSigner, time.Now())); len(things) != 1 || things[0]["answers"] != nil {
+	if things := sl.hears(first); len(things) != 1 || things[0]["answers"] != nil {
 		t.Errorf("a first message is heard as %v", things)
 	}
 }
 
 func testSlackIdentityIsLasting(t *testing.T) {
-	_, s := newSlackBridge(t)
+	sl, _ := newSlackBridge(t)
 	body := event("Ev1", map[string]any{"type": "message", "channel": "C0HELP00", "channel_type": "channel", "user": "U0DANA00",
 		"user_profile": map[string]any{"name": "dana.s", "display_name": "Dana"}, "text": "hello", "ts": "1700000001.000100"})
-	if things, _ := s.hears(delivery(body, "application/json", slackSigner, time.Now())); len(things) != 1 || things[0]["from"] != "U0DANA00" {
+	if things := sl.hears(body); len(things) != 1 || things[0]["from"] != "U0DANA00" {
 		t.Errorf("Slack: Dana is heard as %v", things)
 	}
 }
@@ -350,11 +471,11 @@ func testSlackReplyToGoneThread(t *testing.T) {
 
 func TestBridgesSlackMentionOfTheAppMarked(t *testing.T) {
 	t.Parallel()
-	sl, s := newSlackBridge(t)
+	sl, _ := newSlackBridge(t)
 	said := func(id, text string) map[string]any {
 		t.Helper()
 		body := event(id, map[string]any{"type": "message", "channel": "C0HELP00", "channel_type": "channel", "user": "U0DANA00", "text": text, "ts": "1700000001.000100"})
-		things, _ := s.hears(delivery(body, "application/json", slackSigner, time.Now()))
+		things := sl.hears(body)
 		if len(things) != 1 {
 			t.Fatalf("%q is heard as %v", text, things)
 		}
@@ -384,10 +505,10 @@ func TestBridgesSlackMentionOfTheAppMarked(t *testing.T) {
 }
 
 func testSlackEveryMessageHandedOver(t *testing.T) {
-	sl, s := newSlackBridge(t)
+	sl, _ := newSlackBridge(t)
 	at := func(id string, e map[string]any) map[string]any {
 		e["channel"], e["channel_type"] = "C0HELP00", "channel"
-		return delivery(event(id, e), "application/json", slackSigner, time.Now())
+		return event(id, e)
 	}
 	for id, e := range map[string]map[string]any{
 		"Ev1": {"type": "message", "user": "U0DANA00", "text": "at the top", "ts": "1700000001.000100"},
@@ -397,7 +518,7 @@ func testSlackEveryMessageHandedOver(t *testing.T) {
 			"files": []any{map[string]any{"name": "receipt.png", "url_private": sl.URL + "/files/T01/receipt.png"}}},
 		"Ev9": {"type": "message", "subtype": "me_message", "user": "U0DANA00", "text": "is looking", "ts": "1700000009.000100"},
 	} {
-		if things, _, logged := s.hearsLogged(at(id, e)); len(things) != 1 || things[0]["id"] != id || len(logged) != 0 {
+		if things, logged, _ := sl.hearsLogged(at(id, e)); len(things) != 1 || things[0]["id"] != id || len(logged) != 0 {
 			t.Errorf("Slack: %s is heard as %v, and logged %q", id, things, logged)
 		}
 	}
@@ -408,7 +529,7 @@ func testSlackEveryMessageHandedOver(t *testing.T) {
 		"Ev8": {"type": "member_joined_channel", "user": "U0RAJ000"},
 	} {
 		want := map[string]string{"Ev5": "bot", "Ev6": "bot", "Ev7": "message_changed", "Ev8": "member_joined_channel"}[id]
-		if things, _, logged := s.hearsLogged(at(id, e)); len(things) != 0 || fmt.Sprint(logged) != "[left out "+id+" in C0HELP00: "+want+"]" {
+		if things, logged, _ := sl.hearsLogged(at(id, e)); len(things) != 0 || fmt.Sprint(logged) != "[left out "+id+" in C0HELP00: "+want+"]" {
 			t.Errorf("Slack: %s is heard as %v, and logged %q", id, things, logged)
 		}
 	}

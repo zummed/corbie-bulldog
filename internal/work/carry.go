@@ -2,6 +2,7 @@ package work
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -144,24 +145,14 @@ func (w *Work) bridgeUnsent(s bridges.Start, run string, why error) error {
 // has passed. What an in run heard closed at its source stops the
 // requests it began, and a hearing run's service is told what to answer.
 func (w *Work) handBack(ctx context.Context, n *note, end bridges.End) bool {
-	end.Fetch = func(path string) ([]byte, error) {
-		r, _, err := w.corbie.Fetch(ctx, n.Name, path)
-		if err != nil {
-			return nil, err
-		}
-		return io.ReadAll(r)
-	}
+	end.Fetch = w.fetch(ctx, n.Name)
 	var err error
 	if n.Kind == bridges.KindIn {
 		var taken bridges.Taken
 		if taken, err = w.bridges.InEnded(n.Worker, n.Name, end); err == nil {
 			w.listenNow = true
 			w.heard(n.Name, taken.Answer)
-			if len(taken.Stopped) > 0 {
-				if err := w.stopped(ctx, taken.Stopped); err != nil {
-					w.Log("the requests %v were closed at their source on %s, and their runs could not be stopped: %v", taken.Stopped, n.Worker, err)
-				}
-			}
+			w.stopClosed(ctx, n.Worker, taken.Stopped)
 		}
 	} else {
 		var thing int64
@@ -176,6 +167,139 @@ func (w *Work) handBack(ctx context.Context, n *note, end bridges.End) bool {
 		return false
 	}
 	return true
+}
+
+// fetch reads a blob of a run's record by the path it was shown with.
+func (w *Work) fetch(ctx context.Context, run string) func(string) ([]byte, error) {
+	return func(path string) ([]byte, error) {
+		r, _, err := w.corbie.Fetch(ctx, run, path)
+		if err != nil {
+			return nil, err
+		}
+		return io.ReadAll(r)
+	}
+}
+
+// stopClosed stops the runs of the requests a bridge heard closed at their
+// source.
+func (w *Work) stopClosed(ctx context.Context, bridge string, numbers []int64) {
+	if len(numbers) == 0 {
+		return
+	}
+	if err := w.stopped(ctx, numbers); err != nil {
+		w.Log("the requests %v were closed at their source on %s, and their runs could not be stopped: %v", numbers, bridge, err)
+	}
+}
+
+// A listening run may hand over what it heard while it goes on, by
+// emitting it as heard. Its record is read as it is written, on a
+// goroutine of its own, and each handover is taken on the driving one.
+// Once the run has ended, its whole record is read for them again before
+// how it ended is handed back, so a handover read late, or never because
+// Bulldog was stopped, is taken all the same; a thing is taken once, by
+// its id, however often it is read.
+
+// A handover is one list of things a bridge's listening run handed over.
+type handover struct {
+	bridge string
+	run    string
+	heard  any
+}
+
+// follow has the record of a run of a bridge's in machine read as it is
+// written, once, when it is seen going and it is the run the bridge
+// listens by.
+func (w *Work) follow(ctx context.Context, r *client.Run) {
+	if r.Labels[bridges.LabelKind] != bridges.KindIn {
+		return
+	}
+	w.mu.Lock()
+	following := w.following[r.ID]
+	w.mu.Unlock()
+	if following {
+		return
+	}
+	bridge := r.Labels[bridges.LabelBridge]
+	switch run, err := w.bridges.Listening(bridge); {
+	case err != nil:
+		w.Log("whether %s is the listening run of the bridge %s could not be read, so what it hands over is taken when it ends: %v", r.ID, bridge, err)
+		return
+	case run != r.ID:
+		return
+	}
+	w.mu.Lock()
+	w.following[r.ID] = true
+	w.mu.Unlock()
+	w.followers.Go(func() { w.reading(ctx, bridge, r.ID) })
+}
+
+// reading hands the driving goroutine each list of things a listening run
+// hands over, as its record is written, until the run ends. Reading that
+// fails is begun again a second later, from the start of the record.
+func (w *Work) reading(ctx context.Context, bridge, run string) {
+	defer func() {
+		w.mu.Lock()
+		delete(w.following, run)
+		w.mu.Unlock()
+	}()
+	for ctx.Err() == nil {
+		_, err := w.corbie.Follow(ctx, run, w.Interval, func(e client.Entry) {
+			if heard, ok := handedOver(run, e); ok {
+				w.mu.Lock()
+				w.handed = append(w.handed, handover{bridge: bridge, run: run, heard: heard})
+				w.mu.Unlock()
+				w.poke()
+			}
+		})
+		if err == nil || ctx.Err() != nil || errors.Is(err, client.ErrNoRun) {
+			return
+		}
+		w.Log("reading what the listening run %s of the bridge %s hands over: %v; trying again in a second", run, bridge, err)
+		w.after(ctx, time.Second)
+	}
+}
+
+// handedOver gives what an entry of a listening run's record hands over:
+// a value one of its own jobs emitted as heard.
+func handedOver(run string, e client.Entry) (any, bool) {
+	return e.Data, e.ID == run && e.Job != "" && e.Name == bridges.EmitHeard
+}
+
+// handOver hands the bridges what their listening runs handed over since
+// the last pass, and says whether there was any. What cannot be taken now
+// is taken when its run ends.
+func (w *Work) handOver(ctx context.Context) bool {
+	w.mu.Lock()
+	handed := w.handed
+	w.handed = nil
+	w.mu.Unlock()
+	for _, h := range handed {
+		taken, err := w.bridges.Handed(h.bridge, bridges.End{Handed: []any{h.heard}, Fetch: w.fetch(ctx, h.run)})
+		if err != nil {
+			w.Log("what the listening run %s of the bridge %s handed over could not be taken, so it is taken when the run ends: %v", h.run, h.bridge, err)
+		}
+		w.stopClosed(ctx, h.bridge, taken.Stopped)
+	}
+	return len(handed) > 0
+}
+
+// handedBy gives everything a bridge's listening run handed over, read
+// from its record, once it has ended. Any other run hands over nothing.
+func (w *Work) handedBy(ctx context.Context, n *note) ([]any, error) {
+	if n.Kind != bridges.KindIn {
+		return nil, nil
+	}
+	run, err := w.bridges.Listening(n.Worker)
+	if err != nil || run != n.Name {
+		return nil, err
+	}
+	var handed []any
+	_, err = w.corbie.Record(ctx, n.Name, func(e client.Entry) {
+		if heard, ok := handedOver(n.Name, e); ok {
+			handed = append(handed, heard)
+		}
+	})
+	return handed, err
 }
 
 // heard sends what to answer a delivery's service to whoever waits for

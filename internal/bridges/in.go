@@ -170,24 +170,27 @@ func (b *Bridges) bridgeRow(name string) (bridgeRow, error) {
 }
 
 // InEnded takes what an in run heard, once it has ended: each thing once,
-// by its id, and for a listening run the cursor it ended with, kept only
-// after everything heard with it is taken. What each thing said as a blob
-// of the run is read out of it first, before this area's work, since a
-// slow read holds up no other bridge. A thing that cannot be read is not
-// taken, and is the bridge's trouble; one that could not be taken for a
-// fault of Bulldog's keeps the cursor where it was, so the next run hears
-// it again. A run that failed, that ended with no list of things, or, when
-// it listens, with no cursor to go on from, is the bridge's trouble, its
-// cursor is kept as it was, and it is started again after a pause that
-// grows with each failure in a row.
+// by its id, what a listening run handed over as it went first, and for a
+// listening run the cursor it ended with, kept only after everything heard
+// with it is taken. What each thing said as a blob of the run is read out
+// of it first, before this area's work, since a slow read holds up no
+// other bridge. A thing that cannot be read is not taken, and is the
+// bridge's trouble; one that could not be taken for a fault of Bulldog's
+// keeps the cursor where it was, so the next run hears it again. A run
+// that failed, that ended with no list of things, or, when it listens,
+// with no cursor to go on from, is the bridge's trouble, its cursor is
+// kept as it was, and it is started again after a pause that grows with
+// each failure in a row; what it handed over before it failed is taken
+// all the same, since the service was told it was received.
 func (b *Bridges) InEnded(name, run string, end End) (Taken, error) {
-	var out ran
+	out := readHanded(end.Handed)
 	if end.Failed == "" {
-		out = readHeard(end.Output)
-		for i := range out.things {
-			out.things[i].unread = readBlobs(&out.things[i], end.Fetch)
-		}
+		output := readHeard(end.Output)
+		out.things = append(out.things, output.things...)
+		out.problems = append(out.problems, output.problems...)
+		out.cursor, out.answer, out.fault = output.cursor, output.answer, output.fault
 	}
+	readAll(out.things, end.Fetch)
 	b.mu.Lock()
 	defer b.unlock()
 	o, err := b.office()
@@ -208,23 +211,15 @@ func (b *Bridges) InEnded(name, run string, end End) (Taken, error) {
 		faults = append(faults, end.Failed)
 	case out.fault != "":
 		faults = append(faults, out.fault)
-	case o.Bridges[name] == nil:
+	case listening && out.cursor == nil:
+		faults = append(faults, "the in run ended with no cursor to go on from, so the one before is kept")
+	}
+	if o.Bridges[name] == nil {
 		faults = append(faults, fmt.Sprintf("the bridge %s is not in the office, so what it heard was not taken", name))
-	default:
-		if listening && out.cursor == nil {
-			faults = append(faults, "the in run ended with no cursor to go on from, so the one before is kept")
-		}
-		for _, t := range out.things {
-			stopped, problem, err := b.take(o, name, t)
-			if err != nil {
-				faults = append(faults, fmt.Sprintf("thing %s could not be taken: %v", t.ID, err))
-				continue
-			}
-			if problem != "" {
-				problems = append(problems, problem)
-			}
-			taken.Stopped = append(taken.Stopped, stopped...)
-		}
+	} else {
+		var notTaken []string
+		taken.Stopped, notTaken, problems = b.takeAll(o, name, out.things, problems)
+		faults = append(faults, notTaken...)
 	}
 	if listening && len(faults) == 0 {
 		kept, err := json.Marshal(out.cursor)
@@ -248,6 +243,58 @@ func (b *Bridges) InEnded(name, run string, end End) (Taken, error) {
 		return taken, failed(err)
 	}
 	return taken, nil
+}
+
+// Handed takes what a bridge's listening run hands over while it goes on,
+// each thing once, by its id, as InEnded takes it; the cursor and the run
+// are kept as they are. A thing that cannot be taken is the bridge's
+// trouble, and is looked at again when the run ends, since everything the
+// run handed over is handed back then.
+func (b *Bridges) Handed(name string, end End) (Taken, error) {
+	out := readHanded(end.Handed)
+	readAll(out.things, end.Fetch)
+	b.mu.Lock()
+	defer b.unlock()
+	o, err := b.office()
+	if err != nil || o.Bridges[name] == nil {
+		return Taken{}, err
+	}
+	var taken Taken
+	var faults, problems []string
+	taken.Stopped, faults, problems = b.takeAll(o, name, out.things, out.problems)
+	if all := append(faults, problems...); len(all) > 0 {
+		return taken, b.trouble(name, strings.Join(all, "; "))
+	}
+	return taken, nil
+}
+
+// Listening gives the run a bridge listens by while one goes, and "" when
+// none does.
+func (b *Bridges) Listening(name string) (string, error) {
+	b.mu.Lock()
+	defer b.unlock()
+	row, err := b.bridgeRow(name)
+	return row.run, err
+}
+
+// takeAll takes each thing heard, and gives the requests a close at the
+// source stopped, the faults of Bulldog's that kept a thing from being
+// taken, and the problems given with what each thing's taking found.
+func (b *Bridges) takeAll(o *office.Office, name string, things []thing, problems []string) ([]int64, []string, []string) {
+	var stopped []int64
+	var faults []string
+	for _, t := range things {
+		s, problem, err := b.take(o, name, t)
+		if err != nil {
+			faults = append(faults, fmt.Sprintf("thing %s could not be taken: %v", t.ID, err))
+			continue
+		}
+		if problem != "" {
+			problems = append(problems, problem)
+		}
+		stopped = append(stopped, s...)
+	}
+	return stopped, faults, problems
 }
 
 // trouble keeps what went wrong with a bridge's run, to be shown until a
@@ -337,7 +384,39 @@ func readHeard(output any) ran {
 	if out["heard"] != nil && !ok {
 		return ran{fault: fmt.Sprintf("heard is %s, and is a list of things", shape(out["heard"]))}
 	}
-	r := ran{cursor: out["cursor"], answer: readAnswer(out["answer"])}
+	r := readThings(list)
+	r.cursor, r.answer = out["cursor"], readAnswer(out["answer"])
+	return r
+}
+
+// readHanded reads what a listening run handed over as it went, each a
+// list of things. One that is not a list is a problem, and takes nothing.
+func readHanded(handed []any) ran {
+	var r ran
+	for _, value := range handed {
+		list, ok := value.([]any)
+		if !ok {
+			r.problems = append(r.problems, fmt.Sprintf("the in run handed over %s as %s, and hands over a list of things", shape(value), EmitHeard))
+			continue
+		}
+		got := readThings(list)
+		r.things = append(r.things, got.things...)
+		r.problems = append(r.problems, got.problems...)
+	}
+	return r
+}
+
+// readAll reads out of the run what each thing said as a blob.
+func readAll(things []thing, fetch func(string) ([]byte, error)) {
+	for i := range things {
+		things[i].unread = readBlobs(&things[i], fetch)
+	}
+}
+
+// readThings reads a list of things heard. A thing without its id, its
+// kind or who it is from is not taken, and is said among the problems.
+func readThings(list []any) ran {
+	var r ran
 	for i, item := range list {
 		m, ok := item.(map[string]any)
 		if !ok {
