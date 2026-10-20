@@ -1,8 +1,8 @@
 // Package shipped holds what Bulldog ships, as one tree, which is
 // .bulldog/ in every office: its own machines, flat at the top, the ask, a
 // tool's call, a routine's clock and the server's own run; and one folder
-// for each thing an office uses by its path there, a tools file or a
-// bridge, with the thing's page as its README.md. Each tool is a run that
+// for each thing an office uses by its path there, a tools file, a bridge
+// or a rule, with the thing's page as its README.md. Each tool is a run that
 // only waits on a ticket, which Bulldog answers.
 package shipped
 
@@ -32,6 +32,9 @@ const (
 	Talk  = "tools/talk/talk.yaml"
 	Notes = "tools/notes/notes.yaml"
 	Build = "tools/build/build.yaml"
+
+	Mentioned = "rules/mentioned/mentioned.js"
+	ForUs     = "rules/for-us/for-us.yaml"
 )
 
 // Page is the file of a shipped folder that is its page of the manual, its
@@ -55,11 +58,11 @@ const (
 // The tree is read from here, by the office's loader, and written into an
 // office's .bulldog/ for people to read; they are the same.
 //
-//go:embed ask.yaml call.yaml live.yaml clock.yaml tools bridges/*/*
+//go:embed ask.yaml call.yaml live.yaml clock.yaml tools bridges/*/* rules
 var tree embed.FS
 
 // kinds are the folders of the tree that hold one folder for each thing.
-var kinds = []string{"tools", "bridges"}
+var kinds = []string{"tools", "bridges", "rules"}
 
 // old are the files earlier versions shipped flat at the top, which are
 // taken away.
@@ -90,7 +93,7 @@ func File(name string) ([]byte, bool) {
 }
 
 // Things lists the folders of the things Bulldog ships, by their paths in
-// Dir, such as tools/talk and bridges/slack.
+// Dir, such as tools/talk, bridges/slack and rules/for-us.
 func Things() []string {
 	var things []string
 	for _, kind := range kinds {

@@ -1,0 +1,25 @@
+# A team's heed that asks a fast model whether what is new is for the
+# team. Its script acts at once on what is addressed to the lead, as the
+# mentioned heed does, and otherwise asks a System One model at
+# api.typesafe.ai, with the Corbie secret TYPESAFE_KEY. Its settings each
+# have their default written where they are read. Its one time limit is
+# timeout, a timer of the chart's, which ends it as act whatever its
+# script is doing, the runner it was on gone among it.
+statechart: for-us
+input: [said, request, settings]
+initial: deciding
+states:
+  deciding:
+    job:
+      script: ./for-us.js
+      input:
+        said: ${input.said}
+        request: ${input.request}
+        threshold: ${input.settings.threshold ?? 0.5}
+        model: ${input.settings.model ?? 'jev-latest'}
+        question: ${input.settings.question ?? 'The newest message asks this team for something, or answers what it last said.'}
+      allow: [net:api.typesafe.ai, "secret:TYPESAFE_KEY@net:api.typesafe.ai"]
+    timers: { out: "${input.settings.timeout ?? '10s'}" }
+    on: { done: weighed, out: timed_out }
+  weighed: { end: done, output: "${states.deciding.output}" }
+  timed_out: { end: done, output: { says: act, note: timed out } }

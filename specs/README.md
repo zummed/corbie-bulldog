@@ -104,6 +104,7 @@ Corbie's words keep Corbie's meaning: machine, definition, job, ticket, ask, tag
 Each is general to any client of Corbie.
 
 - **Runner tags given once at a start**, joined to each script job's tags in the tree, for an office whose sensitive team's jobs run only on a runner beside their system.
+- **A definition's inputs as a schema**, each with its type, its default and what it is for, filled in at the start and given to clients, so a shipped rule's settings are read with their defaults from its definition, not written as a default into each expression that reads one, and an office's settings for a shipped thing are checked against it when the office is read (under way in Corbie).
 
 ## Built with
 

@@ -258,3 +258,39 @@ func TestWorkNoLeadWhileAHeedWeighs(t *testing.T) {
 		t.Errorf("the heed's runs are %+v", heeds)
 	}
 }
+
+func TestTheShippedMentionedHeedLetsThroughWhatIsAddressed(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, heeding(t, "./.bulldog/rules/mentioned/mentioned.js", nil))
+	say := func(n int64, id, text string, mentioned bool) {
+		if _, err := b.reqs.Say(n, requests.Identity("slack", id), text, nil, requests.Where{Bridge: "slack", Place: "#help/1700.1"}, mentioned); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Dana's asking names nobody: it is noted.
+	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "is the API down?", nil, false)).Number
+	if h := b.heeded(n, 1); h.How != "note: Not addressed to bot." || h.Team != "office" {
+		t.Errorf("the heed's run is %+v", h)
+	}
+	b.settled(n, requests.Answered)
+	// Naming the bot, she is answered; and what she says straight after
+	// its answer is for it too.
+	say(n, "U0DANA00", "<@U0APP000> is it?", true)
+	b.started(n, 1)
+	b.settled(n, requests.Answered)
+	say(n, "U0DANA00", "and now?", false)
+	if h := b.heeded(n, 3); h.How != "act: Follows bot's answer." {
+		t.Errorf("the heed's run is %+v", h)
+	}
+	b.started(n, 2)
+	b.settled(n, requests.Answered)
+	// Al, after the bot's answer to Dana, is not addressing it.
+	say(n, "U0AL0000", "same here", false)
+	if h := b.heeded(n, 4); h.How != "note: Not addressed to bot." {
+		t.Errorf("the heed's run is %+v", h)
+	}
+	b.settled(n, requests.Answered)
+	if runs := b.runs(n); len(runs) != 2 {
+		t.Errorf("the bot was started %d times", len(runs))
+	}
+}

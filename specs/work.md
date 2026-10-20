@@ -34,6 +34,11 @@ The heed answers `{ says: act | note, note }`:
 
 A heed's run counts toward neither `runs:` nor the runs in a row, and a heed with a problem is not asked: the lead starts as if there were none. What a heed read is its team's, whichever folder holds its rule.
 
+Bulldog ships two heeds, each in its folder in `.bulldog/rules/` with its page. Each acts if any message it weighs is addressed to the lead: marked by its bridge as naming the bot, or said straight after the lead's answer by whoever that answer went to.
+
+- **mentioned**, `mentioned/mentioned.js`, a bare script with no settings that asks no model, notes everything else, "Not addressed to bot.".
+- **for-us**, `for-us/for-us.yaml`, a statechart, asks a System One model of everything else whether the newest message is for the team, given the team, the thread before and what is new, and acts when the model is at least as sure as its threshold, or notes "Not for Platform support (0.12)". It needs the secret `TYPESAFE_KEY`, for `api.typesafe.ai`. Its settings are `timeout`, 10s; `threshold`, 0.5; `model`, `jev-latest`; and `question`, what the model is asked, each default written in the definition where the setting is read. `timeout` is a timer of the chart, around everything it does: past it, the heed ends as act, with the note "timed out".
+
 ## What a run is given
 
 Bulldog starts a worker as its definition is written, with one thing filled in: a model named by one word is replaced by the model of that name the office gives, from the worker's own team or else the nearest team around it, as the office page says. A model written out in full is sent as it is, and nothing else is filled in: not the tools file, not the ask. It gives three inputs, and a definition reads the ones it wants.
@@ -179,7 +184,7 @@ A run goes on as it was started when the files change, and the worker's next run
 | the open requests a routine's run is given | the newest 50, and a line saying how many more there are |
 | what `read_thread` gives | its whole entries within 20,000 characters, a first one longer than that cut, and a line saying how many more there are and where to read on |
 | levels of sub-requests below a request | 8 |
-| how long a heed weighs | its rule's own: Bulldog keeps no limit |
+| how long a heed weighs | its rule's own: Bulldog keeps no limit; for-us's is its `timeout`, 10s unless the team file sets it |
 | runs of one request in a row with nothing said in it by a person | 20; then the request is answered as stopped at the limit, or, where the last of them was started by a refused answer, the asker is told that the team did not disclose its answer; a person saying more in it starts it again |
 | how long a shipped tool waits | 7 days |
 | how far up Bulldog looks for the worker that called | 16 runs |

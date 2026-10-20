@@ -112,7 +112,7 @@ func TestToolsNamed(t *testing.T) {
 func TestEveryShippedThingHasItsPage(t *testing.T) {
 	t.Parallel()
 	things := shipped.Things()
-	if !slices.Equal(things, []string{"tools/build", "tools/notes", "tools/talk", "bridges/gitlab", "bridges/jira", "bridges/slack", "bridges/telegram"}) {
+	if !slices.Equal(things, []string{"tools/build", "tools/notes", "tools/talk", "bridges/gitlab", "bridges/jira", "bridges/slack", "bridges/telegram", "rules/for-us", "rules/mentioned"}) {
 		t.Errorf("Bulldog ships %v", things)
 	}
 	pages := shipped.Pages()
@@ -135,9 +135,9 @@ func TestEveryShippedThingHasItsPage(t *testing.T) {
 			}
 		}
 	}
-	// A tools file's page shows it named by its path; a bridge's entry is
-	// a mapping that lists its places.
-	for _, file := range []string{shipped.Talk, shipped.Notes, shipped.Build} {
+	// A tools file's page, and a rule's, shows it named by its path; a
+	// bridge's entry is a mapping that lists its places.
+	for _, file := range []string{shipped.Talk, shipped.Notes, shipped.Build, shipped.Mentioned, shipped.ForUs} {
 		page, _ := shipped.File(path.Join(path.Dir(file), shipped.Page))
 		if !strings.Contains(string(page), "./"+path.Join(shipped.Dir, file)) {
 			t.Errorf("the page of %s does not name it by its path", file)

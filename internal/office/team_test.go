@@ -192,6 +192,18 @@ func TestARuleMayBeOneBulldogShips(t *testing.T) {
 		"garden/team.yaml", "../.bulldog/rules/none/none.js", "no rule Bulldog ships")
 	says(t, refused(t, replace(t, house(t), "garden/team.yaml", "everything: [sam]", "everything: [./.bulldog/rules/none/none.js, sam]")),
 		"garden/team.yaml", "./.bulldog/rules/none/none.js", "not a file of the office")
+	// The heeds Bulldog ships are read from what it ships, a definition
+	// and a bare script, and are of no team.
+	for heed, script := range map[string]bool{"../.bulldog/rules/for-us/for-us.yaml": false, "../.bulldog/rules/mentioned/mentioned.js": true} {
+		o := reads(t, heeded(t, "{ rule: "+heed+", timeout: 5s }", nil))
+		h := o.Teams["garden"].Heed
+		if h == nil || !h.Runs() || h.Settings["timeout"] != "5s" {
+			t.Fatalf("the garden's heed is %#v", h)
+		}
+		if r := o.Rules[h.Rule]; r == nil || r.Team != "" || r.Script != script || !script && r.Draft == nil || len(r.Written) == 0 {
+			t.Errorf("%s is %#v", heed, r)
+		}
+	}
 }
 
 func TestOfficeTopEverythingNamesAPerson(t *testing.T) {

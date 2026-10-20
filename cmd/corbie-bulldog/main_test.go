@@ -175,7 +175,7 @@ func TestServerInitSaysWhatItDid(t *testing.T) {
 	if status != 0 || !strings.Contains(out, "the example was written there") || !strings.Contains(out, "is a git repository now") {
 		t.Fatalf("init of a folder not there: status %d, printed %q", status, out)
 	}
-	for _, name := range []string{"identity", "bulldog.db", "ask.yaml", "call.yaml", "live.yaml", "clock.yaml", "tools/talk/talk.yaml", "tools/talk/README.md", "tools/notes/notes.yaml", "tools/build/build.yaml", "bridges/telegram/in.yaml", "bridges/slack/README.md"} {
+	for _, name := range []string{"identity", "bulldog.db", "ask.yaml", "call.yaml", "live.yaml", "clock.yaml", "tools/talk/talk.yaml", "tools/talk/README.md", "tools/notes/notes.yaml", "tools/build/build.yaml", "bridges/telegram/in.yaml", "bridges/slack/README.md", "rules/mentioned/mentioned.js", "rules/for-us/for-us.yaml", "rules/for-us/README.md"} {
 		if _, err := os.Stat(filepath.Join(dir, ".bulldog", name)); err != nil {
 			t.Errorf(".bulldog/ holds no %s: %v", name, err)
 		}
