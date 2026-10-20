@@ -152,7 +152,7 @@ The second rule picks the first one's referral by its file's name, never by its 
   "decision": 1,
   "team": "payments",
   "team_called": "Payments",
-  "does": "Answer of Payments, to disclose",
+  "does": "ledger's answer to Dana, in the chat on the screens",
   "text": "Yes: card 4111111111111111 was charged twice on 3 Oct. I refunded one.",
   "disclosure": {
     "what": "answer",
@@ -166,7 +166,7 @@ The second rule picks the first one's referral by its file's name, never by its 
   "request": { "number": 1, "asked": "was customer 4411 charged twice?", "asker": "Dana" },
   "referrals": [{ "by": "finds-numbers.js", "kind": "rule", "note": "{\"numbers\":[\"4111111111111111\"]}" }],
   "referral_goes_to": [{ "kind": "people", "list": "everything", "team": "payments", "to": "Lee or Priya" }],
-  "ends": "Your yes or your refusal ends it. A referral goes on, with your note, to Lee or Priya, on Payments's everything list."
+  "ends": "Your yes or your refusal ends it. A referral goes on, with your note, to Lee or Priya, on Payments' everything list."
 }
 ```
 

@@ -246,7 +246,8 @@ func TestDisclosureDeciderShownWhatWouldLeave(t *testing.T) {
 	rel := r.Input["disclosure"].(map[string]any)
 	notes := r.Input["notes"].([]map[string]any)
 	if rel["what"] != "answer" || rel["text"] != "Duplicate confirmed; £40 refunded." || rel["to"] != "bot, of office" || rel["read_at"] != "#help on slack" ||
-		len(notes) != 1 || !strings.Contains(notes[0]["text"].(string), "A charge taken twice") || r.Input["request"].(map[string]any)["asked"] != "was 4411 charged twice?" {
+		len(notes) != 1 || !strings.Contains(notes[0]["text"].(string), "A charge taken twice") || r.Input["request"].(map[string]any)["asked"] != "was 4411 charged twice?" ||
+		r.Input["does"] != "ledger's answer to bot, of office" {
 		t.Fatalf("the rule is given %v", r.Input)
 	}
 	r.says(decisions.SaysYes, "")
@@ -264,19 +265,27 @@ func TestDisclosureDeciderShownWhatWouldLeave(t *testing.T) {
 	w.disclose(decisions.Said{What: decisions.SaysTell, Request: dana.Number, By: w.reqs.Worker("ledger"), To: dana.Asker, Text: "looking at the charges now"})
 	r = w.runner.next(t)
 	rel = r.Input["disclosure"].(map[string]any)
-	if rel["what"] != "tell" || rel["to"] != "Dana" || rel["read_at"] != "#help on slack" || rel["said_in"] != dana.Number || len(r.Input["notes"].([]map[string]any)) != 1 {
+	if rel["what"] != "tell" || rel["to"] != "Dana" || rel["read_at"] != "#help on slack" || rel["said_in"] != dana.Number || len(r.Input["notes"].([]map[string]any)) != 1 ||
+		r.Input["does"] != "ledger's message to Dana" {
 		t.Fatalf("the rule is given %v", r.Input)
+	}
+	r.says(decisions.SaysYes, "")
+	w.disclose(decisions.Said{What: decisions.SaysAnswer, Request: dana.Number, By: w.reqs.Worker("ledger"), Text: "4411 is refunded."})
+	if r = w.runner.next(t); r.Input["does"] != "ledger's answer to Dana, in #help on slack" {
+		t.Fatalf("the answer is given as %v", r.Input["does"])
 	}
 	r.says(decisions.SaysYes, "")
 	q := b.disclose(decisions.Said{What: decisions.SaysSub, Request: sub, By: b.reqs.Worker("ledger"), Team: "platform", Text: "what deployed?", Ticket: "t-8"})
 	r = b.runner.next(t)
 	rel = r.Input["disclosure"].(map[string]any)
-	if rel["what"] != "sub" || rel["to"] != "Platform" || rel["to_team"] != "platform" || rel["said_in"] != sub || r.Input["does"] != "Question to Platform, to disclose" {
+	if rel["what"] != "sub" || rel["to"] != "Platform" || rel["to_team"] != "platform" || rel["said_in"] != sub || r.Input["does"] != "ledger's request to Platform" {
 		t.Fatalf("the rule is given %v", r.Input)
 	}
 	r.says(decisions.SaysRefer, "unsure")
 	b.until("Lee is asked", func() bool { return len(b.waitingFor("lee")) == 1 })
-	if text := b.waitingFor("lee")[0].Text; !strings.Contains(text, "no-account-numbers.yaml referred it: unsure") || !strings.Contains(text, "what deployed?") {
+	if text := b.waitingFor("lee")[0].Text; !strings.HasPrefix(text, "Before it is sent: ledger's request to Platform\nPayments checks what it says to anyone outside it, and this waits on you:\n\nwhat deployed?\n\n") ||
+		!strings.Contains(text, "no-account-numbers.yaml referred it: unsure") ||
+		!strings.HasSuffix(text, "Answer yes to send it as it is, or refuse to send it back to ledger, with a note if you like.") {
 		t.Fatalf("Lee is shown %s", text)
 	}
 	// On the screens, Lee is shown what would leave, whom it is to, where

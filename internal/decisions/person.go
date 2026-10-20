@@ -76,7 +76,7 @@ func (d *Decisions) Decide(ctx context.Context, id int64, by requests.Who, says,
 		if says == SaysRefuse {
 			ended = Refused
 		}
-		reply = Reply{Taken: true, Text: fmt.Sprintf("Taken: your %s on %s.", says, lower(dec.Does(o)))}
+		reply = Reply{Taken: true, Text: fmt.Sprintf("Taken: your %s on %s.", says, d.doesInSentence(o, dec))}
 		err = d.end(dec, ended, d.personWord(o, person, strings.TrimSpace(note)), fx)
 		if err != nil && dec.Ended == "" {
 			reply = Reply{Text: "Your answer was not taken, since it could not be kept, and nothing was done: try again."}

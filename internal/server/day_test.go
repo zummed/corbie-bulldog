@@ -373,7 +373,7 @@ func TestServerTheWorkOfficesRefundDay(t *testing.T) {
 	// and the answer leaves payments.
 	s.answered(payments)
 
-	holds(t, "Lee's view of payments' request", lee.view(payments).all(), "to disclose: approved by disclosure.js")
+	holds(t, "Lee's view of payments' request", lee.view(payments).all(), "ledger's answer to bot, of office: approved by disclosure.js")
 
 	// 6. The bot's answer lands in Dana's thread.
 	s.answered(n)
@@ -462,7 +462,7 @@ func TestServerDecisionGivenAsFarAsEachSees(t *testing.T) {
 	}
 	lee.post("/api/requests/"+itoa(payments)+"/decisions/"+itoa(refund[0].ID), map[string]string{"says": "yes", "note": "A duplicate, plainly."}).is(http.StatusOK)
 	s.answered(payments)
-	holds(t, "Lee's view of payments' request", lee.view(payments).all(), "to disclose: approved by disclosure.js")
+	holds(t, "Lee's view of payments' request", lee.view(payments).all(), "ledger's answer to bot, of office: approved by disclosure.js")
 
 	// Dana, who sees what was done, is given the refund as what it is, and
 	// who ended it, with nothing of its notes, its walk or its arguments,

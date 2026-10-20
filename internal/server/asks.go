@@ -295,7 +295,7 @@ func (s *site) decisionsOf(o *office.Office, n int64, person string, done bool) 
 // worker that referred or ended it with the team it is of; and what a
 // disclosure would let out to those asked it alone.
 func (s *site) decisionOf(o *office.Office, d *decisions.Decision, person string, asked, ofTeam bool) (decisionOut, error) {
-	out := decisionOut{ID: d.ID, Kind: d.Kind, Team: d.Team, Does: d.Does(o), Asked: orEmpty(d.Asked),
+	out := decisionOut{ID: d.ID, Kind: d.Kind, Team: d.Team, Does: s.Decisions.Does(o, d), Asked: orEmpty(d.Asked),
 		Ended: d.Ended, Why: d.Why, Mine: d.Ended == "" && slices.Contains(d.Asked, person)}
 	if d.Said != nil {
 		out.What = d.Said.What

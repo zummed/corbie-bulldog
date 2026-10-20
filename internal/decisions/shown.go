@@ -16,7 +16,7 @@ import (
 // it, and where its own referral would go. A disclosure is given the team's notes as
 // they are now, and what would leave as its text.
 func (d *Decisions) input(o *office.Office, dec *Decision, stages []Stage, at int) (map[string]any, string, error) {
-	in := map[string]any{"kind": dec.Kind, "decision": dec.ID, "team": dec.Team, "team_called": called(o, dec.Team), "does": dec.Does(o)}
+	in := map[string]any{"kind": dec.Kind, "decision": dec.ID, "team": dec.Team, "team_called": called(o, dec.Team), "does": d.Does(o, dec)}
 	referrals := []map[string]any{}
 	for _, w := range dec.Referrals {
 		referrals = append(referrals, map[string]any{"by": w.Called, "kind": w.Kind, "note": w.Note})
@@ -104,7 +104,7 @@ func (d *Decisions) referWords(o *office.Office, dec *Decision, after []Stage) s
 		return "nobody, so a referral ends it"
 	}
 	s, last := after[0], after[len(after)-1]
-	where := fmt.Sprintf("%s, on %s's %s list", d.stageCalled(o, s), inSentence(called(o, s.Team)), s.List)
+	where := fmt.Sprintf("%s, on %s %s list", d.stageCalled(o, s), possessive(inSentence(called(o, s.Team))), s.List)
 	switch {
 	case s.List == drafter:
 		return fmt.Sprintf("nobody else: it is %s's own change, so a referral is taken as their yes, and the change is written", d.stageCalled(o, s))
@@ -123,6 +123,18 @@ func ends(dec *Decision, where string) string {
 	return "Your yes or your refusal ends it. A referral goes on, with your note, to " + where + "."
 }
 
+// leadCalled gives a team's lead as a sentence names it.
+func leadCalled(o *office.Office, team string) string {
+	t := o.Teams[team]
+	if t == nil {
+		return "its lead"
+	}
+	if o.People[t.Lead] != nil {
+		return calledOf(o, office.IsPerson, t.Lead)
+	}
+	return t.Lead
+}
+
 // stageCalled gives a stage as a sentence names it.
 func (d *Decisions) stageCalled(o *office.Office, s Stage) string {
 	if s.Kind == IsPeople {
@@ -131,22 +143,61 @@ func (d *Decisions) stageCalled(o *office.Office, s Stage) string {
 	return calledOf(o, s.Kind, s.Name)
 }
 
-// Does gives what a decision is, in a line, built from what it holds and
-// the office as read now: the action as its tool describes itself; what
-// is to be disclosed, a question to another team naming the team asked;
-// or the change, by the first line of why it was drafted.
-func (dec *Decision) Does(o *office.Office) string {
+// Does gives what a decision is, in a line, built from what it holds, the
+// office as read now and, for an answer to be disclosed, its request: the
+// action as its tool describes itself; what would be disclosed, by whom
+// and to whom, and an answer where it is read, as "ledger's answer to
+// Dana, in the chat on the screens"; or the change, by the first line of
+// why it was drafted. Whom an answer goes to, or where, is left out when
+// it cannot be read.
+func (d *Decisions) Does(o *office.Office, dec *Decision) string {
 	switch dec.Kind {
 	case OfDisclosure:
-		if s := dec.Said; s.What == SaysSub {
-			return fmt.Sprintf("Question to %s, to disclose", called(o, s.Team))
+		s := dec.Said
+		by := possessive(d.whoCalled(o, s.By))
+		switch s.What {
+		case SaysSub:
+			return fmt.Sprintf("%s request to %s", by, called(o, s.Team))
+		case SaysQuestion:
+			return fmt.Sprintf("%s question to %s", by, d.whoCalled(o, s.To))
+		case SaysTell:
+			return fmt.Sprintf("%s message to %s", by, d.whoCalled(o, s.To))
 		}
-		return fmt.Sprintf("%s of %s, to disclose", capital(dec.Said.What), inSentence(called(o, dec.Team)))
+		line := by + " answer"
+		asks, err := d.requests.Asks(s.Request)
+		if err != nil {
+			return line
+		}
+		line += " to " + partyCalled(asks)
+		// The answer to a sub-request is read by the team that asked it.
+		if where, err := d.readAt(s.Request); err == nil && where != "" && asks.Kind != requests.IsWorker {
+			line += ", in " + where
+		}
+		return line
 	case OfChange:
 		first, _, _ := strings.Cut(dec.Put.Why, "\n")
 		return "Change to the office: " + strings.TrimSpace(first)
 	}
 	return dec.Job.does()
+}
+
+// doesInSentence gives what a decision is as it is written inside a
+// sentence: an action or a change starting in lower case, and what would
+// be disclosed, which starts with a name, as it is.
+func (d *Decisions) doesInSentence(o *office.Office, dec *Decision) string {
+	if dec.Kind == OfDisclosure {
+		return d.Does(o, dec)
+	}
+	return lower(d.Does(o, dec))
+}
+
+// possessive gives a name as what is theirs is written: "ledger's",
+// "Payments'".
+func possessive(name string) string {
+	if strings.HasSuffix(name, "s") {
+		return name + "'"
+	}
+	return name + "'s"
 }
 
 // served gives the request a decision serves: its number, what was asked
@@ -297,7 +348,11 @@ func (d *Decisions) readAt(n int64) (string, error) {
 // answer, as one entry to them all.
 func (d *Decisions) shown(o *office.Office, dec *Decision, people []string) (string, error) {
 	var b strings.Builder
-	fmt.Fprintf(&b, "A decision for %s: %s\n", inSentence(called(o, dec.Team)), dec.Does(o))
+	if dec.Kind == OfDisclosure {
+		fmt.Fprintf(&b, "Before it is sent: %s\n", d.Does(o, dec))
+	} else {
+		fmt.Fprintf(&b, "A decision for %s: %s\n", inSentence(called(o, dec.Team)), d.Does(o, dec))
+	}
 	switch dec.Kind {
 	case OfAction:
 		who := cmp.Or(dec.Whose.Name, "a run of "+dec.Team)
@@ -306,11 +361,7 @@ func (d *Decisions) shown(o *office.Office, dec *Decision, people []string) (str
 			fmt.Fprintf(&b, "%s said: %s\n", who, dec.Job.Asked.Said)
 		}
 	case OfDisclosure:
-		r, err := d.disclosure(o, dec)
-		if err != nil {
-			return "", err
-		}
-		fmt.Fprintf(&b, "%s would say this %s, to %s, read at %s:\n%s\n", d.whoCalled(o, dec.Said.By), whatOf(dec.Said.What), r["to"], r["read_at"], dec.Said.Text)
+		fmt.Fprintf(&b, "%s checks what it says to anyone outside it, and this waits on you:\n\n%s\n\n", capital(inSentence(called(o, dec.Team))), dec.Said.Text)
 	case OfChange:
 		p := dec.Put
 		fmt.Fprintf(&b, "Drafted by %s, who says why: %s\n", p.By, p.Why)
@@ -335,6 +386,10 @@ func (d *Decisions) shown(o *office.Office, dec *Decision, people []string) (str
 		fmt.Fprintf(&b, "%s referred it%s\n", w.Called, noted(w.Note))
 	}
 	fmt.Fprintf(&b, "Asked: %s.\n", names(o, people))
+	if dec.Kind == OfDisclosure {
+		fmt.Fprintf(&b, "Answer yes to send it as it is, or refuse to send it back to %s, with a note if you like.", leadCalled(o, dec.Team))
+		return b.String(), nil
+	}
 	b.WriteString("Answer yes or refuse, with a note if you like.")
 	return b.String(), nil
 }

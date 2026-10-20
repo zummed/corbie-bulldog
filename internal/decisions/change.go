@@ -24,7 +24,7 @@ func (d *Decisions) Change(p changes.Put) error {
 			return err
 		}
 		if dec.Request != 0 {
-			if err := d.record(o, dec, dec.Does(o), nil); err != nil {
+			if err := d.record(o, dec, d.Does(o, dec), nil); err != nil {
 				return err
 			}
 		}

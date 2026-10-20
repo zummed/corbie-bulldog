@@ -20,7 +20,7 @@ func TestHeldJobIsADecisionOfItsWorkersTeam(t *testing.T) {
 	for _, asking := range [][]string{fixerUp, {"fixer"}} {
 		run := "ask-" + asking[len(asking)-1]
 		dec := b.one(run, office.Top, n, asking, cutPower("4"))
-		if dec.Kind != decisions.OfAction || dec.Team != office.Top || dec.Whose.Name != "fixer" || dec.Does(b.o) != "Turn one circuit off" {
+		if dec.Kind != decisions.OfAction || dec.Team != office.Top || dec.Whose.Name != "fixer" || b.d.Does(b.o, dec) != "Turn one circuit off" {
 			t.Fatalf("the decision is %+v", dec)
 		}
 		if dec.Ended != "" || b.answers(run) != 0 {
@@ -158,8 +158,8 @@ func TestDecisionsHeldJobWithoutACallShowsItsInput(t *testing.T) {
 	n := b.chat("kit", office.Top, "the kitchen socket sparked")
 	job := decisions.Job{Name: "cut", Input: raw(map[string]any{"circuit": "4"})}
 	dec := b.one("ask-1", office.Top, n, fixerUp, job)
-	if dec.Does(b.o) != "cut" {
-		t.Fatalf("a job with no call is described as %q", dec.Does(b.o))
+	if b.d.Does(b.o, dec) != "cut" {
+		t.Fatalf("a job with no call is described as %q", b.d.Does(b.o, dec))
 	}
 	ws := b.waitingFor("sam")
 	if !strings.Contains(ws[0].Text, `{"circuit":"4"}`) {

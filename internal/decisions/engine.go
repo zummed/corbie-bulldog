@@ -446,13 +446,13 @@ func (d *Decisions) askPeople(o *office.Office, dec *Decision, s Stage) error {
 			return err
 		}
 	}
-	if err := d.notice(o, dec, removed, "You are no longer asked to decide this: "+lower(dec.Does(o))+"."); err != nil {
+	if err := d.notice(o, dec, removed, "You are no longer asked to decide this: "+d.doesInSentence(o, dec)+"."); err != nil {
 		return err
 	}
 	if err := d.unsent(o, dec, added); err != nil {
 		return err
 	}
-	return d.record(o, dec, fmt.Sprintf("%s: waiting on %s", dec.Does(o), names(o, s.People)), nil)
+	return d.record(o, dec, fmt.Sprintf("%s: waiting on %s", d.Does(o, dec), names(o, s.People)), nil)
 }
 
 // unsent writes in the thread that a direct message to a person asked
@@ -575,7 +575,7 @@ func (d *Decisions) withdrawn(o *office.Office, dec *Decision) error {
 	if err := d.close(dec); err != nil {
 		return err
 	}
-	if err := d.notice(o, dec, dec.Asked, fmt.Sprintf("%s: withdrawn, so you are no longer asked: %s.", dec.Does(o), dec.Why)); err != nil {
+	if err := d.notice(o, dec, dec.Asked, fmt.Sprintf("%s: withdrawn, so you are no longer asked: %s.", d.Does(o, dec), dec.Why)); err != nil {
 		return err
 	}
 	return d.record(o, dec, d.line(o, dec), nil)
@@ -648,11 +648,11 @@ func (d *Decisions) line(o *office.Office, dec *Decision) string {
 	at := dec.Decided.In(o.Zone).Format("15:04")
 	switch dec.Ended {
 	case "":
-		return dec.Does(o) + ": " + d.waitsOn(o, dec)
+		return d.Does(o, dec) + ": " + d.waitsOn(o, dec)
 	case Withdrawn:
-		return fmt.Sprintf("%s: withdrawn, %s: %s", dec.Does(o), at, dec.Why)
+		return fmt.Sprintf("%s: withdrawn, %s: %s", d.Does(o, dec), at, dec.Why)
 	}
-	return fmt.Sprintf("%s: %s, %s", dec.Does(o), how(dec), at)
+	return fmt.Sprintf("%s: %s, %s", d.Does(o, dec), how(dec), at)
 }
 
 // how says who ended a decision with a yes or a refusal: "approved by

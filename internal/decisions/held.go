@@ -49,7 +49,7 @@ func (d *Decisions) Held(ctx context.Context, a Ask) error {
 		}
 		for _, dec := range decs {
 			if dec.Request != 0 {
-				if err := d.record(o, dec, dec.Does(o), nil); err != nil {
+				if err := d.record(o, dec, d.Does(o, dec), nil); err != nil {
 					return err
 				}
 			}
