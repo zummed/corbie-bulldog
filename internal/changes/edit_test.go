@@ -294,7 +294,7 @@ func TestChangesAPersonPutsTheirOwn(t *testing.T) {
 	if _, o, _ := f.c.Put(ctx, p.ID); o.Ended != "" || f.text("clerk.yaml") != house(t)["clerk.yaml"] {
 		t.Errorf("Sam's own change did not wait on the rule: %+v", o)
 	}
-	// The rule passes, and it is Sam's own yes.
+	// The rule refers it, and it is Sam's own yes.
 	if o := f.yes(p.ID, "sam", ""); o.Ended != Written || f.text("clerk.yaml") != text || f.head().Author.Name != "sam" || !strings.Contains(f.head().Message, "Decided-by: sam") {
 		t.Errorf("it ended %+v", o)
 	}

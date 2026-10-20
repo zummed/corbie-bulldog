@@ -167,7 +167,7 @@ func TestDemoServesTheHouseWithNothingSetUp(t *testing.T) {
 		t.Errorf("nothing of the socket's request is carried to Sam on Telegram: %+v", socket.Entries)
 	}
 
-	// Sam asked about the fan: the small-orders rule passed the order to
+	// Sam asked about the fan: the small-orders rule referred the order to
 	// him, with its note, and the request waits on his yes.
 	fan := view(sam, Fan)
 	if fan.State != requests.Waiting || len(fan.On) != 1 || fan.On[0].Name != "sam" {

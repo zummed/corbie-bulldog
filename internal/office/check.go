@@ -436,12 +436,14 @@ func toolNames(tools []Tool) []string {
 // checkRules has Corbie check each rule the lists and the heeds name that
 // is a definition, as it is written, with its models named by one word
 // filled in from its team's; a refused one is reported on each team that
-// names it, and is a problem of each heed that names it. A rule Bulldog
-// ships is of no team: it is read from what Bulldog ships, and checked as
-// it ships, with nothing filled in, since it is the same rule whichever
-// team names it. A bare script is kept as it is written, in no definition:
-// Corbie checks of a script only that it can be read beside what names it,
-// and the reading has already found it a file of its team's folder or one
+// names it, and is a problem of each heed that names it. Each line of a
+// rule written for an older Bulldog is reported on each team whose lists
+// name the rule, and is no problem of a heed. A rule Bulldog ships is of
+// no team: it is read from what Bulldog ships, and checked as it ships,
+// with nothing filled in, since it is the same rule whichever team names
+// it. A bare script is kept as it is written, in no definition: Corbie
+// checks of a script only that it can be read beside what names it, and
+// the reading has already found it a file of its team's folder or one
 // Bulldog ships.
 func (r *reading) checkRules() {
 	for _, team := range r.o.Order {

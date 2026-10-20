@@ -56,9 +56,9 @@ func (d *Decisions) Read(ctx context.Context, o *office.Office) error {
 
 // Due takes as a referral each rule that has not ended within RuleLimit of
 // its start, and each worker asked to decide that has not within
-// WorkerLimit, cancelling its run, and walks the decision on. Work calls it from its
-// goroutine each time its clock moves; a call with nothing due changes
-// nothing. It must not be called from a requests watcher: a write the
+// WorkerLimit, cancelling its run, and walks the decision on. Work calls it
+// from its goroutine each time its clock moves; a call with nothing due
+// changes nothing. It must not be called from a requests watcher: a write the
 // decisions make to the requests tells its watchers in the middle of a
 // change to the decisions, which Due would wait on for ever.
 func (d *Decisions) Due(ctx context.Context) error {
