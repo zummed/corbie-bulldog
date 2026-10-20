@@ -14,6 +14,7 @@ import (
 	"github.com/zummed/corbie/machine"
 
 	"github.com/zummed/corbie-bulldog/internal/bridges"
+	"github.com/zummed/corbie-bulldog/internal/bridges/standin"
 	"github.com/zummed/corbie-bulldog/internal/requests"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 	"github.com/zummed/corbie-bulldog/shipped"
@@ -160,6 +161,83 @@ func TestWorkNotedRunWithoutRecordEndedAsLost(t *testing.T) {
 	if th := b.thread(n); !slices.ContainsFunc(th, func(l string) bool { return strings.Contains(l, "The house could not answer.") }) {
 		t.Errorf("the thread is %v", th)
 	}
+}
+
+func TestWorkRunBeingSentNotLost(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, work(t))
+	b.halt()
+	b.reach.fail("watch", unreachable)
+	b.restart()
+	b.until("watching is said to have failed", func() bool { return b.logged("trying again in a second") })
+	// A delivery's start is held on its way to Corbie, after its run is
+	// noted, while the first listing ends and Bulldog settles.
+	var mu sync.Mutex
+	hearing, shown := "", false
+	gate := make(chan struct{})
+	b.reach.set(func(f *flaky) {
+		f.starting = func(s client.Start) error {
+			if _, ok := s.Input.(map[string]any)["delivery"]; ok {
+				mu.Lock()
+				hearing = s.Run
+				mu.Unlock()
+				b.poke()
+				<-gate
+			}
+			return nil
+		}
+		f.showing = func(r *client.Run) *client.Run {
+			mu.Lock()
+			shown = shown || r.ID == hearing
+			mu.Unlock()
+			return nil
+		}
+	})
+	start, err := b.b.Hear("slack", bridges.Delivery{Method: "POST", Body: `{"type":"event_callback"}`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	heard := make(chan (<-chan *bridges.Answer), 1)
+	go func() {
+		answered, err := b.w.Hear(start)
+		if err != nil {
+			t.Error(err)
+		}
+		heard <- answered
+	}()
+	b.until("the hearing run is on its way", func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return hearing != ""
+	})
+	b.reach.fail("watch", nil)
+	b.later(time.Second)
+	b.until("the hearing run is looked at in settling", func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return shown
+	})
+	b.still()
+	close(gate)
+	answered := <-heard
+	select {
+	case a := <-answered:
+		t.Fatalf("the service was answered %+v before the run heard anything", a)
+	default:
+	}
+	b.answerTicket(hearing, standin.Heard, map[string]any{
+		"heard":  []any{thing("said", "U0DANA00", "#help", "#help/1700.9", "text", "is the API down?")},
+		"answer": map[string]any{"body": "ok-1"},
+	})
+	select {
+	case a := <-answered:
+		if a == nil || string(a.Body) != "ok-1" {
+			t.Errorf("the service is answered %+v", a)
+		}
+	case <-time.After(testkit.Patience):
+		t.Fatal("the service is never answered")
+	}
+	b.at("slack", "#help/1700.9")
 }
 
 func TestWorkWatchBeginsAgain(t *testing.T) {

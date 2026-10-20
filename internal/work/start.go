@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/zummed/corbie/client"
+	"github.com/zummed/corbie/machine"
 
 	"github.com/zummed/corbie-bulldog/internal/decisions"
 	"github.com/zummed/corbie-bulldog/internal/office"
@@ -401,7 +402,7 @@ func (w *Work) start(ctx context.Context, rd ready) bool {
 	if err := w.keep(n); err != nil {
 		return fail("its run could not be noted", err)
 	}
-	if _, err := w.corbie.Start(ctx, rd.worker.Draft, client.Start{Run: name, Input: input, Labels: labels}); err != nil {
+	if err := w.send(ctx, rd.worker.Draft, client.Start{Run: name, Input: input, Labels: labels}); err != nil {
 		w.endUnsent(name, err)
 		return fail("Corbie was not reached", err)
 	}
@@ -410,6 +411,27 @@ func (w *Work) start(ctx context.Context, rd ready) bool {
 	}
 	delete(w.troubled, r.Number)
 	return true
+}
+
+// send sends the start of a run kept as going.
+func (w *Work) send(ctx context.Context, draft *machine.Draft, s client.Start) error {
+	defer w.sendingDone(s.Run)
+	_, err := w.corbie.Start(ctx, draft, s)
+	return err
+}
+
+// sendingDone says a run's start has gone, or will not.
+func (w *Work) sendingDone(name string) {
+	w.mu.Lock()
+	delete(w.sending, name)
+	w.mu.Unlock()
+}
+
+// isSending says whether a run's start is being sent.
+func (w *Work) isSending(name string) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.sending[name]
 }
 
 // tooDeep refuses a sub-request of a request that is already Depth levels

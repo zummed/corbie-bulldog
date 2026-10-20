@@ -102,7 +102,7 @@ func (w *Work) startDecider(ctx context.Context, s decisions.Start, labels map[s
 	if err := w.keep(n); err != nil {
 		return "", err
 	}
-	if _, err := w.corbie.Start(ctx, draft, client.Start{Run: name, Input: input, Labels: labels}); err != nil {
+	if err := w.send(ctx, draft, client.Start{Run: name, Input: input, Labels: labels}); err != nil {
 		w.endUnsent(name, err)
 		return "", err
 	}

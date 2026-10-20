@@ -91,7 +91,7 @@ func (w *Work) weigh(ctx context.Context, rd ready, heed *office.Heed, rule *off
 		fail("its run could not be noted", err)
 		return
 	}
-	if _, err := w.corbie.Start(ctx, draft, client.Start{Run: name, Input: input, Labels: labels}); err != nil {
+	if err := w.send(ctx, draft, client.Start{Run: name, Input: input, Labels: labels}); err != nil {
 		w.endUnsent(name, err)
 		fail("Corbie was not reached", err)
 		return

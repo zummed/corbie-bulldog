@@ -178,7 +178,7 @@ Corbie needs nothing from Bulldog to keep going. A run goes on, a call waits, an
 
 Bulldog watches every run with its office's label, and begins again a second later if watching cannot begin. When the first listing ends, it settles: each run it has noted as going that is not running is read for how it ended, each waiting call is answered from what was kept or done now, each waiting clock is acted on, and what waits to start is started.
 
-A run is never taken to have ended from a record that could not be read. A run with the office's label that Bulldog has no note of is left over from an office that no longer has it, and is cancelled. A noted run Corbie never took up, or has no record of, is ended as lost.
+A run is never taken to have ended from a record that could not be read. A run with the office's label that Bulldog has no note of is left over from an office that no longer has it, and is cancelled. A noted run Corbie never took up, or has no record of, is ended as lost, unless its start is still being sent.
 
 Bulldog looks for runs to start when a request is opened, something is said, a run ends, a call is answered, or the office is read again. The one timer of this area's own looks again at what it could not read or reach. What people do on the screens never waits on Corbie.
 

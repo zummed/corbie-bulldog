@@ -265,6 +265,8 @@ The detailed rules behind the [Work overview](../work.md). Requirements are `R-w
 
 **C-work-40** A noted run Corbie has no record of is left while Corbie says it is waiting to start, and ended as lost on its request once Corbie says it was never taken up or has no record of it at all. A run is not failed on a guess at how long a start takes, and is not left open for ever. *Test:* `work_noted_run_without_record_ended_as_lost`
 
+**C-work-66** A noted run whose start the server is still sending is not taken as lost when Corbie has no record of it yet. A run is noted before its start is sent, and a delivery's start, or a decision's, is sent beside the driving of the work, so settling can read it in between: a delivery taken as lost would be answered as received before anything heard it, and what its run heard would be dropped. *Test:* `work_run_being_sent_not_lost`
+
 **C-work-41** If watching cannot begin, Bulldog says so and tries again a second later. Corbie's watch fails only on its first listing, and an office must not stop because the store was out of reach when it started. *Test:* `work_watch_begins_again`
 
 **C-work-42** What waits to start, every open question and every open sub-request is kept in the store, never only in memory. Work in flight when the server stops would otherwise stay open for ever. *Test:* `work_waiting_work_kept_in_store`

@@ -103,7 +103,7 @@ func (w *Work) startBridge(ctx context.Context, s bridges.Start, answered chan *
 		w.hearing[name] = answered
 		w.mu.Unlock()
 	}
-	if _, err := w.corbie.Start(ctx, s.Machine, client.Start{Run: name, Input: s.Input, Labels: labels}); err != nil {
+	if err := w.send(ctx, s.Machine, client.Start{Run: name, Input: s.Input, Labels: labels}); err != nil {
 		w.mu.Lock()
 		delete(w.hearing, name)
 		w.mu.Unlock()
@@ -116,6 +116,7 @@ func (w *Work) startBridge(ctx context.Context, s bridges.Start, answered chan *
 
 // endUnsent keeps a run whose start could not be sent as not sent.
 func (w *Work) endUnsent(name string, why error) {
+	w.sendingDone(name)
 	now := w.clock.Now()
 	if _, err := w.end(name, ending{status: unsent, how: why.Error(), started: now, ended: now}); err != nil {
 		w.Log("the run %s, which was not sent, could not be kept so: %v", name, err)

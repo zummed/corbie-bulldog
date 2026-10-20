@@ -143,7 +143,7 @@ func (w *Work) startClock(ctx context.Context, wr written, key string) error {
 	if err := w.keep(n); err != nil {
 		return fmt.Errorf("%s could not be noted: %w", what, err)
 	}
-	if _, err := w.corbie.Start(ctx, draft, client.Start{Run: name, Input: map[string]any{"due": r.Due}, Labels: labels}); err != nil {
+	if err := w.send(ctx, draft, client.Start{Run: name, Input: map[string]any{"due": r.Due}, Labels: labels}); err != nil {
 		w.endUnsent(name, err)
 		return fmt.Errorf("%s could not be started: %w", what, err)
 	}

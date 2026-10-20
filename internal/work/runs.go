@@ -222,7 +222,8 @@ func (w *Work) ended(ctx context.Context, name string) {
 	}
 	run, err := w.corbie.Show(ctx, name)
 	switch {
-	case errors.Is(err, client.ErrNoRun) && n.Status == unsent:
+	case errors.Is(err, client.ErrNoRun) && (n.Status == unsent || w.isSending(name)):
+		// Not sent, or not yet: the watch sees it once Corbie holds it.
 		return
 	case errors.Is(err, client.ErrNoRun):
 		w.lost(ctx, n)

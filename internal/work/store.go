@@ -178,12 +178,19 @@ func unstamp(s string) (time.Time, error) {
 
 func storeFailed(err error) error { return fmt.Errorf("the work's part of the store failed: %w", err) }
 
-// keep notes a run before its start is sent, and tells whoever watches
-// its request.
+// keep notes a run before its start is sent, tells whoever watches its
+// request, and send sends it. Until it has gone, or could not go, Corbie may
+// hold no such run, and the run is not lost: a start sent on another
+// goroutine than the driving one, as a delivery's or a decision's is, may be
+// read in between.
 func (w *Work) keep(n *note) error {
+	w.mu.Lock()
+	w.sending[n.Name] = true
+	w.mu.Unlock()
 	_, err := w.db.Exec(`INSERT INTO work_runs(name, kind, team, request, worker, labels, seen, since, noted, status, again)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, n.Name, n.Kind, n.Team, n.Request, n.Worker, labelsKey(n.Labels), n.Seen, n.Since, stamp(n.Noted), going, n.Again)
 	if err != nil {
+		w.sendingDone(n.Name)
 		return storeFailed(err)
 	}
 	if n.Request != 0 {
