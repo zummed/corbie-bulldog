@@ -136,7 +136,7 @@
         B.bridgeStatus(b)),
       B.el("div", {class: "br-body"},
         B.kv([
-          ["Folder", b.shipped ? B.el("span", {class: "line"}, B.el("span", {class: "mono"}, b.folder), B.el("a", {class: "faint", href: "#/office/bulldog"}, "From Bulldog")) : B.el("span", {class: "mono"}, b.folder)],
+          ["Folder", b.shipped ? B.el("span", {class: "line"}, B.el("span", {class: "mono"}, b.folder), B.el("a", {class: "faint", href: "#/office/built-in"}, "Built-in")) : B.el("span", {class: "mono"}, b.folder)],
           ["In", b.in ? B.el("div", {class: "br-in"}, inEl(b), machineEl(b.in)) : inEl(b)],
           b.out ? ["Out", machineEl(b.out)] : null,
           settingsEl(b),

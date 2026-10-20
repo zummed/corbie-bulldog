@@ -55,7 +55,7 @@
   // tool its server lists, named after it.
   function toolName(tool) {
     if (tool.listed) return pop(["Each tool the server of " + tool.name + " lists, as " + tool.name + "_<tool>"], B.el("span", {class: "mono"}, tool.name + "_*"));
-    const from = tool.kind === "bulldog" ? B.el("div", {class: "wk-does faint"}, "From Bulldog" + (tool.kit ? ", in the " + tool.kit + " tools" : "")) : null;
+    const from = tool.kind === "bulldog" ? B.el("div", {class: "wk-does faint"}, "Built-in" + (tool.kit ? ", in the " + tool.kit + " tools" : "")) : null;
     return tool.does || from ? pop([tool.does, from], tool.name) : B.el("span", {class: "mono wk-name"}, tool.name);
   }
 
@@ -143,7 +143,7 @@
         kitted.set(tool.kit, [...(kitted.get(tool.kit) || []), tool]);
       } else {
         can.push(row([tool], B.el("span", {class: "wk-c1"}, toolName(tool)),
-          B.el("span", {class: "wk-c2 line"}, B.el("span", {class: "mono faint small"}, tool.kind === "bulldog" ? "From Bulldog" : tool.kind), authorisation(tool, t)),
+          B.el("span", {class: "wk-c2 line"}, B.el("span", {class: "mono faint small"}, tool.kind === "bulldog" ? "Built-in" : tool.kind), authorisation(tool, t)),
           fileEl(tool.file), reachEl(tool)));
       }
     }
@@ -157,7 +157,7 @@
     return [
       group("can do", "Can do", can),
       group("colleagues", "Colleagues", colleagues),
-      group("from bulldog", "From Bulldog", kits),
+      group("built-in", "Built-in", kits),
       group("held here", [B.el("span", {}, "Held here"), ...B.info("About held here", "Colleagues whose actions that wait for a yes are asked about through " + w.name + "'s ask.")],
         w.held_here.map((name) => row([], B.el("span", {class: "wk-c1"}, B.workerEl(name, t.name, {bare: true}))))),
     ];

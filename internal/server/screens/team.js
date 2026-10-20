@@ -346,7 +346,7 @@
         also: h.stopped ? B.el("span", {class: "status failed"}, "stopped") : null,
         info: infoOf(B.heedLabel(t)),
         setup: [B.kv([
-          h.rule ? ["Rule", B.el("span", {class: "line"}, B.ruleEl(h.rule), h.shipped ? B.el("a", {class: "faint small", href: "#/office/bulldog"}, "From Bulldog") : null)] : null,
+          h.rule ? ["Rule", B.el("span", {class: "line"}, B.ruleEl(h.rule), h.shipped ? B.el("a", {class: "faint small", href: "#/office/built-in"}, "Built-in") : null)] : null,
           channel.length ? ["Only at", B.el("span", {class: "line"}, channel.map((x) => B.placeEl(x.bridge, x.place.name)))] : null,
         ]), B.settingsEl(h.settings), rule && !rule.script ? B.reachEl(rule.reach) : null]});
     }
@@ -558,7 +558,7 @@
     if (!list.length) return null;
     return folded("rules", B.label("Rules", B.el("span", {class: "count"}, String(list.length))), rows("rules", list, (r) => B.el("div", {class: "row te-rule"},
       B.el("span", {class: "line"}, B.ruleEl(r.path),
-        r.shipped ? B.el("a", {class: "faint small", href: "#/office/bulldog"}, "From Bulldog") : null,
+        r.shipped ? B.el("a", {class: "faint small", href: "#/office/built-in"}, "Built-in") : null,
         r.script ? B.el("span", {class: "faint small"}, "script") : null,
         r.runs ? null : B.el("span", {class: "status failed"}, "stopped")),
       r.script ? null : B.reachEl(r.reach)), "te-rules"));
