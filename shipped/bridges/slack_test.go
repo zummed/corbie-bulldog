@@ -395,6 +395,7 @@ func testSlackEveryMessageHandedOver(t *testing.T) {
 		"Ev3": {"type": "message", "subtype": "thread_broadcast", "user": "U0AL0000", "text": "under it, and in the channel", "ts": "1700000003.000100", "thread_ts": "1700000001.000100"},
 		"Ev4": {"type": "message", "subtype": "file_share", "user": "U0GUEST0", "text": "this", "ts": "1700000004.000100",
 			"files": []any{map[string]any{"name": "receipt.png", "url_private": sl.URL + "/files/T01/receipt.png"}}},
+		"Ev9": {"type": "message", "subtype": "me_message", "user": "U0DANA00", "text": "is looking", "ts": "1700000009.000100"},
 	} {
 		if things, _, logged := s.hearsLogged(at(id, e)); len(things) != 1 || things[0]["id"] != id || len(logged) != 0 {
 			t.Errorf("Slack: %s is heard as %v, and logged %q", id, things, logged)

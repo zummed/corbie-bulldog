@@ -114,7 +114,12 @@ if (input.do === "hear") {
     const m = u.message
     const q = u.callback_query
     if (m && (!m.from || m.from.is_bot)) log("left out " + m.chat.id + ":" + m.message_id + " in " + m.chat.id + ": bot")
-    if (!m && !q) log("left out update " + u.update_id + ": " + (Object.keys(u).find(k => k !== "update_id") || "empty"))
+    if (!m && !q) {
+      const kind = Object.keys(u).find(k => k !== "update_id") || "empty"
+      const of = u[kind] || {}
+      const chat = of.chat || (of.message && of.message.chat)
+      log("left out update " + u.update_id + " in " + (chat ? chat.id : "no chat") + ": " + kind)
+    }
     if (m && m.from && !m.from.is_bot) {
       const direct = m.chat.type === "private"
       const got = filesOf(m)

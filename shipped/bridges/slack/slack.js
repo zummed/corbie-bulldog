@@ -141,7 +141,7 @@ if (input.do === "hear") {
   // place and why, by Slack's own word for what it is, and never its
   // words.
   const e = body.event || {}
-  const said = !e.subtype || e.subtype === "file_share" || e.subtype === "thread_broadcast"
+  const said = !e.subtype || e.subtype === "file_share" || e.subtype === "thread_broadcast" || e.subtype === "me_message"
   let left = ""
   if (body.type !== "event_callback" || e.type !== "message") left = e.type || body.type
   else if (!said) left = e.subtype

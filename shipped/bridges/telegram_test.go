@@ -285,7 +285,7 @@ func TestBridgesEveryMessageAtAListedPlaceHandedOver(t *testing.T) {
 	tg.mu.Unlock()
 	edited := tg.hear("edited_message", map[string]any{"from": map[string]any{"id": 4471, "is_bot": false}, "chat": group, "text": "the words edited"})
 	things, _, logged := s.heardLogged(listen(cursor))
-	want := []string{fmt.Sprintf("left out -1001:%d in -1001: bot", botMessage), fmt.Sprintf("left out update %d: edited_message", edited)}
+	want := []string{fmt.Sprintf("left out -1001:%d in -1001: bot", botMessage), fmt.Sprintf("left out update %d in -1001: edited_message", edited)}
 	if len(things) != 2 || things[0]["text"] != "the hedge wants cutting" || things[1]["text"] != "and the lawn" || fmt.Sprint(logged) != fmt.Sprint(want) {
 		t.Errorf("Telegram: what is heard is %v, and %d and %d are logged as %q", things, bot, edited, logged)
 	}
