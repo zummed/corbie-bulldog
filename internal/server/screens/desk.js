@@ -68,7 +68,10 @@
     if (!B.me.waiting) return null;
     try {
       const out = await B.api("/api/requests?waiting=me&limit=" + WAITING);
-      const list = out.requests || [];
+      // A request inside another that waits on them too is folded inside
+      // it, and is a card of its own all the same.
+      const all = (rs) => rs.flatMap((r) => [r, ...all(r.subs || [])]);
+      const list = all(out.requests || []);
       const details = await Promise.all(list.map((r) => B.api("/api/requests/" + r.number + "?size=1").catch((err) => ({number: r.number, error: err}))));
       const reqs = list.map((r, i) => waitingOn(r, details[i]));
       const cards = reqs.reduce((n, r) => n + r.querySelectorAll(".ask-card").length, 0);

@@ -30,7 +30,13 @@
 .rqs-list > .row .cell.first.nest { padding-left: 10px; }
 .rqs-list > .row .cell.first.d2 { margin-left: 14px; }
 .rqs-list > .row .cell.first.d3 { margin-left: 28px; }
-.rqs-toggle { position: relative; z-index: 1; margin-left: -4px; }
+/* The requests inside one: a chip at the end of what was asked, which
+   opens them beneath it */
+.rqs-list > .row .cell.first { display: flex; align-items: center; gap: 4px 10px; }
+.rqs-list > .row .cell.first > .text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rqs-inside { position: relative; z-index: 1; flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--sheet); color: var(--ink2); font: var(--small) var(--mono); cursor: pointer; }
+.rqs-inside:hover { color: var(--ink); border-color: var(--ink3); }
+.rqs-inside[aria-expanded="true"] { color: var(--plan-deep); border-color: var(--plan); background: var(--plan-soft); }
 
 /* The Noted chip: pressed while the noted are listed */
 .rqs-noted { gap: 6px; min-height: 40px; }
@@ -52,7 +58,6 @@
 .rqs-more:has(> [hidden]) { display: none; }
 
 @media (max-width: 720px) {
-  .rqs-list > .rqs-hd { display: none; }
   .rqs-list > .row { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 0; }
   .rqs-list > .row .cell.first { flex: 1 1 calc(100% - 90px); white-space: normal; }
   .rqs-list > .row .cell.made { margin-left: auto; }
@@ -60,4 +65,8 @@
   .rqs-team .in { width: 100%; }
   .rqs-list > .row.sub { padding-left: 18px; border-left: 1.5px solid var(--line); }
   .rqs-list > .row .cell.nest.n, .rqs-list > .row .cell.nest.first { border-left: none; margin-left: 0; padding-left: 0; }
+  .rqs-list > .row .cell.first { flex-wrap: wrap; }
+  .rqs-list > .row .cell.first > .text { white-space: normal; overflow-wrap: anywhere; }
+  .rqs-inside { min-height: 44px; }
+  .rqs-list > .row.rqs-hd { display: none; }
 }

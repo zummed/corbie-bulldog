@@ -1,7 +1,7 @@
 // Requests: those the one looking may see, newest first, narrowed by
 // whose they are, their state, their team and the place they were asked
-// at, a page at a time; the noted only when picked, and each sub-request
-// beneath the request it was asked from when both are shown.
+// at, a page at a time; the noted only when picked, and the sub-requests
+// of a request folded inside it when both are listed.
 (function () {
   "use strict";
 
@@ -15,9 +15,9 @@
   // drawing it again at a change keeps it: what is typed in either box,
   // the oldest request More fetched and how many there were, and what was
   // drawn last, to be given again when nothing in it changed; and the
-  // requests whose sub-requests below the first level are open.
+  // requests whose sub-requests the one looking opened or folded.
   let kept = fresh("");
-  function fresh(hash) { return {hash, q: "", team: null, until: 0, count: 0, sig: "", root: null, open: new Set()}; }
+  function fresh(hash) { return {hash, q: "", team: null, until: 0, count: 0, sig: "", root: null, open: new Map()}; }
 
   function apiQuery(q, before, limit) {
     const out = new URLSearchParams();
@@ -112,17 +112,23 @@
   function cell(cls, ...children) { return B.el("span", {class: "cell " + cls}, ...children); }
 
   function where(r) {
-    if (r.parent) return B.el("span", {class: "who muted"}, B.icon("branch"), "beneath ", B.el("a", {class: "mono", href: "#/r/" + r.parent}, "#" + r.parent));
+    if (r.parent) return B.el("span", {class: "who muted"}, B.icon("branch"), "inside ", B.el("a", {class: "mono", href: "#/r/" + r.parent}, "#" + r.parent));
     return B.origin(r.origin);
   }
 
+  // inside gives the requests beneath one, as far down as they go, each
+  // with how far down it is.
+  function inside(r, depth) {
+    return (r.subs || []).flatMap((s) => [{r: s, depth: depth + 1}, ...inside(s, depth + 1)]);
+  }
+
   // A row is a link by its number, which covers the whole row; the other
-  // links in it lie above that. A sub-request beneath its request is set
-  // in by its depth, with no origin of its own, and one with sub-requests
-  // of its own below the first level opens them by its toggle.
+  // links in it lie above that. A request with sub-requests inside it opens
+  // them by its toggle; one beneath it is set in by its depth, with no
+  // origin of its own.
   function row(r, byTeam, depth, toggle) {
     const nest = depth ? " nest d" + Math.min(depth, 3) : "";
-    const n = cell("n" + nest, toggle, B.el("a", {class: "mono rqs-open", href: "#/r/" + r.number,
+    const n = cell("n" + nest, B.el("a", {class: "mono rqs-open", href: "#/r/" + r.number,
       "aria-label": "#" + r.number + (r.whole && r.first ? " " + r.first : ""), title: r.whole ? r.first : null}, "#" + r.number));
     if (!r.whole) {
       return B.el("div", {class: "row link"}, n, cell("first muted", "put to you"),
@@ -131,7 +137,7 @@
     const st = B.status(r);
     return B.el("div", {class: "row link" + (depth ? " sub" : "")},
       n,
-      B.el("span", {class: "cell first" + nest, title: r.first}, r.first),
+      B.el("span", {class: "cell first" + nest, title: r.first}, B.el("span", {class: "text"}, r.first), toggle),
       byTeam ? null : cell("team", B.teamEl(r.team)),
       cell("asker", B.party(r.asker)),
       cell("origin", depth ? "" : where(r)),
@@ -139,30 +145,26 @@
       cell("made", B.whenEl(r.made)));
   }
 
-  // chains gives the rows shown, each sub-request whose request is shown
-  // right after it, in the order they were asked; the first level open,
-  // and those below it behind their request's toggle.
-  function chains(shown, rowOf, redraw) {
-    const numbers = new Set(shown.map((r) => r.number));
-    const kids = new Map();
-    const roots = [];
-    for (const r of shown) {
-      if (r.whole && r.parent && numbers.has(r.parent)) {
-        if (!kids.has(r.parent)) kids.set(r.parent, []);
-        kids.get(r.parent).unshift(r);
-      } else roots.push(r);
-    }
-    const draw = (r, depth) => {
-      const below = kids.get(r.number) || [];
-      const open = below.length > 0 && (depth === 0 || kept.open.has(r.number));
-      const toggle = below.length && depth > 0 ? B.el("button", {class: "toggle rqs-toggle", type: "button", "aria-expanded": String(open),
-        "aria-label": "Sub-requests of #" + r.number, onclick: () => {
-          if (open) kept.open.delete(r.number); else kept.open.add(r.number);
-          redraw();
-        }}, open ? "▾" : "▸") : null;
-      return [rowOf(r, depth, toggle), open ? below.map((k) => draw(k, depth + 1)) : []];
-    };
-    return roots.map((r) => draw(r, 0));
+  // opened says whether the requests inside one are shown: as the one
+  // looking last left them, or else when one of them waits on someone or
+  // is of the team the list is narrowed to.
+  function opened(r, below, q) {
+    if (kept.open.has(r.number)) return kept.open.get(r.number);
+    return below.some((x) => x.r.state === "waiting" || (q.has("team") && x.r.team === q.get("team")));
+  }
+
+  // rowsOf gives a request's row and, when it is opened, the rows of the
+  // requests inside it.
+  function rowsOf(r, q, rowOf, redraw) {
+    const below = inside(r, 0);
+    if (!below.length) return [rowOf(r, 0, null)];
+    const open = opened(r, below, q);
+    const toggle = B.el("button", {class: "rqs-inside", type: "button", "aria-expanded": String(open),
+      "aria-label": below.length + " inside #" + r.number, onclick: () => {
+        kept.open.set(r.number, !open);
+        redraw();
+      }}, open ? "▾" : "▸", " " + below.length + " inside");
+    return [rowOf(r, 0, toggle), open ? below.map((x) => rowOf(x.r, x.depth, null)) : []];
   }
 
   function header(byTeam) {
@@ -171,10 +173,12 @@
       B.el("span", {}, "Asker"), B.el("span", {}, "Origin"), B.el("span", {}, "State"), B.el("span", {}, "Made"));
   }
 
+  // words gives what a request is found by: its own and those of every
+  // request inside it.
   function words(r) {
     if (!r.whole) return "#" + r.number;
     const a = r.asker || {};
-    return ["#" + r.number, r.first, a.name, a.called, a.id, r.team, B.teamCalled(r.team)].filter(Boolean).join(" ");
+    return ["#" + r.number, r.first, a.name, a.called, a.id, r.team, B.teamCalled(r.team), ...(r.subs || []).map(words)].filter(Boolean).join(" ");
   }
 
   // focusOf gives which of the view's boxes the one looking is in, and
@@ -230,7 +234,7 @@
     const hd = header(byTeam);
     const redraw = () => search.box.dispatchEvent(new Event("input"));
     const search = B.search("Search", items, words, (shown, typed) => shown.length
-      ? B.el("div", {class: "rows rqs-list" + (byTeam ? " by-team" : "")}, hd, chains(shown, rowOf, redraw))
+      ? B.el("div", {class: "rows rqs-list" + (byTeam ? " by-team" : "")}, hd, shown.map((r) => rowsOf(r, q, rowOf, redraw)))
       : B.empty(typed && before ? "none loaded" : undefined));
     search.box.dataset.keep = "q";
     search.box.addEventListener("input", () => { kept.q = search.box.value; });
