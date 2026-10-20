@@ -33,6 +33,15 @@ type (
 		People []string `json:"people"`
 		Lead   string   `json:"lead"`
 		Within string   `json:"within,omitempty"`
+		// Docs are given only to those who may open them, in the one
+		// team's answer.
+		Docs []docOut `json:"docs,omitempty"`
+	}
+	// docOut is one of a team's docs: its name, the path of its file in
+	// the team's docs folder without .md, and its size in bytes.
+	docOut struct {
+		Name string `json:"name"`
+		Size int64  `json:"size"`
 	}
 	personOut struct {
 		Name    string   `json:"name"`
@@ -276,11 +285,15 @@ func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any,
 	if err != nil {
 		return nil, err
 	}
+	seen := teamOf(t)
+	if seen.Docs, err = s.docs(o, person, t.Name); err != nil {
+		return nil, err
+	}
 	in := slices.Contains(people, person)
 	if !in && !slices.Contains(changes.Deciders(o), person) {
-		return teamOf(t), nil
+		return seen, nil
 	}
-	out := teamWhole{teamOut: teamOf(t), File: t.File, Decide: []listOut{}, Routines: []routineOut{}, Models: []modelOut{}, Workers: []workerOut{}, Notes: []noteOut{}}
+	out := teamWhole{teamOut: seen, File: t.File, Decide: []listOut{}, Routines: []routineOut{}, Models: []modelOut{}, Workers: []workerOut{}, Notes: []noteOut{}}
 	for _, l := range t.Decide {
 		out.Decide = append(out.Decide, listOut{Key: l.Key, Deciders: writtenAll(o, l.Deciders)})
 	}
@@ -316,6 +329,86 @@ func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any,
 		}
 	}
 	return out, nil
+}
+
+// docs gives a team's docs to one who may open them, and nothing to
+// anyone else.
+func (s *site) docs(o *office.Office, person, team string) ([]docOut, error) {
+	opens, err := s.opensDocs(o, person, team)
+	if err != nil || !opens {
+		return nil, err
+	}
+	docs, err := o.Docs(team)
+	if err != nil {
+		return nil, err
+	}
+	out := []docOut{}
+	for _, d := range docs {
+		out = append(out, docOut{Name: d.Name, Size: d.Size})
+	}
+	return out, nil
+}
+
+// opensDocs says whether a person may open a team's docs: one of its
+// people, or of a team within it, whose workers read them, or one who
+// decides a change.
+func (s *site) opensDocs(o *office.Office, person, team string) (bool, error) {
+	if slices.Contains(changes.Deciders(o), person) {
+		return true, nil
+	}
+	for name := range o.Teams {
+		for u := o.Teams[name]; u != nil; u = o.Teams[u.Within] {
+			if u.Name != team {
+				continue
+			}
+			people, err := s.Requests.People(name)
+			if err != nil {
+				return false, err
+			}
+			if slices.Contains(people, person) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+// doc gives one of a team's docs whole, to one who may open it.
+func (s *site) doc(person string, w http.ResponseWriter, r *http.Request) (any, error) {
+	o, err := s.office()
+	if err != nil {
+		return nil, err
+	}
+	t := o.Teams[r.PathValue("team")]
+	if t == nil {
+		return nil, errNotThere
+	}
+	opens, err := s.opensDocs(o, person, t.Name)
+	switch {
+	case err != nil:
+		return nil, err
+	case !opens:
+		return nil, errNotThere
+	}
+	docs, err := o.Docs(t.Name)
+	if err != nil {
+		return nil, err
+	}
+	i := slices.IndexFunc(docs, func(d office.Doc) bool { return d.Name == r.PathValue("doc") })
+	if i < 0 {
+		return nil, errNotThere
+	}
+	text, err := o.DocText(docs[i])
+	if err != nil {
+		return nil, err
+	}
+	return docText{Name: docs[i].Name, Text: text}, nil
+}
+
+// docText is one doc, whole.
+type docText struct {
+	Name string `json:"name"`
+	Text string `json:"text"`
 }
 
 // workerOf gives a worker as it is written: its model as it is sent; its

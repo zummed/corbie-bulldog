@@ -64,7 +64,7 @@ func TestEveryShippedFileIsADefinitionCorbieTakes(t *testing.T) {
 		!strings.Contains(body, `"ticket":"`+shipped.CallTicket+`"`) || !strings.Contains(body, `"too_long":"7d"`) || !strings.Contains(body, `"output":"${input.unanswered}"`) {
 		t.Errorf("the call is %s, taking %v: %s", call.Definition.Name, call.Definition.Input, body)
 	}
-	for _, name := range []string{shipped.Talk, shipped.Notes, shipped.Build} {
+	for _, name := range shipped.ToolsFiles {
 		parse(t, "agent: someone\nmodel: { name: claude-sonnet-5-5, secret: KEY }\nprompt: hi\ntools_file: [./.bulldog/"+name+"]\n", nil)
 		contents, _ := shipped.File(name)
 		var tools map[string]struct {
@@ -97,6 +97,7 @@ func TestToolsNamed(t *testing.T) {
 	for name, want := range map[string][]string{
 		shipped.Talk:  {"ask_person", "ask_team", "read_thread", "tell"},
 		shipped.Notes: {"write_notes"},
+		shipped.Docs:  {"docs", "read_doc", "search_docs"},
 		shipped.Build: {"manual", "office_check", "office_files", "office_put", "office_read", "office_remove", "office_write"},
 		shipped.Ask:   nil,
 	} {
@@ -112,7 +113,7 @@ func TestToolsNamed(t *testing.T) {
 func TestEveryShippedThingHasItsPage(t *testing.T) {
 	t.Parallel()
 	things := shipped.Things()
-	if !slices.Equal(things, []string{"tools/build", "tools/notes", "tools/talk", "bridges/gitlab", "bridges/jira", "bridges/slack", "bridges/telegram", "rules/for-us", "rules/mentioned"}) {
+	if !slices.Equal(things, []string{"tools/build", "tools/docs", "tools/notes", "tools/talk", "bridges/gitlab", "bridges/jira", "bridges/slack", "bridges/telegram", "rules/for-us", "rules/mentioned"}) {
 		t.Errorf("Bulldog ships %v", things)
 	}
 	pages := shipped.Pages()
@@ -137,7 +138,7 @@ func TestEveryShippedThingHasItsPage(t *testing.T) {
 	}
 	// A tools file's page, and a rule's, shows it named by its path; a
 	// bridge's entry is a mapping that lists its places.
-	for _, file := range []string{shipped.Talk, shipped.Notes, shipped.Build, shipped.Mentioned, shipped.ForUs} {
+	for _, file := range append(slices.Clone(shipped.ToolsFiles), shipped.Mentioned, shipped.ForUs) {
 		page, _ := shipped.File(path.Join(path.Dir(file), shipped.Page))
 		if !strings.Contains(string(page), "./"+path.Join(shipped.Dir, file)) {
 			t.Errorf("the page of %s does not name it by its path", file)

@@ -520,3 +520,48 @@ prompt: ${input.said}
 		t.Errorf("Sam is shown the order as %+v", v.Decisions)
 	}
 }
+
+func TestServerDocsOpenToTheTeamWithinAndDeciders(t *testing.T) {
+	t.Parallel()
+	files := workOffice(t)
+	files["docs/help/refunds.md"] = "# Refunds\nWithin 30 days.\n"
+	files["payments/docs/ledger.md"] = "# The ledger\n"
+	s := newBench(t, files).serve()
+	docsOf := func(person, team string) []docOut {
+		var seen teamOut
+		s.as(person).get("/api/teams/" + team).is(http.StatusOK).into(&seen)
+		return seen.Docs
+	}
+	// Lee, of payments, within the office, opens the office's docs, and
+	// sees nothing else of how it is written.
+	if docs := docsOf("lee", "office"); !slices.Equal(docs, []docOut{{Name: "help/refunds", Size: 26}}) {
+		t.Errorf("Lee sees the office's docs as %+v", docs)
+	}
+	if office := s.as("lee").get("/api/teams/office").is(http.StatusOK).json(); office["workers"] != nil || office["notes"] != nil {
+		t.Errorf("Lee sees the office as %v", office)
+	}
+	if doc := s.as("lee").get("/api/teams/office/docs/help/refunds").is(http.StatusOK).json(); doc["name"] != "help/refunds" || doc["text"] != files["docs/help/refunds.md"] {
+		t.Errorf("Lee reads the office's doc as %v", doc)
+	}
+	// Dana, of support, opens the office's, and not payments'; Raj, in no
+	// team, opens neither.
+	if docs := docsOf("dana", "office"); len(docs) != 1 {
+		t.Errorf("Dana sees the office's docs as %+v", docs)
+	}
+	for _, seen := range []struct{ person, team string }{{"dana", "payments"}, {"raj", "office"}, {"raj", "payments"}} {
+		if docs := docsOf(seen.person, seen.team); docs != nil {
+			t.Errorf("%s sees the docs of %s: %+v", seen.person, seen.team, docs)
+		}
+	}
+	s.as("dana").get("/api/teams/payments/docs/ledger").is(http.StatusNotFound)
+	s.as("raj").get("/api/teams/office/docs/help/refunds").is(http.StatusNotFound)
+	// Al decides a change: he opens payments' docs too.
+	if docs := docsOf("al", "payments"); !slices.Equal(docs, []docOut{{Name: "ledger", Size: 13}}) {
+		t.Errorf("Al sees payments' docs as %+v", docs)
+	}
+	s.as("al").get("/api/teams/payments/docs/ledger").is(http.StatusOK)
+	// Only a doc is opened by its name.
+	for _, name := range []string{"help", "help/refunds.md", "office.yaml", "ledger"} {
+		s.as("al").get("/api/teams/office/docs/" + name).is(http.StatusNotFound)
+	}
+}

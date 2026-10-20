@@ -69,6 +69,7 @@ func routes(s *site) http.Handler {
 	mux.HandleFunc("POST /api/requests/{n}/decisions/{id}", s.api(s.decide))
 	mux.HandleFunc("POST /api/requests/{n}/stop", s.api(s.stop))
 	mux.HandleFunc("GET /api/teams/{team}", s.api(s.team))
+	mux.HandleFunc("GET /api/teams/{team}/docs/{doc...}", s.api(s.doc))
 	mux.HandleFunc("POST /api/teams/{team}/routines/now", s.api(s.routineNow))
 	mux.HandleFunc("GET /api/office/files", s.api(s.files))
 	mux.HandleFunc("GET /api/office/file", s.api(s.file))

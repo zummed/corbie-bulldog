@@ -82,7 +82,7 @@ const reply = http.get("https://api.weather.example/v1/forecast?days=" + (input.
 return reply.body.days.map(d => d.date + ": " + d.summary)
 ```
 
-A worker has nothing of Bulldog's that its definition does not name, each by its path in `.bulldog/`: the talk tools, `tools/talk/talk.yaml`, for asking another team or a person, telling someone, and reading the thread; the notes tool, `tools/notes/notes.yaml`, for writing its team's notes; the builder's tools, `tools/build/build.yaml`. Each thing Bulldog ships is a folder there with its page of the manual, named by its path, as `tools/talk` or `bridges/slack`. A worker Bulldog starts at the top, a team's lead or a routine's worker, names the ask Bulldog ships when anything it runs can wait for a yes: `ask: { machine: ./.bulldog/ask.yaml }`. From a team within, the paths begin `../.bulldog/`.
+A worker has nothing of Bulldog's that its definition does not name, each by its path in `.bulldog/`: the talk tools, `tools/talk/talk.yaml`, for asking another team or a person, telling someone, and reading the thread; the notes tool, `tools/notes/notes.yaml`, for writing its team's notes; the docs tools, `tools/docs/docs.yaml`, for reading the docs of its team and the teams around it; the builder's tools, `tools/build/build.yaml`. Each thing Bulldog ships is a folder there with its page of the manual, named by its path, as `tools/talk` or `bridges/slack`. A worker Bulldog starts at the top, a team's lead or a routine's worker, names the ask Bulldog ships when anything it runs can wait for a yes: `ask: { machine: ./.bulldog/ask.yaml }`. From a team within, the paths begin `../.bulldog/`.
 
 A tool whose job says `approve: true` waits for a yes, decided by the team's list named for the tool, or else its `everything`.
 
@@ -147,6 +147,10 @@ The in machine says who a person is, and so is a person's to write. So is a brid
 ## Notes
 
 A team's notes are the files in its `notes/` folder, prose in Markdown. Every run of the team's workers is given them. They are not private: the builder reads them, and so does whoever decides a change. A secret belongs in Corbie's secrets, never in a note.
+
+## Docs
+
+A team's docs are the Markdown files under its `docs/` folder, subfolders included, each named by its path there without `.md`, as `refunds/policy`: reference people write, through a change. No run is given them: a worker whose definition names the docs tools reads them when it asks, its own team's first, then those of each team around it, out to the office, the nearer team's doc of a name standing before one further out.
 
 ## Drafting a change, as a builder
 

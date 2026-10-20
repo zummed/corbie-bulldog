@@ -39,8 +39,12 @@ func (r *reading) loader(dir string, uses *[]string) func(string) ([]byte, error
 			if contents, ok := shipped.File(own); ok {
 				return contents, nil
 			}
-			return nil, fmt.Errorf("Bulldog ships no %s: its tools files are %s, %s and %s, its ask %s, and its rules each in a folder of %s/rules/, each named by its path in %s/ at the top of the office, as ./%s", full,
-				path.Join(shipped.Dir, shipped.Talk), path.Join(shipped.Dir, shipped.Notes), path.Join(shipped.Dir, shipped.Build), path.Join(shipped.Dir, shipped.Ask), shipped.Dir, shipped.Dir, path.Join(shipped.Dir, shipped.Talk))
+			var tools []string
+			for _, file := range shipped.ToolsFiles {
+				tools = append(tools, path.Join(shipped.Dir, file))
+			}
+			return nil, fmt.Errorf("Bulldog ships no %s: its tools files are %s and %s, its ask %s, and its rules each in a folder of %s/rules/, each named by its path in %s/ at the top of the office, as ./%s", full,
+				strings.Join(tools[:len(tools)-1], ", "), tools[len(tools)-1], path.Join(shipped.Dir, shipped.Ask), shipped.Dir, shipped.Dir, path.Join(shipped.Dir, shipped.Talk))
 		}
 		switch {
 		case path.IsAbs(full) || full == ".." || strings.HasPrefix(full, "../"):

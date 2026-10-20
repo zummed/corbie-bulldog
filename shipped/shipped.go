@@ -31,11 +31,15 @@ const (
 	Clock = "clock.yaml"
 	Talk  = "tools/talk/talk.yaml"
 	Notes = "tools/notes/notes.yaml"
+	Docs  = "tools/docs/docs.yaml"
 	Build = "tools/build/build.yaml"
 
 	Mentioned = "rules/mentioned/mentioned.js"
 	ForUs     = "rules/for-us/for-us.yaml"
 )
+
+// ToolsFiles are the tools files Bulldog ships, each in its folder.
+var ToolsFiles = []string{Talk, Notes, Docs, Build}
 
 // Page is the file of a shipped folder that is its page of the manual, its
 // first line saying what the thing is; Settings is a bridge's entry under
@@ -132,7 +136,7 @@ func Pages() []manual.Page {
 // Tools gives the names of the tools a tools file Bulldog ships holds, in
 // the order they sort, or none for a file that is not a tools file.
 func Tools(name string) []string {
-	if name != Talk && name != Notes && name != Build {
+	if !slices.Contains(ToolsFiles, name) {
 		return nil
 	}
 	contents, _ := File(name)

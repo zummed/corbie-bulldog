@@ -552,3 +552,96 @@ func (o *Office) Notes(team string) ([]Note, error) {
 	}
 	return notes, nil
 }
+
+// A Doc is one of a team's docs: its name, the path of its file in the
+// team's docs folder without .md, the team whose it is, and its size in
+// bytes.
+type Doc struct {
+	Name string
+	Team string
+	Size int64
+}
+
+// DocsDir is the folder in a team's folder that holds its docs.
+const DocsDir = "docs"
+
+// Docs lists a team's docs from its folder now, in the order their names
+// sort: every Markdown file under its docs folder, subfolders included,
+// but for anything whose name starts with a dot and anything that is not
+// a plain file. A team with no docs folder has none.
+func (o *Office) Docs(team string) ([]Doc, error) {
+	t := o.Teams[team]
+	if t == nil {
+		return nil, fmt.Errorf("the office has no team %s", team)
+	}
+	dir := filepath.Join(o.Dir, filepath.FromSlash(path.Join(t.Dir, DocsDir)))
+	var docs []Doc
+	err := filepath.WalkDir(dir, func(file string, entry os.DirEntry, err error) error {
+		switch {
+		case file == dir && os.IsNotExist(err):
+			return filepath.SkipAll
+		case err != nil:
+			return err
+		case file == dir:
+			return nil
+		case strings.HasPrefix(entry.Name(), "."):
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		case !entry.Type().IsRegular() || path.Ext(entry.Name()) != ".md":
+			return nil
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		name, err := filepath.Rel(dir, file)
+		if err != nil {
+			return err
+		}
+		docs = append(docs, Doc{Name: strings.TrimSuffix(filepath.ToSlash(name), ".md"), Team: team, Size: info.Size()})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	slices.SortFunc(docs, func(a, b Doc) int { return strings.Compare(a.Name, b.Name) })
+	return docs, nil
+}
+
+// DocsFor gives the docs a worker of a team reads: its own team's, then
+// those of each team around it, out to the office. A doc of a nearer team
+// stands before one of the same name further out, which is left out.
+func (o *Office) DocsFor(team string) ([]Doc, error) {
+	var docs []Doc
+	for t := o.Teams[team]; t != nil; t = o.Teams[t.Within] {
+		own, err := o.Docs(t.Name)
+		if err != nil {
+			return nil, err
+		}
+		for _, d := range own {
+			if !slices.ContainsFunc(docs, func(near Doc) bool { return near.Name == d.Name }) {
+				docs = append(docs, d)
+			}
+		}
+	}
+	return docs, nil
+}
+
+// DocText reads a doc from its team's folder now. A doc's name is a path
+// in its team's docs folder that never leaves it, and any other is
+// refused.
+func (o *Office) DocText(d Doc) (string, error) {
+	t := o.Teams[d.Team]
+	if t == nil {
+		return "", fmt.Errorf("the office has no team %s", d.Team)
+	}
+	for _, part := range strings.Split(d.Name, "/") {
+		if part == "" || strings.HasPrefix(part, ".") {
+			return "", fmt.Errorf("%q is not the name of a doc", d.Name)
+		}
+	}
+	text, err := os.ReadFile(filepath.Join(o.Dir, filepath.FromSlash(path.Join(t.Dir, DocsDir, d.Name+".md"))))
+	return string(text), err
+}

@@ -16,13 +16,6 @@
 
   function firstLine(text) { return String(text || "").split("\n")[0]; }
 
-  function size(n) {
-    if (typeof n !== "number") return "";
-    if (n < 1024) return n + " B";
-    if (n < 1024 * 1024) return Math.round(n / 1024) + " KB";
-    return (n / 1024 / 1024).toFixed(1) + " MB";
-  }
-
   function arrow() { return B.el("span", {class: "rq-arrow", role: "img", "aria-label": "to"}, "→"); }
 
   // kept is what the one looking did on a request's page, so that drawing
@@ -197,7 +190,7 @@
       e.kind === "sub" && e.sub ? B.el("div", {class: "rq-branch"}, B.icon("branch"), B.el("a", {class: "mono", href: "#/r/" + e.sub}, "#" + e.sub)) : null,
       e.text ? B.el("div", {class: "body"}, e.text) : null,
       e.files && e.files.length ? B.el("div", {class: "files"}, e.files.map((f) =>
-        B.el("a", {class: "who rq-file", href: f.url}, B.icon("file"), f.name, B.el("span", {class: "faint"}, size(f.size))))) : null,
+        B.el("a", {class: "who rq-file", href: f.url}, B.icon("file"), f.name, B.el("span", {class: "faint"}, B.size(f.size))))) : null,
       e.carried && e.carried.length ? B.el("div", {class: "foot"}, foot(e.carried)) : null,
       e.kind === "question" && mine ? B.replyForm(v, e) : null);
     div.dataset.id = e.id;

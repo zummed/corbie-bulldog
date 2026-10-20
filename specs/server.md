@@ -86,6 +86,7 @@ A signal stops the server: it stops listening, stops what it started, waits for 
     tools/
       talk/         talk.yaml  README.md      the talk tools
       notes/        notes.yaml  README.md     the notes tool
+      docs/         docs.yaml  README.md      the docs tools
       build/        build.yaml  README.md     the builder's tools
     bridges/
       telegram/  slack/  gitlab/  jira/       in.yaml  out.yaml  <name>.js  settings.yaml  README.md
@@ -96,7 +97,7 @@ A signal stops the server: it stops listening, stops what it started, waits for 
 
 Bulldog's own machines sit flat at the top: those it starts or answers itself, with nothing an office would change. Each other thing it ships is one folder, with its page, `README.md`: its first line says what it is, then what it needs, its settings, what it leaves out, an example of using it and what changed in it with each version of Bulldog. Each page is also a page of the manual, named by the thing's path, as `tools/talk`. A bridge's `settings.yaml` is its entry under `bridges` in `office.yaml`, as it is shipped.
 
-A bridge runs the shipped folder its entry's `from` names, as `./.bulldog/bridges/telegram`, and a team names a rule shipped here as it names one of its own, as its heed `./.bulldog/rules/for-us/for-us.yaml`. A worker names what it uses of these by its path here: the talk tools, the notes tool or the builder's tools in its `tools_file:`, as `./.bulldog/tools/talk/talk.yaml`, and the ask as its `ask:`. A worker Bulldog starts at the top names the ask when anything it runs can be held; a colleague called as a tool uses the nearest ask above it unless it names the ask Bulldog ships itself, and must name it when it can also be started at the top. Every ask a worker names is this one, as the work page says.
+A bridge runs the shipped folder its entry's `from` names, as `./.bulldog/bridges/telegram`, and a team names a rule shipped here as it names one of its own, as its heed `./.bulldog/rules/for-us/for-us.yaml`. A worker names what it uses of these by its path here: the talk tools, the notes tool, the docs tools or the builder's tools in its `tools_file:`, as `./.bulldog/tools/talk/talk.yaml`, and the ask as its `ask:`. A worker Bulldog starts at the top names the ask when anything it runs can be held; a colleague called as a tool uses the nearest ask above it unless it names the ask Bulldog ships itself, and must name it when it can also be started at the top. Every ask a worker names is this one, as the work page says.
 
 - **The office's identity** is made once, at random, when the folder is first readied. It is how every run of the office is labelled and found, so two offices of one name on one Corbie are two offices, and an office keeps its runs when it is renamed. It is kept beside the store and not in it, so a store made again finds the runs the office still has.
 - **The identity knows the folder it was made in.** A copy of an office made with its `.bulldog/` would be the same office to Corbie, and the two would answer and cancel each other's runs; so a folder whose `.bulldog/` was made in another, by its real path with links followed, is refused before its store is opened, naming both, and saying what to do: remove `.bulldog/` for an office of its own, or run `corbie bulldog init` in it if the office was moved. `init` then takes the folder as the office's, keeping its identity, its store and its runs, and says so. `check` reads such a folder all the same, since it starts nothing.
@@ -142,10 +143,12 @@ A run is the team's its labels name. A worker of one team asked to decide for an
 
 | The people who decide a change | |
 |---|---|
-| see | every file of the office, notes included, every team as it is written, every problem, the history, and which files are edited by hand; and nothing of what a team they are not in is doing or has read |
+| see | every file of the office, notes and docs included, every team as it is written, every problem, the history, and which files are edited by hand; and nothing of what a team they are not in is doing or has read |
 | draft, check and put | a change of their own, which may set a bridge Bulldog ships by its entry, and which still goes first to every rule and worker the walk asks before it reaches a person |
 
 Anyone else who wants the office changed asks for it in a request, and a builder drafts it.
+
+A team's docs, each by its name with its size, and each opened whole, are seen by its people, the people of each team within it, whose workers read them, and the people who decide a change, and by nobody else; seeing a team's docs shows nothing else of how it is written.
 
 Who may say more is one rule, the same on the screens as through a bridge, and the requests area's. A sub-request is asked at no place, so nobody says more in it from an origin. A guest says more only at the origin, through the bridge, and never signs in. Seeing a sub-request from the request it was asked from gives no voice in it.
 
@@ -160,7 +163,8 @@ JSON in and out, with the key in its cookie. `/api/me` gives the office's `zone`
 | `GET /api/me` | who is looking, the office as everyone sees it, what waits on them and how much, the problems they may see, and, to the top team's people, the bridges that are failing |
 | `GET /api/requests` | the requests the one looking may see, newest first; by `team`, by `state`, those they `asked`, or those `waiting` on them; each with its state, or, for one from an issue, its source's status as last reported, with when, and whether its work is going or waits on someone; in part, 100 at a time unless a `limit` asks for more or fewer, and no more than 500, with `before` a request's number for those numbered below it, and the `before` to give for the next part when more are left |
 | `GET /api/requests/{n}` | one request: what was done, and what was read of each team the one looking is in; its thread in part, with `before` to reach further back; the decisions they were asked, a worker who passed or decided one with the team it is of |
-| `GET /api/teams/{team}` | one team: everyone sees it as in `/api/me`, and its people see the rest of it, each worker's tools with what each does, what its job is and, for one that waits for a yes, its deciders in order, each a person, a rule or a worker, and a worker with the team it is of, and each worker's teams it may ask |
+| `GET /api/teams/{team}` | one team: everyone sees it as in `/api/me`, and its people see the rest of it, each worker's tools with what each does, what its job is and, for one that waits for a yes, its deciders in order, each a person, a rule or a worker, and a worker with the team it is of, and each worker's teams it may ask; and its docs, by name and size, to those who may open them |
+| `GET /api/teams/{team}/docs/{doc}` | one doc of the team, whole, by its name, a path in its `docs/` folder without `.md`, to those who may open it |
 | `GET /api/office/files`, `GET /api/office/file?path=` | the office's files, to the people who decide a change |
 | `GET /api/history`, `GET /api/history/{id}` | every change to the office's files, newest first, and one change with each file before and after, to the people who decide a change |
 | `GET /api/events` | a stream: `hello` when a screen connects, then `change` naming what changed |

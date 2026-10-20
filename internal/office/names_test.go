@@ -37,7 +37,7 @@ func TestOfficeNamesUsedOnce(t *testing.T) {
 
 func TestOfficeReservedNamesRefused(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{"office", "team", "notes", "bridges", "chat", "routine", "bulldog", "guest"} {
+	for _, name := range []string{"office", "team", "notes", "docs", "bridges", "chat", "routine", "bulldog", "guest"} {
 		says(t, refused(t, replace(t, house(t), "office.yaml", "  kit: {", "  "+name+": {")), "office.yaml", `"`+name+`"`, "keeps for itself")
 	}
 	says(t, refused(t, with(house(t), map[string]string{"guest.yaml": "flow: guest\nstages: { a: { job: ./tools/order.js } }\n"})), "guest.yaml", "keeps for itself")

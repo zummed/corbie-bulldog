@@ -463,7 +463,7 @@ func TestWorkToolsActOnOwnRequestOnly(t *testing.T) {
 
 func TestWorkEveryShippedToolIsDone(t *testing.T) {
 	t.Parallel()
-	for _, file := range []string{shipped.Talk, shipped.Notes, shipped.Build} {
+	for _, file := range shipped.ToolsFiles {
 		tools := shipped.Tools(file)
 		if len(tools) == 0 {
 			t.Errorf("%s holds no tool", file)

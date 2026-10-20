@@ -1,6 +1,7 @@
 // One team: who is in it and its lead, and, to its people,
 // how it is written: its workers, its authorisation, its routines, what
-// its workers are at, its models and its notes. A team may have hundreds
+// its workers are at, its models and its notes; and its docs, to those who
+// may open them. A team may have hundreds
 // of people and many workers, so long lists are paged and searched.
 (function () {
   "use strict";
@@ -13,7 +14,8 @@
   const PAGE = 20;      // routines, runs, notes and lists shown before More
 
   // What the view keeps while it is drawn again, for one team: what is
-  // searched for, how many of each list are shown, and which notes are open.
+  // searched for, how many of each list are shown, and which notes, docs
+  // and folders of docs are open.
   const state = {team: "", q: new Map(), shown: new Map(), open: new Set()};
   function keepFor(team) {
     if (state.team !== team) { state.team = team; state.q = new Map(); state.shown = new Map(); state.open = new Set(); }
@@ -261,6 +263,68 @@
     }, "te-notes"));
   }
 
+  // Docs, nested by their folders, each opened in place.
+
+  // folders gives docs as a tree: each folder its folders by name, and
+  // its docs with the last part of their names.
+  function folders(docs) {
+    const root = {folders: new Map(), docs: []};
+    for (const d of docs) {
+      const parts = d.name.split("/");
+      let at = root;
+      for (const part of parts.slice(0, -1)) {
+        if (!at.folders.has(part)) at.folders.set(part, {folders: new Map(), docs: []});
+        at = at.folders.get(part);
+      }
+      at.docs.push({doc: d, part: parts[parts.length - 1]});
+    }
+    return root;
+  }
+
+  // opened gives a details kept open, by key, while the view is drawn
+  // again, which calls first the first time it opens.
+  function opened(key, cls, summary, body, first) {
+    const d = B.el("details", {class: cls, open: state.open.has(key)}, summary, body);
+    let done = false;
+    d.addEventListener("toggle", () => {
+      if (!d.open) { state.open.delete(key); return; }
+      state.open.add(key);
+      if (first && !done) { done = true; first(); }
+    });
+    return d;
+  }
+
+  function docEl(t, d, part) {
+    const text = B.el("pre", {});
+    return opened("doc:" + d.name, "te-doc",
+      B.el("summary", {}, B.el("span", {class: "mono"}, part), B.el("span", {class: "mono faint te-size"}, B.size(d.size))),
+      text,
+      async () => {
+        try {
+          const out = await B.api("/api/teams/" + encodeURIComponent(t.name) + "/docs/" + d.name.split("/").map(encodeURIComponent).join("/"));
+          text.textContent = out.text;
+        } catch (err) {
+          B.trouble(err);
+        }
+      });
+  }
+
+  function folderEls(t, node, path) {
+    return [
+      ...[...node.folders.keys()].sort().map((name) => opened("folder:" + path + name, "te-folder",
+        B.el("summary", {class: "mono"}, name + "/"),
+        B.el("div", {class: "te-docs"}, folderEls(t, node.folders.get(name), path + name + "/")))),
+      ...node.docs.map((x) => docEl(t, x.doc, x.part)),
+    ];
+  }
+
+  function docs(t) {
+    if (!t.docs || !t.docs.length) return null;
+    return B.sect(B.label("Docs", B.el("span", {class: "count"}, String(t.docs.length)),
+      ...B.info("About docs", "Read by the workers of this team and of the teams within, when they ask, through the docs tools. Written through a change.")),
+    B.el("div", {class: "te-docs"}, folderEls(t, folders(t.docs), "")));
+  }
+
   // The view
 
   B.route(/^#\/t\/([^/]+)$/, async function (m) {
@@ -288,7 +352,7 @@
       whole ? authorisation(t) : null,
       whole ? disclosure(t) : null);
 
-    const side = whole ? [routines(t), runs(t), models(t), notes(t), problems(t)].filter(Boolean) : [];
+    const side = (whole ? [routines(t), runs(t), models(t), notes(t), docs(t), problems(t)] : [docs(t)]).filter(Boolean);
     const out = B.el("div", {class: "te"}, head,
       B.el("div", {class: "cols"},
         B.el("div", {class: "main"}, team),

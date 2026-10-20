@@ -105,13 +105,23 @@ func (w *Work) readPlace(c *calling, from int64) (string, bool, error) {
 }
 
 // threadText writes entries one to a line, each with its number, as many
-// whole as fit in ThreadLimit characters, a first longer than that cut;
-// with request, each names its request. It gives how many it wrote.
+// whole as fit in ThreadLimit characters; with request, each names its
+// request. It gives how many it wrote.
 func threadText(o *office.Office, entries []requests.Entry, request bool) (string, int) {
+	var lines []string
+	for _, e := range entries {
+		lines = append(lines, threadLine(o, e, request))
+	}
+	return fit(lines, ThreadLimit)
+}
+
+// fit writes lines, one to a line, as many whole as fit in a limit of
+// characters, a first longer than that cut. It gives how many it wrote.
+func fit(lines []string, limit int) (string, int) {
 	var b strings.Builder
-	room := ThreadLimit
-	for i, e := range entries {
-		line := threadLine(o, e, request) + "\n"
+	room := limit
+	for i, line := range lines {
+		line += "\n"
 		size := utf8.RuneCountInString(line)
 		if size > room {
 			if i > 0 {
@@ -122,7 +132,7 @@ func threadText(o *office.Office, entries []requests.Entry, request bool) (strin
 		b.WriteString(line)
 		room -= size
 	}
-	return b.String(), len(entries)
+	return b.String(), len(lines)
 }
 
 // threadLine gives an entry as read_thread gives it: its number, its

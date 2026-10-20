@@ -109,7 +109,7 @@ var nameForm = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 // Reserved are the names no person, worker, team or bridge may have: they
 // are files and folders of the office, the built-in chat, or who Bulldog
 // itself speaks as.
-var Reserved = []string{Top, "team", NotesDir, "bridges", "chat", "routine", "bulldog", "guest"}
+var Reserved = []string{Top, "team", NotesDir, DocsDir, "bridges", "chat", "routine", "bulldog", "guest"}
 
 // nameProblem says what is wrong with a name, or nothing.
 func nameProblem(name string) string {

@@ -62,6 +62,8 @@ const (
 	ThreadLimit = 20_000
 	NotesLimit  = 50_000
 	OpenLimit   = 50
+	// DocsLimit is how much one call of a docs tool gives.
+	DocsLimit = 20_000
 	// ToolWait is how long a shipped tool waits on its ticket.
 	ToolWait = 7 * 24 * time.Hour
 )
