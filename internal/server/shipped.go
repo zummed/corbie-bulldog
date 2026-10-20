@@ -26,19 +26,22 @@ type (
 		Things  []thingOut `json:"things"`
 	}
 	// thingOut is one thing Bulldog ships: a bridge, a tools file or a
-	// rule, by its folder in .bulldog/, with its page, what it reaches as
-	// shipped, its settings, whether the office uses it and where. The
-	// people who decide a change also see whether the office holds a copy
-	// of it, what changed in it since the version that ran before, and the
-	// drafts that use and copy it.
+	// rule, by its folder in .bulldog/, with its page, the line that uses
+	// it, what it reaches as shipped, its settings, what changed in it in
+	// each version, whether the office uses it and where. The people who
+	// decide a change also see whether the office holds a copy of it, what
+	// changed in it since the version that ran before, and the drafts that
+	// use and copy it.
 	thingOut struct {
 		Path     string            `json:"path"`
 		Kind     string            `json:"kind"`
 		Name     string            `json:"name"`
 		Summary  string            `json:"summary"`
 		Page     string            `json:"page"`
+		Line     string            `json:"line"`
 		Needs    reachOut          `json:"needs"`
 		Settings []shipped.Setting `json:"settings"`
+		Versions []shipped.Change  `json:"versions"`
 		Status   string            `json:"status"`
 		Uses     []useOut          `json:"uses"`
 		Changed  []shipped.Change  `json:"changed,omitempty"`
@@ -46,15 +49,17 @@ type (
 		Use      *changes.Edit     `json:"use,omitempty"`
 		Copy     *changes.Edit     `json:"copy,omitempty"`
 	}
-	// useOut is where the office names a shipped thing: a bridge's entry,
-	// with what it reaches as its settings fill it to the people who
-	// decide a change; a worker of a team that holds its tools; or a
-	// team's heed or list of deciders, as its key.
+	// useOut is where the office names a shipped thing, with the line
+	// there that names it, as written: a bridge's entry, with what it
+	// reaches as its settings fill it to the people who decide a change; a
+	// worker of a team that holds its tools; or a team's heed or list of
+	// deciders, as its key.
 	useOut struct {
 		Bridge string    `json:"bridge,omitempty"`
 		Team   string    `json:"team,omitempty"`
 		Worker string    `json:"worker,omitempty"`
 		As     string    `json:"as,omitempty"`
+		Line   string    `json:"line"`
 		Reach  *reachOut `json:"reach,omitempty"`
 	}
 	// copyOut is a bridge's folder of the office's own that is a copy of
@@ -67,12 +72,14 @@ type (
 	}
 )
 
-// A use is one place the office names a shipped thing.
+// A use is one place the office names a shipped thing, and the line
+// there that names it, as written.
 type use struct {
 	bridge *office.Bridge
 	team   *office.Team
 	worker string
 	as     string
+	line   string
 }
 
 // shipped gives each thing Bulldog ships as the one looking may see it:
@@ -99,8 +106,9 @@ func (s *site) shipped(person string, w http.ResponseWriter, r *http.Request) (a
 	out := shippedOut{Version: s.version, Things: []thingOut{}}
 	for _, thing := range shipped.Things() {
 		page, _ := shipped.File(path.Join(thing, shipped.Page))
-		t := thingOut{Path: thing, Kind: shipped.Kind(thing), Name: path.Base(thing), Summary: shipped.Summary(thing), Page: string(page),
-			Needs: reachOf(shipped.Reach(thing)), Settings: orEmpty(shipped.SettingsOf(thing)), Status: "unused", Uses: []useOut{}}
+		t := thingOut{Path: thing, Kind: shipped.Kind(thing), Name: path.Base(thing), Summary: shipped.Summary(thing), Page: string(page), Line: lineOf(thing),
+			Needs: reachOf(shipped.Reach(thing)), Settings: orEmpty(shipped.SettingsOf(thing)), Versions: orEmpty(shipped.Changed(thing)),
+			Status: "unused", Uses: []useOut{}}
 		uses := usesOf(o, thing)
 		if len(uses) > 0 {
 			t.Status = "used"
@@ -108,14 +116,14 @@ func (s *site) shipped(person string, w http.ResponseWriter, r *http.Request) (a
 		for _, u := range uses {
 			switch {
 			case u.bridge != nil:
-				seen := useOut{Bridge: u.bridge.Name}
+				seen := useOut{Bridge: u.bridge.Name, Line: u.line}
 				if decides {
 					reach := reachOf(fillAll(shipped.Reach(thing), u.bridge.Settings))
 					seen.Reach = &reach
 				}
 				t.Uses = append(t.Uses, seen)
 			case sees[u.team.Name]:
-				t.Uses = append(t.Uses, useOut{Team: u.team.Name, Worker: u.worker, As: u.as})
+				t.Uses = append(t.Uses, useOut{Team: u.team.Name, Worker: u.worker, As: u.as, Line: u.line})
 			}
 		}
 		if decides {
@@ -135,10 +143,12 @@ func (s *site) shipped(person string, w http.ResponseWriter, r *http.Request) (a
 	return out, nil
 }
 
-// usesOf gives where the office names a shipped thing: each bridge whose
-// entry runs its folder; each worker that holds a tool of a tools file,
-// by the tools Bulldog answers for it; each team whose heed, disclosure
-// or list of deciders names a rule in its folder.
+// usesOf gives where the office names a shipped thing, each with the
+// line that names it as written: each bridge whose entry runs its folder,
+// by its from; each worker that holds a tool of a tools file, by the
+// tools Bulldog answers for it, with its tools_file entry that names the
+// file; each team whose heed, disclosure or list of deciders names a rule
+// in its folder, by the entry that names it.
 func usesOf(o *office.Office, thing string) []use {
 	if o == nil {
 		return nil
@@ -149,48 +159,99 @@ func usesOf(o *office.Office, thing string) []use {
 	case "bridge":
 		for _, name := range o.BridgeOrder {
 			if b := o.Bridges[name]; b.From == folder {
-				out = append(out, use{bridge: b})
+				settings, _ := b.Settings.(map[string]any)
+				from, _ := settings["from"].(string)
+				out = append(out, use{bridge: b, line: "from: " + from})
 			}
 		}
 	case "tools":
-		var tools []string
-		for _, file := range shipped.ToolsFiles {
-			if path.Dir(file) == thing {
-				tools = shipped.Tools(file)
-			}
-		}
+		file := namedFile(thing)
+		tools := shipped.Tools(file)
 		for _, team := range o.Order {
 			t := o.Teams[team]
 			for _, name := range t.Workers {
-				if slices.ContainsFunc(o.Workers[name].Held, func(tool office.Tool) bool {
+				w := o.Workers[name]
+				if slices.ContainsFunc(w.Held, func(tool office.Tool) bool {
 					return tool.Kind == office.ToolBulldog && slices.Contains(tools, tool.Name)
 				}) {
-					out = append(out, use{team: t, worker: name})
+					out = append(out, use{team: t, worker: name, line: toolsLine(w, path.Join(shipped.Dir, file))})
 				}
 			}
 		}
 	case "rule":
-		names := func(deciders []office.Decider) bool {
-			return slices.ContainsFunc(deciders, func(d office.Decider) bool {
-				return d.Kind == office.IsRule && path.Dir(d.Name) == folder
-			})
+		named := func(deciders []office.Decider) string {
+			for _, d := range deciders {
+				if d.Kind == office.IsRule && path.Dir(d.Name) == folder {
+					return d.Written
+				}
+			}
+			return ""
 		}
 		for _, team := range o.Order {
 			t := o.Teams[team]
 			if t.Heed != nil && path.Dir(t.Heed.Rule) == folder {
-				out = append(out, use{team: t, as: "heed"})
+				out = append(out, use{team: t, as: "heed", line: "heed: " + t.Heed.Written})
 			}
-			if t.HasDisclosure && names(t.Disclosure) {
-				out = append(out, use{team: t, as: "disclosure"})
+			if entry := named(t.Disclosure); t.HasDisclosure && entry != "" {
+				out = append(out, use{team: t, as: "disclosure", line: "disclosure: " + entry})
 			}
 			for _, l := range t.Decide {
-				if names(l.Deciders) {
-					out = append(out, use{team: t, as: l.Key})
+				if entry := named(l.Deciders); entry != "" {
+					out = append(out, use{team: t, as: l.Key, line: l.Key + ": " + entry})
 				}
 			}
 		}
 	}
 	return out
+}
+
+// namedFile gives the file of a shipped thing that the office names, by its
+// path in .bulldog/: a bridge's folder, a tools file, or a rule's
+// definition, or its script when it is a bare one.
+func namedFile(thing string) string {
+	switch shipped.Kind(thing) {
+	case "tools":
+		for _, file := range shipped.ToolsFiles {
+			if path.Dir(file) == thing {
+				return file
+			}
+		}
+	case "rule":
+		name := path.Base(thing)
+		if slices.Contains(shipped.Files(thing), name+".yaml") {
+			return path.Join(thing, name+".yaml")
+		}
+		return path.Join(thing, name+".js")
+	}
+	return thing
+}
+
+// lineOf gives the line that uses a shipped thing, written at the top of
+// the office: a bridge's from, a worker's tools_file, or a team's heed.
+func lineOf(thing string) string {
+	at := "./" + path.Join(shipped.Dir, namedFile(thing))
+	switch shipped.Kind(thing) {
+	case "bridge":
+		return "from: " + at
+	case "tools":
+		return "tools_file: [" + at + "]"
+	}
+	return "heed: " + at
+}
+
+// toolsLine gives the entry of a worker's tools_file that names a tools
+// file, by its path in the office, as written, or "" when none does.
+func toolsLine(w *office.Worker, file string) string {
+	var def struct {
+		ToolsFile []string `yaml:"tools_file"`
+	}
+	_ = yaml.Unmarshal(w.Written, &def)
+	for _, entry := range def.ToolsFile {
+		if path.Join(path.Dir(w.File), entry) == file {
+			return "tools_file: " + entry
+		}
+	}
+	return ""
 }
 
 // changedLines gives, for each thing Bulldog ships that the office uses,

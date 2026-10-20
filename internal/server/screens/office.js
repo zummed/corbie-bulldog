@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  const parts = [["bridges", "Bridges"], ["bulldog", "From Bulldog"], ["changes", "Changes"]];
+  const parts = [["bridges", "Bridges"], ["built-in", "Built-in"], ["changes", "Changes"]];
 
   // B.officeHead gives the head of a part of the office's page: the
   // office's name, what is given beside it, the parts the one looking may
@@ -27,8 +27,8 @@
         change.length ? said("office_put", B.chain(change)) : null));
   };
 
-  const moved = {bridges: "bridges", shipped: "bulldog", changes: "changes"};
-  B.route(/^#\/(bridges|shipped|changes)(\?.*)?$/, function (m) {
+  const moved = {bridges: "bridges", shipped: "built-in", "office/bulldog": "built-in", changes: "changes"};
+  B.route(/^#\/(bridges|shipped|office\/bulldog|changes)(\?.*)?$/, function (m) {
     location.replace("#/office/" + moved[m[1]] + (m[2] || ""));
     return B.el("div", {});
   }, "office");

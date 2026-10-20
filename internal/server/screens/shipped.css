@@ -1,30 +1,46 @@
-/* shipped: the things Bulldog ships, grouped, each a block with what it
-   is nested beneath it. */
-.shs { display: flex; flex-direction: column; gap: var(--space); }
-.sh-group { display: flex; flex-direction: column; }
-.sh-group > .label { margin-bottom: 0; padding-bottom: 6px; border-bottom: var(--wall) solid var(--ink); }
+/* built-in: what the office uses of Bulldog's, one row each, and folded
+   beneath it what else is there; a row opened shows what it is on a guide
+   line beneath. */
+.bis { display: flex; flex-direction: column; gap: var(--space); }
+.bi-group { display: flex; flex-direction: column; }
+.bi-group > .label, .bi-available > summary { margin-bottom: 0; padding-bottom: 6px; border-bottom: var(--wall) solid var(--ink); }
+.bi-available > summary { display: flex; align-items: center; }
+.bi-available > summary > .label { margin-bottom: 0; }
 
-/* A thing: a head with its name and status, then what it is on a guide
-   line beneath */
-.sh { border-bottom: 1px solid var(--line); padding-bottom: var(--gap); }
-.sh-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; padding: 10px 0; }
-.sh-body { display: flex; flex-direction: column; gap: var(--gap); margin-left: 9px; padding-left: 18px; border-left: 1.5px solid var(--line); }
-.sh-body .kv .kv { padding-left: 14px; border-left: 1.5px solid var(--line); }
-.sh-uses { gap: 8px; }
-.sh-use { display: flex; flex-direction: column; gap: 6px; }
-.sh-setting { gap: 6px; flex-wrap: nowrap; }
+/* A row: its name and what it is, then who uses it and the line that does,
+   or, of what is available, what it is for and the line that would */
+.bi { border-bottom: 1px solid var(--line); }
+.bi-row { display: grid; grid-template-columns: 14px minmax(140px, 200px) minmax(0, 1fr) auto; gap: 6px 16px; align-items: baseline; padding: 10px 0; }
+.bi-available .bi-row { grid-template-columns: 14px minmax(140px, 200px) minmax(0, 1fr) minmax(0, 1.2fr) auto; }
+.bi-name { display: inline-flex; align-items: baseline; gap: 8px; font-weight: 600; }
+.bi-uses { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.bi-use { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 4px 16px; align-items: baseline; }
+.bi-who { gap: 4px 12px; }
+.bi-written { font-size: var(--data); color: var(--ink); overflow-wrap: anywhere; }
+.bi-copy { gap: 8px; }
+.bi-for { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bi[open] .bi-for { visibility: hidden; }
+.bi-mark { gap: 6px; flex-wrap: nowrap; }
 
-/* The page, folded to its first line */
-.sh-page > summary { cursor: pointer; }
-.sh-page > pre { margin-top: 8px; padding: 10px 12px; background: var(--sheet); border-left: 3px solid var(--faint); }
+/* What it is, on a guide line beneath its row */
+.bi-detail { display: flex; flex-direction: column; gap: var(--gap); margin: 0 0 var(--gap) 6px; padding-left: 18px; border-left: 1.5px solid var(--line); }
+.bi-detail .kv .kv { padding-left: 14px; border-left: 1.5px solid var(--line); }
+.bi-setting { gap: 6px; flex-wrap: nowrap; }
+.bi-reach { display: flex; flex-direction: column; gap: 6px; }
+.bi-versions { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; align-items: baseline; }
+.bi-new { color: var(--wait); }
 
-/* One status: used, unused, copied; what changed is a mark beside it */
-.status.sh-used { color: var(--good); } .status.sh-used::before { background: var(--good); }
-.status.sh-unused { color: var(--ink3); } .status.sh-unused::before { background: transparent; border: 1.5px solid var(--ink3); }
-.status.sh-copied { color: var(--plan); } .status.sh-copied::before { background: var(--plan); border-radius: 1px; }
-.sh-mark { gap: 6px; }
-.tag.sh-changed { color: var(--wait); border-color: var(--wait); }
+/* Copied, and what changed since the version that ran before */
+.status.bi-copied { color: var(--plan); } .status.bi-copied::before { background: var(--plan); border-radius: 1px; }
+.tag.bi-changed { color: var(--wait); border-color: var(--wait); }
 
 @media (max-width: 640px) {
-  .sh-body { margin-left: 0; padding-left: 12px; }
+  .bi-row, .bi-available .bi-row { grid-template-columns: 10px minmax(0, 1fr) auto; column-gap: 4px; }
+  .bi-row::before { width: 10px; }
+  .bi-written { font-size: var(--small); letter-spacing: -0.02em; }
+  .bi-row > :not(.bi-name):not(.bi-mark) { grid-column: 2 / -1; }
+  .bi-row > .bi-mark { grid-row: 1; grid-column: 3; }
+  .bi-use { grid-template-columns: minmax(0, 1fr); }
+  .bi[open] .bi-for { display: none; }
+  .bi-detail { margin-left: 0; padding-left: 12px; }
 }
