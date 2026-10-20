@@ -258,7 +258,7 @@ func TestShippedSettingsAndChangesReadFromTheFiles(t *testing.T) {
 func TestNotesToolSaysWhoReadsNotes(t *testing.T) {
 	t.Parallel()
 	contents, _ := shipped.File(shipped.Notes)
-	for _, said := range []string{"builder", "whoever decides a change", "secret"} {
+	for _, said := range []string{"names the build kit", "whoever decides a change", "secret"} {
 		if !strings.Contains(string(contents), said) {
 			t.Errorf("the notes tool does not say %q", said)
 		}
