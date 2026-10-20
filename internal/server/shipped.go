@@ -326,14 +326,18 @@ func copyDraft(o *office.Office, thing string, uses []use) *changes.Edit {
 
 // renamed gives a list of deciders as written, with each rule in a
 // shipped rule's folder named as its copy in the team's own.
-func renamed(deciders []office.Decider, thing string) []string {
-	out := []string{}
+func renamed(deciders []office.Decider, thing string) []any {
+	out := []any{}
 	for _, d := range deciders {
+		entry := d.Written
 		if d.Kind == office.IsRule && path.Dir(d.Name) == path.Join(shipped.Dir, thing) {
-			out = append(out, "./"+path.Base(d.Name))
+			entry = "./" + path.Base(d.Name)
+		}
+		if d.Advises {
+			out = append(out, map[string]string{entry: "advise"})
 			continue
 		}
-		out = append(out, d.Written)
+		out = append(out, entry)
 	}
 	return out
 }

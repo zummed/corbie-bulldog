@@ -85,6 +85,8 @@
 .rq-card .rq-kind { color: var(--wait); }
 .rq-word { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: var(--data); }
 .rq-note { color: var(--ink2); font-style: italic; }
+.rq-rec { color: var(--good); font-weight: 600; }
+.rq-recs { gap: 4px; padding: 8px 10px; border-left: 3px solid var(--good); background: var(--paper); }
 .rq-asked { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; padding: 1px 6px; border: 1.5px solid var(--wait); }
 .rq-now { color: var(--wait); font: var(--data) var(--mono); }
 .status.rq-gone { color: var(--ink3); }

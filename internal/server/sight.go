@@ -543,9 +543,10 @@ type (
 	// person, a rule by its path as written, or a worker, with the team it
 	// is of.
 	deciderOut struct {
-		Kind string `json:"kind"`
-		Name string `json:"name"`
-		Team string `json:"team,omitempty"`
+		Kind    string `json:"kind"`
+		Name    string `json:"name"`
+		Team    string `json:"team,omitempty"`
+		Advises bool   `json:"advises,omitempty"`
 	}
 	// routineOut is a routine as written, in the office's zone, with
 	// when it comes round next and its one status: due; skipped, when
@@ -1123,13 +1124,13 @@ func walked(o *office.Office, team, key string) []deciderOut {
 }
 
 // deciders gives the stages of a walk as who decides: each rule, by its
-// path in the office, and each worker, with the team it is of, then each
-// person of the people it ends at.
+// path in the office, and each worker, with the team it is of and whether
+// it advises, then each person of the people it ends at.
 func deciders(o *office.Office, stages []decisions.Stage) []deciderOut {
 	out := []deciderOut{}
 	for _, s := range stages {
 		if s.Kind != decisions.IsPeople {
-			out = append(out, deciderOut{Kind: s.Kind, Name: s.Name, Team: teamOfWorker(o, s.Kind, s.Name)})
+			out = append(out, deciderOut{Kind: s.Kind, Name: s.Name, Team: teamOfWorker(o, s.Kind, s.Name), Advises: s.Advises})
 			continue
 		}
 		for _, name := range s.People {

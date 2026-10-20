@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/zummed/corbie-bulldog/internal/changes"
+	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/shipped"
 )
 
@@ -167,5 +168,16 @@ func TestServerShippedChangedLinesAfterUpgrade(t *testing.T) {
 	}
 	if c := changed(again, "al"); len(c) != 1 {
 		t.Errorf("Al is given Jira's changes as %+v after a restart", c)
+	}
+}
+
+func TestServerACopiedRuleThatAdvisesStillAdvises(t *testing.T) {
+	t.Parallel()
+	got := renamed([]office.Decider{
+		{Written: "../.bulldog/rules/for-us/for-us.yaml", Kind: office.IsRule, Name: ".bulldog/rules/for-us/for-us.yaml", Advises: true},
+		{Written: "lee", Kind: office.IsPerson, Name: "lee"},
+	}, "rules/for-us")
+	if !reflect.DeepEqual(got, []any{map[string]string{"./for-us.yaml": "advise"}, "lee"}) {
+		t.Errorf("the list is written %v", got)
 	}
 }

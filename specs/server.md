@@ -132,7 +132,7 @@ What each person may see is read from the files each time it is shown: being nam
 | asks | in the chat, of the office or of any team |
 | says more | on the screens, in a request they asked, one whose team they are in, one whose origin they can read, or a sub-request asked by a team they are in |
 | answers | a question put to them |
-| decides | a decision the walk reaches them for, while it waits, shown the note of each decider that referred it and its walk, and, of a disclosure, what would leave, whom it is to, where it may in the end be read and the requests it goes through |
+| decides | a decision the walk reaches them for, while it waits, shown the note of each decider that referred it, each recommendation of one that advises, "clerk recommends yes", above their Approve and Refuse, and its walk, each decider that advises marked so, and, of a disclosure, what would leave, whom it is to, where it may in the end be read and the requests it goes through |
 | stops | a request they asked, one whose team they are in, or one beneath a request they may stop |
 | replaces | their own key |
 

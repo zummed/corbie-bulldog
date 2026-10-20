@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -123,6 +124,38 @@ func TestServerDecide(t *testing.T) {
 	s.as("sam").get("/api/requests/" + itoa(n)).is(http.StatusOK).into(&v)
 	if len(v.Decisions) != 1 || !v.Decisions[0].Mine || len(v.Decisions[0].Referrals) != 1 || v.Decisions[0].Referrals[0].Note != "£300 is more than I order alone." {
 		t.Errorf("Sam is shown the order as %+v", v.Decisions)
+	}
+
+	// With the clerk advising after the rule, Sam is shown the clerk's
+	// recommendation, and the clerk as advising on the walk.
+	files := house(t)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "order_part: [./small-orders.js, sam]", "order_part: [./small-orders.js, clerk: advise, sam]", 1)
+	b = newBench(t, files)
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		if strings.Contains(turn.System, "You keep the house's accounts") {
+			return testkit.Say(`{ "says": "yes", "note": "The pump is within this month's money." }`)
+		}
+		return playHouse(turn)
+	})
+	s = b.serve()
+	n = numbered(s.as("kit").post("/api/requests", map[string]string{"text": "the boiler pump is dead"}))
+	s.waitsOn(n, "sam")
+	s.as("sam").get("/api/requests/" + itoa(n)).is(http.StatusOK).into(&v)
+	if len(v.Decisions) != 1 || len(v.Decisions[0].Referrals) != 2 {
+		t.Fatalf("Sam is shown the order as %+v", v.Decisions)
+	}
+	d0 := v.Decisions[0]
+	if rec := d0.Referrals[1]; rec.Name != "clerk" || !rec.Recommends || rec.Note != "The pump is within this month's money." || d0.Ended != "" || !d0.Mine {
+		t.Errorf("Sam is shown the clerk's word as %+v, on %+v", rec, d0)
+	}
+	want := []deciderOut{{Kind: "rule", Name: "small-orders.js"}, {Kind: "worker", Name: "clerk", Team: "office", Advises: true}, {Kind: "person", Name: "sam"}}
+	if !slices.Equal(d0.Stages, want) {
+		t.Errorf("Sam is shown the walk as %+v", d0.Stages)
+	}
+	var whole teamWhole
+	s.as("sam").get("/api/teams/office").is(http.StatusOK).into(&whole)
+	if l := whole.Decide[slices.IndexFunc(whole.Decide, func(l listOut) bool { return l.Key == "order_part" })]; !slices.Equal(l.Deciders, want) {
+		t.Errorf("Sam is given the house's order_part as %+v", l.Deciders)
 	}
 }
 

@@ -151,9 +151,15 @@ B.deciderEl = function (d, here) {
 };
 B.bulldogEl = function () { return B.el("span", {class: "ic bulldog"}, "Bulldog"); };
 
+// deciderOn gives a decider as a list names it, saying when it advises.
+B.deciderOn = function (d, here) {
+  const el = B.deciderEl(d, here);
+  return d.advises ? B.el("span", {class: "line advises"}, el, B.el("span", {class: "faint small"}, "advises")) : el;
+};
+
 // chain gives who decides, in the order the walk asks them.
 B.chain = function (deciders, here) {
-  return B.el("span", {class: "chain"}, deciders.flatMap((d, i) => [i ? B.el("span", {class: "then", "aria-hidden": "true"}, "›") : null, B.deciderEl(d, here)]));
+  return B.el("span", {class: "chain"}, deciders.flatMap((d, i) => [i ? B.el("span", {class: "then", "aria-hidden": "true"}, "›") : null, B.deciderOn(d, here)]));
 };
 
 // placeEl gives a place a bridge listens in as the way to it: the bridge,
@@ -197,7 +203,7 @@ B.givenEl = function (n) {
 // own have none, and an entry of a decision is "Decision" where the
 // decision is not at hand.
 const ENTRY = {asked: "Asked", said: "Said", question: "Question", told: "Told", replied: "Reply", sub: "Sub-request",
-  answer: "Answer", late: "Late answer", held: "Held", decide: "Asked to decide", decided: "Verdict", referred: "Referred",
+  answer: "Answer", late: "Late answer", held: "Held", decide: "Asked to decide", decided: "Verdict", referred: "Referred", recommended: "Recommends yes",
   notice: "Notice", noted: "Noted", decision: "Decision", bulldog: ""};
 B.entryWord = function (kind) { return kind in ENTRY ? ENTRY[kind] : kind; };
 

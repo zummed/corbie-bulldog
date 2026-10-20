@@ -166,7 +166,7 @@
   }
   function lockEl(t, tl) {
     if (!tl.waits) return null;
-    const who = (tl.deciders || []).map((d) => d.kind === "person" ? B.personCalled(d.name) : d.kind === "bulldog" ? "Bulldog" : d.name);
+    const who = (tl.deciders || []).map((d) => (d.kind === "person" ? B.personCalled(d.name) : d.kind === "bulldog" ? "Bulldog" : d.name) + (d.advises ? " advises" : ""));
     return lockOf(tl.name + " waits for a yes: " + (who.length ? who.join(", then ") : "refused, since nobody decides it"));
   }
 
@@ -292,8 +292,8 @@
   // deciderWord gives a decider in a word or two.
   function deciderWord(d) {
     if (d.kind === "person") return B.partyWord(d);
-    if (d.kind === "rule") return shortRule(d.name);
-    return d.kind === "bulldog" ? "Bulldog" : d.name;
+    const word = d.kind === "rule" ? shortRule(d.name) : d.kind === "bulldog" ? "Bulldog" : d.name;
+    return d.advises ? word + " advises" : word;
   }
 
   // infoOf gives the (i) of one of a team's labels, without its word.
@@ -389,7 +389,7 @@
 
     if ((t.disclosure && t.disclosure.length) || t.discloses) {
       const ds = t.disclosure || [];
-      out.push({id: "disclosure", word: "Disclosure", check: true, name: ds.length ? "Asked of " + deciderWord(ds[0]) : "Set",
+      out.push({id: "disclosure", word: "Disclosure", check: true, name: ds.length ? (ds[0].advises ? "" : "Asked of ") + deciderWord(ds[0]) : "Set",
         sub: ds.length > 1 ? "then " + ds.slice(1).map(deciderWord).join(", then ") : "",
         info: infoOf(B.disclosureLabel(t)),
         setup: ds.length ? B.kv([["Asked", B.chain(ds, t.name)], ["Not needed for", "People of " + t.called]]) : null});

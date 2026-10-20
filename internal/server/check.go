@@ -122,14 +122,18 @@ func listWorker(out io.Writer, o *office.Office, t *office.Team, w *office.Worke
 }
 
 // decidedBy says who decides a key of a team, in the order the walk asks
-// them: each rule by its path in the office and each worker, then the
-// people it ends at, asked at once; a list of a team around it is named.
+// them: each rule by its path in the office and each worker, saying when
+// it advises, then the people it ends at, asked at once; a list of a team
+// around it is named.
 func decidedBy(o *office.Office, team, key string) string {
 	var said []string
 	for _, s := range decisions.Walk(o, team, key) {
 		who := s.Name
 		if s.Kind == decisions.IsPeople {
 			who = strings.Join(s.People, " or ")
+		}
+		if s.Advises {
+			who += " (advises)"
 		}
 		if s.Team != team {
 			who += fmt.Sprintf(", from the %s of %s", s.List, o.Teams[s.Team].Called)
@@ -166,10 +170,15 @@ func listBridge(out io.Writer, o *office.Office, b *office.Bridge) {
 	fmt.Fprintln(out, line)
 }
 
-// written gives a list of deciders as it is written.
+// written gives a list of deciders as it is written, saying which
+// advise.
 func written(deciders []office.Decider) string {
 	var names []string
 	for _, d := range deciders {
+		if d.Advises {
+			names = append(names, d.Written+" (advises)")
+			continue
+		}
 		names = append(names, d.Written)
 	}
 	return orNone(strings.Join(names, ", then "))

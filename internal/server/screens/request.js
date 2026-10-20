@@ -91,6 +91,7 @@
   function word(w, team, cls) {
     return B.el("span", {class: "rq-word " + (cls || "")},
       B.deciderEl(w, team),
+      w.recommends ? B.el("span", {class: "rq-rec"}, "recommends yes") : null,
       w.note ? B.el("span", {class: "rq-note"}, w.note) : null,
       B.whenEl(w.at));
   }
@@ -120,7 +121,7 @@
       const by = d.ended && same(d.by, s);
       const now = !d.ended && s.kind === "person" && (d.asked || []).includes(s.name);
       const shown = referred || by ? word(referred || d.by, d.team, by ? "rq-by" : "past")
-        : B.el("span", {class: "rq-word"}, B.deciderEl(s, d.team));
+        : B.el("span", {class: "rq-word"}, B.deciderOn(s, d.team));
       return [i ? B.el("span", {class: "then", "aria-hidden": "true"}, "›") : null, shown,
         now ? B.el("span", {class: "rq-now", "aria-label": "asked now"}, "◂") : null];
     }));
@@ -150,8 +151,19 @@
       d.leaving ? leaving(d.leaving) : null,
       d.kind === "action" && args(d.args) ? B.el("div", {class: "mono small"}, args(d.args)) : null,
       chain(d),
+      recommended(d),
       B.el("div", {class: "act"}, B.field("Note", note), yes, no));
   };
+
+  // recommended gives each yes passed on as a recommendation by a decider
+  // that advises, with its note, for the one asked to read before they
+  // answer.
+  function recommended(d) {
+    const recs = (d.referrals || []).filter((w) => w.recommends);
+    if (!recs.length) return null;
+    return B.el("div", {class: "stack rq-recs"}, recs.map((w) => B.el("div", {class: "line"},
+      B.deciderEl(w, d.team), B.el("span", {class: "rq-rec"}, "recommends yes"), w.note ? B.el("span", {class: "rq-note"}, w.note) : null)));
+  }
 
   // leaving gives what a disclosure would let out: its text, whom it is
   // to, where it may in the end be read, and the requests it goes through
@@ -435,7 +447,7 @@
   function step(s) { return Object.assign({at: 0, entry: Number.MAX_SAFE_INTEGER, depth: 0, kind: "", check: false, now: "", what: null, said: null, meta: null, more: null}, s); }
 
   const DEPTH = {asked: 0, said: 0, answer: 0, held: 0, late: 0, bulldog: 0, notice: 0};
-  const FOLDED = new Set(["decision", "decide", "decided", "referred"]);
+  const FOLDED = new Set(["decision", "decide", "decided", "referred", "recommended"]);
   // What the kinds of step a person may not know mean, behind an (i).
   const KIND_ABOUT = {
     "Sub-request": "A worker asking another team, which makes a request of its own. The worker waits on its answer.",

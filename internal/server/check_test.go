@@ -100,6 +100,27 @@ func TestServerCheckListsTheWorkOffice(t *testing.T) {
 	if part := "  bins, a flow\n    stages: which\n    which waits for a yes, decided by sam\n"; !strings.Contains(out.String(), part) {
 		t.Errorf("the listing holds no %q:\n%s", part, out.String())
 	}
+	// A rule or a worker that advises is listed as advising, on its list,
+	// on its tool and on a disclosure check.
+	house["office.yaml"] = strings.Replace(house["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  cut_power: [clerk: advise, sam]\n", 1)
+	out.Reset()
+	if err := Check(testkit.Folder(t, house), &out); err != nil {
+		t.Fatalf("the house is checked with %v:\n%s", err, out.String())
+	}
+	for _, part := range []string{"  decides cut_power: clerk (advises), then sam\n", "    cut_power waits for a yes, decided by clerk (advises), then sam\n"} {
+		if !strings.Contains(out.String(), part) {
+			t.Errorf("the listing holds no %q:\n%s", part, out.String())
+		}
+	}
+	files = testkit.Files(t, examples.Work())
+	files["payments/team.yaml"] = strings.Replace(files["payments/team.yaml"], "[./no-account-numbers.yaml]", "[./no-account-numbers.yaml: advise]", 1)
+	out.Reset()
+	if err := Check(testkit.Folder(t, files), &out); err != nil {
+		t.Fatalf("the work office is checked with %v:\n%s", err, out.String())
+	}
+	if part := "  disclosure check: ./no-account-numbers.yaml (advises)\n"; !strings.Contains(out.String(), part) {
+		t.Errorf("the listing holds no %q:\n%s", part, out.String())
+	}
 }
 
 func TestServerCheckReportsEveryProblem(t *testing.T) {
