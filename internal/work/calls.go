@@ -315,7 +315,11 @@ func (w *Work) tell(ctx context.Context, c *calling) (string, bool, error) {
 	if err != nil || refusal != "" {
 		return refusal, false, err
 	}
-	if w.leaves(c.team, to) {
+	leaves, err := w.leaves(c.team, c.r, to)
+	if err != nil {
+		return "", false, err
+	}
+	if leaves {
 		return w.disclose(ctx, c, decisions.Said{What: decisions.SaysTell, To: to, Text: text})
 	}
 	if _, err := w.putOnce(c.row, requests.KindTold, to, text); err != nil {
@@ -339,7 +343,11 @@ func (w *Work) askPerson(ctx context.Context, c *calling) (string, bool, error) 
 	if err != nil || refusal != "" {
 		return refusal, false, err
 	}
-	if w.leaves(c.team, to) {
+	leaves, err := w.leaves(c.team, c.r, to)
+	if err != nil {
+		return "", false, err
+	}
+	if leaves {
 		return w.disclose(ctx, c, decisions.Said{What: decisions.SaysQuestion, To: to, Text: question})
 	}
 	e, err := w.putOnce(c.row, requests.KindQuestion, to, question)
@@ -524,28 +532,14 @@ func (w *Work) reaches(r *requests.Request) bool {
 	return b != nil && b.Runs()
 }
 
-// leaves says whether what a team says to someone leaves it through its
-// disclosure check: the team sets one, and they are not of it. A person is
-// of it as one of its people, signed in or by an identity a bridge
-// checked; a worker as one of its workers; and the team itself, which
-// asks its routines.
-func (w *Work) leaves(team *office.Team, to requests.Who) bool {
+// leaves says whether what a team says in a request to someone leaves it
+// through its disclosure check: the team sets one, and anyone who reads
+// it is outside the team, as the requests say.
+func (w *Work) leaves(team *office.Team, r *requests.Request, to requests.Who) (bool, error) {
 	if !team.HasDisclosure {
-		return false
+		return false, nil
 	}
-	switch to.Kind {
-	case requests.IsPerson:
-		return !slices.Contains(team.People, to.Name)
-	case requests.IsIdentity:
-		p := w.office.Person(to.Bridge, to.ID)
-		return p == nil || !slices.Contains(team.People, p.Name)
-	case requests.IsWorker:
-		worker := w.office.Workers[to.Name]
-		return worker == nil || worker.Team != team.Name
-	case requests.IsTeam:
-		return to.Name != team.Name
-	}
-	return true
+	return w.requests.Leaves(r.Number, to)
 }
 
 // disclose hands what a worker would say outside its team to its disclosure

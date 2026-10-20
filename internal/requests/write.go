@@ -167,10 +167,11 @@ func (s *Store) Sub(parent int64, by Who, team, question, ticket string) (*Reque
 // Say writes what someone who may say more in a request says in it, as an
 // entry to its team, which makes an answered or stopped request working
 // again. What its lead says, when that is a person, is its answer, or,
-// for a team that sets a disclosure check, an answer held until the check
-// lets it go, which is what was read of the team, and is handed to the
-// check by Held once it is kept. One that could not be handed is given
-// with the error, and is held no longer, so the lead is waited on again.
+// for a team that sets a disclosure check, where anyone who reads the
+// answer is outside the team, an answer held until the check lets it go,
+// which is what was read of the team, and is handed to the check by Held
+// once it is kept. One that could not be handed is given with the error,
+// and is held no longer, so the lead is waited on again.
 // To someone who may not see it the request is not there.
 func (s *Store) Say(n int64, by Who, text string, files []File, in Where, mentioned bool) (*Entry, error) {
 	e, err := s.say(n, by, text, files, in, mentioned)
@@ -199,7 +200,11 @@ func (s *Store) say(n int64, by Who, text string, files []File, in Where, mentio
 		}
 		if p := c.personOf(by); p != "" && c.leadPerson(r) == p {
 			answer := Entry{Kind: KindAnswer, By: by, To: []Who{r.Asker}, Text: text, In: in, Mentioned: mentioned}
-			if c.o.Teams[r.Team].HasDisclosure {
+			leaves, err := c.leaves(r, r.Asker)
+			if err != nil {
+				return err
+			}
+			if leaves && c.o.Teams[r.Team].HasDisclosure {
 				answer = Entry{Kind: KindHeld, By: by, To: []Who{teamOf(r)}, Text: text, In: in, Read: r.Team, ReadKnown: r.TeamKnown, Mentioned: mentioned}
 			}
 			if e, err = c.add(r, answer, files, nil); err != nil {

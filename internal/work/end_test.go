@@ -169,6 +169,44 @@ func TestAnAnswerInsideATeamGoesToNoDisclosureCheck(t *testing.T) {
 	}
 }
 
+func TestWorkAReaderTheOfficeCannotNameIsOutside(t *testing.T) {
+	t.Parallel()
+	files := payments(t)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], `"#help": { guests: true }`,
+		`"#help": { guests: true }`+"\n      \"#refunds\": { team: payments }", 1)
+	b := newBench(t, files)
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		if turn.Number == 1 {
+			return testkit.Use("tell", map[string]any{"text": "Looking at card 4111 now."})
+		}
+		return testkit.Say("Duplicate confirmed on card 4111 1111 1111 1111.")
+	})
+	// Lee asks in a thread of #refunds that only payments reads: the
+	// ledger's tell and its answer stay inside payments, and neither
+	// waits on its disclosure.
+	if err := b.reqs.Readers("slack", "#refunds/1700.1", []string{"U0LEE000", "U0PRI000"}); err != nil {
+		t.Fatal(err)
+	}
+	inside := must(b.reqs.AskAt("slack", "#refunds", "#refunds/1700.1", "", "U0LEE000", "was 4411 charged twice?", nil, false)).Number
+	holds(t, "the ledger's answer", b.answered(inside).Text, "card 4111")
+	if told := b.entries(inside, requests.KindTold); len(told) != 1 {
+		t.Errorf("the ledger's tell to Lee is %v", b.thread(inside))
+	}
+	if decs := must(b.d.OfRequest(inside)); len(decs) != 0 {
+		t.Errorf("what payments said inside itself made the decisions %+v", decs)
+	}
+	// In a thread that someone the office cannot name also reads, the
+	// ledger's tell to Lee leaves payments, and waits on its disclosure.
+	if err := b.reqs.Readers("slack", "#refunds/1700.2", []string{"U0LEE000", "U0STRANGE"}); err != nil {
+		t.Fatal(err)
+	}
+	outside := must(b.reqs.AskAt("slack", "#refunds", "#refunds/1700.2", "", "U0LEE000", "was 4412 charged twice?", nil, false)).Number
+	b.disclosing(outside, decisions.SaysTell)
+	if told := b.entries(outside, requests.KindTold); len(told) != 0 {
+		t.Errorf("the tell was said before it was disclosed: %v", b.thread(outside))
+	}
+}
+
 func TestAnAnswerLeavingATeamWithADisclosureCheckWaitsForIt(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, payments(t))

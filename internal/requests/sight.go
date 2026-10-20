@@ -84,6 +84,38 @@ func (l *look) readersAt(r *Request) ([]Who, error) {
 	return readers, nil
 }
 
+// leaves says whether what a request's team says in it to someone is read
+// by anyone outside the team. What is said to the asker of a request
+// asked at a place is read by everyone who reads the place, an identity
+// the office names as no person among them, who is outside every team;
+// anything else is read by whom it is said to alone.
+func (l *look) leaves(r *Request, to Who) (bool, error) {
+	readers := []Who{to}
+	if r.Parent == 0 && r.Origin.Kind == AtPlace && l.same(to, r.Asker) {
+		at, err := l.readersAt(r)
+		if err != nil {
+			return false, err
+		}
+		readers = append(readers, at...)
+	}
+	return slices.ContainsFunc(readers, func(w Who) bool { return !l.inside(r.Team, r.TeamKnown, w) }), nil
+}
+
+// Leaves says whether what a request's team says in it to someone is read
+// by anyone outside the team, which is what its disclosure check, where
+// it sets one, is asked of.
+func (s *Store) Leaves(n int64, to Who) (bool, error) {
+	l, err := s.look(s.db)
+	if err != nil {
+		return false, err
+	}
+	r, err := l.req(n)
+	if err != nil {
+		return false, err
+	}
+	return l.leaves(r, to)
+}
+
 // readsAll says whether every reader of a request asked at a place reads
 // another: one the office does not name is the same reader only as the
 // same identity.

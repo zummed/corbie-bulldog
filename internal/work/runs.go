@@ -401,7 +401,11 @@ func (w *Work) answer(ctx context.Context, n *note, text string) error {
 	if empty {
 		text = team.Called + " gave no answer."
 	}
-	if w.leaves(team, r.Asker) {
+	leaves, err := w.leaves(team, r, r.Asker)
+	if err != nil {
+		return err
+	}
+	if leaves {
 		_, err := w.decide.Disclose(ctx, decisions.Said{What: decisions.SaysAnswer, Request: r.Number, By: by, Text: text})
 		return err
 	}

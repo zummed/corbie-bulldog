@@ -156,6 +156,30 @@ func TestRequestsRefusedDisclosure(t *testing.T) {
 	}
 }
 
+func TestRequestsAnswerReadInsideItsTeamNotHeld(t *testing.T) {
+	t.Parallel()
+	files := replace(t, work(t), "payments/team.yaml", "lead: ledger", "lead: lee")
+	d := open(t, replace(t, files, "office.yaml", `"#help": { guests: true }`, `"#help": { guests: true }`+"\n      \"#refunds\": { team: payments }"))
+	// Priya asks payments in the chat, and in a thread of #refunds only
+	// payments reads: Lee's answer is read only inside payments, and is
+	// its answer at once.
+	must(t, d.Readers("slack", "#refunds/1", []string{slackPriya, slackLee}))
+	chat := got[*requests.Request](t)(d.AskInChat("priya", "payments", "was 4411 charged twice?", nil)).Number
+	inside := got[*requests.Request](t)(d.AskAt("slack", "#refunds", "#refunds/1", "", slackPriya, "was 4412 charged twice?", nil, false)).Number
+	for _, n := range []int64{chat, inside} {
+		if e := got[*requests.Entry](t)(d.Say(n, d.Person("lee"), "yes, on card 4111", nil, requests.Screens, false)); e.Kind != requests.KindAnswer {
+			t.Errorf("Lee's answer in request %d is %+v", n, e)
+		}
+	}
+	// In a thread that someone the office cannot name reads too, Lee's
+	// answer to Priya leaves payments, and is held.
+	must(t, d.Readers("slack", "#refunds/2", []string{slackPriya, "U0STRANGE"}))
+	outside := got[*requests.Request](t)(d.AskAt("slack", "#refunds", "#refunds/2", "", slackPriya, "was 4413 charged twice?", nil, false)).Number
+	if e := got[*requests.Entry](t)(d.Say(outside, d.Person("lee"), "yes, on card 4111", nil, requests.Screens, false)); e.Kind != requests.KindHeld {
+		t.Errorf("Lee's answer read outside payments is %+v", e)
+	}
+}
+
 func TestRequestsWhatWasReadFromCorbie(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
