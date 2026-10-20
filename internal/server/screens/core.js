@@ -503,12 +503,13 @@ B.changed = async function (what) {
     try { B.me = await B.api("/api/me"); } catch (err) { B.trouble(err); return; }
   }
   if (B.streaming || !caresFor(what)) { header(B.navOf()); return; }
-  if (writing()) {
+  if (redraw) return;
+  redraw = setTimeout(() => {
+    redraw = 0;
+    if (!writing()) { B.show(); return; }
     header(B.navOf());
     document.getElementById("stale").hidden = false;
-    return;
-  }
-  if (!redraw) redraw = setTimeout(() => { redraw = 0; B.show(); }, REDRAW);
+  }, REDRAW);
 };
 
 // caresFor says whether the view shown is drawn again for what changed.
