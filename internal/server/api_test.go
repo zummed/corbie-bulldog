@@ -536,3 +536,53 @@ func TestServerWaitingEntryNeverHiddenByPaging(t *testing.T) {
 		t.Error("Raj is given the entry that waits on Dana out of its place")
 	}
 }
+
+func TestServerWordsOnABridgeShownAsTheirs(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, workOffice(t))
+	reqs := kept(t, b)
+	dana := requests.Identity("slack", "U0DANA00")
+	r, err := reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "is 4411 refunded?", nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reqs.Say(r.Number, dana, "and 4412?", nil, requests.Where{Bridge: "slack", Place: "#help/1700.1"}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reqs.Write(r.Number, requests.Writing{Kind: requests.KindBulldog, By: requests.Bulldog, To: []requests.Who{dana}, Text: "Both are refunded."}); err != nil {
+		t.Fatal(err)
+	}
+	guest, err := reqs.AskAt("slack", "#help", "#help/1800.1", "", "U0GUEST0", "please refund me", nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := b.serve()
+	// Dana's words on Slack are hers wherever they are shown, as her
+	// asking is.
+	reply := s.as("al").get("/api/requests/" + itoa(r.Number)).is(http.StatusOK)
+	var v viewOut
+	reply.into(&v)
+	for _, text := range []string{"is 4411 refunded?", "and 4412?"} {
+		at := slices.IndexFunc(v.Entries, func(e entryOut) bool { return e.Text == text })
+		if at < 0 || v.Entries[at].By.Kind != requests.IsPerson || v.Entries[at].By.Name != "dana" || v.Entries[at].By.Called != "Dana" {
+			t.Errorf("%q is shown by %+v", text, v.Entries)
+		}
+	}
+	at := slices.IndexFunc(v.Entries, func(e entryOut) bool { return e.Text == "Both are refunded." })
+	if at < 0 || len(v.Entries[at].To) != 1 || v.Entries[at].To[0].Kind != requests.IsPerson || v.Entries[at].To[0].Name != "dana" {
+		t.Errorf("Bulldog's entry to Dana is shown to %+v", v.Entries)
+	}
+	// Someone the office does not name stays a guest of the bridge.
+	var g viewOut
+	s.as("al").get("/api/requests/" + itoa(guest.Number)).is(http.StatusOK).into(&g)
+	if by := g.Entries[0].By; by.Kind != requests.IsGuest || by.Bridge != "slack" || by.ID != "U0GUEST0" {
+		t.Errorf("the guest's asking is shown by %+v", by)
+	}
+	// What Bulldog keeps of who someone is never leaves it.
+	list := s.as("al").get("/api/requests").is(http.StatusOK)
+	for _, body := range [][]byte{reply.body, list.body} {
+		if bytes.Contains(body, []byte(`"known"`)) {
+			t.Errorf("an answer gives known: %s", body)
+		}
+	}
+}

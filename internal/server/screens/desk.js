@@ -55,7 +55,7 @@
 
   // to gives whom an entry is to, after an arrow.
   function to(e) {
-    const names = (e.to || []).map(B.who);
+    const names = (e.to || []).map(B.party);
     if (!names.length) return null;
     return [B.el("span", {class: "faint", "aria-hidden": "true"}, "→"), B.el("span", {class: "desk-vh"}, "to"), names];
   }
@@ -104,7 +104,7 @@
   function question(v, e) {
     return keep(B.el("div", {class: "ask-card"},
       B.el("div", {class: "line spread"}, B.label("Question"), B.whenEl(e.at)),
-      B.el("div", {class: "line"}, B.who(e.by), to(e)),
+      B.el("div", {class: "line"}, B.party(e.by), to(e)),
       B.el("div", {class: "desk-said"}, e.text),
       typeof B.replyForm === "function" ? B.replyForm(v, e) : null), v.number + ":e" + e.id);
   }
@@ -124,7 +124,7 @@
       B.el("div", {class: "desk-ask-foot"}, B.field("Files", files), B.el("button", {class: "btn go", type: "submit"}, "Answer")));
     return keep(B.el("div", {class: "ask-card"},
       B.el("div", {class: "line spread"}, B.label("Lead of " + B.teamCalled(v.team)), last ? B.whenEl(last.at) : null),
-      last ? B.el("div", {class: "line"}, B.who(last.by), to(last)) : null,
+      last ? B.el("div", {class: "line"}, B.party(last.by), to(last)) : null,
       last && last.text ? B.el("div", {class: "desk-said"}, last.text) : null,
       form), v.number + ":t");
   }

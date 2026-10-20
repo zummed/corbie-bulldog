@@ -145,21 +145,8 @@ B.guestEl = function (id, bridge) {
   return B.el("span", {class: "who"}, B.el("span", {class: "ic guest", "aria-hidden": "true"}, "?"), B.el("span", {}, "guest ", B.el("span", {class: "mono"}, id), " · " + bridge));
 };
 
-// who gives whom an entry is by or to: { kind, name, team, id, bridge }.
-B.who = function (w) {
-  if (!w) return "";
-  switch (w.kind) {
-    case "person": return B.personEl(w.name);
-    case "identity": return B.guestEl(w.id, w.bridge);
-    case "worker": return B.workerEl(w.name, w.team);
-    case "rule": return B.ruleEl(w.name);
-    case "team": return B.teamEl(w.name);
-    case "bulldog": return B.bulldogEl();
-  }
-  return w.name || w.kind;
-};
-
-// party gives who asked, or whom something waits on.
+// party gives someone as the office names them now: who asked, whom
+// something waits on, and whom an entry is by or to.
 B.party = function (p) {
   if (!p) return "";
   switch (p.kind) {
@@ -167,7 +154,9 @@ B.party = function (p) {
     case "guest": return B.guestEl(p.id, p.bridge);
     case "gone": return B.el("span", {class: "who faint"}, p.name + " (gone)");
     case "worker": return B.workerEl(p.name, p.team);
-    case "routine": return B.el("span", {class: "who"}, B.icon("clock"), "routine");
+    case "rule": return B.ruleEl(p.name);
+    case "team": return B.teamEl(p.name);
+    case "bulldog": return B.bulldogEl();
   }
   return p.called || p.name || p.kind;
 };

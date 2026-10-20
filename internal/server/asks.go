@@ -32,17 +32,40 @@ const (
 // A request as the API gives it.
 type (
 	summaryOut struct {
-		Number int64            `json:"number"`
-		Whole  bool             `json:"whole"`
-		Team   string           `json:"team,omitempty"`
-		Asker  *partyOut        `json:"asker,omitempty"`
-		Origin *requests.Origin `json:"origin,omitempty"`
-		Parent int64            `json:"parent,omitempty"`
-		State  string           `json:"state,omitempty"`
-		On     []partyOut       `json:"on,omitempty"`
-		Source *requests.Status `json:"source,omitempty"`
-		First  string           `json:"first,omitempty"`
-		Made   *time.Time       `json:"made,omitempty"`
+		Number int64      `json:"number"`
+		Whole  bool       `json:"whole"`
+		Team   string     `json:"team,omitempty"`
+		Asker  *partyOut  `json:"asker,omitempty"`
+		Origin *originOut `json:"origin,omitempty"`
+		Parent int64      `json:"parent,omitempty"`
+		State  string     `json:"state,omitempty"`
+		On     []partyOut `json:"on,omitempty"`
+		Source *sourceOut `json:"source,omitempty"`
+		First  string     `json:"first,omitempty"`
+		Made   *time.Time `json:"made,omitempty"`
+	}
+	// originOut is where a request was asked, with the person who ran a
+	// routine now as the office is read now.
+	originOut struct {
+		Kind   string    `json:"kind"`
+		Bridge string    `json:"bridge,omitempty"`
+		Heard  string    `json:"heard,omitempty"`
+		Place  string    `json:"place,omitempty"`
+		About  string    `json:"about,omitempty"`
+		Team   string    `json:"team,omitempty"`
+		At     string    `json:"at,omitempty"`
+		To     string    `json:"to,omitempty"`
+		Say    string    `json:"say,omitempty"`
+		By     *partyOut `json:"by,omitempty"`
+	}
+	// sourceOut is a request's status at its source, with who changed it
+	// as the office is read now.
+	sourceOut struct {
+		Status string    `json:"status"`
+		Closed bool      `json:"closed,omitempty"`
+		By     partyOut  `json:"by"`
+		At     time.Time `json:"at"`
+		Link   string    `json:"link,omitempty"`
 	}
 	partyOut struct {
 		Kind   string   `json:"kind"`
@@ -99,8 +122,8 @@ type (
 	entryOut struct {
 		ID      int64          `json:"id"`
 		Kind    string         `json:"kind"`
-		By      requests.Who   `json:"by"`
-		To      []requests.Who `json:"to"`
+		By      partyOut       `json:"by"`
+		To      []partyOut     `json:"to"`
 		At      time.Time      `json:"at"`
 		Text    string         `json:"text"`
 		Files   []fileOut      `json:"files"`
@@ -234,7 +257,7 @@ func (s *site) list(person string, w http.ResponseWriter, r *http.Request) (any,
 				origin = &req.Origin
 			}
 		}
-		out = append(out, summaryOf(sum, origin))
+		out = append(out, summaryOf(sum, origin, s.Requests.Party))
 	}
 	if next != 0 {
 		return map[string]any{"requests": out, "before": next}, nil
@@ -258,15 +281,28 @@ func listPage(sums []requests.Summary, before int64, limit int) ([]requests.Summ
 }
 
 // summaryOf gives a request as a list shows it: all of it to whoever sees
-// it whole, and its number alone to anyone else.
-func summaryOf(sum requests.Summary, origin *requests.Origin) summaryOut {
+// it whole, with anyone its origin and source name as party gives them,
+// and its number alone to anyone else.
+func summaryOf(sum requests.Summary, origin *requests.Origin, party func(requests.Who) requests.Party) summaryOut {
 	if !sum.Whole {
 		return summaryOut{Number: sum.Number}
 	}
 	asker := partyOf(sum.Asker)
 	made := sum.Made
-	return summaryOut{Number: sum.Number, Whole: true, Team: sum.Team, Asker: &asker, Origin: origin, Parent: sum.Parent,
-		State: sum.State.Is, On: partiesOf(sum.State.On), Source: sum.Source, First: sum.First, Made: &made}
+	out := summaryOut{Number: sum.Number, Whole: true, Team: sum.Team, Asker: &asker, Parent: sum.Parent,
+		State: sum.State.Is, On: partiesOf(sum.State.On), First: sum.First, Made: &made}
+	if origin != nil {
+		out.Origin = &originOut{Kind: origin.Kind, Bridge: origin.Bridge, Heard: origin.Heard, Place: origin.Place, About: origin.About,
+			Team: origin.Team, At: origin.At, To: origin.To, Say: origin.Say}
+		if origin.By.Kind != "" {
+			by := partyOf(party(origin.By))
+			out.Origin.By = &by
+		}
+	}
+	if st := sum.Source; st != nil {
+		out.Source = &sourceOut{Status: st.Status, Closed: st.Closed, By: partyOf(party(st.By)), At: st.At, Link: st.Link}
+	}
+	return out
 }
 
 // request gives one request as the one looking sees it: what was done,
@@ -291,7 +327,7 @@ func (s *site) request(person string, w http.ResponseWriter, r *http.Request) (a
 		return nil, err
 	}
 	sum := requests.Summary{Number: v.Number, Whole: v.Whole, Team: v.Team, Asker: v.Asker, State: v.State, Source: v.Source, Made: v.Made, Parent: v.Parent}
-	out := viewOut{summaryOut: summaryOf(sum, v.Origin), Read: v.Read, Entries: []entryOut{}, Subs: subsOf(v.Subs), Decisions: []decisionOut{}, Waits: []int64{}}
+	out := viewOut{summaryOut: summaryOf(sum, v.Origin, s.Requests.Party), Read: v.Read, Entries: []entryOut{}, Subs: subsOf(v.Subs), Decisions: []decisionOut{}, Waits: []int64{}}
 	open := map[int64]bool{}
 	for _, wt := range waits {
 		if wt.Request == n && wt.Entry != 0 {
@@ -309,7 +345,7 @@ func (s *site) request(person string, w http.ResponseWriter, r *http.Request) (a
 		return nil, err
 	}
 	for _, e := range shown {
-		out.Entries = append(out.Entries, entryOf(e, carried))
+		out.Entries = append(out.Entries, entryOf(e, carried, s.Requests.Party))
 	}
 	ds, err := s.Decisions.OfRequest(n)
 	if err != nil {
@@ -425,9 +461,14 @@ func page(entries []requests.Entry, before int64, size int, open map[int64]bool)
 	return shown, back, nil
 }
 
-// entryOf gives an entry, with where it was carried.
-func entryOf(e requests.Entry, carried []bridges.Carried) entryOut {
-	out := entryOut{ID: e.ID, Kind: e.Kind, By: e.By, To: orEmpty(e.To), At: e.At, Text: e.Text, Files: []fileOut{}, In: e.In, Read: e.Read, Answers: e.Answers, Sub: e.Sub}
+// entryOf gives an entry, with who it is by and to as party gives them,
+// and where it was carried.
+func entryOf(e requests.Entry, carried []bridges.Carried, party func(requests.Who) requests.Party) entryOut {
+	to := []partyOut{}
+	for _, w := range e.To {
+		to = append(to, partyOf(party(w)))
+	}
+	out := entryOut{ID: e.ID, Kind: e.Kind, By: partyOf(party(e.By)), To: to, At: e.At, Text: e.Text, Files: []fileOut{}, In: e.In, Read: e.Read, Answers: e.Answers, Sub: e.Sub}
 	for i, f := range e.Files {
 		out.Files = append(out.Files, fileOut{Name: f.Name, Size: f.Size, URL: fmt.Sprintf("/files/%d-%d", e.ID, i)})
 	}

@@ -164,7 +164,7 @@
 
   // waitsOn gives the key of someone an entry is to, as a request names
   // whom it waits on.
-  function waitsOn(w) { return w.kind === "person" ? "p:" + w.name : w.kind === "identity" || w.kind === "guest" ? "g:" + w.id : ""; }
+  function waitsOn(w) { return w.kind === "person" ? "p:" + w.name : w.kind === "guest" ? "g:" + w.id : ""; }
 
   // entry draws one entry of a thread. A question or a decision put to
   // people is open while nothing answers it and the request waits on one
@@ -182,8 +182,8 @@
     const div = B.el("article", {class: cls},
       B.el("div", {class: "hd"},
         B.el("span", {class: "k"}, e.kind === "sub" ? "sub-request" : e.kind),
-        B.who(e.by),
-        to.length ? [arrow(), few(to, B.who, true)] : null,
+        B.party(e.by),
+        to.length ? [arrow(), few(to, B.party, true)] : null,
         where(e.in),
         e.read ? B.el("span", {class: "rq-read"}, B.icon("lock"), "Read · " + B.teamCalled(e.read)) : null,
         B.el("span", {class: "at"}, B.whenEl(e.at))),

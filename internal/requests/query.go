@@ -268,21 +268,27 @@ func (s *Store) OfTicket(ticket string) (int64, bool, error) {
 // Who gives the parties of the office as it is now, by name: a person as
 // signed in, a worker, a team, or a rule by its path as of the team it
 // decides for.
-func (s *Store) Person(name string) Who { return s.who(func(l *look) Who { return l.person(name) }) }
-func (s *Store) Worker(name string) Who { return s.who(func(l *look) Who { return l.worker(name) }) }
-func (s *Store) Team(name string) Who   { return s.who(func(l *look) Who { return l.team(name) }) }
-func (s *Store) Rule(path, team string) Who {
-	return s.who(func(l *look) Who { return l.rule(path, team) })
-}
+func (s *Store) Person(name string) Who     { return s.asNow().person(name) }
+func (s *Store) Worker(name string) Who     { return s.asNow().worker(name) }
+func (s *Store) Team(name string) Who       { return s.asNow().team(name) }
+func (s *Store) Rule(path, team string) Who { return s.asNow().rule(path, team) }
 
-func (s *Store) who(of func(*look) Who) Who {
+// Party gives someone an entry is by or to as the office is read now: a
+// person, by any identity of theirs; a guest, by the bridge and the
+// identity it vouched for; a person who has gone; a worker and its team;
+// a team; a rule; or Bulldog.
+func (s *Store) Party(w Who) Party { return s.asNow().party(w) }
+
+// asNow gives the office as it is now, to find whom a name stands for, or
+// an empty one before it is read.
+func (s *Store) asNow() *look {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	o := s.office
 	if o == nil {
 		o = &office.Office{Workers: map[string]*office.Worker{}, Rules: map[string]*office.Rule{}}
 	}
-	return of(&look{o: o, known: s.known})
+	return &look{o: o, known: s.known}
 }
 
 // ReadBy gives who reads the answer of a request asked at an origin, as
