@@ -298,18 +298,22 @@
       r.script ? B.el("span", {class: "faint small"}, "Script") : B.reachEl(r.reach)), "te-rules"));
   }
 
+  // notes gives the team's notes, and the workers that may write them.
   function notes(t) {
-    if (!t.notes || !t.notes.length) return null;
+    const writers = t.writers || [];
+    if (!(t.notes && t.notes.length) && !writers.length) return null;
     return B.sect(B.label("Notes", B.el("span", {class: "count"}, String(t.notes.length)),
       ...B.notesInfo()),
-    rows("notes", t.notes, (n) => {
+    B.kv([[B.el("span", {class: "line"}, "Writers", B.info("About writers", "The workers of this team whose definitions name the notes tool. Each may write any of its notes, at once, with no decision.")),
+      writers.length ? B.el("span", {class: "line"}, writers.map((w) => worker(t, w))) : B.el("span", {class: "faint"}, "None")]]),
+    t.notes.length ? rows("notes", t.notes, (n) => {
       const d = B.el("details", {open: state.open.has(n.name)},
         B.el("summary", {}, B.el("span", {class: "mono"}, n.name),
           B.el("span", {class: "mono faint te-size"}, n.size.toLocaleString("en-GB") + " characters"), B.givenEl(n)),
         B.el("pre", {}, n.text));
       d.addEventListener("toggle", () => { if (d.open) state.open.add(n.name); else state.open.delete(n.name); });
       return B.el("div", {class: "row te-note"}, d);
-    }, "te-notes"));
+    }, "te-notes") : null);
   }
 
   // Docs, nested by their folders, each opened in place.

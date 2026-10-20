@@ -334,8 +334,23 @@ func TestServerNotesShownWithWhatARunIsGiven(t *testing.T) {
 	if lee.Notes[1].Text != files["payments/notes/b.md"] {
 		t.Errorf("Lee is not given b whole")
 	}
-	if dana := s.as("dana").get("/api/teams/payments").is(http.StatusOK).json(); dana["notes"] != nil {
-		t.Errorf("Dana sees payments' notes: %v", dana["notes"])
+	// No worker of payments names the notes tool.
+	if lee.Writers == nil || len(lee.Writers) != 0 {
+		t.Errorf("Lee sees payments' notes written by %#v", lee.Writers)
+	}
+	if dana := s.as("dana").get("/api/teams/payments").is(http.StatusOK).json(); dana["notes"] != nil || dana["writers"] != nil {
+		t.Errorf("Dana sees payments' notes: %v, written by %v", dana["notes"], dana["writers"])
+	}
+	// In the house, the steward names it, and so writes the house's notes,
+	// and the gardener the garden's; the fixer, naming only the talk tools,
+	// writes none.
+	h := newBench(t, house(t)).serve()
+	for team, want := range map[string][]string{"office": {"steward"}, "garden": {"gardener"}} {
+		var sam teamWhole
+		h.as("sam").get("/api/teams/" + team).is(http.StatusOK).into(&sam)
+		if !slices.Equal(sam.Writers, want) {
+			t.Errorf("Sam sees the %s's notes written by %v, not %v", team, sam.Writers, want)
+		}
 	}
 }
 

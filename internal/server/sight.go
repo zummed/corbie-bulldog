@@ -523,7 +523,10 @@ type (
 		Rules      []ruleOut    `json:"rules"`
 		Workers    []workerOut  `json:"workers"`
 		Notes      []noteOut    `json:"notes"`
-		Problems   []problemOut `json:"problems"`
+		// Writers are its workers that have the notes tool, and so may
+		// write any of its notes.
+		Writers  []string     `json:"writers"`
+		Problems []problemOut `json:"problems"`
 		// In says the one looking is among its people, and AtWork, to
 		// them alone, are its workers at work, and on what.
 		In     bool     `json:"in"`
@@ -673,7 +676,7 @@ func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any,
 	if !whole {
 		return seen, nil
 	}
-	out := teamWhole{teamOut: seen, File: t.File, Decide: []listOut{}, Routines: []routineOut{}, Models: []modelOut{}, Rules: rulesOf(o, t), Workers: []workerOut{}, Notes: []noteOut{}}
+	out := teamWhole{teamOut: seen, File: t.File, Decide: []listOut{}, Routines: []routineOut{}, Models: []modelOut{}, Rules: rulesOf(o, t), Workers: []workerOut{}, Notes: []noteOut{}, Writers: []string{}}
 	for _, l := range t.Decide {
 		out.Decide = append(out.Decide, listOut{Key: l.Key, Deciders: walked(o, t.Name, l.Key)})
 	}
@@ -690,6 +693,9 @@ func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any,
 	}
 	for _, name := range t.Workers {
 		out.Workers = append(out.Workers, workerOf(o, o.Workers[name]))
+		if work.WritesNotes(o.Workers[name]) {
+			out.Writers = append(out.Writers, name)
+		}
 	}
 	notes, err := o.Notes(t.Name)
 	if err != nil {

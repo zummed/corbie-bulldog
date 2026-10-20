@@ -45,6 +45,12 @@ const (
 	askTool = "ask"
 )
 
+// WritesNotes says whether a worker has the notes tool Bulldog ships, and
+// so may write its team's notes.
+func WritesNotes(w *office.Worker) bool {
+	return slices.ContainsFunc(w.Held, func(t office.Tool) bool { return t.Kind == office.ToolBulldog && t.Name == toolWriteNotes })
+}
+
 // errGone says a call no longer waits on its ticket: its run has ended.
 var errGone = errors.New("it no longer waits on its ticket")
 
