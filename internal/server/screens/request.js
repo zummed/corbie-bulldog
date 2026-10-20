@@ -144,14 +144,16 @@
     const note = field(key, () => B.el("input", {class: "in", type: "text", name: "note"}));
     const yes = B.el("button", {class: "btn go", type: "button"}, "Approve");
     const no = B.el("button", {class: "btn no", type: "button"}, "Refuse");
-    const say = (says) => act(() => B.post("/api/requests/" + n + "/decisions/" + d.id, {says, note: note.value}), [yes, no], [key]);
+    // A person's own change serves no request, and is decided where it is.
+    const at = n ? "/api/requests/" + n + "/decisions/" : "/api/office/changes/";
+    const say = (says) => act(() => B.post(at + d.id, {says, note: note.value}), [yes, no], [key]);
     yes.addEventListener("click", () => say("yes"));
     no.addEventListener("click", () => say("refuse"));
     return B.el("section", {class: "ask-card rq-card"},
       bare ? null : B.el("div", {class: "line"}, B.el("span", {class: "rq-kind"}, B.decisionWord(d.kind)), B.teamEl(d.team)),
       bare ? null : B.el("div", {class: "what"}, d.does),
       d.leaving ? leaving(d.leaving) : null,
-      d.kind === "action" && args(d.args) ? B.el("div", {class: "mono small"}, args(d.args)) : null,
+      d.change ? B.changeEl(d.change) : d.kind === "action" && args(d.args) ? B.el("div", {class: "mono small"}, args(d.args)) : null,
       chain(d, true),
       recommended(d),
       B.el("div", {class: "act"}, B.field("Note", note), yes, no));
@@ -285,6 +287,13 @@
     return Object.entries(a).filter(([, x]) => x === null || typeof x !== "object").map(([k, x]) => k + ": " + x).join(", ");
   }
 
+  // clip gives the first line of what is said, cut short: a held write's
+  // files are its decision's to show.
+  function clip(text) {
+    const first = text.split("\n")[0];
+    return first.length > 160 || first !== text ? first.slice(0, 160) + "…" : first;
+  }
+
   // gist gives what a record's event holds, in a line.
   function gist(x) {
     if (x === undefined || x === null) return "";
@@ -316,7 +325,7 @@
       for (const a of ev.asks || []) {
         if (a.kind === "receipt" || a.kind === "wake") continue;
         const job = a.job || {};
-        const text = a.kind === "hold" && job.shown ? job.shown.does + " · " + args(job.shown.args) : a.kind === "script" ? "" : gist(job.input);
+        const text = a.kind === "hold" && job.shown ? job.shown.does + " · " + clip(args(job.shown.args)) : a.kind === "script" ? "" : gist(job.input);
         out.push({at: ev.time, kind: a.kind, name: a.name || a.what || "", text, nest});
       }
       if (ev.status === "failed" || ev.status === "cancelled") out.push({at: ev.time, kind: ev.status, name: "", text: "", nest});
@@ -585,7 +594,7 @@
     const recs = new Map((v.records || []).map((r) => [r.run, r]));
     const why = d.why && !(d.by && d.by.note === d.why) ? d.why : null;
     return Object.assign(s, {meta: [ending(d), why ? B.el("span", {class: "mono small muted"}, why) : null],
-      more: [chain(d),
+      more: [chain(d), d.change ? B.changeEl(d.change) : null,
         runs.map((r) => B.el("div", {class: "line rq-ruled"}, recs.has(r.name) ? record(recs.get(r.name)) : null,
           B.el("a", {class: "rq-jump", href: "#/run/" + encodeURIComponent(r.name), "aria-label": "Watch " + r.worker}, "Watch"))),
         said.length > 1 ? B.el("details", {class: "rq-said"}, B.el("summary", {class: "mono small faint"}, said.length + " in the thread"),

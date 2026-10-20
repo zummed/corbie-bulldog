@@ -105,6 +105,7 @@ func routes(s *site) http.Handler {
 	mux.HandleFunc("GET /api/office/file", s.api(s.file))
 	mux.HandleFunc("POST /api/office/check", s.api(s.check))
 	mux.HandleFunc("POST /api/office/put", s.api(s.put))
+	mux.HandleFunc("POST /api/office/changes/{id}", s.api(s.decideOwn))
 	mux.HandleFunc("GET /api/history", s.api(s.history))
 	mux.HandleFunc("GET /api/history/{id}", s.api(s.commit))
 	mux.HandleFunc("GET /api/events", s.keyed(s.events))

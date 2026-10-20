@@ -183,12 +183,46 @@ func (s *site) put(person string, w http.ResponseWriter, r *http.Request) (any, 
 	if err != nil {
 		return nil, err
 	}
-	became := map[string]any{"put": p.ID, "ended": out.Ended, "said": "It is put to be decided, and goes first to every rule and worker its walk asks."}
-	if out.Ended != "" {
-		became["said"] = out.Text()
+	became := map[string]any{"put": p.ID, "ended": out.Ended, "said": out.Text()}
+	if out.Ended == "" {
+		if became["said"], err = s.waitsOn(p.ID); err != nil {
+			return nil, err
+		}
 	}
 	if writing != nil {
 		return nil, fmt.Errorf("the change was put to be decided, as change %d, and writing it failed: %w", p.ID, writing)
 	}
 	return became, nil
+}
+
+// waitsOn says whom a person's own change put waits on: the people asked
+// it, who see it on their desk, or the rules and workers its walk asks
+// first.
+func (s *site) waitsOn(put int64) (string, error) {
+	o, err := s.office()
+	if err != nil {
+		return "", err
+	}
+	ds, err := s.Decisions.Waiting()
+	if err != nil {
+		return "", err
+	}
+	for _, d := range ds {
+		if d.Put == nil || d.Put.ID != put || len(d.Asked) == 0 {
+			continue
+		}
+		var called []string
+		for _, name := range d.Asked {
+			if p := o.People[name]; p != nil {
+				name = p.Called
+			}
+			called = append(called, name)
+		}
+		who := ", who decide it on their Desk."
+		if len(called) == 1 {
+			who = ", who decides it on their Desk."
+		}
+		return "It is put to be decided, and waits on " + strings.Join(called, ", ") + who, nil
+	}
+	return "It is put to be decided, and goes first to every rule and worker its walk asks.", nil
 }

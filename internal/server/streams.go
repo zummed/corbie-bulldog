@@ -127,6 +127,19 @@ func (s *site) events(person string, w http.ResponseWriter, r *http.Request) {
 		sc.put(fmt.Sprintf("request:%d", n))
 	})
 	defer unwatch()
+	// A person's own change serves no request, so what waits on whoever
+	// sees it is named when it changes.
+	undecided := s.Decisions.Watch(func(id int64) {
+		d, err := s.Decisions.Get(id)
+		o := s.Keeper.Office()
+		if err != nil || o == nil || d.Request != 0 || d.Put == nil {
+			return
+		}
+		if _, _, sees, err := s.seesOwn(o, d, person); err == nil && sees {
+			sc.put(Waiting)
+		}
+	})
+	defer undecided()
 	s.screens.add(sc)
 	defer s.screens.remove(sc)
 	moved, unclock := s.clock.Watch()

@@ -136,7 +136,7 @@ B.ruleShortEl = function (path) {
 };
 
 // The kits Bulldog's tools come in, by what they let a worker do.
-B.KITS = {talk: "Talks to people and teams", docs: "Reads docs", notes: "Writes notes", build: "Drafts changes to the office"};
+B.KITS = {talk: "Talks to people and teams", docs: "Reads and writes docs", notes: "Keeps notes", build: "Drafts changes to the office"};
 // deciderEl gives one decider: a person, a worker with the team it is of,
 // a rule by its path, or Bulldog. A worker of another team than here is
 // given with its team.
@@ -189,7 +189,7 @@ B.band = function (label, rows, ...more) {
 
 // notesInfo gives the (i) of a team's notes.
 B.notesInfo = function () {
-  return B.info("About notes", "Given whole to every run of this team, up to 50,000 characters, in name order.");
+  return B.info("About notes", "Given whole to each run of a worker of this team that names the notes kit, up to 50,000 characters, in name order.");
 };
 
 // givenEl gives how much of a note a run is given, when not all of it.
@@ -208,8 +208,27 @@ const ENTRY = {asked: "Asked", said: "Said", question: "Question", told: "Told",
 B.entryWord = function (kind) { return kind in ENTRY ? ENTRY[kind] : kind; };
 
 // The words decisions are read by, for their kinds.
-const DECISION = {action: "Authorisation", disclosure: "Disclosure", change: "Change"};
+const DECISION = {action: "Authorisation", disclosure: "Disclosure"};
 B.decisionWord = function (kind) { return DECISION[kind] || kind; };
+
+// changeEl gives what a held write, or a person's own change, would do:
+// who drafted it, the rest of its why, beneath the first line its decision is named by;
+// what it says and lets more by; and each file with the lines it takes out
+// and puts in, open when there are few.
+B.changeEl = function (c) {
+  const rest = (c.why || "").split("\n").slice(1).join("\n").trim();
+  const few = c.files.length <= 3;
+  const tag = (f) => f.does === "new" ? B.el("span", {class: "tag"}, "new") : f.does === "gone" ? B.el("span", {class: "tag"}, "removed") : null;
+  const file = (f) => B.el("details", {class: "diff", open: few || null},
+    B.el("summary", {}, B.el("span", {class: "mono"}, f.path), tag(f), B.el("span", {class: "mono faint small"}, "−" + f.lines.filter((l) => l.startsWith("-")).length + " +" + f.lines.filter((l) => l.startsWith("+")).length)),
+    f.lines.length ? B.el("pre", {}, f.lines.map((l) => B.el("span", {class: l.startsWith("+") ? "add" : "del"}, l))) : B.el("div", {class: "empty"}, "empty"));
+  return B.el("div", {class: "stack change"},
+    B.el("div", {class: "line small"}, B.el("span", {class: "faint"}, "Drafted by"), c.person ? B.personEl(c.by) : B.el("span", {class: "mono"}, c.by)),
+    rest ? B.el("div", {class: "small muted pre"}, rest) : null,
+    c.says.length ? B.el("div", {class: "stack small"}, c.says.map((t) => B.el("div", {}, t))) : null,
+    c.lets_more_by.length ? B.el("div", {class: "lets small"}, B.el("div", {class: "kind"}, "Lets more by"), c.lets_more_by.map((t) => B.el("div", {}, t))) : null,
+    B.el("div", {class: "diffs"}, c.files.map(file)));
+};
 
 // entryLabel gives the word an entry is read by: an entry of a decision
 // by the decision's kind, of those given.

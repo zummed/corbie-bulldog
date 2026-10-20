@@ -250,3 +250,22 @@ func TestServerDefinedByTheTeamsOneSees(t *testing.T) {
 		t.Errorf("Raj, in no team, sees %+v", raj)
 	}
 }
+
+func TestServerTeamWritesDecidedAsItsLists(t *testing.T) {
+	t.Parallel()
+	s := newBench(t, workOffice(t)).serve()
+	var office teamWhole
+	s.as("al").get("/api/teams/office").is(http.StatusOK).into(&office)
+	// The bot holds write_doc, and the office writes no list of either, so
+	// its everything decides both.
+	al := []deciderOut{{Kind: "person", Name: "al"}}
+	want := []listOut{{Key: "office_put", Deciders: al}, {Key: "write_doc", Deciders: al}}
+	if !slices.Equal(office.DocWriters, []string{"bot"}) || !reflect.DeepEqual(office.Writes, want) {
+		t.Errorf("Al sees the office's docs written by %v, and its writes decided as %+v", office.DocWriters, office.Writes)
+	}
+	var payments teamWhole
+	s.as("lee").get("/api/teams/payments").is(http.StatusOK).into(&payments)
+	if len(payments.DocWriters) != 0 || len(payments.Writes) != 1 || payments.Writes[0].Key != "office_put" {
+		t.Errorf("Lee sees payments' docs written by %v, and its writes decided as %+v", payments.DocWriters, payments.Writes)
+	}
+}

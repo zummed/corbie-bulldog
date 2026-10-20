@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -265,5 +266,64 @@ func TestServerEveryActionHasItsPerson(t *testing.T) {
 	history, err := a.Changes.History("al")
 	if err != nil || history[0].By != "al" || history[0].DecidedBy != "al" {
 		t.Errorf("the change was made by %+v (%v)", history[0], err)
+	}
+}
+
+func TestServerOwnChangeDecidedOnTheDesk(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, workOffice(t))
+	s := b.serve()
+	dana := s.as("dana").stream("/api/events")
+	dana.next()
+	// Support's notes are support's to decide, so Al's change of them
+	// waits on Dana.
+	files := map[string]any{"support/notes/calls.md": "Call back within a day.\n"}
+	check := s.as("al").post("/api/office/check", map[string]any{"files": files}).is(http.StatusOK).json()
+	put := s.as("al").post("/api/office/put", map[string]any{"files": files, "why": "How support calls back.\nDana asked for it.", "mark": check["mark"]}).is(http.StatusOK).json()
+	if put["ended"] != "" || !strings.Contains(put["said"].(string), "waits on Dana") {
+		t.Errorf("Al's put gives %v", put)
+	}
+	dana.until("what waits on Dana", func(e event) bool { return e.name == "change" && e.data == Waiting })
+	var me struct {
+		Waiting int           `json:"waiting"`
+		Changes []decisionOut `json:"changes"`
+	}
+	s.as("dana").get("/api/me").is(http.StatusOK).into(&me)
+	if me.Waiting != 1 || len(me.Changes) != 1 {
+		t.Fatalf("Dana's desk holds %d waiting, and the changes %+v", me.Waiting, me.Changes)
+	}
+	d := me.Changes[0]
+	want := &changeOut{By: "al", Person: true, Why: "How support calls back.\nDana asked for it.", Says: d.Change.Says, LetsMoreBy: d.Change.LetsMoreBy,
+		Files: []changedFileOut{{Path: "support/notes/calls.md", Does: changes.IsNew, Lines: []string{"+ Call back within a day."}}}}
+	if d.Kind != "action" || d.Team != "support" || !d.Mine || d.Args != nil || !reflect.DeepEqual(d.Change, want) {
+		t.Errorf("Dana is given Al's change as %+v, with %+v", d, d.Change)
+	}
+	var al struct {
+		Changes []decisionOut `json:"changes"`
+	}
+	s.as("al").get("/api/me").is(http.StatusOK).into(&al)
+	if len(al.Changes) != 1 || al.Changes[0].Mine {
+		t.Errorf("Al, who put it, is given %+v", al.Changes)
+	}
+	var raj struct {
+		Changes []decisionOut `json:"changes"`
+	}
+	s.as("raj").get("/api/me").is(http.StatusOK).into(&raj)
+	if len(raj.Changes) != 0 {
+		t.Errorf("Raj is given %+v", raj.Changes)
+	}
+	id := itoa(d.ID)
+	s.as("raj").post("/api/office/changes/"+id, map[string]string{"says": "yes"}).is(http.StatusNotFound)
+	n := s.chat("dana", "support", "anything?")
+	s.as("dana").post("/api/requests/"+itoa(n)+"/decisions/"+id, map[string]string{"says": "yes"}).is(http.StatusNotFound)
+	s.as("dana").post("/api/office/changes/"+id, map[string]string{"says": "yes", "note": "Good."}).is(http.StatusOK)
+	history, err := s.areasOf().Changes.History("al")
+	if err != nil || history[0].By != "al" || history[0].DecidedBy != "dana" {
+		t.Errorf("the change was made by %+v (%v)", history[0], err)
+	}
+	// What waits on her now is the request she asked her own team.
+	s.as("dana").get("/api/me").is(http.StatusOK).into(&me)
+	if me.Waiting != 1 || len(me.Changes) != 0 {
+		t.Errorf("once decided, Dana's desk holds %d waiting, and %+v", me.Waiting, me.Changes)
 	}
 }

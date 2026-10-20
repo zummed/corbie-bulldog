@@ -1,6 +1,7 @@
 package server
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/zummed/corbie-bulldog/internal/bridges"
+	"github.com/zummed/corbie-bulldog/internal/changes"
 	"github.com/zummed/corbie-bulldog/internal/decisions"
 	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/requests"
@@ -240,7 +242,24 @@ type (
 		Referrals []wordOut       `json:"referrals,omitempty"`
 		Stages    []deciderOut    `json:"stages,omitempty"`
 		Args      json.RawMessage `json:"args,omitempty"`
+		Change    *changeOut      `json:"change,omitempty"`
 		Leaving   *leavingOut     `json:"leaving,omitempty"`
+	}
+	// changeOut is what a held write, or a person's own change, would do:
+	// who drafted it and why, what Bulldog reads it to say and let more
+	// by, and each file with the lines it takes out and puts in.
+	changeOut struct {
+		By         string           `json:"by"`
+		Person     bool             `json:"person,omitempty"`
+		Why        string           `json:"why"`
+		Says       []string         `json:"says"`
+		LetsMoreBy []string         `json:"lets_more_by"`
+		Files      []changedFileOut `json:"files"`
+	}
+	changedFileOut struct {
+		Path  string   `json:"path"`
+		Does  string   `json:"does"`
+		Lines []string `json:"lines"`
 	}
 	// leavingOut is what a disclosure would let out: what it is, its
 	// text, whom it is to, where it may in the end be read, and the
@@ -322,7 +341,11 @@ func (s *site) decisionOf(o *office.Office, d *decisions.Decision, person string
 		out.Referrals = append(out.Referrals, word(w))
 	}
 	out.Stages = deciders(o, d.Walked(o))
-	out.Args = d.Args()
+	if d.Put != nil {
+		out.Change = changeOf(d.Put)
+	} else {
+		out.Args = d.Args()
+	}
 	if !asked {
 		return out, nil
 	}
@@ -335,6 +358,16 @@ func (s *site) decisionOf(o *office.Office, d *decisions.Decision, person string
 		out.Leaving.Through = append(out.Leaving.Through, throughOut{Number: t.Number, Team: t.Team})
 	}
 	return out, nil
+}
+
+// changeOf gives what a change would do, each file by the lines it takes
+// out and puts in.
+func changeOf(p *changes.Put) *changeOut {
+	out := &changeOut{By: p.By, Person: p.Person, Why: p.Why, Says: orEmpty(p.Says), LetsMoreBy: orEmpty(p.LetsMoreBy), Files: []changedFileOut{}}
+	for _, f := range p.Files {
+		out.Files = append(out.Files, changedFileOut{Path: f.Path, Does: f.Does(), Lines: orEmpty(f.Lines())})
+	}
+	return out
 }
 
 // partyOf gives someone as the office is read now.
@@ -928,15 +961,9 @@ func (s *site) decide(person string, w http.ResponseWriter, r *http.Request) (an
 	if err != nil {
 		return nil, err
 	}
-	var body struct {
-		Says *string `json:"says"`
-		Note *string `json:"note"`
-	}
-	if err := readJSON(w, r, &body); err != nil {
+	says, note, err := saysOf(w, r)
+	if err != nil {
 		return nil, err
-	}
-	if body.Says == nil || *body.Says != decisions.SaysYes && *body.Says != decisions.SaysRefuse {
-		return nil, unreadable("The body's says is to be yes or refuse.")
 	}
 	if _, err := s.Requests.View(n, person); err != nil {
 		return nil, err
@@ -948,11 +975,60 @@ func (s *site) decide(person string, w http.ResponseWriter, r *http.Request) (an
 	if d.Request != n {
 		return nil, errNotThere
 	}
+	return s.decided(r, id, person, says, note)
+}
+
+// decideOwn takes a person's yes or refusal of a person's own change from
+// the screens, which serves no request, for one who sees it.
+func (s *site) decideOwn(person string, w http.ResponseWriter, r *http.Request) (any, error) {
+	id, err := number(r, "id")
+	if err != nil {
+		return nil, err
+	}
+	says, note, err := saysOf(w, r)
+	if err != nil {
+		return nil, err
+	}
+	o, err := s.office()
+	if err != nil {
+		return nil, err
+	}
+	d, err := s.Decisions.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	if d.Request != 0 || d.Put == nil {
+		return nil, errNotThere
+	}
+	if _, _, sees, err := s.seesOwn(o, d, person); err != nil || !sees {
+		return nil, cmp.Or(err, errNotThere)
+	}
+	return s.decided(r, id, person, says, note)
+}
+
+// saysOf reads a person's yes or refusal, with their note.
+func saysOf(w http.ResponseWriter, r *http.Request) (string, string, error) {
+	var body struct {
+		Says *string `json:"says"`
+		Note *string `json:"note"`
+	}
+	if err := readJSON(w, r, &body); err != nil {
+		return "", "", err
+	}
+	if body.Says == nil || *body.Says != decisions.SaysYes && *body.Says != decisions.SaysRefuse {
+		return "", "", unreadable("The body's says is to be yes or refuse.")
+	}
 	note := ""
 	if body.Note != nil {
 		note = *body.Note
 	}
-	reply, err := s.Decisions.Decide(r.Context(), id, s.Requests.Person(person), *body.Says, note)
+	return *body.Says, note, nil
+}
+
+// decided hands a person's word on a decision to be taken, and gives what
+// became of it.
+func (s *site) decided(r *http.Request, id int64, person, says, note string) (any, error) {
+	reply, err := s.Decisions.Decide(r.Context(), id, s.Requests.Person(person), says, note)
 	if err != nil {
 		return nil, err
 	}
@@ -960,6 +1036,49 @@ func (s *site) decide(person string, w http.ResponseWriter, r *http.Request) (an
 		return nil, refusal(reply.Text)
 	}
 	return map[string]string{"said": reply.Text}, nil
+}
+
+// ownChanges gives the people's own changes from the screens that still
+// wait, as the one looking may see them: those they are asked, those of
+// a team they are in, those they put, and, to the people who decide a
+// change, every one.
+func (s *site) ownChanges(o *office.Office, person string) ([]decisionOut, error) {
+	ds, err := s.Decisions.Waiting()
+	if err != nil {
+		return nil, err
+	}
+	out := []decisionOut{}
+	for _, d := range ds {
+		if d.Request != 0 || d.Put == nil {
+			continue
+		}
+		asked, whole, sees, err := s.seesOwn(o, d, person)
+		if err != nil {
+			return nil, err
+		}
+		if !sees {
+			continue
+		}
+		dec, err := s.decisionOf(o, d, person, asked, whole)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, dec)
+	}
+	return out, nil
+}
+
+// seesOwn says whether a person sees a person's own change: they were
+// asked it, or they see the whole of it, as one of the team whose decision
+// it is, the one who put it or one who decides a change.
+func (s *site) seesOwn(o *office.Office, d *decisions.Decision, person string) (asked, whole, sees bool, err error) {
+	people, err := s.Requests.People(d.Team)
+	if err != nil {
+		return false, false, false, err
+	}
+	asked = slices.Contains(d.WasAsked, person)
+	whole = slices.Contains(people, person) || d.Put.By == person || slices.Contains(changes.Deciders(o), person)
+	return asked, whole, asked || whole, nil
 }
 
 // stop stops a request, and what is open beneath it, for someone who may.

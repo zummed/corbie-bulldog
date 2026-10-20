@@ -67,13 +67,14 @@
   async function waiting() {
     if (!B.me.waiting) return null;
     try {
-      const out = await B.api("/api/requests?waiting=me&limit=" + WAITING);
+      const own = (B.me.changes || []).filter((d) => d.mine);
+      const out = B.me.waiting > own.length ? await B.api("/api/requests?waiting=me&limit=" + WAITING) : {requests: []};
       // A request inside another that waits on them too is folded inside
       // it, and is a card of its own all the same.
       const all = (rs) => rs.flatMap((r) => [r, ...all(r.subs || [])]);
       const list = all(out.requests || []);
       const details = await Promise.all(list.map((r) => B.api("/api/requests/" + r.number + "?size=1").catch((err) => ({number: r.number, error: err}))));
-      const reqs = list.map((r, i) => waitingOn(r, details[i]));
+      const reqs = [...own.map(ownChange), ...list.map((r, i) => waitingOn(r, details[i]))];
       const cards = reqs.reduce((n, r) => n + r.querySelectorAll(".ask-card").length, 0);
       return B.sect(B.label("Waiting on you", B.el("span", {class: "count"}, out.before ? B.me.waiting : cards)),
         reqs.length ? B.el("div", {class: "desk-waiting"}, reqs) : B.empty(),
@@ -102,6 +103,15 @@
     const onMe = (sum.on || []).some((p) => p.kind === "person" && p.name === me);
     if (sum.whole && onMe && (!cards.length || (team && team.lead === me))) cards.push(leadCard(v));
     return B.el("article", {class: "desk-req"}, head, cards);
+  }
+
+  // ownChange gives a person's own change from the screens put to the one
+  // looking, which serves no request, as its card.
+  function ownChange(d) {
+    return B.el("article", {class: "desk-req"},
+      B.el("div", {class: "desk-req-head"}, B.me.me.decides_changes ? B.el("a", {href: "#/office/changes"}, "Change") : B.el("span", {}, "Change"),
+        B.el("span", {class: "desk-first"}, "from the screens")),
+      typeof B.decisionCard === "function" ? keep(B.decisionCard({number: 0}, d), "own:d" + d.id) : null);
   }
 
   function question(v, e) {

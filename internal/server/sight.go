@@ -32,6 +32,10 @@ type (
 		People   []personOut  `json:"people"`
 		Waiting  int          `json:"waiting"`
 		Problems []problemOut `json:"problems"`
+		// Changes are the people's own changes from the screens that
+		// still wait, as the one looking sees them; those put to them
+		// count among what waits on them.
+		Changes []decisionOut `json:"changes"`
 	}
 	officeOut struct {
 		Name  string `json:"name"`
@@ -225,6 +229,14 @@ func (s *site) me(person string, w http.ResponseWriter, r *http.Request) (any, e
 		Office: officeOut{Name: o.Name(), About: o.TopTeam().About, Zone: o.Zone.String(),
 			Runs:   runsOut{Limit: o.Runs, Working: load.Working, Queued: load.Queued},
 			Change: walked(o, office.Top, changes.ToolPut)}}
+	if out.Changes, err = s.ownChanges(o, person); err != nil {
+		return nil, err
+	}
+	for _, d := range out.Changes {
+		if d.Mine {
+			out.Waiting++
+		}
+	}
 	for _, name := range o.Order {
 		people, err := s.Requests.People(name)
 		if err != nil {
@@ -524,9 +536,15 @@ type (
 		Rules      []ruleOut    `json:"rules"`
 		Workers    []workerOut  `json:"workers"`
 		Notes      []noteOut    `json:"notes"`
-		// Writers are its workers that have the notes tool, and so may
-		// write any of its notes.
-		Writers  []string     `json:"writers"`
+		// Writers are its workers that name the notes kit, and so are given
+		// its notes and may write them; DocWriters those that hold
+		// write_doc, and so may write its docs.
+		Writers    []string `json:"writers"`
+		DocWriters []string `json:"doc_writers"`
+		// Writes are office_put, and write_doc where a worker holds it,
+		// when it writes no list of their own, with who decides each as
+		// its everything does.
+		Writes   []listOut    `json:"writes"`
 		Problems []problemOut `json:"problems"`
 		// In says the one looking is among its people, and AtWork and
 		// Now, to them alone, are its workers at work, and on what, and
@@ -728,7 +746,7 @@ func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any,
 	if !whole {
 		return seen, nil
 	}
-	out := teamWhole{teamOut: seen, File: t.File, Decide: []listOut{}, Routines: []routineOut{}, Models: []modelOut{}, Rules: rulesOf(o, t), Workers: []workerOut{}, Notes: []noteOut{}, Writers: []string{}}
+	out := teamWhole{teamOut: seen, File: t.File, Decide: []listOut{}, Routines: []routineOut{}, Models: []modelOut{}, Rules: rulesOf(o, t), Workers: []workerOut{}, Notes: []noteOut{}, Writers: []string{}, DocWriters: []string{}, Writes: []listOut{}}
 	for _, l := range t.Decide {
 		out.Decide = append(out.Decide, listOut{Key: l.Key, Deciders: walked(o, t.Name, l.Key)})
 	}
@@ -747,6 +765,14 @@ func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any,
 		out.Workers = append(out.Workers, workerOf(o, o.Workers[name]))
 		if work.WritesNotes(o.Workers[name]) {
 			out.Writers = append(out.Writers, name)
+		}
+		if work.WritesDocs(o.Workers[name]) {
+			out.DocWriters = append(out.DocWriters, name)
+		}
+	}
+	for _, tool := range []string{changes.ToolPut, changes.ToolWriteDoc} {
+		if _, listed := o.List(t.Name, tool); !listed && (tool == changes.ToolPut || len(out.DocWriters) > 0) {
+			out.Writes = append(out.Writes, listOut{Key: tool, Deciders: walked(o, t.Name, tool)})
 		}
 	}
 	notes, err := o.Notes(t.Name)

@@ -318,6 +318,16 @@ input[type="file"].in { min-height: 0; padding: 6px; border-style: dashed; font-
 .versions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .versions pre { background: var(--sheet); border: 1px solid var(--line); padding: 8px; overflow-x: auto; }
 .lets { border-left: 3px solid var(--wait); padding-left: 12px; }
+.pre { white-space: pre-wrap; }
+/* A change's files: each by the lines it takes out and puts in */
+.diffs { border-top: 1px solid var(--faint); }
+.diff { border-bottom: 1px solid var(--faint); padding: 4px 0; min-width: 0; }
+.diff > summary { display: flex; align-items: center; gap: 10px; min-height: 28px; cursor: pointer; }
+.diff > summary > .mono:first-of-type { overflow-wrap: anywhere; }
+.diff > pre { margin: 6px 0 4px; background: var(--sheet); border: 1px solid var(--line); padding: 6px 0; overflow-x: auto; max-height: 420px; font: var(--data)/1.5 var(--mono); }
+.diff > pre > span { display: block; padding: 0 8px; white-space: pre; }
+.diff > pre > .add { background: color-mix(in srgb, var(--good) 14%, transparent); }
+.diff > pre > .del { background: color-mix(in srgb, var(--bad) 12%, transparent); color: var(--ink2); }
 .files-tree { font: var(--data)/1.9 var(--mono); }
 .files-tree a { color: var(--ink); display: block; padding: 0 6px; }
 .files-tree a[aria-current="true"] { background: var(--plan-soft); }

@@ -382,10 +382,27 @@
       B.officeHead("changes"),
       B.el("div", {class: "cols"},
         B.el("div", {class: "main"},
+          waitingChanges(),
           B.sect(B.label("Draft"), B.el("div", {class: "stack"}, editorBox, newFile(), workers(update), partsBox, B.el("div", {}, check), resultBox)),
           history(lists.history)),
         B.el("div", {class: "side ch-files"}, filesTree(lists.files, selected))));
-  }, "office", (what) => what === "office");
+  }, "office", (what) => what === "office" || what === "waiting");
+
+  // waitingChanges gives the people's own changes that wait: each put to
+  // the one looking as its card, and any other with whom it waits on.
+  function waitingChanges() {
+    const all = B.me.changes || [];
+    if (!all.length) return null;
+    const on = (d) => (d.asked || []).length ? d.asked.map(B.personCalled).join(", ")
+      : (d.stages || []).filter((x) => x.kind !== "person").map((x) => x.name).join(", ");
+    return B.sect(B.label("Waiting", B.el("span", {class: "count"}, String(all.length))), B.el("div", {class: "stack"}, all.map((d) => d.mine
+      ? B.decisionCard({number: 0}, d)
+      : B.el("section", {class: "ask-card"},
+        B.el("div", {class: "line"}, B.el("span", {class: "rq-kind"}, B.decisionWord(d.kind)), B.teamEl(d.team),
+          B.el("span", {class: "status waiting"}, "waiting"), on(d) ? B.el("span", {class: "small muted"}, "on " + on(d)) : null),
+        B.el("div", {class: "what"}, d.does),
+        d.change ? B.changeEl(d.change) : null))));
+  }
 
   // One change of the history, each file it touched before and after. A
   // file's texts are drawn when it is opened; a change of a few files has

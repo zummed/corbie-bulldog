@@ -267,10 +267,14 @@
     return lead ? lead.may_ask : [];
   }
 
+  // authorisationEl gives the team's lists, then the writes into its
+  // folder that no list of their own decides, as its everything does.
   function authorisationEl(t) {
-    if (!t.decide || !t.decide.length) return null;
+    const all = [...(t.decide || []), ...(t.writes || []).map((l) => Object.assign({by: "everything"}, l))];
+    if (!all.length) return null;
     return B.el("div", {class: "stack band-list"},
-      rows("authorisation", t.decide, (l) => B.el("div", {class: "row te-list"}, B.el("span", {class: "mono te-key"}, l.key), B.chain(l.deciders || [], t.name)), "te-lists"));
+      rows("authorisation", all, (l) => B.el("div", {class: "row te-list"}, B.el("span", {class: "mono te-key"}, l.key),
+        B.chain(l.deciders || [], t.name), l.by ? B.el("span", {class: "faint small"}, "as " + l.by) : null), "te-lists"));
   }
 
   // The stages a request to the team may go through, downward: where it
@@ -359,19 +363,19 @@
         ["Lead", leadEl(t)],
         ["Teams inside", inside(t)],
         whole && (t.notes.length || t.writers.length) ? ["Notes", B.el("span", {class: "line"}, String(t.notes.length),
-          t.writers.length ? [B.el("span", {class: "faint small"}, "written by"), t.writers.map((w) => worker(t, w))] : null)] : null,
+          t.writers.length ? [B.el("span", {class: "faint small"}, "notes kit"), t.writers.map((w) => worker(t, w))] : null)] : null,
         t.docs && t.docs.length ? ["Docs", String(t.docs.length)] : null,
         whole && t.file ? ["File", B.el("span", {class: "mono"}, t.file)] : null,
       ])});
 
     const lead = whole ? byName(t, t.lead) : null;
-    if (whole && (lead || (t.decide || []).length || (t.workers || []).length)) {
+    if (whole && (lead || (t.decide || []).length || (t.writes || []).length || (t.workers || []).length)) {
       const near = lead ? [...reached(t, lead, new Set([lead.name]))].map((n) => byName(t, n)) : [];
       const holding = (name) => near.filter((w) => (w.tools || []).some((tl) => tl.kind === "bulldog" && tl.name === name));
       const tools = lead ? lead.tools || [] : [];
       const own = tools.filter((tl) => tl.kind !== "bulldog" && !(tl.kind === "worker" && byName(t, tl.worker))).map((tl) => tl.listed ? tl.name + "_*" : tl.name);
       const kits = Object.keys(B.KITS).filter((k) => tools.some((tl) => tl.kind === "bulldog" && tl.kit === k)).map((k) => B.KITS[k]);
-      const keys = (t.decide || []).map((l) => l.key + ": " + (l.deciders || []).map(deciderWord).join(", then "));
+      const keys = [...(t.decide || []), ...(t.writes || [])].map((l) => l.key + ": " + (l.deciders || []).map(deciderWord).join(", then "));
       const parts = [
         lead ? ["Colleagues", named(colleaguesOf(t, lead).map(([, c]) => c.name), 3)] : null,
         ["Tools", named(own, FEW)],
@@ -566,8 +570,8 @@
     if (!(t.notes && t.notes.length) && !writers.length) return null;
     return folded("notes", B.label("Notes", B.el("span", {class: "count"}, String(t.notes.length)),
       ...B.notesInfo()), B.el("div", {},
-    writers.length ? B.el("span", {class: "line te-writers"}, B.el("span", {class: "faint small"}, "Written by"),
-      writers.map((w) => worker(t, w)), ...B.info("About written by", "The workers of this team whose definitions name the notes tool. Each may write any of its notes, at once, with no decision.")) : null,
+    writers.length ? B.el("span", {class: "line te-writers"}, B.el("span", {class: "faint small"}, "Notes kit"),
+      writers.map((w) => worker(t, w)), ...B.info("About the notes kit", "The workers of this team that name the notes kit. Each is given these notes at the start of each run, and may write them; a worker that does not name it is given none.")) : null,
     t.notes.length ? rows("notes", t.notes, (n) => {
       const d = B.el("details", {open: state.open.has(n.name)},
         B.el("summary", {}, B.el("span", {class: "mono"}, n.name),
@@ -634,10 +638,13 @@
   }
 
   function docs(t) {
-    if (!t.docs || !t.docs.length) return null;
-    return folded("docs", B.label("Docs", B.el("span", {class: "count"}, String(t.docs.length)),
-      ...B.info("About docs", "Read by the workers of this team and of the teams within, when they ask, through the docs tools. Written through a change.")),
-    B.el("div", {class: "te-docs"}, folderEls(t, folders(t.docs), "")));
+    const writers = t.doc_writers || [];
+    if (!(t.docs && t.docs.length) && !writers.length) return null;
+    return folded("docs", B.label("Docs", B.el("span", {class: "count"}, String((t.docs || []).length)),
+      ...B.info("About docs", "Read by the workers of this team and of the teams within, when they ask, through the docs kit.")), B.el("div", {},
+    writers.length ? B.el("span", {class: "line te-writers"}, B.el("span", {class: "faint small"}, "write_doc"),
+      writers.map((w) => worker(t, w)), ...B.info("About write_doc", "The workers of this team that hold write_doc, of the docs kit. Each may write or replace one of these docs, decided as this team's write_doc is.")) : null,
+    t.docs && t.docs.length ? B.el("div", {class: "te-docs"}, folderEls(t, folders(t.docs), "")) : null));
   }
 
   // The view
