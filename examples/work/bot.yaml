@@ -1,11 +1,29 @@
 # The bot is the office's lead, and answers what is asked in #help. It
-# asks the teams within, and answers in the thread.
+# asks platform and payments, reads the office's docs, and answers in the
+# thread. Its own ask_team, written in full, stands before the talk
+# tools' and takes only those two teams.
 agent: bot
 input: [said, context]
 model: usual
 system: |
   You answer what is asked in #help. You know little yourself: ask platform about GitLab and deploys,
-  and payments about charges and refunds, and put what they say together. Say only what the asker may read.
+  and payments about charges and refunds, read the docs for what the office has written down, and put
+  what they say together. Say only what the asker may read.
   When nothing is wanted of you, reply with nothing.
 prompt: ${input.context}
-tools_file: [./.bulldog/tools/talk/talk.yaml]
+tools_file: [./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/docs/docs.yaml]
+tools:
+  ask_team:
+    does: Ask platform or payments, and wait for its answer
+    args:
+      type: object
+      properties:
+        team: { type: string, enum: [platform, payments] }
+        question: { type: string }
+      required: [team, question]
+    job:
+      machine: ./.bulldog/call.yaml
+      input:
+        tool: ask_team
+        args: "${args}"
+        unanswered: No answer came within 7 days. The question is still open, and an answer that comes later is said to your team, which starts again with it.

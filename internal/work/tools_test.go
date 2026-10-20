@@ -276,7 +276,7 @@ func TestAskTeamMakesASubRequest(t *testing.T) {
 
 func TestTheAnswerOfALeadWhoIsAPersonIsTheToolsResult(t *testing.T) {
 	t.Parallel()
-	b := newBench(t, work(t))
+	b := newBench(t, askingAny(t))
 	b.says(func(turn testkit.Turn) testkit.Reply {
 		if turn.Number == 1 {
 			return testkit.Use("ask_team", map[string]any{"team": "support", "question": "has 4411 written in?"})
@@ -296,7 +296,7 @@ func TestTheAnswerOfALeadWhoIsAPersonIsTheToolsResult(t *testing.T) {
 
 func TestAskTeamIsRefusedWithASentence(t *testing.T) {
 	t.Parallel()
-	b := newBench(t, work(t))
+	b := newBench(t, askingAny(t))
 	results := make(chan string, 2)
 	b.says(func(turn testkit.Turn) testkit.Reply {
 		switch turn.Number {
@@ -393,22 +393,10 @@ func TestWorkATeamAboveIsNotAsked(t *testing.T) {
 
 func TestWorkOwnAskTeamNarrowsTheTeamsItMayAsk(t *testing.T) {
 	t.Parallel()
-	files := work(t)
-	files["bot.yaml"] += `tools:
-  ask_team:
-    does: Ask payments, and wait for its answer
-    args:
-      type: object
-      properties:
-        team: { type: string, enum: [payments] }
-        question: { type: string }
-      required: [team, question]
-    job:
-      machine: ./.bulldog/call.yaml
-      input: { tool: ask_team, args: "${args}", unanswered: No answer came within 7 days. }
-`
-	b := newBench(t, files)
-	if may := MayAsk(b.office(), "office", "bot", nil); len(may) != 1 || may[0].Name != "payments" {
+	// The work office's bot writes its own ask_team, taking platform and
+	// payments.
+	b := newBench(t, work(t))
+	if may := MayAsk(b.office(), "office", "bot", nil); len(may) != 2 || may[0].Name != "payments" || may[1].Name != "platform" {
 		t.Errorf("the bot may ask %v", may)
 	}
 	if may := MayAsk(b.office(), "payments", "ledger", nil); len(may) != 3 {
@@ -418,16 +406,16 @@ func TestWorkOwnAskTeamNarrowsTheTeamsItMayAsk(t *testing.T) {
 	b.says(func(turn testkit.Turn) testkit.Reply {
 		switch turn.Number {
 		case 1:
-			return testkit.Use("ask_team", map[string]any{"team": "platform", "question": "did the deploy break?"})
+			return testkit.Use("ask_team", map[string]any{"team": "support", "question": "has 4411 written in?"})
 		case 2:
 			results <- turn.Last()
 		}
 		return testkit.Say("done")
 	})
-	n := b.chat("al", "", "the deploy broke")
-	holds(t, "the bot's context", b.prompt("the deploy broke"), "- payments (")
-	holdsNone(t, "the bot's context", b.prompt("the deploy broke"), "- platform (", "- support (")
-	holds(t, "asking platform", <-results, "at /team", "payments")
+	n := b.chat("al", "", "customer 4411 was charged twice")
+	holds(t, "the bot's context", b.prompt("customer 4411 was charged twice"), "- payments (", "- platform (")
+	holdsNone(t, "the bot's context", b.prompt("customer 4411 was charged twice"), "- support (")
+	holds(t, "asking support", <-results, "at /team", "platform", "payments")
 	b.answered(n)
 	if subs := b.entries(n, requests.KindSub); len(subs) != 0 {
 		t.Errorf("a team was asked: %v", b.thread(n))

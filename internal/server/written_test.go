@@ -42,6 +42,10 @@ func TestServerTeamHeedRulesModelsAndWorkersSeenByItsPeople(t *testing.T) {
 	if !reflect.DeepEqual(office.Rules, []ruleOut{forUs}) {
 		t.Errorf("Al sees the office's rules as %+v", office.Rules)
 	}
+	// The bot's own ask_team takes platform and payments alone.
+	if bot := office.Workers[slices.IndexFunc(office.Workers, func(w workerOut) bool { return w.Name == "bot" })]; !slices.Equal(bot.MayAsk, []string{"payments", "platform"}) {
+		t.Errorf("Al sees the bot may ask %v", bot.MayAsk)
+	}
 	// Dana sees that the office names a heed, and nothing of it.
 	dana := s.as("dana").get("/api/teams/office").is(http.StatusOK)
 	for _, hidden := range []string{"for-us", "timeout", "threshold", "TYPESAFE_KEY"} {
@@ -230,7 +234,7 @@ func TestServerDefinedByTheTeamsOneSees(t *testing.T) {
 	if tool(lee, "platform/tools/gitlab.js").Name != "" || len(lee.Models) != 1 || !slices.Equal(lee.Models[0].Teams, []string{"payments"}) {
 		t.Errorf("Lee sees the tools %+v and the models %+v", lee.Tools, lee.Models)
 	}
-	if !reflect.DeepEqual(lee.Docs, []definedRow{{Name: "help/refunds", Team: "office", Size: 10, Teams: []string{}}}) {
+	if !reflect.DeepEqual(lee.Docs, []definedRow{{Name: "help/refunds", Team: "office", Size: 10, Teams: []string{"office"}}}) {
 		t.Errorf("Lee sees the docs %+v", lee.Docs)
 	}
 	al := defined("al")

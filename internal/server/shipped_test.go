@@ -140,12 +140,12 @@ func TestServerShippedChangedLinesAfterUpgrade(t *testing.T) {
 	// At the first start of 0.2.0, what changed in 0.2.0 is said of each
 	// thing the office uses, and of nothing else.
 	upgraded := b.serve(func(o *Options) { o.Version = "0.2.0" })
-	for _, said := range []string{"rules/for-us changed in 0.2.0, which the office uses: first shipped.", "tools/talk changed in 0.2.0"} {
+	for _, said := range []string{"rules/for-us changed in 0.2.0, which the office uses: first shipped.", "tools/talk changed in 0.2.0", "tools/docs changed in 0.2.0"} {
 		if !upgraded.logged(said) {
 			t.Errorf("the start after the upgrade does not say %q", said)
 		}
 	}
-	if upgraded.logged("bridges/jira changed") || upgraded.logged("tools/docs changed") {
+	if upgraded.logged("bridges/jira changed") || upgraded.logged("tools/notes changed") {
 		t.Error("the start after the upgrade says what changed in what the office does not use")
 	}
 	changed := func(s *serving, person string) []shipped.Change {

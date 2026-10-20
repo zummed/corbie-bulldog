@@ -153,7 +153,7 @@ Where every run is given its team's notes, no run is given docs. A worker reads 
 
 ```
 work/
-  office.yaml  bot.yaml
+  office.yaml  bot.yaml  docs/help/refunds.md
   platform/  team.yaml  ops.yaml  tools/
   payments/  team.yaml  ledger.yaml  tools/  no-account-numbers.yaml  no-account-numbers.js  notes/
   support/   team.yaml
@@ -185,6 +185,7 @@ models:
   usual: { name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }
 people: [al]
 lead: bot
+heed: ./.bulldog/rules/for-us/for-us.yaml
 decide: { everything: [al] }
 
 # platform/team.yaml: one worker, on its own, with no people
@@ -208,6 +209,27 @@ lead: dana
 ```
 
 Al is in the office but in no team within it, so he sees inside none of them. Raj is in no team at all: he is a person, who may ask and be named to decide. Platform has no people and writes no `decide`, so what it holds for a yes goes out to the office's `everything`, Al, and Al is its people for sight and control: he is told when it fails, sees what it read, and watches and stops its runs.
+
+The office heeds with `for-us`, as Bulldog ships it and with its settings' defaults, so what is said in #help that names neither the bot nor follows straight on its answer is weighed by a fast model before the bot starts on it. The bot names the talk and docs tools, and writes its own `ask_team` in full beside them, taking only platform and payments, so it never asks support, whose lead is Dana:
+
+```yaml
+# bot.yaml
+tools_file: [./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/docs/docs.yaml]
+tools:
+  ask_team:
+    does: Ask platform or payments, and wait for its answer
+    args:
+      type: object
+      properties:
+        team: { type: string, enum: [platform, payments] }
+        question: { type: string }
+      required: [team, question]
+    job:
+      machine: ./.bulldog/call.yaml
+      input: { tool: ask_team, args: "${args}", unanswered: … }
+```
+
+The office's docs hold `help/refunds`, what #help is told of refunds, which the bot reads when it asks; payments' notes say how its own workers find a duplicate.
 
 Payments' rule must reach the screening service with a key, so it is a definition: `no-account-numbers.yaml` is a flow whose one job runs `no-account-numbers.js`, and its own allow lines let that job reach the service's host with the key bound to it, and nothing else. Being named by its path in `disclosure`, it is a rule and not a worker of payments.
 

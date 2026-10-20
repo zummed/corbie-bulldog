@@ -43,13 +43,26 @@ const identity = "0f4c2a9e"
 // each bridge a stand-in that reaches no service: the house's Telegram
 // listens and says things to a person directly, the work office's Slack
 // hears and does too, and its GitLab listens and has no direct place.
+// The work office heeds nothing, its for-us asking a model at a service
+// no test reaches: a test that weighs names its own heed.
 func house(t *testing.T) map[string]string {
 	return standin.Instead(testkit.Files(t, examples.House()), "telegram", standin.Folder(false, true))
 }
 
 func work(t *testing.T) map[string]string {
 	files := standin.Instead(testkit.Files(t, examples.Work()), "slack", standin.Folder(true, true))
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "heed: ./.bulldog/rules/for-us/for-us.yaml\n", "", 1)
 	return standin.Instead(files, "gitlab", standin.Folder(false, false))
+}
+
+// askingAny gives the work office with its bot asking any team, as the
+// talk tools' own ask_team does, its own that takes only platform and
+// payments cut.
+func askingAny(t *testing.T) map[string]string {
+	files := work(t)
+	bot, _, _ := strings.Cut(files["bot.yaml"], "\ntools:\n")
+	files["bot.yaml"] = bot + "\n"
+	return files
 }
 
 // A bench is an office in a folder of the test's own, with a whole Corbie

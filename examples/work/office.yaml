@@ -22,4 +22,5 @@ models:
   usual: { name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }
 people: [al]
 lead: bot
+heed: ./.bulldog/rules/for-us/for-us.yaml
 decide: { everything: [al] }

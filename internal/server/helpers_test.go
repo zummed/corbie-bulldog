@@ -36,13 +36,15 @@ var ctx = context.Background()
 // office, each bridge a stand-in that reaches no service: the house's
 // Telegram listens and says things to a person directly, the work
 // office's Slack hears and does too, and its GitLab listens and has no
-// direct place.
+// direct place. The work office heeds nothing, its for-us asking a model
+// at a service no test reaches: a test that weighs names its own heed.
 func house(t *testing.T) map[string]string {
 	return standin.Instead(testkit.Files(t, examples.House()), "telegram", standin.Folder(false, true))
 }
 
 func workOffice(t *testing.T) map[string]string {
 	files := standin.Instead(testkit.Files(t, examples.Work()), "slack", standin.Folder(true, true))
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "heed: ./.bulldog/rules/for-us/for-us.yaml\n", "", 1)
 	return standin.Instead(files, "gitlab", standin.Folder(false, false))
 }
 

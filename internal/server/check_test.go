@@ -38,7 +38,7 @@ func TestServerCheckListsTheWorkOffice(t *testing.T) {
 	t.Parallel()
 	files := testkit.Files(t, examples.Work())
 	files["payments/team.yaml"] += "models:\n  usual: { name: claude-opus-5-5, secret: PAYMENTS_KEY }\n"
-	files["office.yaml"] += "heed: { rule: ./for-us.js, timeout: 5s }\n"
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "heed: ./.bulldog/rules/for-us/for-us.yaml", "heed: { rule: ./for-us.js, timeout: 5s }", 1)
 	files["for-us.js"] = "return { says: \"act\" }\n"
 	dir := testkit.Folder(t, files)
 	before := stamps(t, dir)

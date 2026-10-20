@@ -239,7 +239,7 @@ func TestAWaitingCallWaitsOnAcrossARestart(t *testing.T) {
 		t.Errorf("the request had the runs %+v", runs)
 	}
 
-	w := newBench(t, work(t))
+	w := newBench(t, askingAny(t))
 	w.says(func(turn testkit.Turn) testkit.Reply {
 		if turn.Number == 1 {
 			return testkit.Use("ask_team", map[string]any{"team": "support", "question": "has 4411 written in?"})
