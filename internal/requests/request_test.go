@@ -91,6 +91,25 @@ func TestRequestsGoToLeadOrRoutineWorker(t *testing.T) {
 	}
 }
 
+func TestARoutinesSayIsCarriedToNobody(t *testing.T) {
+	t.Parallel()
+	d := open(t, house(t))
+	monday := got[*requests.Request](t)(d.AskByRoutine(office.Top, d.o.TopTeam().Routines[0], requests.Who{}))
+	asked := got[[]requests.Entry](t)(d.Thread(monday.Number))[0]
+	if ds := got[[]requests.Delivery](t)(d.Deliveries(asked.ID)); asked.Kind != requests.KindAsked || len(ds) != 0 {
+		t.Errorf("the routine's say %q goes to %+v", asked.Text, ds)
+	}
+	// Its empty answer says nothing, so nothing of it is carried at all.
+	if e := got[*requests.Entry](t)(d.Answer(monday.Number, d.Worker("steward"), "", nil)); e != nil {
+		t.Errorf("the routine's empty answer is said as %+v", e)
+	}
+	thread, all, err := d.DeliveriesIn(monday.Number)
+	must(t, err)
+	if len(thread) != 1 || len(all[asked.ID]) != 0 {
+		t.Errorf("the routine's thread %+v is carried as %+v", thread, all)
+	}
+}
+
 func TestRequestsLeadWhoIsAPersonWaitsAndAnswers(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)

@@ -44,8 +44,8 @@ The detailed rules behind the [Requests overview](../requests.md). Requirements 
 **R-requests-09** The people who can read an origin on a bridge are the people whose identities its in machine last reported as reading that place; a thing handed in with no readers reports none, and leaves them as they were (R-bridges-16); a place it never reported is read by the asker alone. The chat is read by the asker alone; a routine by the people of the routine's team.
 *Accept:* the stand-in bridge reports Dana's, Al's and Raj's Slack identities as reading #help: all three see what was done of Dana's request. A later thing from #help reports Dana and Al alone: Raj no longer sees it. A thread in a place the bridge never reported readers for is read by its asker alone. Kit's chat request is read by Kit alone. A garden routine's request is read by the garden's people.
 
-**R-requests-10** Whatever is said to the asker of a request that has an origin goes there, as its answers do.
-*Accept:* the fixer asks Kit "tell me when it arrives". The question is an entry to Kit, and is shown in the chat where Kit asked. In Dana's request, a question the bot puts to Dana is handed to the Slack bridge for her thread.
+**R-requests-10** Whatever is said to the asker of a request that has an origin goes there, as its answers do. Nothing the asker says goes back to them: a routine's asking, its say, which its team says to itself, goes to nobody.
+*Accept:* the fixer asks Kit "tell me when it arrives". The question is an entry to Kit, and is shown in the chat where Kit asked. In Dana's request, a question the bot puts to Dana is handed to the Slack bridge for her thread. The house's Monday routine's asking is carried to neither Sam nor Kit, and when the steward answers it with nothing, nothing of it is carried at all.
 
 ## Entries
 

@@ -548,7 +548,9 @@ func (s *Store) DeliveriesIn(n int64) ([]Entry, map[int64][]Delivery, error) {
 func (l *look) deliveries(r *Request, ws []wait, e Entry) []Delivery {
 	var ds []Delivery
 	var persons []string
-	origin := r.Parent == 0 && e.Read == "" && slices.ContainsFunc(e.To, func(w Who) bool { return l.same(w, r.Asker) })
+	// A routine's asking is by its team, the asker, to itself, and goes
+	// back to nobody, as nothing an asker says does.
+	origin := r.Parent == 0 && e.Read == "" && !l.same(e.By, r.Asker) && slices.ContainsFunc(e.To, func(w Who) bool { return l.same(w, r.Asker) })
 	switch {
 	case origin && r.Origin.Kind == ByRoutine:
 		if l.teamNow(r.Origin.Team, r.Origin.Known) != nil {
