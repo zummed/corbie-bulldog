@@ -9,11 +9,14 @@ const bearer = token => secrets.text`Bearer ${secrets.get(token)}`
 // then it ends, and the next run connects again.
 const listenFor = 4 * 60 * 1000
 
-// Slack takes up to 40,000 characters in a message's text, and 3,000 in a
-// section that a message with buttons holds. A string's length here counts
-// UTF-16 code units, never fewer than Slack counts.
-const longest = 40000
-const longestSection = 3000
+// Slack takes up to 12,000 characters of Markdown in a message, alone or
+// in a block beside buttons. A string's length here counts UTF-16 code
+// units, never fewer than Slack counts.
+const longest = 12000
+
+// How much of the text a message with buttons gives in plain words, for
+// where Slack shows no blocks, as a notification.
+const fallbackFor = 150
 
 // What Slack says when a call is refused for good, by its error code: a
 // place the app cannot write to, or a message it will never take. Any
@@ -21,7 +24,7 @@ const longestSection = 3000
 // the run fails and is tried again.
 const refusedFor = ["channel_not_found", "not_in_channel", "is_archived", "msg_too_long", "no_text", "invalid_blocks",
   "restricted_action", "restricted_action_read_only_channel", "restricted_action_non_threadable_channel", "user_not_found",
-  "user_disabled", "cannot_dm_bot", "messages_tab_disabled", "invalid_arguments"]
+  "user_disabled", "cannot_dm_bot", "messages_tab_disabled", "invalid_arguments", "markdown_text_conflict"]
 
 // What Slack says when a reply cannot go under the message it answers,
 // which it no longer has: the text is then said in the place, not in reply.
@@ -103,12 +106,15 @@ if (input.do === "hear") {
     return sent ? message.channel + "/" + sent.ts : undefined
   }
 
-  // mentions says whether a text names the app, as <@its id>, which Slack
-  // says when asked who the app is; a text naming nobody asks nothing.
-  const mentions = text => {
-    if (!text.includes("<@")) return false
-    const me = must("auth.test").user_id
-    return text.includes("<@" + me + ">") || text.includes("<@" + me + "|")
+  // named gives a text with the app's own mention, <@its id>, written as
+  // its name, @gromit, and whether it names the app, which Slack says when
+  // asked who the app is; a text naming nobody asks nothing. Anyone
+  // else's mention stays as Slack gives it.
+  const named = text => {
+    if (!text.includes("<@")) return { text: text, mentioned: false }
+    const me = must("auth.test")
+    const written = text.replace(new RegExp("<@" + me.user_id + "(\\|[^>]*)?>", "g"), "@" + me.user)
+    return { text: written, mentioned: written !== text }
   }
 
   // heard gives the thing an envelope holds: a press of a button, or a
@@ -137,17 +143,18 @@ if (input.do === "hear") {
       if (got.status !== 200) throw new Error("Slack answered status " + got.status + " for the file " + f.name)
       files.push({ name: f.name, data: got.body })
     }
+    const text = named(e.text || "")
     const thing = {
       id: body.event_id || e.client_msg_id || e.channel + "/" + e.ts, kind: "said", from: e.user,
       heard_in: direct ? "direct" : where.name,
       place: direct ? e.user : e.channel + "/" + (e.thread_ts || e.ts),
-      readers: where.readers || [], text: big(e.text || ""), files: files,
+      readers: where.readers || [], text: big(text.text), files: files,
     }
     if (direct) {
       const answers = answered(e)
       if (answers) thing.answers = answers
     }
-    if (mentions(e.text || "")) thing.mentioned = true
+    if (text.mentioned) thing.mentioned = true
     return thing
   }
 
@@ -201,8 +208,8 @@ function split(text, most) {
 }
 
 // say: to a person directly in their conversation with the app, or in a
-// thread; the text in as many messages as it takes, the last with a button
-// for each choice. Slack takes a file only at files.slack.com, which this
+// thread; the text in as many messages as it takes, as Markdown, which
+// Slack shows, the last with a button for each choice beside it. Slack takes a file only at files.slack.com, which this
 // machine does not reach, so each file is named, and not sent. What it
 // sent is named by its last message, the one that holds the buttons.
 let channel, thread
@@ -219,15 +226,17 @@ if (input.direct) {
 const choices = input.ref && input.choices && input.choices.length ? input.choices : []
 let text = blobs.read(input.text)
 for (const f of input.files || []) text += (text ? "\n" : "") + "[a file that was not sent to Slack: " + f.name + "]"
-const parts = split(text, choices.length ? longestSection : longest)
+const parts = split(text, longest)
 if (!parts.length) return { refused: "there is nothing to say" }
 let sent
 for (let i = 0; i < parts.length; i++) {
-  const message = { channel: channel, text: parts[i] }
+  const message = { channel: channel }
   if (thread) message.thread_ts = thread
-  if (i === parts.length - 1 && choices.length) {
+  if (i < parts.length - 1 || !choices.length) message.markdown_text = parts[i]
+  else {
+    message.text = Array.from(parts[i].trim().split("\n")[0]).slice(0, fallbackFor).join("")
     message.blocks = [
-      { type: "section", text: { type: "plain_text", text: parts[i] } },
+      { type: "markdown", text: parts[i] },
       { type: "actions", elements: choices.map((c, n) => ({ type: "button", action_id: "choice-" + n, text: { type: "plain_text", text: c }, value: input.ref + ":" + c })) },
     ]
   }

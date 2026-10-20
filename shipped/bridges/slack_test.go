@@ -102,7 +102,7 @@ func (sl *slack) serve(w http.ResponseWriter, r *http.Request) {
 	sl.asked[method]++
 	switch method {
 	case "auth.test":
-		answer(map[string]any{"ok": true, "user_id": slackApp, "bot_id": "B01", "user": "bot"})
+		answer(map[string]any{"ok": true, "user_id": slackApp, "bot_id": "B01", "user": "gromit"})
 	case "conversations.info":
 		channel := q.Get("channel")
 		answer(map[string]any{"ok": true, "channel": map[string]any{"id": channel, "name": map[string]string{"C0HELP00": "help"}[channel], "is_im": strings.HasPrefix(channel, "D")}})
@@ -121,20 +121,28 @@ func (sl *slack) serve(w http.ResponseWriter, r *http.Request) {
 		answer(map[string]any{"ok": true, "channel": map[string]any{"id": "D" + users[1:]}})
 	case "chat.postMessage":
 		text, _ := body["text"].(string)
+		markdown, _ := body["markdown_text"].(string)
 		thread, _ := body["thread_ts"].(string)
+		blocks, _ := body["blocks"].([]any)
+		inBlocks := 0
+		for _, b := range blocks {
+			if b := b.(map[string]any); b["type"] == "markdown" {
+				inBlocks += len([]rune(b["text"].(string)))
+			}
+		}
 		switch {
-		case len([]rune(text)) > 40000:
+		case body["markdown_text"] != nil && (body["text"] != nil || body["blocks"] != nil):
+			answer(map[string]any{"ok": false, "error": "markdown_text_conflict"})
+			return
+		case len([]rune(text)) > 40000 || len([]rune(markdown)) > 12000:
 			answer(map[string]any{"ok": false, "error": "msg_too_long"})
+			return
+		case inBlocks > 12000:
+			answer(map[string]any{"ok": false, "error": "invalid_blocks"})
 			return
 		case sl.gone[thread]:
 			answer(map[string]any{"ok": false, "error": "thread_not_found"})
 			return
-		}
-		if blocks, ok := body["blocks"].([]any); ok {
-			if section := blocks[0].(map[string]any)["text"].(map[string]any)["text"].(string); len([]rune(section)) > 3000 {
-				answer(map[string]any{"ok": false, "error": "invalid_blocks"})
-				return
-			}
 		}
 		sl.ts++
 		body["ts"] = fmt.Sprintf("%d.000100", sl.ts)
@@ -387,7 +395,7 @@ func TestBridgesSlackChoicesAreButtons(t *testing.T) {
 	// An answer goes into its thread, with its files.
 	sent(t, s.carry(map[string]any{"to": "C0HELP00/1700000001.000100", "text": "Duplicate confirmed.",
 		"files": []file{{"ledger.csv", []byte("a,b")}}}))
-	if last := sl.posted[len(sl.posted)-1]; last["channel"] != "C0HELP00" || last["thread_ts"] != "1700000001.000100" || !strings.Contains(last["text"].(string), "ledger.csv") {
+	if last := sl.posted[len(sl.posted)-1]; last["channel"] != "C0HELP00" || last["thread_ts"] != "1700000001.000100" || !strings.Contains(last["markdown_text"].(string), "ledger.csv") {
 		t.Errorf("the answer is posted as %v", last)
 	}
 }
@@ -428,18 +436,20 @@ func testSlackIdentityIsLasting(t *testing.T) {
 
 func testSlackLongTextSplit(t *testing.T) {
 	sl, s := newSlackBridge(t)
-	text := strings.Repeat("A line of a long answer from the office.\n", 2500)
+	text := strings.Repeat("A line of a long answer from the office.\n", 600)
 	sent(t, s.carry(map[string]any{"to": "C0HELP00/1700000001.000100", "text": text}))
 	joined := ""
 	for _, p := range sl.posted {
-		joined += p["text"].(string)
+		joined += p["markdown_text"].(string)
 	}
 	if len(sl.posted) != 3 || joined != text {
 		t.Errorf("Slack: the text is posted in %d messages, joining to %d of %d", len(sl.posted), len(joined), len(text))
 	}
 	sl.posted = nil
-	sent(t, s.carry(map[string]any{"to": "U0LEE000", "direct": true, "text": strings.Repeat("Why. ", 1000), "choices": []any{"yes", "no"}, "ref": "r1"}))
-	if len(sl.posted) != 2 || sl.posted[1]["blocks"] == nil {
+	why := strings.Repeat("Why. ", 3000)
+	sent(t, s.carry(map[string]any{"to": "U0LEE000", "direct": true, "text": why, "choices": []any{"yes", "no"}, "ref": "r1"}))
+	if len(sl.posted) != 2 || sl.posted[1]["blocks"] == nil ||
+		sl.posted[0]["markdown_text"].(string)+sl.posted[1]["blocks"].([]any)[0].(map[string]any)["text"].(string) != why {
 		t.Errorf("Slack: a long decision is posted as %d messages", len(sl.posted))
 	}
 }
@@ -531,6 +541,57 @@ func testSlackEveryMessageHandedOver(t *testing.T) {
 		want := map[string]string{"Ev5": "bot", "Ev6": "bot", "Ev7": "message_changed", "Ev8": "member_joined_channel"}[id]
 		if things, logged, _ := sl.hearsLogged(at(id, e)); len(things) != 0 || fmt.Sprint(logged) != "[left out "+id+" in C0HELP00: "+want+"]" {
 			t.Errorf("Slack: %s is heard as %v, and logged %q", id, things, logged)
+		}
+	}
+}
+
+func TestBridgesSlackMarkdownShown(t *testing.T) {
+	t.Parallel()
+	sl, s := newSlackBridge(t)
+	text := "**Refunded** order 2231.\n# What was done\n- one charge\nSee [the ledger](https://ledger.example.com/2231)."
+	sent(t, s.carry(map[string]any{"to": "C0HELP00/1700000001.000100", "text": text}))
+	if len(sl.posted) != 1 || sl.posted[0]["markdown_text"] != text || sl.posted[0]["text"] != nil || sl.posted[0]["blocks"] != nil {
+		t.Fatalf("an answer is posted as %v", sl.posted)
+	}
+	// With buttons, the Markdown is a block beside them, and a short
+	// plain text stands in where Slack shows no blocks.
+	sent(t, s.carry(map[string]any{"to": "U0LEE000", "direct": true, "text": text, "choices": []any{"yes", "no"}, "ref": "r3"}))
+	last := sl.posted[len(sl.posted)-1]
+	blocks, _ := last["blocks"].([]any)
+	if len(blocks) != 2 || last["markdown_text"] != nil || last["text"] != "**Refunded** order 2231." {
+		t.Fatalf("a decision is posted as %v", last)
+	}
+	if shown := blocks[0].(map[string]any); shown["type"] != "markdown" || shown["text"] != text || blocks[1].(map[string]any)["type"] != "actions" {
+		t.Errorf("a decision's blocks are %v", blocks)
+	}
+	// Slack refusing Markdown beside other text is refused once, by its
+	// code, and not tried again.
+	tries := 0
+	sl.fail = func(method string) (string, bool) {
+		if method != "chat.postMessage" {
+			return "", false
+		}
+		tries++
+		return "markdown_text_conflict", true
+	}
+	r := s.carry(map[string]any{"to": "C0HELP00/1700000001.000100", "text": text})
+	if refused, _ := r.Output.(map[string]any)["refused"].(string); r.Status != "done" || !strings.Contains(refused, "markdown_text_conflict") || tries != 1 {
+		t.Errorf("markdown_text_conflict ends %s with %#v after %d tries", r.Status, r.Output, tries)
+	}
+}
+
+func TestBridgesSlackAppMentionIsItsName(t *testing.T) {
+	t.Parallel()
+	sl, _ := newSlackBridge(t)
+	for text, want := range map[string]string{
+		"<@" + slackApp + "> what's the refund policy?":     "@gromit what's the refund policy?",
+		"ask <@" + slackApp + "|gromit> and <@U0RAJ000>":    "ask @gromit and <@U0RAJ000>",
+		"<@U0RAJ000> can you look?":                         "<@U0RAJ000> can you look?",
+		"<@" + slackApp + "> and again <@" + slackApp + ">": "@gromit and again @gromit",
+	} {
+		said := event("Ev-"+text, map[string]any{"type": "message", "channel": "C0HELP00", "channel_type": "channel", "user": "U0DANA00", "text": text, "ts": "1700000001.000100"})
+		if things := sl.hears(said); len(things) != 1 || things[0]["text"] != want || things[0]["from"] != "U0DANA00" {
+			t.Errorf("%q is heard as %v", text, things)
 		}
 	}
 }
