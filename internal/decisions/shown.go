@@ -209,9 +209,18 @@ func possessive(name string) string {
 }
 
 // served gives the request a decision serves: its number, what was asked
-// and who asked it.
+// and who asked it; nothing where the decision is of a team within the
+// request's, as a write into a team within, which does not see what the
+// team around it was asked.
 func (d *Decisions) served(o *office.Office, dec *Decision) (map[string]any, error) {
 	if dec.Request == 0 {
+		return nil, nil
+	}
+	r, err := d.requests.Get(dec.Request)
+	if err != nil {
+		return nil, err
+	}
+	if !aroundOrSame(o, r.Team, dec.Team) {
 		return nil, nil
 	}
 	thread, err := d.requests.Thread(dec.Request)
@@ -465,4 +474,17 @@ func compact(b json.RawMessage) string {
 func firstLine(s string) string {
 	first, _, _ := strings.Cut(s, "\n")
 	return first
+}
+
+// aroundOrSame says whether a team is the given one or a team around it.
+func aroundOrSame(o *office.Office, team, outer string) bool {
+	if team == outer {
+		return true
+	}
+	for t := o.Teams[team]; t != nil; t = o.Teams[t.Within] {
+		if t.Name == outer {
+			return true
+		}
+	}
+	return false
 }

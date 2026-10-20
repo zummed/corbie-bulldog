@@ -123,6 +123,12 @@ func TestAHeldPutIsADecisionOfTheTeamWhoseFilesItWrites(t *testing.T) {
 	if dec := b.draft(other, "The shed", map[string]string{"garden/notes/shed.md": "# The shed\n\nLocked.\n"}); dec.Team != "garden" {
 		t.Errorf("a change of the garden's note is %s's to decide", dec.Team)
 	}
+	// The garden, within the house, is not shown what the house was asked.
+	for _, m := range b.waitingFor("sam") {
+		if strings.Contains(m.Text, "The shed") && strings.Contains(m.Text, "For request") {
+			t.Errorf("the garden is shown the house's request: %s", m.Text)
+		}
+	}
 }
 
 func TestAnUnfitPutIsRefusedByBulldog(t *testing.T) {

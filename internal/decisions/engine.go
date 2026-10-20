@@ -75,11 +75,23 @@ func (d *Decisions) changingOne(ctx context.Context, id int64, do func(o *office
 func (d *Decisions) after(ctx context.Context, fx *effects) error {
 	var errs []error
 	// What a held write's decision owes Changes is done before its ask
-	// is answered, so the write its job then runs names who decided.
+	// is answered, so the write its job then runs names who decided; an
+	// ask whose write's decision could not be kept is not answered, and
+	// is answered when the decision is settled, as Bulldog starts again.
+	unsettled := map[string]bool{}
 	for _, dec := range fx.owed {
-		errs = append(errs, d.settle(ctx, dec))
+		if err := d.settle(ctx, dec); err != nil {
+			errs = append(errs, err)
+			if dec.Put != nil {
+				unsettled[dec.Ask] = true
+			}
+		}
 	}
 	for _, v := range fx.verdicts {
+		if unsettled[v.ask] {
+			errs = append(errs, fmt.Errorf("the ask %s is decided, but is not answered until how its write was decided is kept", v.ask))
+			continue
+		}
 		if d.Answer == nil {
 			errs = append(errs, fmt.Errorf("the ask %s is decided, but nothing keeps what was decided to answer Corbie with", v.ask))
 			continue

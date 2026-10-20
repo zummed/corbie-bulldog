@@ -28,6 +28,13 @@ func (d *Decisions) Held(ctx context.Context, a Ask) error {
 			if err := json.Unmarshal([]byte(kept), &v); err != nil {
 				return failed(err)
 			}
+			// What its decisions still owe is done first, as after any
+			// ending.
+			owed, err := some(d.db, `ask = ? AND owed != ''`, a.Run)
+			if err != nil {
+				return err
+			}
+			fx.owed = append(fx.owed, owed...)
 			fx.verdicts = append(fx.verdicts, verdict{ask: a.Run, v: v})
 			return nil
 		case err == nil:
