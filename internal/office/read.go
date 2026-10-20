@@ -565,10 +565,6 @@ func (r *reading) readLists() {
 				r.teamFile(t, node, "decide gives lists of deciders by what they decide, as { everything: [sam] }, and this is %s", describe(node))
 			}
 			for k, v := range pairs(node) {
-				if k.Value == "change" && t.Name != Top {
-					r.teamFile(t, k, "decide: change is written only in the top team's file, office.yaml: a change to the office is the top team's to decide")
-					continue
-				}
 				if deciders, ok := r.readList(t, "decide: "+k.Value, v); ok {
 					t.Decide = append(t.Decide, List{Key: k.Value, Deciders: deciders})
 				}

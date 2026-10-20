@@ -307,6 +307,68 @@ const (
 	ToolBulldog = "bulldog"
 )
 
+// Writes are the tools of the kits Bulldog ships that write into a team's
+// folder. A team decides the writes into its folder whoever makes them,
+// so a list named for one is read in any team.
+var Writes = []string{"office_put", "write_doc", "write_notes"}
+
+// Whose gives the team whose decision a write of files is: the innermost
+// team whose folder holds every one of them, but the team around a team
+// whose team file it touches, and the top team for office.yaml. A path
+// is as the office names its files, from its folder.
+func (o *Office) Whose(paths []string) string {
+	whose := ""
+	for _, p := range paths {
+		team := o.folderOf(p)
+		if t := o.Teams[team]; t != nil && t.File == p && t.Within != "" {
+			team = t.Within
+		}
+		whose = o.around(whose, team)
+	}
+	if whose == "" {
+		return Top
+	}
+	return whose
+}
+
+// folderOf gives the innermost team whose folder holds a path.
+func (o *Office) folderOf(p string) string {
+	best := Top
+	for name, t := range o.Teams {
+		if t.Dir != "" && strings.HasPrefix(p, t.Dir+"/") && len(t.Dir) > len(o.Teams[best].Dir) {
+			best = name
+		}
+	}
+	return best
+}
+
+// around gives the innermost team that holds both teams, either of them
+// where one is within the other; "" stands for none yet.
+func (o *Office) around(a, b string) string {
+	if a == "" {
+		return b
+	}
+	for t := o.Teams[a]; t != nil; t = o.Teams[t.Within] {
+		for u := o.Teams[b]; u != nil; u = o.Teams[u.Within] {
+			if t == u {
+				return t.Name
+			}
+		}
+	}
+	return Top
+}
+
+// Reaches says whether a team's worker reaches a path of the office with
+// the kits Bulldog ships: one in its own team's folder or in that of a
+// team within it, every path for the top team's.
+func (o *Office) Reaches(team, p string) bool {
+	t := o.Teams[team]
+	if t == nil {
+		return false
+	}
+	return t.Dir == "" || strings.HasPrefix(p, t.Dir+"/")
+}
+
 // A Rule is a decider in its team's folder, or one Bulldog ships: a bare
 // script, given the decision and no permission, or a definition holding
 // its own. A rule decides as the team whose decision it is, whichever

@@ -743,7 +743,7 @@ func (r *reading) checkKeys() {
 			return slices.Contains(tools, key) || slices.ContainsFunc(listed, func(entry string) bool { return strings.HasPrefix(key, entry+"_") })
 		}
 		for _, list := range t.Decide {
-			if list.Key != "everything" && list.Key != "change" && !holds(list.Key) {
+			if list.Key != "everything" && !slices.Contains(Writes, list.Key) && !holds(list.Key) {
 				line := 0
 				for k := range pairs(child(r.nodes[team], "decide")) {
 					if k.Value == list.Key {

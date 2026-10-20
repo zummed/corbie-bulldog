@@ -24,7 +24,8 @@ func TestTheKeysATeamFileTakes(t *testing.T) {
 	for key, line := range map[string]string{"zone": "zone: Europe/London", "everyone": "everyone: {}", "bridges": "bridges: {}", "runs": "runs: 2"} {
 		says(t, refused(t, replace(t, house(t), "garden/team.yaml", "lead: gardener", "lead: gardener\n"+line)), "garden/team.yaml", key)
 	}
-	says(t, refused(t, replace(t, house(t), "garden/team.yaml", "decide: { everything: [sam] }", "decide: { change: [sam] }")), "garden/team.yaml", "change")
+	// A team decides the kits' writes into its folder, whoever makes them.
+	reads(t, replace(t, house(t), "garden/team.yaml", "decide: { everything: [sam] }", "decide: { everything: [sam], office_put: [sam], write_doc: [sam], write_notes: [sam] }"))
 }
 
 func TestOfficeUnknownKeyRefused(t *testing.T) {
