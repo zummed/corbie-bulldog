@@ -201,9 +201,9 @@ func TestARuleOrAWorkerMayBeMarkedToAdvise(t *testing.T) {
 	// Any other marking, a person marked to advise, and a mapping of more
 	// than one decider are each a problem of the file, at its line.
 	for list, words := range map[string][]string{
-		"[clerk: yes, sam]":                       {"clerk is marked yes", "advise"},
-		"[clerk: { advise: true }, sam]":          {"clerk is marked a mapping"},
-		"[./small-orders.js, sam: advise]":        {"sam is a person", "does not advise"},
+		"[clerk: yes, sam]":                        {"clerk is marked yes", "advise"},
+		"[clerk: { advise: true }, sam]":           {"clerk is marked a mapping"},
+		"[./small-orders.js, sam: advise]":         {"sam is a person", "does not advise"},
 		"[{ clerk: advise, sparks: advise }, sam]": {"this is a mapping"},
 	} {
 		problems := refused(t, replace(t, house(t), "office.yaml", "[./small-orders.js, clerk: advise, sam]", list))
@@ -404,6 +404,14 @@ func TestOfficeToolsFromFilledDefinition(t *testing.T) {
 	if !waits["cut_power"] || !waits["order_part"] || waits["sparks"] {
 		t.Errorf("the fixer's tools that wait for a yes: %v", waits)
 	}
+}
+
+func TestOfficeABulldogToolIsNamedAsItsCall(t *testing.T) {
+	t.Parallel()
+	files := house(t)
+	files["proposer.yaml"] = "agent: proposer\nmodel: usual\nprompt: hi\nask: { machine: ./.bulldog/ask.yaml }\ntools:\n  propose:\n    does: Put a change\n    args: { why: string }\n    job: { machine: ./.bulldog/call.yaml, input: { tool: office_put, args: \"${args}\" }, approve: true }\n"
+	_, problems := read(t, files)
+	says(t, problems, "proposer.yaml", "propose runs the call Bulldog ships with the tool \"office_put\"")
 }
 
 func TestOfficeWhatAFlowsStagesAndAStatechartsJobsRun(t *testing.T) {

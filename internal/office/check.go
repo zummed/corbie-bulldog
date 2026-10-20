@@ -486,6 +486,12 @@ func (r *reading) tool(w *Worker, draft *machine.Draft, name string, job *machin
 	switch {
 	case file == path.Join(shipped.Dir, shipped.Call):
 		tool.Kind = ToolBulldog
+		if in, _ := job.Input.(map[string]any); in != nil {
+			if called, _ := in["tool"].(string); called != name {
+				w.Problems = append(w.Problems, Problem{File: w.File, Team: w.Team, Worker: w.Name,
+					Text: fmt.Sprintf("tools: %s runs the call Bulldog ships with the tool %q; a tool that is Bulldog's is named as the tool it calls", name, called)})
+			}
+		}
 	case script != "":
 		tool.Kind, tool.File = ToolScript, file
 	case inOffice:
