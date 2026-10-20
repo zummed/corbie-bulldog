@@ -64,14 +64,14 @@ func TestRequestsDecisionShowsNoArguments(t *testing.T) {
 	d := workDay(t)
 	record := d.decide(d.payments, "ledger", "Refund one charge", "refund(card: 4111 1111 1111 1111, pounds: 40); the ledger: a duplicate", "lee", "priya")
 	must(t, errOf(d.Write(d.payments, requests.Writing{Kind: "decided", By: requests.Identity("slack", slackLee), To: []requests.Who{d.Worker("ledger")},
-		Text: "Refund one charge: yes from Lee, 14:02", Answers: record.ID})))
+		Text: "Refund one charge: approved by Lee, 14:02", Answers: record.ID})))
 	for _, p := range []string{"dana", "al"} {
 		shown := d.shows(d.payments, p)
-		if !holds(shown, "Refund one charge: yes from Lee, 14:02") || holds(shown, "4111") || holds(shown, "duplicate") {
+		if !holds(shown, "Refund one charge: approved by Lee, 14:02") || holds(shown, "4111") || holds(shown, "duplicate") {
 			t.Errorf("%s is shown %q", p, shown)
 		}
 	}
-	if shown := d.shows(d.payments, "lee"); !holds(shown, "4111") || !holds(shown, "yes from Lee") {
+	if shown := d.shows(d.payments, "lee"); !holds(shown, "4111") || !holds(shown, "approved by Lee") {
 		t.Errorf("Lee is shown %q", shown)
 	}
 }
@@ -313,14 +313,14 @@ func TestRequestsEntryToSomeoneSeenByThem(t *testing.T) {
 	must(t, d.Readers("slack", thread, []string{slackDana, slackAl}))
 	record := d.decide(d.payments, "ledger", "Refund one charge", "refund(card 4111, £40)", "raj")
 	must(t, errOf(d.Write(d.payments, requests.Writing{Kind: "decided", By: d.Person("raj"), To: []requests.Who{d.Worker("ledger")},
-		Text: "Refund one charge: yes from Raj", Answers: record.ID})))
+		Text: "Refund one charge: approved by Raj", Answers: record.ID})))
 	must(t, errOf(d.Say(d.payments, d.Person("lee"), "inside payments", nil, requests.Screens, false)))
 	v := got[*requests.View](t)(d.View(d.payments, "raj"))
 	var texts []string
 	for _, e := range v.Entries {
 		texts = append(texts, e.Text)
 	}
-	if v.Whole || !slices.Equal(texts, []string{"Refund one charge", "refund(card 4111, £40)", "Refund one charge: yes from Raj"}) || v.Team != "" || len(v.Subs) != 0 {
+	if v.Whole || !slices.Equal(texts, []string{"Refund one charge", "refund(card 4111, £40)", "Refund one charge: approved by Raj"}) || v.Team != "" || len(v.Subs) != 0 {
 		t.Errorf("Raj sees %+v", v)
 	}
 	if _, err := d.View(d.dana, "raj"); !errors.Is(err, requests.ErrNotThere) {
@@ -578,8 +578,8 @@ func TestRequestsDecisionPutToOthers(t *testing.T) {
 		t.Errorf("Raj, put the decision, is shown %q", d.shows(d.payments, "raj"))
 	}
 	must(t, errOf(d.Write(d.payments, requests.Writing{Kind: "decided", By: d.Person("raj"), To: []requests.Who{d.Worker("ledger")},
-		Text: "Refund the fee: yes from Raj", Answers: e.ID})))
-	if shown := d.shows(d.payments, "raj"); !slices.Equal(shown, []string{"Refund the fee", "Refund the fee: yes from Raj"}) {
+		Text: "Refund the fee: approved by Raj", Answers: e.ID})))
+	if shown := d.shows(d.payments, "raj"); !slices.Equal(shown, []string{"Refund the fee", "Refund the fee: approved by Raj"}) {
 		t.Errorf("Raj, having decided, is shown %q", shown)
 	}
 	if err := d.Rewait(e.ID, []requests.Who{d.Person("priya")}); !errors.As(err, &refusal) || len(got[[]requests.Wait](t)(d.WaitingOn("priya"))) != 0 {

@@ -196,19 +196,19 @@ func (d *Decisions) advance(o *office.Office, dec *Decision, fx *effects) error 
 	fx.touch(dec.ID)
 	for dec.Ended == "" {
 		if dec.Kind == OfDisclosure && o.Teams[dec.Team] != nil && !o.Teams[dec.Team].HasDisclosure {
-			return d.end(dec, Yes, Pass{Kind: requests.IsBulldog, Called: "Bulldog", Note: called(o, dec.Team) + " no longer sets a disclosure check"}, fx)
+			return d.end(dec, Yes, Word{Kind: requests.IsBulldog, Called: "Bulldog", Note: called(o, dec.Team) + " no longer sets a disclosure check"}, fx)
 		}
 		stages, why := walk(o, dec)
 		s, i, ok := next(stages, dec)
 		switch {
 		case !ok && dec.Kind == OfChange && dec.Put.Person:
-			return d.end(dec, Yes, d.personPass(o, dec.Put.By, ""), fx)
+			return d.end(dec, Yes, d.personWord(o, dec.Put.By, ""), fx)
 		case !ok:
 			if o.Teams[dec.Team] == nil {
 				why = dec.Team + " is no longer in the office"
 			}
-			return d.end(dec, Refused, Pass{Kind: requests.IsBulldog, Called: "Bulldog", Note: "nobody can decide this: " + why}, fx)
-		case s.Kind == isPeople:
+			return d.end(dec, Refused, Word{Kind: requests.IsBulldog, Called: "Bulldog", Note: "nobody can decide this: " + why}, fx)
+		case s.Kind == IsPeople:
 			return d.askPeople(o, dec, s)
 		case dec.At != nil && s.is(dec.At.Kind, dec.At.Name):
 			d.goOn(o, dec, stages, i)
@@ -216,8 +216,8 @@ func (d *Decisions) advance(o *office.Office, dec *Decision, fx *effects) error 
 		case ownWorker(dec, s):
 			d.stopRun(dec.ID)
 			dec.At = nil
-			if err := d.pass(o, dec, Pass{Kind: s.Kind, Name: s.Name, Called: s.Name,
-				Note: "a worker never decides its own action, so being reached counts as its pass", At: d.Now()}); err != nil {
+			if err := d.refer(o, dec, Word{Kind: s.Kind, Name: s.Name, Called: s.Name,
+				Note: "a worker never decides its own action, so being reached counts as its referral", At: d.Now()}); err != nil {
 				return err
 			}
 		default:
@@ -228,7 +228,7 @@ func (d *Decisions) advance(o *office.Office, dec *Decision, fx *effects) error 
 }
 
 // ask asks a rule or a worker to decide, as the next step of its walk.
-func (d *Decisions) ask(o *office.Office, dec *Decision, stages []stage, i int) error {
+func (d *Decisions) ask(o *office.Office, dec *Decision, stages []Stage, i int) error {
 	d.stopRun(dec.ID)
 	dec.Step++
 	dec.At = &Stand{Kind: stages[i].Kind, Name: stages[i].Name, Since: d.Now()}
@@ -241,7 +241,7 @@ func (d *Decisions) ask(o *office.Office, dec *Decision, stages []stage, i int) 
 
 // goOn has the rule or worker a decision stands at run on it, unless its
 // run is going already: after a restart, its run is taken up again.
-func (d *Decisions) goOn(o *office.Office, dec *Decision, stages []stage, i int) {
+func (d *Decisions) goOn(o *office.Office, dec *Decision, stages []Stage, i int) {
 	d.state.Lock()
 	g := d.running[dec.ID]
 	d.state.Unlock()
@@ -313,7 +313,7 @@ func (d *Decisions) stopRun(id int64) {
 // decision waits on at that step, and walks on.
 func (d *Decisions) taken(ctx context.Context, id int64, step int, out []byte, failure error) error {
 	return d.changingOne(ctx, id, func(o *office.Office, dec *Decision, fx *effects) error {
-		if dec.Ended != "" || dec.At == nil || dec.At.Kind == isPeople || dec.Step != step || d.base.Err() != nil {
+		if dec.Ended != "" || dec.At == nil || dec.At.Kind == IsPeople || dec.Step != step || d.base.Err() != nil {
 			return nil
 		}
 		d.state.Lock()
@@ -322,18 +322,18 @@ func (d *Decisions) taken(ctx context.Context, id int64, step int, out []byte, f
 		}
 		d.state.Unlock()
 		says, note := result(out, failure)
-		p := Pass{Kind: dec.At.Kind, Name: dec.At.Name, Called: calledOf(o, dec.At.Kind, dec.At.Name), Note: note, At: d.Now()}
+		w := Word{Kind: dec.At.Kind, Name: dec.At.Name, Called: calledOf(o, dec.At.Kind, dec.At.Name), Note: note, At: d.Now()}
 		if dec.Kind == OfChange && says == SaysYes {
-			says, p.Note = SaysPass, "it said yes, and only a person's yes approves a change, so it passes"+noted(note)
+			says, w.Note = SaysRefer, "it said yes, and only a person's yes approves a change, so it is taken as a referral"+noted(note)
 		}
 		switch says {
 		case SaysYes:
-			return d.end(dec, Yes, p, fx)
+			return d.end(dec, Yes, w, fx)
 		case SaysRefuse:
-			return d.end(dec, Refused, p, fx)
+			return d.end(dec, Refused, w, fx)
 		}
 		dec.At = nil
-		if err := d.pass(o, dec, p); err != nil {
+		if err := d.refer(o, dec, w); err != nil {
 			return err
 		}
 		return d.advance(o, dec, fx)
@@ -341,13 +341,13 @@ func (d *Decisions) taken(ctx context.Context, id int64, step int, out []byte, f
 }
 
 // result reads what a rule or a worker ended with: { says, note }, or a
-// pass saying why it is not a decision.
+// referral saying why it is not a decision.
 func result(out []byte, failure error) (says, note string) {
 	switch {
 	case errors.Is(failure, ErrNotStarted):
-		return SaysPass, failure.Error()
+		return SaysRefer, failure.Error()
 	case failure != nil:
-		return SaysPass, "it failed: " + failure.Error()
+		return SaysRefer, "it failed: " + failure.Error()
 	}
 	var r struct {
 		Says *string `json:"says"`
@@ -360,8 +360,8 @@ func result(out []byte, failure error) (says, note string) {
 			ok = true
 		}
 	}
-	if !ok || !slices.Contains([]string{SaysYes, SaysRefuse, SaysPass}, *r.Says) {
-		return SaysPass, "its answer was not a decision, which is { says: yes, refuse or pass, note }: " + shorten(string(out), 200)
+	if !ok || !slices.Contains([]string{SaysYes, SaysRefuse, SaysRefer}, *r.Says) {
+		return SaysRefer, "its answer was not a decision, which is { says: yes, refuse or refer, note }: " + shorten(string(out), 200)
 	}
 	switch n := r.Note.(type) {
 	case nil:
@@ -373,10 +373,10 @@ func result(out []byte, failure error) (says, note string) {
 	return *r.Says, note
 }
 
-// pass keeps a rule's or worker's pass, as an entry to whoever the
+// refer keeps a rule's or worker's referral, as an entry to whoever the
 // decision is for.
-func (d *Decisions) pass(o *office.Office, dec *Decision, p Pass) error {
-	dec.Passes = append(dec.Passes, p)
+func (d *Decisions) refer(o *office.Office, dec *Decision, w Word) error {
+	dec.Referrals = append(dec.Referrals, w)
 	if err := save(d.db, dec); err != nil {
 		return err
 	}
@@ -387,16 +387,16 @@ func (d *Decisions) pass(o *office.Office, dec *Decision, p Pass) error {
 	if err != nil {
 		return err
 	}
-	_, err = d.requests.Write(dec.Request, requests.Writing{Kind: KindPassed, By: d.whoOf(dec, p), To: to, Read: true,
-		Text: "pass from " + p.Called + noted(p.Note)})
+	_, err = d.requests.Write(dec.Request, requests.Writing{Kind: KindReferred, By: d.whoOf(dec, w), To: to, Read: true,
+		Text: "referred by " + w.Called + noted(w.Note)})
 	return err
 }
 
 // askPeople asks the people of a stage, all at once, in one entry that
 // waits on them all, and tells whoever was asked before and is not now
 // that they are asked no longer.
-func (d *Decisions) askPeople(o *office.Office, dec *Decision, s stage) error {
-	if dec.At != nil && dec.At.Kind == isPeople && slices.Equal(dec.Asked, s.People) {
+func (d *Decisions) askPeople(o *office.Office, dec *Decision, s Stage) error {
+	if dec.At != nil && dec.At.Kind == IsPeople && slices.Equal(dec.Asked, s.People) {
 		return nil
 	}
 	d.stopRun(dec.ID)
@@ -411,7 +411,7 @@ func (d *Decisions) askPeople(o *office.Office, dec *Decision, s stage) error {
 			removed = append(removed, p)
 		}
 	}
-	dec.At, dec.Asked = &Stand{Kind: isPeople, Since: d.Now()}, s.People
+	dec.At, dec.Asked = &Stand{Kind: IsPeople, Since: d.Now()}, s.People
 	for _, p := range added {
 		if !slices.Contains(dec.WasAsked, p) {
 			dec.WasAsked = append(dec.WasAsked, p)
@@ -446,13 +446,13 @@ func (d *Decisions) askPeople(o *office.Office, dec *Decision, s stage) error {
 			return err
 		}
 	}
-	if err := d.notice(o, dec, removed, "You are no longer asked to decide this: "+lower(dec.Does)+"."); err != nil {
+	if err := d.notice(o, dec, removed, "You are no longer asked to decide this: "+lower(dec.Does(o))+"."); err != nil {
 		return err
 	}
 	if err := d.unsent(o, dec, added); err != nil {
 		return err
 	}
-	return d.record(o, dec, fmt.Sprintf("%s: waiting on %s", dec.Does, names(o, s.People)), nil)
+	return d.record(o, dec, fmt.Sprintf("%s: waiting on %s", dec.Does(o), names(o, s.People)), nil)
 }
 
 // unsent writes in the thread that a direct message to a person asked
@@ -478,7 +478,7 @@ func (d *Decisions) unsent(o *office.Office, dec *Decision, people []string) err
 // first, with the ask's answer once every job of the ask is decided and
 // with what it owes, and only then is anyone told or anything answered. A
 // decision that cannot be kept is left as it was.
-func (d *Decisions) end(dec *Decision, ended string, by Pass, fx *effects) error {
+func (d *Decisions) end(dec *Decision, ended string, by Word, fx *effects) error {
 	if by.At.IsZero() {
 		by.At = d.Now()
 	}
@@ -575,7 +575,7 @@ func (d *Decisions) withdrawn(o *office.Office, dec *Decision) error {
 	if err := d.close(dec); err != nil {
 		return err
 	}
-	if err := d.notice(o, dec, dec.Asked, fmt.Sprintf("%s: withdrawn, so you are no longer asked: %s.", dec.Does, dec.Why)); err != nil {
+	if err := d.notice(o, dec, dec.Asked, fmt.Sprintf("%s: withdrawn, so you are no longer asked: %s.", dec.Does(o), dec.Why)); err != nil {
 		return err
 	}
 	return d.record(o, dec, d.line(o, dec), nil)
@@ -597,8 +597,8 @@ func (d *Decisions) close(dec *Decision) error {
 }
 
 // verdictOf gives how an ask is answered once every job it holds is
-// decided, naming the jobs that may run and joining the notes, or nil
-// while one waits.
+// decided, naming the jobs that may run and joining the notes, each by
+// what its tool says it does, or nil while one waits.
 func verdictOf(q querier, ask string) (*Verdict, error) {
 	decs, err := some(q, `ask = ?`, ask)
 	if err != nil {
@@ -613,9 +613,9 @@ func verdictOf(q querier, ask string) (*Verdict, error) {
 		case Yes:
 			v.Approve = append(v.Approve, dec.Job.Name)
 		case Withdrawn:
-			notes = append(notes, fmt.Sprintf("%s: withdrawn, %s.", dec.Does, dec.Why))
+			notes = append(notes, fmt.Sprintf("%s: withdrawn, %s.", dec.Job.does(), dec.Why))
 		default:
-			notes = append(notes, fmt.Sprintf("%s: %s", dec.Does, how(dec))+noted(dec.By.Note))
+			notes = append(notes, fmt.Sprintf("%s: %s", dec.Job.does(), how(dec))+noted(dec.By.Note))
 		}
 	}
 	v.Note = strings.Join(notes, "; ")
@@ -642,26 +642,26 @@ func (d *Decisions) notice(o *office.Office, dec *Decision, people []string, tex
 	return err
 }
 
-// line gives what was done of a decision as one line: "Refund one charge:
-// yes from Lee, 14:02".
+// line gives what was done of a decision as one line, built as it is
+// written: "Refund one charge: approved by Lee, 14:02".
 func (d *Decisions) line(o *office.Office, dec *Decision) string {
 	at := dec.Decided.In(o.Zone).Format("15:04")
 	switch dec.Ended {
 	case "":
-		return dec.Does + ": " + d.waitsOn(o, dec)
+		return dec.Does(o) + ": " + d.waitsOn(o, dec)
 	case Withdrawn:
-		return fmt.Sprintf("%s: withdrawn, %s: %s", dec.Does, at, dec.Why)
+		return fmt.Sprintf("%s: withdrawn, %s: %s", dec.Does(o), at, dec.Why)
 	}
-	return fmt.Sprintf("%s: %s, %s", dec.Does, how(dec), at)
+	return fmt.Sprintf("%s: %s, %s", dec.Does(o), how(dec), at)
 }
 
-// how says who ended a decision with a yes or a refusal: "yes from Lee",
-// "refused by Lee".
+// how says who ended a decision with a yes or a refusal: "approved by
+// Lee", "refused by Lee".
 func how(dec *Decision) string {
 	if dec.Ended == Refused {
 		return "refused by " + dec.By.Called
 	}
-	return "yes from " + dec.By.Called
+	return "approved by " + dec.By.Called
 }
 
 // waitsOn says whom a decision waits on now.
@@ -669,7 +669,7 @@ func (d *Decisions) waitsOn(o *office.Office, dec *Decision) string {
 	switch {
 	case dec.At == nil:
 		return "not yet asked"
-	case dec.At.Kind == isPeople:
+	case dec.At.Kind == IsPeople:
 		return "waiting on " + names(o, dec.Asked)
 	}
 	return "with " + calledOf(o, dec.At.Kind, dec.At.Name)
@@ -699,14 +699,14 @@ func (d *Decisions) recipient(dec *Decision) ([]requests.Who, error) {
 
 // whoOf gives who a decider's word on a decision is by, in the thread: a
 // rule as of the team whose decision it is.
-func (d *Decisions) whoOf(dec *Decision, p Pass) requests.Who {
-	switch p.Kind {
+func (d *Decisions) whoOf(dec *Decision, w Word) requests.Who {
+	switch w.Kind {
 	case office.IsPerson:
-		return d.requests.Person(p.Name)
+		return d.requests.Person(w.Name)
 	case office.IsWorker:
-		return d.requests.Worker(p.Name)
+		return d.requests.Worker(w.Name)
 	case office.IsRule:
-		return d.requests.Rule(p.Name, dec.Team)
+		return d.requests.Rule(w.Name, dec.Team)
 	}
 	return requests.Bulldog
 }
@@ -723,9 +723,9 @@ func (d *Decisions) persons(o *office.Office, people []string) []requests.Who {
 	return whos
 }
 
-// personPass gives a person's word.
-func (d *Decisions) personPass(o *office.Office, name, note string) Pass {
-	return Pass{Kind: office.IsPerson, Name: name, Called: calledOf(o, office.IsPerson, name), Note: note, At: d.Now()}
+// personWord gives a person's word.
+func (d *Decisions) personWord(o *office.Office, name, note string) Word {
+	return Word{Kind: office.IsPerson, Name: name, Called: calledOf(o, office.IsPerson, name), Note: note, At: d.Now()}
 }
 
 // names gives people as a sentence names them: "Lee, Priya".

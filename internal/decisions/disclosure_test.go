@@ -83,7 +83,7 @@ func TestDisclosedAsDecidedRefusedGoesBack(t *testing.T) {
 	b := newBench(t, work(t))
 	top, sub := b.helpRequest()
 	id := b.ledgerAnswers(sub, "Duplicate confirmed; card 4111 refunded £40.")
-	b.runner.next(t).says(decisions.SaysPass, "It may name an account number, 0.90.")
+	b.runner.next(t).says(decisions.SaysRefer, "It may name an account number, 0.90.")
 	b.until("Lee is asked", func() bool { return len(b.waitingFor("lee")) == 1 })
 	b.decide(id, "lee", decisions.SaysRefuse, "that names the card")
 	l := b.let(id)
@@ -185,7 +185,7 @@ func TestDecisionsRefusedDisclosureNotToldOutside(t *testing.T) {
 	w := newBench(t, work(t))
 	_, sub = w.helpRequest()
 	id := w.ledgerAnswers(sub, "Card 4111 was refunded.")
-	w.runner.next(t).says(decisions.SaysPass, "0.9")
+	w.runner.next(t).says(decisions.SaysRefer, "0.9")
 	w.until("Lee is asked", func() bool { return len(w.waitingFor("lee")) == 1 })
 	if _, ok, _ := w.d.NotDisclosed(sub); ok {
 		t.Fatal("the line is there while the disclosure waits")
@@ -219,7 +219,7 @@ func TestRefusedQuestionStaysInside(t *testing.T) {
 	b := newBench(t, work(t))
 	top, sub := b.helpRequest()
 	id := b.disclose(decisions.Said{What: decisions.SaysSub, Request: sub, By: b.reqs.Worker("ledger"), Team: "platform", Text: "which deploy touched card 4111?", Ticket: "t-7"})
-	b.runner.next(t).says(decisions.SaysPass, "It may name a card number, 0.80.")
+	b.runner.next(t).says(decisions.SaysRefer, "It may name a card number, 0.80.")
 	b.until("Lee is asked", func() bool { return len(b.waitingFor("lee")) == 1 })
 	b.decide(id, "lee", decisions.SaysRefuse, "no card numbers to platform")
 	l := b.let(id)
@@ -271,12 +271,12 @@ func TestDisclosureDeciderShownWhatWouldLeave(t *testing.T) {
 	b.disclose(decisions.Said{What: decisions.SaysSub, Request: sub, By: b.reqs.Worker("ledger"), Team: "platform", Text: "what deployed?"})
 	r = b.runner.next(t)
 	rel = r.Input["disclosure"].(map[string]any)
-	if rel["what"] != "sub" || rel["to"] != "Platform" || rel["said_in"] != sub {
+	if rel["what"] != "sub" || rel["to"] != "Platform" || rel["said_in"] != sub || r.Input["does"] != "Question to Platform, to disclose" {
 		t.Fatalf("the rule is given %v", r.Input)
 	}
-	r.says(decisions.SaysPass, "unsure")
+	r.says(decisions.SaysRefer, "unsure")
 	b.until("Lee is asked", func() bool { return len(b.waitingFor("lee")) == 1 })
-	if text := b.waitingFor("lee")[0].Text; !strings.Contains(text, "no-account-numbers.yaml passed it on: unsure") || !strings.Contains(text, "what deployed?") {
+	if text := b.waitingFor("lee")[0].Text; !strings.Contains(text, "no-account-numbers.yaml referred it: unsure") || !strings.Contains(text, "what deployed?") {
 		t.Fatalf("Lee is shown %s", text)
 	}
 }

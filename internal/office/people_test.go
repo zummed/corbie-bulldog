@@ -94,7 +94,7 @@ func TestOfficeReachedOutward(t *testing.T) {
 	// An everything of rules alone reaches nobody, and the walk goes on out.
 	files := work(t)
 	files["platform/team.yaml"] += "decide: { everything: [./a.js] }\n"
-	files["platform/a.js"] = `return { says: "pass" }`
+	files["platform/a.js"] = `return { says: "refer" }`
 	if got := reads(t, files).Reached("platform"); !slices.Equal(got, []string{"al"}) {
 		t.Errorf("platform's decisions, past its rule, reach %v", got)
 	}

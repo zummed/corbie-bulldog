@@ -54,9 +54,9 @@ func (d *Decisions) Read(ctx context.Context, o *office.Office) error {
 	})
 }
 
-// Due passes each rule that has not ended within RuleLimit of its start,
-// and each worker asked to decide that has not within WorkerLimit,
-// cancelling its run, and walks the decision on. Work calls it from its
+// Due takes as a referral each rule that has not ended within RuleLimit of
+// its start, and each worker asked to decide that has not within
+// WorkerLimit, cancelling its run, and walks the decision on. Work calls it from its
 // goroutine each time its clock moves; a call with nothing due changes
 // nothing. It must not be called from a requests watcher: a write the
 // decisions make to the requests tells its watchers in the middle of a
@@ -69,7 +69,7 @@ func (d *Decisions) Due(ctx context.Context) error {
 		}
 		now := d.Now()
 		for _, dec := range decs {
-			if dec.At == nil || dec.At.Kind == isPeople {
+			if dec.At == nil || dec.At.Kind == IsPeople {
 				continue
 			}
 			limit, words := RuleLimit, "15 minutes"
@@ -80,10 +80,10 @@ func (d *Decisions) Due(ctx context.Context) error {
 				continue
 			}
 			d.stopRun(dec.ID)
-			p := Pass{Kind: dec.At.Kind, Name: dec.At.Name, Called: calledOf(o, dec.At.Kind, dec.At.Name), At: now,
+			w := Word{Kind: dec.At.Kind, Name: dec.At.Name, Called: calledOf(o, dec.At.Kind, dec.At.Name), At: now,
 				Note: fmt.Sprintf("it did not end within %s of its start, so it was cancelled", words)}
 			dec.At = nil
-			if err := d.pass(o, dec, p); err != nil {
+			if err := d.refer(o, dec, w); err != nil {
 				return err
 			}
 			if err := d.advance(o, dec, fx); err != nil {

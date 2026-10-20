@@ -50,12 +50,12 @@
 .rq .entry.held .body { background: var(--sheet); border: 1.5px solid var(--ink3); padding: 8px 12px; }
 
 .rq .entry.decision::before,
-.rq .entry.passed::before,
+.rq .entry.referred::before,
 .rq .entry.decided::before { border-radius: 0; transform: rotate(45deg); }
 .rq .entry.decision::before { border-color: var(--plan); background: var(--plan-soft); }
 .rq .entry.decision .body { font: var(--data) var(--mono); color: var(--plan-deep); }
 .rq .entry.decide .body { font: var(--data)/1.5 var(--mono); }
-.rq .entry.passed .body { font: var(--data) var(--mono); color: var(--ink2); }
+.rq .entry.referred .body { font: var(--data) var(--mono); color: var(--ink2); }
 .rq .entry.decided::before { background: var(--ink); border-color: var(--ink); }
 .rq .entry.decided .body { font-size: 15px; }
 .rq .entry.notice::before { width: 6px; height: 6px; left: -4px; }
@@ -77,7 +77,7 @@ form.reply .field { flex: 1 1 240px; }
 .rq-kind { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink2); }
 .rq-card .rq-kind { color: var(--wait); }
 .rq-of { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rq-pass { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: var(--data); }
+.rq-word { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: var(--data); }
 .rq-note { color: var(--ink2); font-style: italic; }
 .rq-asked { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; padding: 1px 6px; border: 1.5px solid var(--wait); }
 .rq-auth { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--faint); }

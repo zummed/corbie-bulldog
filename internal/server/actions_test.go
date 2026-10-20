@@ -46,7 +46,7 @@ func TestServerAskInTheChat(t *testing.T) {
 // playHouse plays the house's workers for the screens' tests: the
 // steward asks whoever asked which socket, when asked about one, and has
 // the fixer order a part when asked to; the fixer orders a £300 part,
-// which the small-orders rule passes on to Sam.
+// which the small-orders rule refers on to Sam.
 func playHouse(turn testkit.Turn) testkit.Reply {
 	switch {
 	case strings.Contains(turn.System, "You look after the house"):
@@ -112,7 +112,7 @@ func TestServerDecide(t *testing.T) {
 		t.Errorf("the refund ended %+v (%v)", dec, err)
 	}
 
-	// In the house, a £300 order the small-orders rule passed reaches Sam
+	// In the house, a £300 order the small-orders rule referred reaches Sam
 	// with its note.
 	b := newBench(t, house(t))
 	b.says(playHouse)
@@ -121,7 +121,7 @@ func TestServerDecide(t *testing.T) {
 	s.waitsOn(n, "sam")
 	var v struct{ Decisions []decisionOut }
 	s.as("sam").get("/api/requests/" + itoa(n)).is(http.StatusOK).into(&v)
-	if len(v.Decisions) != 1 || !v.Decisions[0].Mine || len(v.Decisions[0].Passes) != 1 || v.Decisions[0].Passes[0].Note != "£300 is more than I order alone." {
+	if len(v.Decisions) != 1 || !v.Decisions[0].Mine || len(v.Decisions[0].Referrals) != 1 || v.Decisions[0].Referrals[0].Note != "£300 is more than I order alone." {
 		t.Errorf("Sam is shown the order as %+v", v.Decisions)
 	}
 }

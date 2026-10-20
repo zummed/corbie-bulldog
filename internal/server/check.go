@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"slices"
 	"strings"
 
 	"github.com/zummed/corbie-bulldog/internal/changes"
+	"github.com/zummed/corbie-bulldog/internal/decisions"
 	"github.com/zummed/corbie-bulldog/internal/office"
 )
 
@@ -137,29 +137,25 @@ func listWorker(out io.Writer, o *office.Office, t *office.Team, w *office.Worke
 	return err
 }
 
-// decidedBy says who a team's list of a key names, its everything list
-// standing for a key it writes none of; an everything that names nobody
-// is said with the people the team's decisions reach, and the team around
-// it whose everything names them.
+// decidedBy says who decides a key of a team, in the order the walk asks
+// them: each rule by its path in the office and each worker, then the
+// people it ends at, asked at once; a list of a team around it is named.
 func decidedBy(o *office.Office, team, key string) string {
-	if list, ok := o.List(team, key); ok && key != "everything" {
-		return written(list)
+	var said []string
+	for _, s := range decisions.Walk(o, team, key) {
+		who := s.Name
+		if s.Kind == decisions.IsPeople {
+			who = strings.Join(s.People, " or ")
+		}
+		if s.Team != team {
+			who += fmt.Sprintf(", from the %s of %s", s.List, o.Teams[s.Team].Called)
+		}
+		said = append(said, who)
 	}
-	if deciders := o.Everything(team); len(deciders) > 0 {
-		return written(deciders)
-	}
-	reached := o.Reached(team)
-	if len(reached) == 0 {
+	if len(said) == 0 {
 		return "nobody, so what waits on it is refused"
 	}
-	from := ""
-	for t := o.Teams[o.Teams[team].Within]; t != nil; t = o.Teams[t.Within] {
-		if slices.ContainsFunc(o.Everything(t.Name), func(d office.Decider) bool { return d.Kind == office.IsPerson }) {
-			from = t.Called
-			break
-		}
-	}
-	return fmt.Sprintf("%s, from the everything of %s", strings.Join(reached, ", then "), from)
+	return strings.Join(said, ", then ")
 }
 
 // listBridge says what a bridge is, and the places it listens in.

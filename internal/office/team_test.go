@@ -282,6 +282,29 @@ func TestOfficeRuleGrantedNothing(t *testing.T) {
 	}
 }
 
+func TestARuleWrittenForAnOlderBulldogIsAProblemThatDoesNotStopIt(t *testing.T) {
+	t.Parallel()
+	files := replace(t, house(t), "small-orders.js", `says: "refer"`, `says: "pass"`)
+	o, problems := read(t, files)
+	if o == nil || !o.Rules["small-orders.js"].Runs() {
+		t.Fatalf("the house does not read, or its rule does not run: %v", problems)
+	}
+	if p := says(t, problems, "small-orders.js:6:", "answers pass", `says: "refer"`); p.Team != "office" || p.Rule != "" || p.Refuses {
+		t.Errorf("the problem is %#v", p)
+	}
+	// A definition's files are read too, and a comment saying the rule
+	// passes something on is no problem.
+	files = replace(t, work(t), "payments/no-account-numbers.yaml", "input: ${input}", `input: { text: "${input.text}", before: "${input.passes}" }`)
+	files = replace(t, files, "payments/no-account-numbers.js", `says: "refer"`, `says: 'pass'`)
+	files = replace(t, files, "payments/no-account-numbers.js", "// Says yes", "// It passes nothing it is unsure of. Says yes")
+	_, problems = read(t, files)
+	says(t, problems, "payments/no-account-numbers.yaml:9:", "reads passes", "referrals")
+	says(t, problems, "payments/no-account-numbers.js:11:", "answers pass")
+	if found := saying(problems, "payments/"); len(found) != 2 {
+		t.Errorf("the problems of payments' rule are %v", found)
+	}
+}
+
 func TestADecideKeyThatNamesNoToolIsReportedOnItsTeam(t *testing.T) {
 	t.Parallel()
 	o, problems := read(t, replace(t, house(t), "office.yaml", "everything: [sam]", "everything: [sam]\n  order_prat: [sam]"))

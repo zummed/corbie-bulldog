@@ -108,8 +108,7 @@ func (d *Decisions) keepDisclosure(o *office.Office, s Said, fx *effects) (int64
 	} else if t := o.Teams[r.Team]; t != nil && !t.HasDisclosure {
 		return 0, fmt.Errorf("%s sets no disclosure check, so nothing it says is held", capital(inSentence(t.Called)))
 	}
-	dec := &Decision{Kind: OfDisclosure, Team: r.Team, Request: s.Request, Whose: s.By, Said: &s, Made: d.Now(),
-		Does: fmt.Sprintf("%s of %s, to disclose", capital(whatOf(s.What)), inSentence(called(o, r.Team)))}
+	dec := &Decision{Kind: OfDisclosure, Team: r.Team, Request: s.Request, Whose: s.By, Said: &s, Made: d.Now()}
 	if err := keepNew(d.db, dec); err != nil {
 		return 0, err
 	}

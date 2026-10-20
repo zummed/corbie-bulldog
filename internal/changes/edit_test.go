@@ -280,7 +280,7 @@ func TestChangesAPersonPutsTheirOwn(t *testing.T) {
 		t.Errorf("Sam's yes after the refusal: %v", err)
 	}
 	files := house(t)
-	files["no-secrets.js"] = "return { says: \"pass\", note: \"no secrets\" }\n"
+	files["no-secrets.js"] = "return { says: \"refer\", note: \"no secrets\" }\n"
 	files["office.yaml"] = replaced(t, files, "office.yaml", "  everything: [sam]\n", "  everything: [sam]\n  change: [./no-secrets.js, sam]\n")
 	f := newOffice(t, files)
 	text := clerkAgain(t, "x")
@@ -409,7 +409,7 @@ func TestChangesAPersonWritesWhatTheyWereShown(t *testing.T) {
 	// And one that waits on a rule while the folder moves past is not
 	// written.
 	ruled := house(t)
-	ruled["no-secrets.js"] = "return { says: \"pass\" }\n"
+	ruled["no-secrets.js"] = "return { says: \"refer\" }\n"
 	ruled["office.yaml"] = replaced(t, ruled, "office.yaml", "  everything: [sam]\n", "  everything: [sam]\n  change: [./no-secrets.js, sam]\n")
 	g := newOffice(t, ruled)
 	p, err := g.own("sam", "Clerk", Edit{Files: map[string]*string{"clerk.yaml": &text}})

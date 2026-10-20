@@ -49,7 +49,7 @@ func (d *Decisions) Held(ctx context.Context, a Ask) error {
 		}
 		for _, dec := range decs {
 			if dec.Request != 0 {
-				if err := d.record(o, dec, dec.Does, nil); err != nil {
+				if err := d.record(o, dec, dec.Does(o), nil); err != nil {
 					return err
 				}
 			}
@@ -74,7 +74,7 @@ func (d *Decisions) keepAll(a Ask, team string, whose requests.Who) ([]*Decision
 	}
 	var decs []*Decision
 	for _, job := range a.Jobs {
-		dec := &Decision{Kind: OfAction, Team: team, Request: a.Request, Whose: whose, Does: job.does(), Ask: a.Run, Job: &job, Made: d.Now()}
+		dec := &Decision{Kind: OfAction, Team: team, Request: a.Request, Whose: whose, Ask: a.Run, Job: &job, Made: d.Now()}
 		if err := keepNew(tx, dec); err != nil {
 			return nil, err
 		}

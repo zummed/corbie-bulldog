@@ -575,7 +575,7 @@ func smallOrders(s decisions.Start) (string, error, bool) {
 	if pounds < 20 {
 		return jsonOf(map[string]any{"says": "yes", "note": "Under £20."}), nil, true
 	}
-	return jsonOf(map[string]any{"says": "pass", "note": fmt.Sprintf("£%v is more than I order alone.", pounds)}), nil, true
+	return jsonOf(map[string]any{"says": "refer", "note": fmt.Sprintf("£%v is more than I order alone.", pounds)}), nil, true
 }
 
 // The jobs of the house's fixer, as Corbie gives the ask them.

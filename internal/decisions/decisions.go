@@ -45,11 +45,12 @@ const (
 	Withdrawn = "withdrawn"
 )
 
-// What a person answers.
+// What a decider answers: a rule or a worker any of the three, and a
+// person yes or refuse alone.
 const (
 	SaysYes    = "yes"
 	SaysRefuse = "refuse"
-	SaysPass   = "pass"
+	SaysRefer  = "refer"
 )
 
 // The kinds of entry this area writes in a request's thread.
@@ -62,8 +63,8 @@ const (
 	KindDecide = "decide"
 	// KindDecided is a decider's yes or refusal, with its note.
 	KindDecided = "decided"
-	// KindPassed is a rule's or a worker's pass, with its note.
-	KindPassed = "passed"
+	// KindReferred is a rule's or a worker's referral, with its note.
+	KindReferred = "referred"
 	// KindNotice is Bulldog telling someone asked that they are asked no
 	// longer, or that a direct message could not be sent.
 	KindNotice = "notice"

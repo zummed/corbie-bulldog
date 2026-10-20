@@ -30,7 +30,7 @@ var entryLabels = map[string]string{
 	decisions.KindDecision: "Decision",
 	decisions.KindDecide:   "Asked to decide",
 	decisions.KindDecided:  "Verdict",
-	decisions.KindPassed:   "Referred",
+	decisions.KindReferred: "Referred",
 	decisions.KindNotice:   "Notice",
 }
 

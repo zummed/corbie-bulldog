@@ -88,13 +88,13 @@ A tool whose job says `approve: true` waits for a yes, decided by the team's lis
 
 ## A rule
 
-A rule decides from what it is given, and gives back `{ says: yes | refuse | pass, note }`. A pass sends the decision on to the next decider with its note. A rule that needs nothing more is a bare script:
+A rule decides from what it is given, and gives back `{ says: yes | refuse | refer, note }`. A refer sends the decision on to the next decider with its note; the referrals before it are its input's `referrals`. A rule that needs nothing more is a bare script:
 
 ```js
 // small-orders.js
 const pounds = Number(input.action && input.action.args ? input.action.args.pounds : NaN)
 if (pounds < 20) return { says: "yes", note: "Under £20." }
-return { says: "pass", note: "£" + pounds + " is more than I order alone." }
+return { says: "refer", note: "£" + pounds + " is more than I order alone." }
 ```
 
 A rule that needs anything, a host or a secret, is a Corbie definition, which holds its own permissions:
@@ -111,7 +111,7 @@ stages:
 output: ${stages.check.output}
 ```
 
-On a change to the office, a rule's yes is taken as a pass: only a person approves a change.
+On a change to the office, a rule's yes is taken as a referral: only a person approves a change.
 
 ## A bridge
 

@@ -280,6 +280,10 @@ type Rule struct {
 	// bare script, and while the rule has a problem.
 	Draft    *machine.Draft
 	Problems Problems
+	// Old are the lines of its files of the office written for an older
+	// Bulldog, answering pass or reading passes: problems shown on each
+	// team whose lists name it, which do not stop it.
+	Old Problems
 }
 
 // Runs says whether the rule may be started: a bare script with no
@@ -436,9 +440,9 @@ func (o *Office) Everything(team string) []Decider {
 }
 
 // Reached gives the people a team's decisions reach when every rule and
-// worker on the way passes: the people its everything names, or, where it
-// names none, those of the first everything outward that does. A person
-// not in the office is not reached.
+// worker on the way refers them: the people its everything names, or,
+// where it names none, those of the first everything outward that does. A
+// person not in the office is not reached.
 func (o *Office) Reached(team string) []string {
 	for t := o.Teams[team]; t != nil; t = o.Teams[t.Within] {
 		var reached []string

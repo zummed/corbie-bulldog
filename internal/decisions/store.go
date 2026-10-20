@@ -23,9 +23,6 @@ type Decision struct {
 	// disclosed, or who drafted the change; for a held job no worker of the
 	// office holds, nobody.
 	Whose requests.Who `json:"whose"`
-	// Does is the action as its tool describes itself, what is to be
-	// disclosed, or the change, in a line.
-	Does string `json:"does"`
 
 	// Ask is the ask's run that holds the job, and Job the job.
 	Ask string `json:"ask,omitzero"`
@@ -37,9 +34,9 @@ type Decision struct {
 
 	// Step counts the rules and workers asked so far; At is the step the
 	// walk stands at now, nil before it starts and once it has ended.
-	Step   int    `json:"step"`
-	At     *Stand `json:"at,omitzero"`
-	Passes []Pass `json:"passes,omitzero"`
+	Step      int    `json:"step"`
+	At        *Stand `json:"at,omitzero"`
+	Referrals []Word `json:"referrals,omitzero"`
 	// Asked are the people asked now, and WasAsked everyone ever asked;
 	// Entry is the entry they are asked in.
 	Asked    []string `json:"asked,omitzero"`
@@ -50,7 +47,7 @@ type Decision struct {
 	// their note, at Decided. Why says why it was withdrawn, or why
 	// Bulldog refused it.
 	Ended   string    `json:"ended,omitzero"`
-	By      *Pass     `json:"by,omitzero"`
+	By      *Word     `json:"by,omitzero"`
 	Why     string    `json:"why,omitzero"`
 	Decided time.Time `json:"decided,omitzero"`
 	Made    time.Time `json:"made"`
@@ -79,9 +76,9 @@ type Stand struct {
 	Since time.Time `json:"since"`
 }
 
-// A Pass is one decider's word on a decision: a pass with its note, or the
-// yes or refusal that ended it.
-type Pass struct {
+// A Word is one decider's word on a decision: a referral with its note,
+// or the yes or refusal that ended it.
+type Word struct {
 	// Kind is a person, a worker, a rule, or Bulldog's own, and Name is
 	// the person's or the worker's name or the rule's path.
 	Kind   string    `json:"kind"`

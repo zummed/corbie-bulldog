@@ -180,7 +180,7 @@ func TestTheHousesDay(t *testing.T) {
 		t.Errorf("Kit is answered %+v", answer)
 	}
 	holds(t, "what Kit said, as the fixer was told", k.get("fixer", 5), "Kit answered: The socket came today.")
-	holds(t, "what was done", strings.Join(b.thread(n), "\n"), "Turn one circuit off: yes from Sam", "Order a part: yes from")
+	holds(t, "what was done", strings.Join(b.thread(n), "\n"), "Turn one circuit off: approved by Sam", "Order a part: approved by")
 
 	// 7. On Monday at nine the routine asks the steward what is still
 	// open; its answer goes to Sam and Kit.
@@ -260,7 +260,7 @@ func newLedger(t *testing.T) *ledgerService {
 
 // workDay gives the work office with its services stood in for: the
 // ledger's, and the screening service for payments' disclosure check; and a rule that
-// passes each refund on to Lee or Priya.
+// refers each refund on to Lee or Priya.
 func workDay(t *testing.T, ledger *ledgerService, screen *screener) map[string]string {
 	files := work(t)
 	host := strings.TrimPrefix(ledger.URL, "http://")
@@ -277,7 +277,7 @@ func workDay(t *testing.T, ledger *ledgerService, screen *screener) map[string]s
 		`secrets.get("SCREEN_KEY")`, fmt.Sprintf(`secrets.get(%q)`, testkit.Key), 1), "https://screen.example.com", screen.URL, 1)
 	files["payments/team.yaml"] = strings.Replace(files["payments/team.yaml"], "decide: { everything: [lee, priya] }",
 		"decide: { everything: [lee, priya], refund: [./refunds.js, lee, priya] }", 1)
-	files["payments/refunds.js"] = `return { says: "pass", note: "A refund of " + input.action.args.charge + " is for Lee or Priya." }` + "\n"
+	files["payments/refunds.js"] = `return { says: "refer", note: "A refund of " + input.action.args.charge + " is for Lee or Priya." }` + "\n"
 	return files
 }
 
@@ -352,9 +352,9 @@ func TestTheWorkOfficesRefundDay(t *testing.T) {
 	holds(t, "what ops was told", k.get("ops", 1), "on slack, in #help/1700.1")
 
 	// 4. The ledger reads the charges and asks to refund the second: the
-	// rule passes it on, and Lee and Priya are asked directly on Slack.
+	// rule refers it on, and Lee and Priya are asked directly on Slack.
 	refund := b.held(payments)
-	if refund.Job.Name != "refund" || len(refund.Passes) != 1 || strings.Join(refund.Asked, ",") != "lee,priya" {
+	if refund.Job.Name != "refund" || len(refund.Referrals) != 1 || strings.Join(refund.Asked, ",") != "lee,priya" {
 		t.Fatalf("the refund waits as %+v", refund)
 	}
 	toLee := b.deliver("slack", "U0LEE000", "Refund one charge")
@@ -390,7 +390,7 @@ func TestTheWorkOfficesRefundDay(t *testing.T) {
 		for _, e := range sub.Entries {
 			done += e.Text + "\n"
 		}
-		holds(t, person+"'s view of payments", done, "Refund one charge, by its id: yes from Lee", "Duplicate confirmed; £40 refunded.")
+		holds(t, person+"'s view of payments", done, "Refund one charge, by its id: approved by Lee", "Duplicate confirmed; £40 refunded.")
 		holdsNone(t, person+"'s view of payments", done, "4111")
 		if read := must(b.reqs.WhatWasRead(payments, person)); len(read) != 0 {
 			t.Errorf("%s sees what payments read: %v", person, read)

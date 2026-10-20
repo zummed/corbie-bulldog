@@ -15,7 +15,7 @@ import (
 const reviewer = `agent: reviewer
 input: [said]
 model: usual
-system: You review what the fixer would do. End with { "says": "yes", "refuse" or "pass", "note": why }.
+system: You review what the fixer would do. End with { "says": "yes", "refuse" or "refer", "note": why }.
 prompt: ${input.said}
 `
 
@@ -28,9 +28,9 @@ func withDecide(t *testing.T, decide string) map[string]string {
 	from, to := strings.Index(text, "decide:\n"), strings.Index(text, "routines:")
 	files["office.yaml"] = text[:from] + decide + "\n" + text[to:]
 	files["reviewer.yaml"] = reviewer
-	files["a.js"] = `return { says: "pass", note: "unsure" }`
+	files["a.js"] = `return { says: "refer", note: "unsure" }`
 	files["b.js"] = `return { says: "refuse", note: "no" }`
-	files["garden/a.js"] = `return { says: "pass", note: "unsure" }`
+	files["garden/a.js"] = `return { says: "refer", note: "unsure" }`
 	return files
 }
 
@@ -125,14 +125,14 @@ func TestDecidersAskedInOrder(t *testing.T) {
 	if a.Name != "a.js" {
 		t.Fatalf("%s was asked first", a.Name)
 	}
-	a.says(decisions.SaysPass, "unsure, 0.6")
+	a.says(decisions.SaysRefer, "unsure, 0.6")
 	c := b.runner.next(t)
 	if c.Name != "b.js" {
 		t.Fatalf("%s was asked second", c.Name)
 	}
-	passes := c.Input["passes"].([]map[string]any)
-	if len(passes) != 1 || passes[0]["by"] != "a.js" || passes[0]["note"] != "unsure, 0.6" {
-		t.Fatalf("b.js was given the passes %v", passes)
+	referrals := c.Input["referrals"].([]map[string]any)
+	if len(referrals) != 1 || referrals[0]["by"] != "a.js" || referrals[0]["note"] != "unsure, 0.6" {
+		t.Fatalf("b.js was given the referrals %v", referrals)
 	}
 	c.says(decisions.SaysRefuse, "no plumber today")
 	if got := b.ended(dec.ID); got.Ended != decisions.Refused || got.By.Called != "b.js" {
@@ -142,7 +142,7 @@ func TestDecidersAskedInOrder(t *testing.T) {
 		t.Fatal("Sam was asked")
 	}
 	lines := b.thread(n)
-	has(t, lines, "passed by a.js", "pass from a.js: unsure, 0.6")
+	has(t, lines, "referred by a.js", "referred by a.js: unsure, 0.6")
 	has(t, lines, "decided by b.js", "refused by b.js: no plumber today")
 }
 
@@ -161,7 +161,7 @@ func TestRefusalEndsTheWalk(t *testing.T) {
 	}
 }
 
-func TestYesEndsTheWalkAndAPassGoesToAPerson(t *testing.T) {
+func TestYesEndsTheWalkAndAReferralGoesToAPerson(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, withDecide(t, "decide:\n  everything: [sam]\n  order_part: [./small-orders.js, sam]\n  cut_power: [reviewer, sam]"))
 	b.runner.answers(smallOrders)
@@ -188,7 +188,7 @@ func TestYesEndsTheWalkAndAPassGoesToAPerson(t *testing.T) {
 		t.Fatalf("the reviewer's yes is answered %+v", v)
 	}
 	dec := b.one("ask-4", office.Top, n, fixerUp, cutPower("6"))
-	b.runner.next(t).says(decisions.SaysPass, "it may feed the freezer, 0.6")
+	b.runner.next(t).says(decisions.SaysRefer, "it may feed the freezer, 0.6")
 	b.until("the cut reaches Sam", func() bool { return len(b.waitingFor("sam")) == 1 && len(b.get(dec.ID).Asked) == 1 })
 	if ws := b.waitingFor("sam"); !strings.Contains(ws[0].Text, "it may feed the freezer, 0.6") {
 		t.Fatalf("Sam is not shown the reviewer's note: %s", ws[0].Text)
@@ -213,12 +213,12 @@ func TestPeopleAskedAtOnceFirstAnswerDecides(t *testing.T) {
 	b.decide(dec.ID, "lee", decisions.SaysYes, "")
 	b.clock.Move(60e9)
 	text := b.refused(dec.ID, b.reqs.Person("priya"), decisions.SaysRefuse)
-	if !strings.Contains(text, "yes from Lee at 10:00") {
+	if !strings.Contains(text, "approved by Lee at 10:00") {
 		t.Fatalf("Priya is told %q", text)
 	}
 }
 
-func TestEveryPassGoesOutward(t *testing.T) {
+func TestEveryReferralGoesOutward(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, withDecide(t, "decide:\n  everything: [sam]\n  order_part: [./small-orders.js]"))
 	b.runner.answers(smallOrders)
@@ -237,7 +237,7 @@ func TestEveryPassGoesOutward(t *testing.T) {
 	}
 }
 
-func TestDisclosurePassedGoesToEverything(t *testing.T) {
+func TestDisclosureReferredGoesToEverything(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))
 	_, sub := b.helpRequest()
@@ -245,7 +245,7 @@ func TestDisclosurePassedGoesToEverything(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b.runner.next(t).says(decisions.SaysPass, "It may name an account number, 0.90.")
+	b.runner.next(t).says(decisions.SaysRefer, "It may name an account number, 0.90.")
 	b.until("the disclosure reaches Lee and Priya", func() bool { return len(b.get(id).Asked) == 2 })
 	if b.letsOf(id) != 0 {
 		t.Fatal("the disclosure ended before Lee let it go")
@@ -267,16 +267,16 @@ func TestDecisionsEveryWalkEndsAtAPerson(t *testing.T) {
 	if a.Name != "garden/a.js" {
 		t.Fatalf("%s was asked first", a.Name)
 	}
-	a.says(decisions.SaysPass, "unsure")
+	a.says(decisions.SaysRefer, "unsure")
 	r := b.runner.next(t)
 	if r.Name != "reviewer" || r.Team != "garden" {
 		t.Fatalf("%s of %s was asked second", r.Name, r.Team)
 	}
-	r.says(decisions.SaysPass, "Sam should see this")
+	r.says(decisions.SaysRefer, "Sam should see this")
 	b.until("the walk reaches Sam", func() bool { return slices.Equal(b.get(dec.ID).Asked, []string{"sam"}) })
 	lines := b.thread(g)
-	has(t, lines, "pass from a.js: unsure")
-	has(t, lines, "pass from reviewer: Sam should see this")
+	has(t, lines, "referred by a.js: unsure")
+	has(t, lines, "referred by reviewer: Sam should see this")
 
 	gone := b.chat("sam", "garden", "and the gate")
 	b.rewrite(map[string]string{"garden/team.yaml": "", "garden/gardener.yaml": "", "garden/groundsman.yaml": "", "garden/a.js": "",
@@ -294,20 +294,53 @@ func TestDecisionsARuleDecidesAsTheTeamWhoseDecisionItIs(t *testing.T) {
 	b := newBench(t, files)
 	g := b.chat("sam", "garden", "open the shed")
 	dec := b.one("ask-1", "garden", g, []string{"gardener"}, decisions.Job{Name: "open_door"})
-	b.runner.next(t).says(decisions.SaysPass, "unsure")
+	b.runner.next(t).says(decisions.SaysRefer, "unsure")
 	top := b.runner.next(t)
 	if top.Name != "a.js" || top.Team != "garden" {
 		t.Fatalf("%s of %s was asked second", top.Name, top.Team)
 	}
-	top.says(decisions.SaysPass, "unsure")
+	top.says(decisions.SaysRefer, "unsure")
 	b.until("the walk reaches Sam", func() bool { return slices.Equal(b.get(dec.ID).Asked, []string{"sam"}) })
-	passes := b.entries(g, decisions.KindPassed)
-	if len(passes) != 2 {
-		t.Fatalf("the thread holds %d passes", len(passes))
+	referrals := b.entries(g, decisions.KindReferred)
+	if len(referrals) != 2 {
+		t.Fatalf("the thread holds %d referrals", len(referrals))
 	}
-	for _, e := range passes {
+	for _, e := range referrals {
 		if e.By.Kind != requests.IsRule || e.By.Team != "garden" || e.Read != "garden" {
-			t.Errorf("a rule's pass on the garden's decision is by %+v, read by %q", e.By, e.Read)
+			t.Errorf("a rule's referral on the garden's decision is by %+v, read by %q", e.By, e.Read)
+		}
+	}
+}
+
+// The walk is given by team and key with no decision, as each decision
+// is walked: a team's list of the key, then everything outward to the
+// first people.
+func TestWalkGivenByTeamAndKey(t *testing.T) {
+	t.Parallel()
+	files := withDecide(t, "decide:\n  everything: [./a.js, sam, kit]\n  order_part: [./small-orders.js, reviewer]\n  change: [./b.js]")
+	files["garden/team.yaml"] = strings.Replace(files["garden/team.yaml"], "decide: { everything: [sam] }", "decide: { everything: [./a.js] }", 1)
+	b := newBench(t, files)
+	rule := func(name, team, list string) decisions.Stage {
+		return decisions.Stage{Kind: office.IsRule, Name: name, Team: team, List: list}
+	}
+	everything := []decisions.Stage{rule("a.js", office.Top, "everything"), {Kind: decisions.IsPeople, People: []string{"sam", "kit"}, Team: office.Top, List: "everything"}}
+	for _, c := range []struct {
+		team string
+		keys []string
+		want []decisions.Stage
+	}{
+		{office.Top, []string{"order_part"}, append([]decisions.Stage{rule("small-orders.js", office.Top, "order_part"),
+			{Kind: office.IsWorker, Name: "reviewer", Team: office.Top, List: "order_part"}}, everything...)},
+		{office.Top, []string{"open_door"}, everything},
+		{office.Top, []string{"everything"}, everything},
+		{office.Top, []string{"change"}, append([]decisions.Stage{rule("b.js", office.Top, "change")}, everything...)},
+		{"garden", []string{"open_gate", "order_part"}, append([]decisions.Stage{rule("garden/a.js", "garden", "everything")}, everything...)},
+		{"gone", []string{"open_door"}, nil},
+	} {
+		if got := decisions.Walk(b.o, c.team, c.keys...); !slices.EqualFunc(got, c.want, func(a, b decisions.Stage) bool {
+			return a.Kind == b.Kind && a.Name == b.Name && slices.Equal(a.People, b.People) && a.Team == b.Team && a.List == b.List
+		}) {
+			t.Errorf("%s's walk of %v is %+v", c.team, c.keys, got)
 		}
 	}
 }
@@ -322,7 +355,7 @@ func TestDecisionsReachOutward(t *testing.T) {
 	}
 	files := withPayments(t, "people: [lee, priya]\nlead: ledger\n")
 	files["platform/team.yaml"] += "decide: { everything: [./a.js] }\n"
-	files["platform/a.js"] = `return { says: "pass" }`
+	files["platform/a.js"] = `return { says: "refer" }`
 	b := newBench(t, files)
 	if got := b.o.Reached("platform"); !slices.Equal(got, []string{"al"}) {
 		t.Fatalf("platform's decisions, past its rule, reach %v", got)
@@ -332,7 +365,7 @@ func TestDecisionsReachOutward(t *testing.T) {
 		t.Fatal(err)
 	}
 	dec := b.one("ask-1", "platform", r.Number, []string{"ops"}, decisions.Job{Name: "deploy", Asked: &decisions.Asked{Does: "Deploy again"}})
-	b.runner.next(t).says(decisions.SaysPass, "")
+	b.runner.next(t).says(decisions.SaysRefer, "")
 	b.until("the walk reaches Al", func() bool { return slices.Equal(b.get(dec.ID).Asked, []string{"al"}) })
 
 	h := withDecide(t, "decide:\n  everything: [sam]")
@@ -404,7 +437,7 @@ func TestDecisionsDeciderToldTruthAboutAfter(t *testing.T) {
 	cases := []struct{ decide, team, want string }{
 		{"decide:\n  everything: [sam]\n  cut_power: [reviewer, sam]", office.Top, "Sam"},
 		{"decide:\n  everything: [sam]\n  cut_power: [reviewer]", office.Top, "Sam, on the house's everything list"},
-		// The reviewer is on both lists: having passed on one, it is not
+		// The reviewer is on both lists: having referred it on one, it is not
 		// asked again on the other.
 		{"decide:\n  everything: [reviewer, sam]\n  cut_power: [reviewer]", office.Top, "Sam, on the house's everything list"},
 	}
@@ -413,30 +446,30 @@ func TestDecisionsDeciderToldTruthAboutAfter(t *testing.T) {
 		n := b.chat("kit", office.Top, "the kitchen socket sparked")
 		dec := b.one("ask-1", office.Top, n, fixerUp, cutPower("4"))
 		r := b.runner.next(t)
-		goes := r.Input["pass_goes_to"].([]map[string]any)
+		goes := r.Input["referral_goes_to"].([]map[string]any)
 		if len(goes) != 1 || goes[0]["to"] != "Sam" || !strings.Contains(r.Input["ends"].(string), c.want) {
-			t.Fatalf("with %s the reviewer is told a pass goes to %v: %s", c.decide, goes, r.Input["ends"])
+			t.Fatalf("with %s the reviewer is told a referral goes to %v: %s", c.decide, goes, r.Input["ends"])
 		}
-		r.says(decisions.SaysPass, "")
-		b.until("the pass reaches whom it was told", func() bool { return slices.Equal(b.get(dec.ID).Asked, []string{"sam"}) })
+		r.says(decisions.SaysRefer, "")
+		b.until("the referral reaches whom it was told", func() bool { return slices.Equal(b.get(dec.ID).Asked, []string{"sam"}) })
 		if starts := b.runner.started(); len(starts) != 1 {
 			t.Fatalf("with %s, %d rules and workers were asked, not the one the reviewer was told of", c.decide, len(starts))
 		}
 	}
 
-	// A person's own change: its last rule is told its pass is taken as
+	// A person's own change: its last rule is told its referral is taken as
 	// the person's yes, and it is.
 	files := house(t)
 	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  change: [./no-secrets.js, sam]\n", 1)
-	files["no-secrets.js"] = `return { says: "pass" }`
+	files["no-secrets.js"] = `return { says: "refer" }`
 	own := newBench(t, files)
 	p := own.putOwn("sam", "Kit helps in the garden")
 	r := own.runner.next(t)
-	goes := r.Input["pass_goes_to"].([]map[string]any)
-	if len(goes) != 1 || goes[0]["to"] != "Sam" || !strings.Contains(r.Input["ends"].(string), "a pass is taken as their yes, and the change is written") {
-		t.Fatalf("the rule on Sam's own change is told a pass goes to %v: %s", goes, r.Input["ends"])
+	goes := r.Input["referral_goes_to"].([]map[string]any)
+	if len(goes) != 1 || goes[0]["to"] != "Sam" || !strings.Contains(r.Input["ends"].(string), "a referral is taken as their yes, and the change is written") {
+		t.Fatalf("the rule on Sam's own change is told a referral goes to %v: %s", goes, r.Input["ends"])
 	}
-	r.says(decisions.SaysPass, "")
+	r.says(decisions.SaysRefer, "")
 	if o := own.outcome(p.ID); o.Ended != changes.Written || o.Decider != "sam" {
 		t.Fatalf("Sam's own change ended %+v", o)
 	}
@@ -447,9 +480,9 @@ func TestDecisionsDeciderToldTruthAboutAfter(t *testing.T) {
 	g := b.chat("sam", "garden", "open the shed")
 	b.one("ask-1", "garden", g, []string{"gardener"}, decisions.Job{Name: "open_door"})
 	r = b.runner.next(t)
-	goes = r.Input["pass_goes_to"].([]map[string]any)
+	goes = r.Input["referral_goes_to"].([]map[string]any)
 	if len(goes) != 1 || goes[0]["team"] != office.Top || goes[0]["list"] != "everything" || goes[0]["to"] != "Sam" {
-		t.Fatalf("the garden's rule is told a pass goes to %v", goes)
+		t.Fatalf("the garden's rule is told a referral goes to %v", goes)
 	}
 }
 
@@ -461,8 +494,8 @@ func TestDecisionsWorkerNeverDecidesOwnAction(t *testing.T) {
 	if len(b.runner.started()) != 0 {
 		t.Fatalf("the fixer was asked to decide its own action")
 	}
-	if !slices.Equal(dec.Asked, []string{"sam"}) || len(dec.Passes) != 1 || dec.Passes[0].Name != "fixer" {
+	if !slices.Equal(dec.Asked, []string{"sam"}) || len(dec.Referrals) != 1 || dec.Referrals[0].Name != "fixer" {
 		t.Fatalf("the decision is %+v", dec)
 	}
-	has(t, b.thread(n), "pass from fixer: a worker never decides its own action")
+	has(t, b.thread(n), "referred by fixer: a worker never decides its own action")
 }

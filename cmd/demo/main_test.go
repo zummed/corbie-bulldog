@@ -154,7 +154,7 @@ func TestDemoServesTheHouseWithNothingSetUp(t *testing.T) {
 		t.Errorf("the socket's decisions are %+v", socket.Decisions)
 	}
 	thread := socket.all()
-	for _, part := range []string{"Order a part: yes from", "Tell me when the new socket arrives, and I'll fit it."} {
+	for _, part := range []string{"Order a part: approved by", "Tell me when the new socket arrives, and I'll fit it."} {
 		if !strings.Contains(thread, part) {
 			t.Errorf("the socket's thread does not hold %q:\n%s", part, thread)
 		}
@@ -173,8 +173,8 @@ func TestDemoServesTheHouseWithNothingSetUp(t *testing.T) {
 	if fan.State != requests.Waiting || len(fan.On) != 1 || fan.On[0].Name != "sam" {
 		t.Errorf("the fan's request is %s on %+v", fan.State, fan.On)
 	}
-	if d := fan.Decisions; len(d) != 1 || !d[0].Mine || !slices.Equal(d[0].Asked, []string{"sam"}) || len(d[0].Passes) != 1 ||
-		d[0].Passes[0].Note != "£48 is more than I order alone." {
+	if d := fan.Decisions; len(d) != 1 || !d[0].Mine || !slices.Equal(d[0].Asked, []string{"sam"}) || len(d[0].Referrals) != 1 ||
+		d[0].Referrals[0].Note != "£48 is more than I order alone." {
 		t.Errorf("Sam is shown the fan's order as %+v", d)
 	}
 
@@ -226,7 +226,7 @@ type (
 		Does, Ended string
 		Mine        bool
 		Asked       []string
-		Passes      []struct{ Note string }
+		Referrals   []struct{ Note string }
 		By          *struct{ Name string }
 	}
 )

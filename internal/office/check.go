@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"path"
+	"regexp"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -453,10 +454,11 @@ func (r *reading) checkRules() {
 				}
 			}
 		}
+		listed := len(named)
 		if t.Heed != nil && !slices.Contains(named, t.Heed.Rule) {
 			named = append(named, t.Heed.Rule)
 		}
-		for _, name := range named {
+		for i, name := range named {
 			rule := r.o.Rules[name]
 			if rule == nil {
 				rule = r.checkRule(t, name)
@@ -468,6 +470,12 @@ func (r *reading) checkRules() {
 				r.problems = append(r.problems, p)
 				if t.Heed != nil && t.Heed.Rule == name {
 					t.Heed.Problems = append(t.Heed.Problems, p)
+				}
+			}
+			if i < listed {
+				for _, p := range rule.Old {
+					p.Team = team
+					r.problems = append(r.problems, p)
 				}
 			}
 		}
@@ -483,6 +491,9 @@ func (r *reading) checkRule(t *Team, name string) *Rule {
 		rule.Written, _ = shipped.File(own)
 	}
 	if rule.Script {
+		if !ships {
+			rule.Old = r.oldWords(name)
+		}
 		return rule
 	}
 	p := Problem{File: name, Rule: name}
@@ -495,15 +506,48 @@ func (r *reading) checkRule(t *Team, name string) *Rule {
 			rule.Problems = append(rule.Problems, p)
 		}
 	}
+	uses := []string{name}
 	if len(rule.Problems) == 0 {
-		draft, err := machine.Parse(filled, r.loader(dirOf(name), nil))
+		draft, err := machine.Parse(filled, r.loader(dirOf(name), &uses))
 		if err != nil {
 			rule.Problems = corbieSays(err, p)
 		} else {
 			rule.Draft = draft
 		}
 	}
+	if !ships {
+		rule.Old = r.oldWords(uses...)
+	}
 	return rule
+}
+
+// older are what a rule wrote for an older Bulldog, which answered pass
+// and gave passes and pass_goes_to, each with what takes its place.
+var older = []struct {
+	find *regexp.Regexp
+	text string
+}{
+	{regexp.MustCompile("[\"'`]pass[\"'`]|\\bsays\\s*:\\s*pass\\b"),
+		`it answers pass, which Bulldog no longer knows: a rule that sends a decision on to whoever is next answers { says: "refer", note }`},
+	{regexp.MustCompile(`\.passes\b`), "it reads passes, which Bulldog no longer gives: the referrals before a rule are its input's referrals"},
+	{regexp.MustCompile(`\bpass_goes_to\b`), "it reads pass_goes_to, which Bulldog no longer gives: where a referral goes is its input's referral_goes_to"},
+}
+
+// oldWords finds in a rule's files of the office each line written for an
+// older Bulldog, as a problem that does not stop the rule: it still runs,
+// and an answer of pass is no answer Bulldog knows.
+func (r *reading) oldWords(files ...string) Problems {
+	var found Problems
+	for _, file := range files {
+		for i, line := range strings.Split(string(r.files[file]), "\n") {
+			for _, w := range older {
+				if w.find.MatchString(line) {
+					found = append(found, Problem{File: file, Line: i + 1, Text: w.text})
+				}
+			}
+		}
+	}
+	return found
 }
 
 // checkBridges has Corbie check both machines of each bridge, with their

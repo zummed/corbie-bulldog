@@ -86,7 +86,7 @@ routines:
 
 **A team's people are exactly those its `people` names.** Being in a team around it puts nobody in it. A team may be all people, all workers or both. A team that writes no `everything` has its people as that list, and one with no people has an empty one; how its decisions then go out to the team around it is the decisions page's, and that the people they reach are its people for every purpose of sight and control is the requests page's.
 
-**A decider is a person, a worker of any team, or a rule.** A rule is named by its path from the team's file, and is in the team's own folder, or is one Bulldog ships, which any team may name by its path in `.bulldog/rules/`, as `./.bulldog/rules/<name>/<file>` from `office.yaml` and `../.bulldog/rules/<name>/<file>` from a team directly within. A rule that needs nothing but what it is given is a bare script, such as `small-orders.js`. A rule that needs anything more, a network, a host or a secret, is a Corbie definition, which says in its own allow lines what it may reach, as any definition does; a definition a list names by its path is a rule wherever it sits, and never a worker. Bulldog grants a rule nothing. In a list, every rule and worker comes before every person, and a list may name no person at all. How the lists are used is the decisions page's.
+**A decider is a person, a worker of any team, or a rule.** A rule is named by its path from the team's file, and is in the team's own folder, or is one Bulldog ships, which any team may name by its path in `.bulldog/rules/`, as `./.bulldog/rules/<name>/<file>` from `office.yaml` and `../.bulldog/rules/<name>/<file>` from a team directly within. A rule that needs nothing but what it is given is a bare script, such as `small-orders.js`. A rule that needs anything more, a network, a host or a secret, is a Corbie definition, which says in its own allow lines what it may reach, as any definition does; a definition a list names by its path is a rule wherever it sits, and never a worker. Bulldog grants a rule nothing. In a list, every rule and worker comes before every person, and a list may name no person at all. A rule a list names that still answers `pass` or reads `passes`, as rules did before `refer`, has each such line of its files reported, with its file and line, on each team whose lists name it, and still runs. How the lists are used is the decisions page's.
 
 **A team's `heed` is one rule**, named by its path as a list names one, in the team's own folder or among those Bulldog ships, and read and checked as any rule is. Written as a mapping, every key but `rule` is a setting, handed to the rule whole and as written; Bulldog reads none of them, and a heed written as a path alone has none. A heed is no decider: nothing waits on it, and no list names it. It is asked only before a lead that is a worker, since everything a person lead says is already its answer: a heed in a team whose lead is a person is a problem of the heed alone, which is not asked, and the team reads. Bulldog ships two heeds, `mentioned` and `for-us`, as the work page says.
 
@@ -198,7 +198,7 @@ about: Charges, refunds and the ledger. Holds customer data.
 people: [lee, priya]
 lead: ledger
 decide: { everything: [lee, priya] }
-disclosure: [./no-account-numbers.yaml]    # what it passes goes to Lee or Priya
+disclosure: [./no-account-numbers.yaml]    # what it refers goes to Lee or Priya
 
 # support/team.yaml: people only
 name: Support

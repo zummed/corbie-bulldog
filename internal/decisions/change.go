@@ -1,18 +1,16 @@
 package decisions
 
 import (
-	"strings"
-
 	"github.com/zummed/corbie-bulldog/internal/changes"
 	"github.com/zummed/corbie-bulldog/internal/office"
 )
 
 // Change takes a change put to be decided, as Changes hands it on: it is
 // a decision of the top team, walked over the deciders it was put with.
-// A rule's or a worker's yes passes it on, since only a person approves a
+// A rule's or a worker's yes refers it on, since only a person approves a
 // change. A person's own change, whose walk holds only the rules and
 // workers before them, is approved with their own yes once every one has
-// passed. How it ends is handed back to Changes, to write it or not: the
+// referred it. How it ends is handed back to Changes, to write it or not: the
 // hook Changes calls gives no context, so what follows is cancelled only
 // when the decisions are closed.
 func (d *Decisions) Change(p changes.Put) error {
@@ -21,14 +19,12 @@ func (d *Decisions) Change(p changes.Put) error {
 		if p.Person {
 			whose = d.requests.Person(p.By)
 		}
-		first, _, _ := strings.Cut(p.Why, "\n")
-		dec := &Decision{Kind: OfChange, Team: office.Top, Request: p.Request, Whose: whose, Put: &p, Made: d.Now(),
-			Does: "Change to the office: " + strings.TrimSpace(first)}
+		dec := &Decision{Kind: OfChange, Team: office.Top, Request: p.Request, Whose: whose, Put: &p, Made: d.Now()}
 		if err := keepNew(d.db, dec); err != nil {
 			return err
 		}
 		if dec.Request != 0 {
-			if err := d.record(o, dec, dec.Does, nil); err != nil {
+			if err := d.record(o, dec, dec.Does(o), nil); err != nil {
 				return err
 			}
 		}

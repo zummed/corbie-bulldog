@@ -79,7 +79,7 @@ func TestRequestsWaitingNamesEveryone(t *testing.T) {
 		t.Errorf("with the refund put to Lee and Priya, payments' sub-request stands %+v", st)
 	}
 	must(t, errOf(d.Write(d.payments, requests.Writing{Kind: "decided", By: requests.Identity("slack", slackLee), To: []requests.Who{d.Worker("ledger")},
-		Text: "Refund one charge: yes from Lee, 10:00", Answers: decision.ID})))
+		Text: "Refund one charge: approved by Lee, 10:00", Answers: decision.ID})))
 	if st := d.state(d.payments); st.Is != requests.Working {
 		t.Errorf("with Lee's yes, payments' sub-request stands %+v", st)
 	}
@@ -100,7 +100,7 @@ func TestRequestsWhatWaitsOnAPerson(t *testing.T) {
 		t.Errorf("a reply to a decision is told %v", err)
 	}
 	must(t, errOf(d.Write(d.payments, requests.Writing{Kind: "decided", By: d.Person("priya"), To: []requests.Who{d.Worker("ledger")},
-		Text: "Refund one charge: yes from Priya", Answers: decision.ID})))
+		Text: "Refund one charge: approved by Priya", Answers: decision.ID})))
 	for _, p := range []string{"lee", "priya"} {
 		if ws := got[[]requests.Wait](t)(d.WaitingOn(p)); len(ws) != 0 {
 			t.Errorf("once Priya decided, what waits on %s is %+v", p, ws)

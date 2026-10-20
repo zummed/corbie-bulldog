@@ -75,7 +75,7 @@ The detailed rules behind the [Bridges overview](../bridges.md). Requirements ar
 *Accept:* a stand-in in machine ends with a thing holding a picture. Once the run's record is removed, the entry still shows the picture, whole.
 
 **R-bridges-15** A choice is given to the decision whose reference it carries, with the checked identity of who made it.
-*Accept:* the stand-in out machine sends a decision with reference `d12`; the in machine then ends with a `choice` of yes on `d12` from Lee's identity. The decision is given yes from Lee.
+*Accept:* the stand-in out machine sends a decision with reference `d12`; the in machine then ends with a `choice` of yes on `d12` from Lee's identity. The decision is approved by Lee.
 
 **R-bridges-16** The readers a thing gives for its place are matched to people and replace the readers of the origin it belongs to; a thing that gives no readers leaves them as they were; and an origin whose place has never given any is read by its asker alone.
 *Accept:* a thing in #help gives the identities of Dana, Al and a guest; the origin's readers are Dana and Al. A later thing there gives no readers; they are still Dana and Al. A later one gives Dana alone; the readers are then Dana alone. A thing from a direct place gives none; its origin is read by its sender alone.

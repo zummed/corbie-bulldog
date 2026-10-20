@@ -52,7 +52,7 @@ func TestServerCheckListsTheWorkOffice(t *testing.T) {
 		"  disclosure check: ./no-account-numbers.yaml\n  heed: none\n",
 		"  heed: ./for-us.js, with { timeout: 5s }\n",
 		"  ledger, an agent, with the model { name: claude-opus-5-5, secret: PAYMENTS_KEY }, named usual, from Payments\n",
-		"    refund waits for a yes, decided by lee, then priya\n",
+		"    refund waits for a yes, decided by lee or priya\n",
 		"  bot, an agent, with the model { name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }, named usual, from Platform support\n",
 		"Platform (platform), within Platform support: GitLab, the pipelines and deploys.\n  people: none\n  lead: ops\n  decides everything: al, from the everything of Platform support\n",
 		"Support (support), within Platform support",

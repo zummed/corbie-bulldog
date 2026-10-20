@@ -77,18 +77,18 @@
     return [list.slice(0, FEW).map(one), more];
   }
 
-  function pass(p, team, cls) {
-    return B.el("span", {class: "rq-pass " + (cls || "")},
-      B.deciderEl(p, team),
-      p.note ? B.el("span", {class: "rq-note"}, p.note) : null,
-      B.whenEl(p.at));
+  function word(w, team, cls) {
+    return B.el("span", {class: "rq-word " + (cls || "")},
+      B.deciderEl(w, team),
+      w.note ? B.el("span", {class: "rq-note"}, w.note) : null,
+      B.whenEl(w.at));
   }
 
-  // chain gives a decision's deciders in order: those who passed, then
-  // whoever ended it, or those it waits on, the one looking first.
+  // chain gives a decision's deciders in order: those who referred it,
+  // then whoever ended it, or those it waits on, the one looking first.
   function chain(d) {
-    const links = (d.passes || []).map((p) => pass(p, d.team, "past"));
-    if (d.ended && d.by) links.push(pass(d.by, d.team, "rq-by"));
+    const links = (d.referrals || []).map((w) => word(w, d.team, "past"));
+    if (d.ended && d.by) links.push(word(d.by, d.team, "rq-by"));
     else if (!d.ended && d.asked && d.asked.length) {
       const asked = d.asked.filter(B.isMe).concat(d.asked.filter((a) => !B.isMe(a)));
       links.push(B.el("span", {class: "rq-asked"}, few(asked, B.personEl)));

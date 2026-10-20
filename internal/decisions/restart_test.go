@@ -146,7 +146,7 @@ func TestEndedDecisionCarriedThroughARestart(t *testing.T) {
 	// Bulldog stops once Sam's yes is kept, before anyone is told of it.
 	got := h.get(dec.ID)
 	got.Ended, got.Decided, got.At = decisions.Yes, h.clock.Now(), nil
-	got.By = &decisions.Pass{Kind: office.IsPerson, Name: "sam", Called: "Sam", At: h.clock.Now()}
+	got.By = &decisions.Word{Kind: office.IsPerson, Name: "sam", Called: "Sam", At: h.clock.Now()}
 	if _, err := h.db.Exec(`UPDATE decisions_decisions SET ended = 'yes', owed = 'entries', data = ? WHERE id = ?`, jsonOf(got), dec.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestEndedDecisionCarriedThroughARestart(t *testing.T) {
 	if len(h.waitingFor("sam")) != 0 {
 		t.Fatal("the change still waits on Sam")
 	}
-	has(t, h.thread(n), "decided by sam", "yes from Sam")
+	has(t, h.thread(n), "decided by sam", "approved by Sam")
 }
 
 func TestDecisionOutlivesARestart(t *testing.T) {
@@ -179,15 +179,15 @@ func TestDecisionOutlivesARestart(t *testing.T) {
 	big := h.one("ask-2", office.Top, n, fixerUp, orderPart("order_part", "cooker", 300))
 	rule := h.runner.next(t)
 	h.d.Close()
-	h.runner.endsWhileAway(rule, decisions.SaysPass, "£300 is more than I order alone.")
+	h.runner.endsWhileAway(rule, decisions.SaysRefer, "£300 is more than I order alone.")
 	h.open()
 	h.until("the walk goes on to Sam", func() bool { return len(h.waitingFor("sam")) == 1 })
 	starts := h.runner.started()
 	if len(starts) != 2 || starts[0].Step != starts[1].Step || starts[0].Labels["step"] != starts[1].Labels["step"] {
 		t.Fatalf("the rule was asked again as another run: %+v", starts)
 	}
-	if got := h.get(big.ID); len(got.Passes) != 1 {
-		t.Fatalf("the rule's pass was taken %d times", len(got.Passes))
+	if got := h.get(big.ID); len(got.Referrals) != 1 {
+		t.Fatalf("the rule's referral was taken %d times", len(got.Referrals))
 	}
 }
 
@@ -221,7 +221,7 @@ func TestDecisionWalksOnAtAReading(t *testing.T) {
 	}
 
 	id := b.ledgerAnswers(sub, "Duplicate confirmed; £40 refunded.")
-	b.runner.next(t).says(decisions.SaysPass, "0.9")
+	b.runner.next(t).says(decisions.SaysRefer, "0.9")
 	b.until("Raj is asked", func() bool { return len(b.waitingFor("raj")) == 2 })
 	b.rewrite(map[string]string{"payments/team.yaml": "name: Payments\npeople: [lee, priya]\nlead: ledger\ndecide: { everything: [raj] }\n"})
 	if l := b.let(id); !l.Disclosed {
@@ -238,7 +238,7 @@ func TestDecisionWalksOnAtAReading(t *testing.T) {
 	text := house(t)["office.yaml"]
 	h.rewrite(map[string]string{"office.yaml": strings.Replace(text, "order_part: [./small-orders.js, sam]", "order_part: [sam]", 1)})
 	rule.cancelled(t)
-	if got := h.get(order.ID); !slices.Equal(got.Asked, []string{"sam"}) || len(got.Passes) != 0 {
+	if got := h.get(order.ID); !slices.Equal(got.Asked, []string{"sam"}) || len(got.Referrals) != 0 {
 		t.Fatalf("with the rule taken off, the order is %+v", got)
 	}
 }
@@ -264,7 +264,7 @@ func TestStoppedRequestWithdrawsItsDecisions(t *testing.T) {
 	top, sub := b.helpRequest()
 	held := b.one("ask-1", "payments", sub, []string{"ledger"}, refund())
 	id := b.ledgerAnswers(sub, "Card 4111 refunded.")
-	b.runner.next(t).says(decisions.SaysPass, "0.9")
+	b.runner.next(t).says(decisions.SaysRefer, "0.9")
 	b.until("Lee is asked twice", func() bool { return len(b.waitingFor("lee")) == 2 })
 	stopped, err := b.reqs.Stop(top, b.reqs.Person("al"))
 	if err != nil {

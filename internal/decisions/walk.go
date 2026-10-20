@@ -11,9 +11,12 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/requests"
 )
 
-// A stage is one step of a walk: one rule or worker, or the people at the
+// A Stage is one step of a walk: one rule or worker, or the people at the
 // end of a list, asked all at once.
-type stage struct {
+type Stage struct {
+	// Kind is office.IsRule, office.IsWorker or IsPeople; Name is the
+	// rule's path in the office or the worker's name, and People the
+	// names of a stage of people.
 	Kind   string
 	Name   string
 	People []string
@@ -22,19 +25,18 @@ type stage struct {
 	List string
 }
 
-func (s stage) is(kind, name string) bool { return s.Kind == kind && s.Name == name }
+func (s Stage) is(kind, name string) bool { return s.Kind == kind && s.Name == name }
 
-// isPeople is the kind of a stage of people.
-const isPeople = "people"
+// IsPeople is the kind of a stage of people.
+const IsPeople = "people"
 
 // walk gives whom a decision is asked of, in order, in the office as it is
-// read: the list it is decided by, which for a call of a listed tool is
-// its entry's when its team names none for the tool, then its team's
-// everything, then the
-// everything of each team around it out to the office, as far as the
-// first people; a change, the walk it was put with. It ends at people, or
-// with nobody where none is reached; why says why.
-func walk(o *office.Office, dec *Decision) (stages []stage, why string) {
+// read: a held action, as Walk gives it for its job's key, or for a call
+// of a listed tool its entry's when its team names no list for the tool;
+// a disclosure, its team's disclosure list and on outward as Walk goes; a
+// change, the walk it was put with. It ends at people, or with nobody
+// where none is reached; why says why.
+func walk(o *office.Office, dec *Decision) (stages []Stage, why string) {
 	if dec.Kind == OfChange {
 		return listed(dec.Put.Walk, office.Top, "change", o), "nobody named on its walk is in the office"
 	}
@@ -44,24 +46,15 @@ func walk(o *office.Office, dec *Decision) (stages []stage, why string) {
 	}
 	switch dec.Kind {
 	case OfDisclosure:
-		stages = listed(t.Disclosure, t.Name, "disclosure", o)
+		stages = onward(o, t.Name, listed(t.Disclosure, t.Name, "disclosure", o))
 	case OfAction:
-		keys := []string{dec.Job.key()}
-		if dec.Job.Asked != nil && dec.Job.Asked.Entry != "" {
-			keys = append(keys, dec.Job.Asked.Entry)
-		}
-		for _, key := range keys {
-			if key == "everything" || key == "change" {
-				continue
-			}
-			if ds, ok := o.List(t.Name, key); ok {
-				stages = listed(ds, t.Name, key, o)
-				break
+		var keys []string
+		for _, key := range []string{dec.Job.key(), dec.Job.entry()} {
+			if key != "" && key != "change" {
+				keys = append(keys, key)
 			}
 		}
-	}
-	if firstPeople(stages) == nil {
-		stages = append(stages, outward(o, t.Name)...)
+		stages = Walk(o, t.Name, keys...)
 	}
 	if firstPeople(stages) == nil {
 		return stages, "nobody the lists name can be reached to decide it"
@@ -69,11 +62,36 @@ func walk(o *office.Office, dec *Decision) (stages []stage, why string) {
 	return stages, ""
 }
 
-// outward gives the stages of a team's everything, and of the everything
-// of each team around it out to the office, as far as the first that
-// names people.
-func outward(o *office.Office, team string) []stage {
-	var stages []stage
+// Walk gives whom a team's decision is asked of, in order, in the office
+// as it is read, with no decision needed: the team's list of the first
+// key it writes one of, a held job's name or a listed tool's entry, or
+// change for a change of the top team; then its everything, and the
+// everything of each team around it out to the office, as far as the
+// first that names people. Of a team not in the office it gives nothing.
+func Walk(o *office.Office, team string, keys ...string) []Stage {
+	if o.Teams[team] == nil {
+		return nil
+	}
+	var stages []Stage
+	for _, key := range keys {
+		if key == "everything" {
+			continue
+		}
+		if ds, ok := o.List(team, key); ok {
+			stages = listed(ds, team, key, o)
+			break
+		}
+	}
+	return onward(o, team, stages)
+}
+
+// onward gives the stages of a team's list and, where they reach no
+// people, those of its everything and of the everything of each team
+// around it out to the office, as far as the first that names people.
+func onward(o *office.Office, team string, stages []Stage) []Stage {
+	if firstPeople(stages) != nil {
+		return stages
+	}
 	for t := o.Teams[team]; t != nil; t = o.Teams[t.Within] {
 		got := listed(o.Everything(t.Name), t.Name, "everything", o)
 		stages = append(stages, got...)
@@ -85,9 +103,9 @@ func outward(o *office.Office, team string) []stage {
 }
 
 // firstPeople gives the people of the first stage of people.
-func firstPeople(stages []stage) []string {
+func firstPeople(stages []Stage) []string {
 	for _, s := range stages {
-		if s.Kind == isPeople {
+		if s.Kind == IsPeople {
 			return s.People
 		}
 	}
@@ -96,41 +114,41 @@ func firstPeople(stages []stage) []string {
 
 // listed gives the stages of one list: each rule and worker, then its
 // people together, those of the office alone.
-func listed(ds []office.Decider, team, list string, o *office.Office) []stage {
-	var stages []stage
+func listed(ds []office.Decider, team, list string, o *office.Office) []Stage {
+	var stages []Stage
 	var people []string
 	for _, d := range ds {
 		switch {
 		case d.Kind != office.IsPerson:
-			stages = append(stages, stage{Kind: d.Kind, Name: d.Name, Team: team, List: list})
+			stages = append(stages, Stage{Kind: d.Kind, Name: d.Name, Team: team, List: list})
 		case o.People[d.Name] != nil && !slices.Contains(people, d.Name):
 			people = append(people, d.Name)
 		}
 	}
 	if len(people) > 0 {
-		stages = append(stages, stage{Kind: isPeople, People: people, Team: team, List: list})
+		stages = append(stages, Stage{Kind: IsPeople, People: people, Team: team, List: list})
 	}
 	return stages
 }
 
 // from gives where in a walk a decision goes on: at the rule or worker it
 // waits on, where that is still on it; at its people, once it has reached
-// people; or else after the last decider on it that has passed.
-func from(stages []stage, dec *Decision) int {
+// people; or else after the last decider on it that has referred it.
+func from(stages []Stage, dec *Decision) int {
 	at := 0
 	for i, s := range stages {
-		if slices.ContainsFunc(dec.Passes, func(p Pass) bool { return s.is(p.Kind, p.Name) }) {
+		if slices.ContainsFunc(dec.Referrals, func(w Word) bool { return s.is(w.Kind, w.Name) }) {
 			at = i + 1
 		}
 	}
 	switch {
 	case dec.At == nil:
-	case dec.At.Kind == isPeople:
-		if i := slices.IndexFunc(stages, func(s stage) bool { return s.Kind == isPeople }); i >= 0 {
+	case dec.At.Kind == IsPeople:
+		if i := slices.IndexFunc(stages, func(s Stage) bool { return s.Kind == IsPeople }); i >= 0 {
 			return i
 		}
 	default:
-		if i := slices.IndexFunc(stages, func(s stage) bool { return s.is(dec.At.Kind, dec.At.Name) }); i >= 0 {
+		if i := slices.IndexFunc(stages, func(s Stage) bool { return s.is(dec.At.Kind, dec.At.Name) }); i >= 0 {
 			return i
 		}
 	}
@@ -138,25 +156,25 @@ func from(stages []stage, dec *Decision) int {
 }
 
 // next gives the stage a decision is asked of next, skipping each that has
-// passed, and false where the walk reaches nobody.
-func next(stages []stage, dec *Decision) (stage, int, bool) {
+// referred it, and false where the walk reaches nobody.
+func next(stages []Stage, dec *Decision) (Stage, int, bool) {
 	for i := from(stages, dec); i < len(stages); i++ {
 		s := stages[i]
-		if s.Kind != isPeople && slices.ContainsFunc(dec.Passes, func(p Pass) bool { return s.is(p.Kind, p.Name) }) {
+		if s.Kind != IsPeople && slices.ContainsFunc(dec.Referrals, func(w Word) bool { return s.is(w.Kind, w.Name) }) {
 			continue
 		}
 		return s, i, true
 	}
-	return stage{}, 0, false
+	return Stage{}, 0, false
 }
 
 // reach gives the people the walk comes to when every rule and worker on
-// its way passes, who may decide it while it waits.
-func reach(stages []stage, dec *Decision) []string { return firstPeople(stages[from(stages, dec):]) }
+// its way refers it, who may decide it while it waits.
+func reach(stages []Stage, dec *Decision) []string { return firstPeople(stages[from(stages, dec):]) }
 
 // ownWorker says whether a stage is the worker whose action a decision is,
 // which never decides it.
-func ownWorker(dec *Decision, s stage) bool {
+func ownWorker(dec *Decision, s Stage) bool {
 	return s.Kind == office.IsWorker && dec.Whose.Kind == requests.IsWorker && dec.Whose.Name == s.Name
 }
 
@@ -167,6 +185,14 @@ var Repeats = regexp.MustCompile(`(\.[0-9]+)?(#[0-9]+)?(@[0-9]+)?$`)
 // key gives the list a held job is decided by: its tool's name, or its
 // step's.
 func (j *Job) key() string { return Repeats.ReplaceAllString(j.Name, "") }
+
+// entry gives the list: entry a held call of a listed tool names, or "".
+func (j *Job) entry() string {
+	if j.Asked == nil {
+		return ""
+	}
+	return j.Asked.Entry
+}
 
 // args gives the arguments a held job would be given: what a model's call
 // shows, or else the job's input.

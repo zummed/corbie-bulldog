@@ -4,4 +4,4 @@ about: Charges, refunds and the ledger. Holds customer data.
 people: [lee, priya]
 lead: ledger
 decide: { everything: [lee, priya] }
-disclosure: [./no-account-numbers.yaml]    # what it passes goes to Lee or Priya
+disclosure: [./no-account-numbers.yaml]    # what it refers goes to Lee or Priya

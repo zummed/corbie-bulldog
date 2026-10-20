@@ -76,8 +76,8 @@ func (d *Decisions) Decide(ctx context.Context, id int64, by requests.Who, says,
 		if says == SaysRefuse {
 			ended = Refused
 		}
-		reply = Reply{Taken: true, Text: fmt.Sprintf("Taken: your %s on %s.", says, lower(dec.Does))}
-		err = d.end(dec, ended, d.personPass(o, person, strings.TrimSpace(note)), fx)
+		reply = Reply{Taken: true, Text: fmt.Sprintf("Taken: your %s on %s.", says, lower(dec.Does(o)))}
+		err = d.end(dec, ended, d.personWord(o, person, strings.TrimSpace(note)), fx)
 		if err != nil && dec.Ended == "" {
 			reply = Reply{Text: "Your answer was not taken, since it could not be kept, and nothing was done: try again."}
 		}
@@ -106,7 +106,7 @@ func (d *Decisions) personOf(o *office.Office, by requests.Who) string {
 // mayDecide says whether a person may decide a decision now: one of the
 // people it waits on, or of those its walk would reach.
 func (d *Decisions) mayDecide(o *office.Office, dec *Decision, person string) bool {
-	if dec.At != nil && dec.At.Kind == isPeople {
+	if dec.At != nil && dec.At.Kind == IsPeople {
 		return slices.Contains(dec.Asked, person)
 	}
 	stages, _ := walk(o, dec)
@@ -128,7 +128,7 @@ func (d *Decisions) notYours(o *office.Office, dec *Decision, person string) str
 		return "Not taken: you are no longer asked to decide it."
 	}
 	asked := dec.Asked
-	if dec.At == nil || dec.At.Kind != isPeople {
+	if dec.At == nil || dec.At.Kind != IsPeople {
 		stages, _ := walk(o, dec)
 		asked = reach(stages, dec)
 	}

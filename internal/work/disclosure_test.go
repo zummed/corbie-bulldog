@@ -68,7 +68,7 @@ func TestWhatAToolSaysOutsideItsTeamIsDisclosedFirst(t *testing.T) {
 	n := b.chat("dana", "", "customer 4411 was charged twice")
 	sub := b.waitsOn(n, requests.KindSub).Sub
 
-	// The question to platform names a card: the rule passes it, and it
+	// The question to platform names a card: the rule refers it, and it
 	// waits on Lee and Priya, asked of nobody yet.
 	first := b.disclosing(sub, decisions.SaysSub)
 	if subs := b.entries(sub, requests.KindSub); len(subs) != 0 {
@@ -194,14 +194,14 @@ func TestARuleNamingItsHostReachesIt(t *testing.T) {
 	s.leaks = 0.9
 	s.mu.Unlock()
 
-	// Told it may leak, the rule passes with its view, and Lee and Priya
+	// Told it may leak, the rule refers with its view, and Lee and Priya
 	// are asked, shown it.
 	other, err := b.reqs.Sub(n, b.reqs.Worker("bot"), "payments", "and the card?", "ticket-2")
 	if err != nil {
 		t.Fatal(err)
 	}
 	dec := b.disclosing(other.Number, decisions.SaysAnswer)
-	if len(dec.Passes) != 1 || !strings.Contains(dec.Passes[0].Note, "0.90") || strings.Join(dec.Asked, ",") != "lee,priya" {
+	if len(dec.Referrals) != 1 || !strings.Contains(dec.Referrals[0].Note, "0.90") || strings.Join(dec.Asked, ",") != "lee,priya" {
 		t.Errorf("the disclosure stands as %+v", dec)
 	}
 	if decide := b.waitsOn(other.Number, decisions.KindDecide); !strings.Contains(decide.Text, "0.90") {

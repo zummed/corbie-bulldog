@@ -135,7 +135,7 @@ func TestEveryoneElseAskedIsToldItIsDecided(t *testing.T) {
 	}
 	records := b.entries(sub, decisions.KindDecision)
 	last := records[len(records)-1]
-	if last.Text != "Refund one charge: yes from Lee, 10:00" || len(last.To) != 1 || last.To[0].Name != "priya" {
+	if last.Text != "Refund one charge: approved by Lee, 10:00" || len(last.To) != 1 || last.To[0].Name != "priya" {
 		t.Fatalf("the last record is %+v", last)
 	}
 	ds, err := b.reqs.Deliveries(last.ID)
@@ -206,7 +206,7 @@ func TestDecisionsPersonCancelsRuleInFlight(t *testing.T) {
 	b.decide(dec.ID, "sam", decisions.SaysYes, "")
 	rule.cancelled(t)
 	b.d.Close()
-	if got := b.get(dec.ID); got.Ended != decisions.Yes || got.By.Name != "sam" || len(got.Passes) != 0 {
+	if got := b.get(dec.ID); got.Ended != decisions.Yes || got.By.Name != "sam" || len(got.Referrals) != 0 {
 		t.Fatalf("the decision is %+v", got)
 	}
 }
@@ -227,7 +227,7 @@ func TestDecisionsOutsideDeciderSeesOnlyTheDecision(t *testing.T) {
 	hasNo(t, seen, "card 4111")
 	hasNo(t, seen, "after Tuesday's release")
 	b.decide(dec.ID, "raj", decisions.SaysYes, "")
-	has(t, b.seen(sub, "raj"), "decided: yes from Raj")
+	has(t, b.seen(sub, "raj"), "decided: approved by Raj")
 }
 
 func TestDecisionsDetailsOnlyByDirectMessage(t *testing.T) {
@@ -258,7 +258,7 @@ func TestDecisionEntriesAreByTheDeciderToWhoseItIs(t *testing.T) {
 	dec := b.one("ask-1", "payments", sub, []string{"ledger"}, refund())
 	b.decide(dec.ID, "lee", decisions.SaysYes, "")
 	e := b.entries(sub, decisions.KindDecided)[0]
-	if e.By.Name != "lee" || len(e.To) != 1 || e.To[0].Name != "ledger" || e.Text != "yes from Lee." {
+	if e.By.Name != "lee" || len(e.To) != 1 || e.To[0].Name != "ledger" || e.Text != "approved by Lee." {
 		t.Fatalf("the decision's entry is %+v", e)
 	}
 	b.runner.answers(func(s decisions.Start) (string, error, bool) {
@@ -306,12 +306,12 @@ func TestWhatWasDoneHoldsTheDecision(t *testing.T) {
 	b.clock.Move(2 * 60e9)
 	b.decide(dec.ID, "lee", decisions.SaysYes, "seen it before")
 	dana = b.seen(sub, "dana")
-	has(t, dana, "decision: Refund one charge: yes from Lee, 10:02")
+	has(t, dana, "decision: Refund one charge: approved by Lee, 10:02")
 	for _, word := range []string{"ch_9", "duplicate of ch_8", "seen it before"} {
 		hasNo(t, dana, word)
 	}
 	lee := b.seen(sub, "lee")
-	for _, word := range []string{"ch_9", "duplicate of ch_8", "seen it before", "Refund one charge: yes from Lee, 10:02"} {
+	for _, word := range []string{"ch_9", "duplicate of ch_8", "seen it before", "Refund one charge: approved by Lee, 10:02"} {
 		has(t, lee, word)
 	}
 	if v, err := b.reqs.View(top, "dana"); err != nil || len(v.Subs) != 1 {
@@ -339,7 +339,7 @@ func TestPersonShownTheHeldAction(t *testing.T) {
 	n := h.chat("kit", office.Top, "a new cooker")
 	h.one("ask-1", office.Top, n, fixerUp, orderPart("order_part", "cooker", 300))
 	h.until("Sam is asked", func() bool { return len(h.waitingFor("sam")) == 1 })
-	if text := h.waitingFor("sam")[0].Text; !strings.Contains(text, "small-orders.js passed it on: £300 is more than I order alone.") {
-		t.Fatalf("Sam is not shown the rule's pass: %s", text)
+	if text := h.waitingFor("sam")[0].Text; !strings.Contains(text, "small-orders.js referred it: £300 is more than I order alone.") {
+		t.Fatalf("Sam is not shown the rule's referral: %s", text)
 	}
 }

@@ -126,7 +126,7 @@ func TestAStopEndsTheAskOfAHeldJob(t *testing.T) {
 	b.settled(n, requests.Answered)
 }
 
-func TestARuleThatTakesTooLongPasses(t *testing.T) {
+func TestARuleThatTakesTooLongRefers(t *testing.T) {
 	t.Parallel()
 	files := house(t)
 	files["office.yaml"] = strings.Replace(files["office.yaml"], "order_part: [./small-orders.js, sam]", "order_part: [./slow.yaml, sam]", 1)
@@ -144,8 +144,8 @@ func TestARuleThatTakesTooLongPasses(t *testing.T) {
 	})
 	b.later(decisions.RuleLimit)
 	dec := b.held(n)
-	if len(dec.Passes) != 1 || !strings.Contains(dec.Passes[0].Note, "did not end within 15 minutes") {
-		t.Errorf("the rule's word is %+v", dec.Passes)
+	if len(dec.Referrals) != 1 || !strings.Contains(dec.Referrals[0].Note, "did not end within 15 minutes") {
+		t.Errorf("the rule's word is %+v", dec.Referrals)
 	}
 	if ended := b.corbie.Ended(t, rule.ID); ended.Status != "cancelled" {
 		t.Errorf("the rule's run ended %s", ended.Status)

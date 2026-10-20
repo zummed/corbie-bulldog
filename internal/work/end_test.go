@@ -135,12 +135,12 @@ func TestAnEmptyAnswerAtAChannelPlaceSaysNothing(t *testing.T) {
 }
 
 // payments is the work office with a disclosure check that is a bare
-// script: it lets go what names no card, and passes the rest to Lee or
+// script: it lets go what names no card, and refers the rest to Lee or
 // Priya.
 func payments(t *testing.T) map[string]string {
 	files := work(t)
 	files["payments/team.yaml"] = strings.Replace(files["payments/team.yaml"], "disclosure: [./no-account-numbers.yaml]", "disclosure: [./no-cards.js]", 1)
-	files["payments/no-cards.js"] = `if (String(input.text).includes("4111")) return { says: "pass", note: "It names a card." }
+	files["payments/no-cards.js"] = `if (String(input.text).includes("4111")) return { says: "refer", note: "It names a card." }
 return { says: "yes", note: "No card." }
 `
 	return files
@@ -230,7 +230,7 @@ func TestAnAnswerLeavingATeamWithADisclosureCheckWaitsForIt(t *testing.T) {
 	})
 	n := b.chat("al", "", "customer 4411 was charged twice")
 	sub := b.waitsOn(n, requests.KindSub).Sub
-	// The rule passes it to Lee and Priya; nothing leaves payments, and
+	// The rule refers it to Lee and Priya; nothing leaves payments, and
 	// the bot's tool still waits.
 	dec := b.disclosing(sub, decisions.SaysAnswer)
 	if answers := b.entries(sub, requests.KindAnswer); len(answers) != 0 {

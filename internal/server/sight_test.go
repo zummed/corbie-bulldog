@@ -227,7 +227,7 @@ func TestServerToolToldByWhereItResolves(t *testing.T) {
 		{"office", "fixer", []toolOut{
 			{Name: "sparks", Does: "Which circuit is what", Kind: "worker", Worker: "sparks", File: "sparks.yaml"},
 			{Name: "cut_power", Does: "Turn one circuit off", Kind: "script", File: "tools/cut-power.js", Waits: true, Deciders: []deciderOut{{Kind: "person", Name: "sam"}}},
-			{Name: "order_part", Does: "Order a part", Kind: "script", File: "tools/order.js", Waits: true, Deciders: []deciderOut{{Kind: "rule", Name: "./small-orders.js"}, {Kind: "person", Name: "sam"}}},
+			{Name: "order_part", Does: "Order a part", Kind: "script", File: "tools/order.js", Waits: true, Deciders: []deciderOut{{Kind: "rule", Name: "small-orders.js"}, {Kind: "person", Name: "sam"}}},
 		}},
 		{"garden", "gardener", []toolOut{
 			{Name: "groundsman", Does: "Heavy work in the garden: digging, mowing and the shed", Kind: "worker", Worker: "groundsman", File: "garden/groundsman.yaml"},
@@ -311,7 +311,7 @@ func TestServerRequestsSeenAsRequestsSay(t *testing.T) {
 		t.Errorf("Dana sees her request as %s", view.body)
 	}
 	sub := d.s.as("dana").get("/api/requests/" + itoa(d.payments)).is(http.StatusOK)
-	if !strings.Contains(string(sub.body), "Refund one charge, by its id: yes from Lee") {
+	if !strings.Contains(string(sub.body), "Refund one charge, by its id: approved by Lee") {
 		t.Errorf("Dana does not see the refund decided: %s", sub.body)
 	}
 	for _, r := range []reply{view, sub} {
@@ -487,18 +487,18 @@ func TestServerDeciderGivenWithItsTeam(t *testing.T) {
 	t.Parallel()
 	files := house(t)
 	// The garden's reviewer decides the house's orders after the
-	// small-orders rule, and passes them to Sam.
+	// small-orders rule, and refers them to Sam.
 	files["garden/reviewer.yaml"] = `agent: reviewer
 input: [said]
 model: usual
-system: You review what is ordered. End with { "says": "yes", "refuse" or "pass", "note": why }.
+system: You review what is ordered. End with { "says": "yes", "refuse" or "refer", "note": why }.
 prompt: ${input.said}
 `
 	files["office.yaml"] = strings.Replace(files["office.yaml"], "order_part: [./small-orders.js, sam]", "order_part: [./small-orders.js, reviewer, sam]", 1)
 	b := newBench(t, files)
 	b.says(func(turn testkit.Turn) testkit.Reply {
 		if strings.Contains(turn.System, "You review what is ordered") {
-			return testkit.Say(`{ "says": "pass", "note": "For Sam." }`)
+			return testkit.Say(`{ "says": "refer", "note": "For Sam." }`)
 		}
 		return playHouse(turn)
 	})
@@ -510,13 +510,18 @@ prompt: ${input.said}
 	if !slices.Equal(list.Deciders, want) {
 		t.Errorf("Sam is given the house's order_part as %+v", list.Deciders)
 	}
+	want[0].Name = "small-orders.js"
+	fixer := whole.Workers[slices.IndexFunc(whole.Workers, func(w workerOut) bool { return w.Name == "fixer" })]
+	if tool := fixer.Tools[slices.IndexFunc(fixer.Tools, func(t toolOut) bool { return t.Name == "order_part" })]; !slices.Equal(tool.Deciders, want) {
+		t.Errorf("Sam is given the fixer's order_part as decided by %+v", tool.Deciders)
+	}
 
 	n := numbered(s.as("kit").post("/api/requests", map[string]string{"text": "the boiler pump is dead"}))
 	s.waitsOn(n, "sam")
 	var v struct{ Decisions []decisionOut }
 	s.as("sam").get("/api/requests/" + itoa(n)).is(http.StatusOK).into(&v)
-	if len(v.Decisions) != 1 || len(v.Decisions[0].Passes) != 2 || v.Decisions[0].Passes[1].Name != "reviewer" || v.Decisions[0].Passes[1].Team != "garden" ||
-		v.Decisions[0].Passes[0].Team != "" {
+	if len(v.Decisions) != 1 || len(v.Decisions[0].Referrals) != 2 || v.Decisions[0].Referrals[1].Name != "reviewer" || v.Decisions[0].Referrals[1].Team != "garden" ||
+		v.Decisions[0].Referrals[0].Team != "" {
 		t.Errorf("Sam is shown the order as %+v", v.Decisions)
 	}
 }

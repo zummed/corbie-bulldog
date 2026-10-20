@@ -210,7 +210,7 @@ func TestServerTheHousesDay(t *testing.T) {
 
 	// 4. The order is the small-orders rule's to say yes to, and Sam is
 	// asked nothing of it.
-	kit.until(n, "has the order decided", func(v viewOut) bool { return strings.Contains(v.all(), "Order a part: yes from") })
+	kit.until(n, "has the order decided", func(v viewOut) bool { return strings.Contains(v.all(), "Order a part: approved by") })
 
 	// 5. The fixer asks Kit to say when the socket arrives: the request
 	// waits on Kit until Thursday.
@@ -239,7 +239,7 @@ func TestServerTheHousesDay(t *testing.T) {
 	if last := v.Entries[len(v.Entries)-1]; last.Kind != requests.KindAnswer || last.By.Name != "steward" || last.Text != "The kitchen socket is mended, and circuit 4 is back on." {
 		t.Errorf("Kit is answered %+v", last)
 	}
-	holds(t, "what was done", v.all(), "Turn one circuit off: yes from Sam", "Order a part: yes from", "The socket came today.")
+	holds(t, "what was done", v.all(), "Turn one circuit off: approved by Sam", "Order a part: approved by", "The socket came today.")
 
 	// What the house read is seen by its people, and its runs watched by
 	// them; nobody else is shown anything.
@@ -288,19 +288,19 @@ func TestServerTheHousesDay(t *testing.T) {
 }
 
 // refundsDay gives the work office as its day goes: the ledger's refund
-// is passed by a rule to Lee or Priya, and payments' disclosure check is a
-// rule that passes on anything that names a card's or an account's
+// is referred by a rule to Lee or Priya, and payments' disclosure check is a
+// rule that refers anything that names a card's or an account's
 // number, and lets the rest go. Nothing stands in for the ledger's
 // service, so its tools reach nothing: what the stand-in says of the
 // charges and the refund is the whole of them.
 func refundsDay(t *testing.T) map[string]string {
 	files := refundOffice(t)
-	files["payments/disclosure.js"] = `if (/(\d[ -]?){8,19}/.test(input.text)) return { says: "pass", note: "It names a number that may be an account's." }
+	files["payments/disclosure.js"] = `if (/(\d[ -]?){8,19}/.test(input.text)) return { says: "refer", note: "It names a number that may be an account's." }
 return { says: "yes" }
 `
 	files["payments/team.yaml"] = strings.Replace(files["payments/team.yaml"], "decide: { everything: [lee, priya] }",
 		"decide: { everything: [lee, priya], refund: [./refunds.js, lee, priya] }", 1)
-	files["payments/refunds.js"] = `return { says: "pass", note: "A refund of " + input.action.args.charge + " is for Lee or Priya." }` + "\n"
+	files["payments/refunds.js"] = `return { says: "refer", note: "A refund of " + input.action.args.charge + " is for Lee or Priya." }` + "\n"
 	return files
 }
 
@@ -333,7 +333,7 @@ func TestServerTheWorkOfficesRefundDay(t *testing.T) {
 	platform, payments := s.subOf(n, "platform"), s.subOf(n, "payments")
 	s.answered(platform)
 
-	// 4. The ledger asks to refund the second charge: the rule passes it
+	// 4. The ledger asks to refund the second charge: the rule refers it
 	// on, with its note, and Lee and Priya are asked on Slack and on the
 	// screens. Lee says yes on the screens.
 	b.deliver("slack", "U0LEE000", "Refund one charge")
@@ -345,8 +345,8 @@ func TestServerTheWorkOfficesRefundDay(t *testing.T) {
 		}
 	}
 	refund := lee.view(payments).Decisions
-	if len(refund) != 1 || !refund[0].Mine || refund[0].Kind != decisions.OfAction || len(refund[0].Passes) != 1 ||
-		refund[0].Passes[0].Note != "A refund of ch_2 is for Lee or Priya." || !slices.Equal(refund[0].Asked, []string{"lee", "priya"}) {
+	if len(refund) != 1 || !refund[0].Mine || refund[0].Kind != decisions.OfAction || len(refund[0].Referrals) != 1 ||
+		refund[0].Referrals[0].Note != "A refund of ch_2 is for Lee or Priya." || !slices.Equal(refund[0].Asked, []string{"lee", "priya"}) {
 		t.Fatalf("Lee is shown the refund as %+v", refund)
 	}
 	if d := dana.view(payments).Decisions; len(d) != 0 {
@@ -367,7 +367,7 @@ func TestServerTheWorkOfficesRefundDay(t *testing.T) {
 	// and the answer leaves payments.
 	s.answered(payments)
 
-	holds(t, "Lee's view of payments' request", lee.view(payments).all(), "to disclose: yes from disclosure.js")
+	holds(t, "Lee's view of payments' request", lee.view(payments).all(), "to disclose: approved by disclosure.js")
 
 	// 6. The bot's answer lands in Dana's thread.
 	s.answered(n)
@@ -390,7 +390,7 @@ func TestServerTheWorkOfficesRefundDay(t *testing.T) {
 			t.Errorf("%s is shown the sub-requests answered %v", p, subs)
 		}
 		sub := people[p].view(payments)
-		holds(t, p+"'s view of payments' request", sub.all(), "Refund one charge, by its id: yes from Lee", "Duplicate confirmed; £40 refunded.")
+		holds(t, p+"'s view of payments' request", sub.all(), "Refund one charge, by its id: approved by Lee", "Duplicate confirmed; £40 refunded.")
 		raw := string(people[p].get("/api/requests/" + itoa(payments)).body)
 		holdsNone(t, p+"'s view of payments' request", raw, "4111", "a duplicate.")
 		if sub.Read || sub.Records != nil || sub.Runs != nil {

@@ -123,35 +123,36 @@ type (
 		Why    string `json:"why,omitempty"`
 	}
 	decisionOut struct {
-		ID     int64     `json:"id"`
-		Kind   string    `json:"kind"`
-		Team   string    `json:"team"`
-		Does   string    `json:"does"`
-		Asked  []string  `json:"asked"`
-		Passes []passOut `json:"passes"`
-		Ended  string    `json:"ended,omitempty"`
-		By     *passOut  `json:"by,omitempty"`
-		Why    string    `json:"why,omitempty"`
-		Mine   bool      `json:"mine"`
+		ID        int64     `json:"id"`
+		Kind      string    `json:"kind"`
+		Team      string    `json:"team"`
+		Does      string    `json:"does"`
+		Asked     []string  `json:"asked"`
+		Referrals []wordOut `json:"referrals"`
+		Ended     string    `json:"ended,omitempty"`
+		By        *wordOut  `json:"by,omitempty"`
+		Why       string    `json:"why,omitempty"`
+		Mine      bool      `json:"mine"`
 	}
-	// passOut is a decider's word, with the team a worker is of.
-	passOut struct {
-		decisions.Pass
+	// wordOut is a decider's word, with the team a worker is of.
+	wordOut struct {
+		decisions.Word
 		Team string `json:"team,omitempty"`
 	}
 )
 
-// decisionOf gives a decision as the one looking was asked it, each
-// worker that passed or ended it with the team it is of.
+// decisionOf gives a decision as the one looking was asked it, built from
+// the office as read now, each worker that referred or ended it with the
+// team it is of.
 func decisionOf(o *office.Office, d *decisions.Decision, person string) decisionOut {
-	out := decisionOut{ID: d.ID, Kind: d.Kind, Team: d.Team, Does: d.Does, Asked: orEmpty(d.Asked), Passes: []passOut{},
+	out := decisionOut{ID: d.ID, Kind: d.Kind, Team: d.Team, Does: d.Does(o), Asked: orEmpty(d.Asked), Referrals: []wordOut{},
 		Ended: d.Ended, Why: d.Why, Mine: d.Ended == "" && slices.Contains(d.Asked, person)}
-	pass := func(p decisions.Pass) passOut { return passOut{Pass: p, Team: teamOfWorker(o, p.Kind, p.Name)} }
-	for _, p := range d.Passes {
-		out.Passes = append(out.Passes, pass(p))
+	word := func(w decisions.Word) wordOut { return wordOut{Word: w, Team: teamOfWorker(o, w.Kind, w.Name)} }
+	for _, w := range d.Referrals {
+		out.Referrals = append(out.Referrals, word(w))
 	}
 	if d.By != nil {
-		by := pass(*d.By)
+		by := word(*d.By)
 		out.By = &by
 	}
 	return out

@@ -27,12 +27,12 @@ func TestRuleStartedWithTheDecision(t *testing.T) {
 	request := in["request"].(map[string]any)
 	if in["kind"] != decisions.OfAction || in["team"] != office.Top || request["number"] != n || request["asker"] != "Kit" ||
 		action["name"] != "order_part" || action["does"] != "Order a part" || action["args"].(map[string]any)["pounds"] != 12.0 ||
-		in["said"] != "A new socket is needed." || len(in["passes"].([]map[string]any)) != 0 || len(in["pass_goes_to"].([]map[string]any)) != 1 {
+		in["said"] != "A new socket is needed." || len(in["referrals"].([]map[string]any)) != 0 || len(in["referral_goes_to"].([]map[string]any)) != 1 {
 		t.Fatalf("the rule is given %v", in)
 	}
 	c.says(decisions.SaysYes, "Under £20.")
 	b.ended(dec.ID)
-	has(t, b.thread(n), "decided by small-orders.js", "yes from small-orders.js: Under £20.")
+	has(t, b.thread(n), "decided by small-orders.js", "approved by small-orders.js: Under £20.")
 
 	w := newBench(t, work(t))
 	_, sub := w.helpRequest()
@@ -63,7 +63,7 @@ func TestRuleResultReadByItsThreshold(t *testing.T) {
 			if c.leaks < 0.05 {
 				return `{"says":"yes","note":"No account number."}`, nil, true
 			}
-			return fmt.Sprintf(`{"says":"pass","note":"It may name an account number, %.2f."}`, c.leaks), nil, true
+			return fmt.Sprintf(`{"says":"refer","note":"It may name an account number, %.2f."}`, c.leaks), nil, true
 		})
 		id, err := b.d.Disclose(ctx, decisions.Said{What: decisions.SaysAnswer, Request: sub, By: b.reqs.Worker("ledger"), Text: "Refunded."})
 		if err != nil {
@@ -82,7 +82,7 @@ func TestRuleResultReadByItsThreshold(t *testing.T) {
 	}
 }
 
-func TestDecisionsFailedDeciderPasses(t *testing.T) {
+func TestDecisionsFailedDeciderRefers(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, withDecide(t, "decide:\n  everything: [sam]\n  cut_power: [./a.js, sam]\n  order_part: [reviewer, sam]"))
 	n := b.chat("kit", office.Top, "the kitchen socket sparked")
@@ -95,7 +95,8 @@ func TestDecisionsFailedDeciderPasses(t *testing.T) {
 		{func(c *call) {
 			c.out <- reply{err: fmt.Errorf("%w: there is no file a.js in the office", decisions.ErrNotStarted)}
 		}, "it could not be started: there is no file a.js in the office"},
-		{func(c *call) { c.out <- reply{out: `{"ok":true}`} }, `its answer was not a decision, which is { says: yes, refuse or pass, note }: {"ok":true}`},
+		{func(c *call) { c.out <- reply{out: `{"ok":true}`} }, `its answer was not a decision, which is { says: yes, refuse or refer, note }: {"ok":true}`},
+		{func(c *call) { c.out <- reply{out: `{"says":"pass"}`} }, `its answer was not a decision, which is { says: yes, refuse or refer, note }: {"says":"pass"}`},
 	}
 	for i, c := range cases {
 		run := fmt.Sprint("ask-", i)
@@ -103,10 +104,10 @@ func TestDecisionsFailedDeciderPasses(t *testing.T) {
 		call := b.runner.next(t)
 		c.end(call)
 		b.until("the walk reaches Sam", func() bool { return slices.Equal(b.get(dec.ID).Asked, []string{"sam"}) })
-		if got := b.get(dec.ID).Passes; len(got) != 1 || !strings.HasPrefix(got[0].Note, c.note) {
-			t.Fatalf("case %d passes %+v", i, got)
+		if got := b.get(dec.ID).Referrals; len(got) != 1 || !strings.HasPrefix(got[0].Note, c.note) {
+			t.Fatalf("case %d refers %+v", i, got)
 		}
-		has(t, b.thread(n), "pass from a.js: "+c.note)
+		has(t, b.thread(n), "referred by a.js: "+c.note)
 	}
 	dec := b.one("ask-worker", office.Top, n, fixerUp, orderPart("order_part", "cooker", 300))
 	worker := b.runner.next(t)
@@ -119,12 +120,12 @@ func TestDecisionsFailedDeciderPasses(t *testing.T) {
 	b.due()
 	worker.cancelled(t)
 	b.until("the walk reaches Sam", func() bool { return slices.Equal(b.get(dec.ID).Asked, []string{"sam"}) })
-	if got := b.get(dec.ID).Passes; !strings.Contains(got[0].Note, "within an hour") {
-		t.Fatalf("the worker passes %+v", got)
+	if got := b.get(dec.ID).Referrals; !strings.Contains(got[0].Note, "within an hour") {
+		t.Fatalf("the worker refers %+v", got)
 	}
 }
 
-// due passes what has run too long, as work does each time its clock moves.
+// due refers what has run too long, as work does each time its clock moves.
 func (b *bench) due() {
 	b.t.Helper()
 	if err := b.d.Due(ctx); err != nil {
@@ -148,13 +149,13 @@ func TestWorkerDecidesFromItsReply(t *testing.T) {
 	free := b.one("ask-2", office.Top, n, fixerUp, cutPower("4"))
 	b.runner.next(t).out <- reply{out: jsonOf("I think it is fine.")}
 	b.until("the walk reaches Sam", func() bool { return len(b.get(free.ID).Asked) == 1 })
-	has(t, b.thread(n), "pass from reviewer: its answer was not a decision")
+	has(t, b.thread(n), "referred by reviewer: its answer was not a decision")
 
 	// A long reply is cut between letters, never inside one.
 	long := b.one("ask-3", office.Top, n, fixerUp, cutPower("5"))
 	b.runner.next(t).out <- reply{out: jsonOf(strings.Repeat("Über ", 100))}
 	b.until("the walk reaches Sam", func() bool { return len(b.get(long.ID).Asked) == 1 })
-	if note := b.get(long.ID).Passes[0].Note; !utf8.ValidString(note) || !strings.HasSuffix(note, "…") {
+	if note := b.get(long.ID).Referrals[0].Note; !utf8.ValidString(note) || !strings.HasSuffix(note, "…") {
 		t.Fatalf("the reply is cut as %q", note)
 	}
 
@@ -185,7 +186,7 @@ func TestDecisionsRuleGetsNoGrant(t *testing.T) {
 	}
 	c.out <- reply{err: errors.New("the job was denied: net:shop.example is not allowed; add net:shop.example to the job's allow")}
 	b.until("the walk reaches Sam", func() bool { return len(b.get(dec.ID).Asked) == 1 })
-	has(t, b.thread(n), "pass from small-orders.js: it failed: the job was denied: net:shop.example is not allowed")
+	has(t, b.thread(n), "referred by small-orders.js: it failed: the job was denied: net:shop.example is not allowed")
 }
 
 func TestDecisionsWorkerDeciderRunBelongsToTeamDecidedFor(t *testing.T) {
@@ -228,15 +229,15 @@ func TestDecisionsDeciderResultTakenOnceFromItsRun(t *testing.T) {
 	n = b.chat("kit", office.Top, "a new cooker")
 	dec = b.one("ask-1", office.Top, n, fixerUp, orderPart("order_part", "cooker", 300))
 	rule = b.runner.next(t)
-	b.runner.endsWhileAway(rule, decisions.SaysPass, "£300 is more than I order alone.")
-	rule.says(decisions.SaysPass, "£300 is more than I order alone.")
-	b.until("the pass is taken", func() bool { return len(b.get(dec.ID).Passes) == 1 })
+	b.runner.endsWhileAway(rule, decisions.SaysRefer, "£300 is more than I order alone.")
+	rule.says(decisions.SaysRefer, "£300 is more than I order alone.")
+	b.until("the referral is taken", func() bool { return len(b.get(dec.ID).Referrals) == 1 })
 	b.restart()
 	b.d.Close()
-	if got := b.get(dec.ID); len(got.Passes) != 1 || !slices.Equal(got.Asked, []string{"sam"}) {
-		t.Fatalf("the rule's one pass was taken %d times: %+v", len(got.Passes), got)
+	if got := b.get(dec.ID); len(got.Referrals) != 1 || !slices.Equal(got.Asked, []string{"sam"}) {
+		t.Fatalf("the rule's one referral was taken %d times: %+v", len(got.Referrals), got)
 	}
-	if got := b.entries(n, decisions.KindPassed); len(got) != 1 {
-		t.Fatalf("the thread holds %d passes", len(got))
+	if got := b.entries(n, decisions.KindReferred); len(got) != 1 {
+		t.Fatalf("the thread holds %d referrals", len(got))
 	}
 }

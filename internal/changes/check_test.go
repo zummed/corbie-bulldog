@@ -113,7 +113,7 @@ func TestChangesAWorkerCannotChangeThePeople(t *testing.T) {
 func TestChangesAWorkerCannotChangeWhoDecidesAChange(t *testing.T) {
 	t.Parallel()
 	files := house(t)
-	files["no-secrets.js"] = "return { says: \"pass\", note: \"looked\" }\n"
+	files["no-secrets.js"] = "return { says: \"refer\", note: \"looked\" }\n"
 	files["reviewer.yaml"] = "agent: reviewer\ninput: [said]\nmodel: usual\nsystem: You review.\nprompt: ${input.said}\n"
 	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  change: [./no-secrets.js, reviewer, sam]\n", 1)
 	f := newOffice(t, files)

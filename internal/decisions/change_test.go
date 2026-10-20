@@ -114,8 +114,8 @@ func TestChangeIsADecisionOfTheTopTeam(t *testing.T) {
 	if history[0].DecidedBy != "sam" || history[0].By != "builder" {
 		t.Fatalf("the newest commit is %+v", history[0])
 	}
-	has(t, b.thread(n), "decided by sam", "yes from Sam")
-	has(t, b.seen(n, "kit"), "Name Kit in the garden: yes from Sam")
+	has(t, b.thread(n), "decided by sam", "approved by Sam")
+	has(t, b.seen(n, "kit"), "Name Kit in the garden: approved by Sam")
 }
 
 func TestRefusedChangeNotWritten(t *testing.T) {
@@ -146,12 +146,12 @@ func TestChangeWalkedOverItsList(t *testing.T) {
 	n := b.chat("kit", office.Top, "let me into the garden")
 	dec := b.draft(n, "Name Kit in the garden", kitInTheGarden(t))
 	r := b.runner.next(t)
-	if r.Name != "no-secrets.js" || r.Input["kind"] != decisions.OfChange || !strings.Contains(r.Input["ends"].(string), "your yes is taken as a pass") {
+	if r.Name != "no-secrets.js" || r.Input["kind"] != decisions.OfChange || !strings.Contains(r.Input["ends"].(string), "your yes is taken as a referral") {
 		t.Fatalf("the change is put to %s, given %v", r.Name, r.Input)
 	}
 	r.says(decisions.SaysYes, "no secret in it")
 	b.until("Sam is asked", func() bool { return len(b.waitingFor("sam")) == 1 })
-	if got := b.get(dec.ID); got.Ended != "" || !strings.Contains(got.Passes[0].Note, "only a person's yes approves a change") {
+	if got := b.get(dec.ID); got.Ended != "" || !strings.Contains(got.Referrals[0].Note, "only a person's yes approves a change") {
 		t.Fatalf("a rule's yes on a change ended it: %+v", got)
 	}
 	b.decide(dec.ID, "sam", decisions.SaysYes, "")
@@ -171,7 +171,7 @@ func TestPersonsOwnChangeDecidedByTheirYes(t *testing.T) {
 	t.Parallel()
 	files := house(t)
 	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  change: [./no-secrets.js, sam]\n", 1)
-	files["no-secrets.js"] = `return { says: "pass" }`
+	files["no-secrets.js"] = `return { says: "refer" }`
 	b := newBench(t, files)
 	p := b.putOwn("sam", "Kit helps in the garden")
 	b.runner.next(t).says(decisions.SaysRefuse, "not today")
@@ -179,7 +179,7 @@ func TestPersonsOwnChangeDecidedByTheirYes(t *testing.T) {
 		t.Fatalf("Sam's own change ended %+v", o)
 	}
 	p = b.putOwn("sam", "Kit helps in the garden, again")
-	b.runner.next(t).says(decisions.SaysPass, "")
+	b.runner.next(t).says(decisions.SaysRefer, "")
 	if o := b.outcome(p.ID); o.Ended != changes.Written || o.Decider != "sam" {
 		t.Fatalf("Sam's own change ended %+v", o)
 	}

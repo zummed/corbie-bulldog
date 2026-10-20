@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/zummed/corbie-bulldog/internal/changes"
+	"github.com/zummed/corbie-bulldog/internal/decisions"
 	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/work"
 )
@@ -243,9 +244,9 @@ type (
 	// toolOut is a tool with what it does and what its job is: a worker
 	// of the same team, named; another machine or a script, by its file;
 	// or one of the tools Bulldog ships. One that waits for a yes gives
-	// who decides it, in order, as the team file names them, and none
-	// when nobody does and what waits on it is refused; one that does not
-	// wait gives no list at all. A listed tool is a list: entry, which
+	// who decides it, in the order its walk asks them, and none when
+	// nobody does and what waits on it is refused; one that does not wait
+	// gives no list at all. A listed tool is a list: entry, which
 	// stands for the tools its server lists.
 	toolOut struct {
 		Name     string       `json:"name"`
@@ -432,7 +433,7 @@ func workerOf(o *office.Office, w *office.Worker) (workerOut, error) {
 	for _, tool := range w.Held {
 		t := toolOut{Name: tool.Name, Does: tool.Does, Kind: tool.Kind, Worker: tool.Worker, File: tool.File, Listed: tool.Listed, Waits: waits[tool.Name]}
 		if t.Waits {
-			t.Deciders = decidersOf(o, w.Team, tool.Name)
+			t.Deciders = walked(o, w.Team, tool.Name)
 		}
 		out.Tools = append(out.Tools, t)
 	}
@@ -461,19 +462,19 @@ func (s *site) atWork(team string) ([]atWork, error) {
 	return out, nil
 }
 
-// decidersOf gives who decides a key of a team, in order, each as the
-// team file names them: its list of that key, else its everything, else
-// the people its decisions reach from a team around it.
-func decidersOf(o *office.Office, team, key string) []deciderOut {
-	if list, ok := o.List(team, key); ok && key != "everything" {
-		return writtenAll(o, list)
-	}
-	if deciders := o.Everything(team); len(deciders) > 0 {
-		return writtenAll(o, deciders)
-	}
+// walked gives who decides a key of a team, in the order the walk asks
+// them: each rule, by its path in the office, and each worker, with the
+// team it is of, then each person of the people it ends at.
+func walked(o *office.Office, team, key string) []deciderOut {
 	out := []deciderOut{}
-	for _, name := range o.Reached(team) {
-		out = append(out, deciderOut{Kind: office.IsPerson, Name: name})
+	for _, s := range decisions.Walk(o, team, key) {
+		if s.Kind != decisions.IsPeople {
+			out = append(out, deciderOut{Kind: s.Kind, Name: s.Name, Team: teamOfWorker(o, s.Kind, s.Name)})
+			continue
+		}
+		for _, name := range s.People {
+			out = append(out, deciderOut{Kind: office.IsPerson, Name: name})
+		}
 	}
 	return out
 }

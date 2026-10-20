@@ -32,15 +32,15 @@ type Put struct {
 	// Walk are its deciders, in the order they are asked, read from the
 	// office as it was when it was put. For a person's own change it holds
 	// only the rules and workers before its first person: any refusal of
-	// theirs ends it, and once every one has passed, it is decided by the
-	// yes of By, a person. One whose walk is empty is written as it is put,
-	// and never handed on to be decided.
+	// theirs ends it, and once every one has referred it, it is decided by
+	// the yes of By, a person. One whose walk is empty is written as it is
+	// put, and never handed on to be decided.
 	Walk []office.Decider `json:"walk"`
 	At   time.Time        `json:"at"`
 }
 
 // A Decision is how a decider ended a change: a yes, or a refusal, with
-// their note. A yes from a rule or a worker is a pass, and never comes
+// their note. A yes from a rule or a worker is a referral, and never comes
 // here. Bulldog, of the kind office.IsBulldog, refuses a change that
 // nobody on its walk is left to decide, and never says yes.
 type Decision struct {
@@ -364,7 +364,7 @@ func (c *Changes) decided(ctx context.Context, id int64, d Decision) (Outcome, e
 	case d.Yes && d.Kind == office.IsBulldog:
 		return Outcome{}, fmt.Errorf("Bulldog only refuses a change nobody can decide, and its yes on the change %d is not taken", id)
 	case d.Yes && d.Kind != office.IsPerson:
-		return Outcome{}, fmt.Errorf("%s is a %s, and only a person's yes writes a change to the office: a yes from a rule or a worker is a pass", d.By, d.Kind)
+		return Outcome{}, fmt.Errorf("%s is a %s, and only a person's yes writes a change to the office: a yes from a rule or a worker is a referral", d.By, d.Kind)
 	case !asked:
 		return Outcome{}, fmt.Errorf("%s is not asked to decide the change %d, so what they decide is not taken", d.By, id)
 	}

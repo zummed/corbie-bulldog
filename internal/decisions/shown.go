@@ -12,23 +12,23 @@ import (
 )
 
 // input gives a decision as a rule or a worker is given it, at the step it
-// is asked: what it decides, the request it serves, every pass before it,
-// and where its own pass would go. A disclosure is given the team's notes as
+// is asked: what it decides, the request it serves, every referral before
+// it, and where its own referral would go. A disclosure is given the team's notes as
 // they are now, and what would leave as its text.
-func (d *Decisions) input(o *office.Office, dec *Decision, stages []stage, at int) (map[string]any, string, error) {
-	in := map[string]any{"kind": dec.Kind, "decision": dec.ID, "team": dec.Team, "team_called": called(o, dec.Team), "does": dec.Does}
-	passes := []map[string]any{}
-	for _, p := range dec.Passes {
-		passes = append(passes, map[string]any{"by": p.Called, "kind": p.Kind, "note": p.Note})
+func (d *Decisions) input(o *office.Office, dec *Decision, stages []Stage, at int) (map[string]any, string, error) {
+	in := map[string]any{"kind": dec.Kind, "decision": dec.ID, "team": dec.Team, "team_called": called(o, dec.Team), "does": dec.Does(o)}
+	referrals := []map[string]any{}
+	for _, w := range dec.Referrals {
+		referrals = append(referrals, map[string]any{"by": w.Called, "kind": w.Kind, "note": w.Note})
 	}
-	in["passes"] = passes
+	in["referrals"] = referrals
 	after := beyond(stages, dec, at)
 	goes := []map[string]any{}
 	for _, s := range after {
 		goes = append(goes, map[string]any{"kind": s.Kind, "to": d.stageCalled(o, s), "list": s.List, "team": s.Team})
 	}
-	in["pass_goes_to"] = goes
-	in["ends"] = ends(dec, d.passWords(o, dec, after))
+	in["referral_goes_to"] = goes
+	in["ends"] = ends(dec, d.referWords(o, dec, after))
 	asked, err := d.served(o, dec)
 	if err != nil {
 		return nil, "", err
@@ -63,34 +63,34 @@ func (d *Decisions) input(o *office.Office, dec *Decision, stages []stage, at in
 	if err != nil {
 		return nil, "", err
 	}
-	words := fmt.Sprintf("You are asked to decide this for %s. %s\nEnd with only { \"says\": \"yes\", \"refuse\" or \"pass\", \"note\": your reason }.\n\n%s",
+	words := fmt.Sprintf("You are asked to decide this for %s. %s\nEnd with only { \"says\": \"yes\", \"refuse\" or \"refer\", \"note\": your reason }.\n\n%s",
 		inSentence(called(o, dec.Team)), in["ends"], said)
 	return in, words, nil
 }
 
-// beyond gives the stages a pass at a stage would go on to, in order, as
-// far as the people the walk ends at, walked as the decision would be:
-// each decider that has passed already is passed by, as is a worker's own
-// action. Where a person's own change has none left, it is the person,
-// whose yes a pass is taken as.
-func beyond(stages []stage, dec *Decision, at int) []stage {
+// beyond gives the stages a referral at a stage would go on to, in order,
+// as far as the people the walk ends at, walked as the decision would be:
+// each decider that has referred it already is skipped, as is a worker's
+// own action. Where a person's own change has none left, it is
+// the person, whose yes a referral is taken as.
+func beyond(stages []Stage, dec *Decision, at int) []Stage {
 	then := *dec
 	then.At = nil
-	then.Passes = append(slices.Clone(dec.Passes), Pass{Kind: stages[at].Kind, Name: stages[at].Name})
-	var after []stage
+	then.Referrals = append(slices.Clone(dec.Referrals), Word{Kind: stages[at].Kind, Name: stages[at].Name})
+	var after []Stage
 	for {
 		s, _, ok := next(stages, &then)
 		switch {
 		case !ok && dec.Kind == OfChange && dec.Put.Person:
-			return append(after, stage{Kind: isPeople, People: []string{dec.Put.By}, List: drafter})
+			return append(after, Stage{Kind: IsPeople, People: []string{dec.Put.By}, List: drafter})
 		case !ok:
 			return after
-		case s.Kind == isPeople:
+		case s.Kind == IsPeople:
 			return append(after, s)
 		case !ownWorker(dec, s):
 			after = append(after, s)
 		}
-		then.Passes = append(then.Passes, Pass{Kind: s.Kind, Name: s.Name})
+		then.Referrals = append(then.Referrals, Word{Kind: s.Kind, Name: s.Name})
 	}
 }
 
@@ -98,37 +98,55 @@ func beyond(stages []stage, dec *Decision, at int) []stage {
 // change they put.
 const drafter = "drafter"
 
-// passWords says where a pass goes, in words.
-func (d *Decisions) passWords(o *office.Office, dec *Decision, after []stage) string {
+// referWords says where a referral goes, in words.
+func (d *Decisions) referWords(o *office.Office, dec *Decision, after []Stage) string {
 	if len(after) == 0 {
-		return "nobody, so a pass ends it"
+		return "nobody, so a referral ends it"
 	}
 	s, last := after[0], after[len(after)-1]
 	where := fmt.Sprintf("%s, on %s's %s list", d.stageCalled(o, s), inSentence(called(o, s.Team)), s.List)
 	switch {
 	case s.List == drafter:
-		return fmt.Sprintf("nobody else: it is %s's own change, so a pass is taken as their yes, and the change is written", d.stageCalled(o, s))
+		return fmt.Sprintf("nobody else: it is %s's own change, so a referral is taken as their yes, and the change is written", d.stageCalled(o, s))
 	case last.List == drafter:
-		where += fmt.Sprintf(", and if every one passes it is taken as %s's yes, since it is their own change, and the change is written", d.stageCalled(o, last))
-	case len(after) > 1 && last.Kind == isPeople:
-		where += fmt.Sprintf(", and on to %s if every one before passes", d.stageCalled(o, last))
+		where += fmt.Sprintf(", and if every one refers it, it is taken as %s's yes, since it is their own change, and the change is written", d.stageCalled(o, last))
+	case len(after) > 1 && last.Kind == IsPeople:
+		where += fmt.Sprintf(", and on to %s if every one before refers it", d.stageCalled(o, last))
 	}
 	return where
 }
 
 func ends(dec *Decision, where string) string {
 	if dec.Kind == OfChange {
-		return "A refusal from you ends it. Only a person approves a change, so your yes is taken as a pass. A pass goes on, with your note, to " + where + "."
+		return "A refusal from you ends it. Only a person approves a change, so your yes is taken as a referral. A referral goes on, with your note, to " + where + "."
 	}
-	return "Your yes or your refusal ends it. A pass goes on, with your note, to " + where + "."
+	return "Your yes or your refusal ends it. A referral goes on, with your note, to " + where + "."
 }
 
 // stageCalled gives a stage as a sentence names it.
-func (d *Decisions) stageCalled(o *office.Office, s stage) string {
-	if s.Kind == isPeople {
+func (d *Decisions) stageCalled(o *office.Office, s Stage) string {
+	if s.Kind == IsPeople {
 		return strings.ReplaceAll(names(o, s.People), ", ", " or ")
 	}
 	return calledOf(o, s.Kind, s.Name)
+}
+
+// Does gives what a decision is, in a line, built from what it holds and
+// the office as read now: the action as its tool describes itself; what
+// is to be disclosed, a question to another team naming the team asked;
+// or the change, by the first line of why it was drafted.
+func (dec *Decision) Does(o *office.Office) string {
+	switch dec.Kind {
+	case OfDisclosure:
+		if s := dec.Said; s.What == SaysSub {
+			return fmt.Sprintf("Question to %s, to disclose", called(o, s.Team))
+		}
+		return fmt.Sprintf("%s of %s, to disclose", capital(dec.Said.What), inSentence(called(o, dec.Team)))
+	case OfChange:
+		first, _, _ := strings.Cut(dec.Put.Why, "\n")
+		return "Change to the office: " + strings.TrimSpace(first)
+	}
+	return dec.Job.does()
 }
 
 // served gives the request a decision serves: its number, what was asked
@@ -209,7 +227,7 @@ func (d *Decisions) readAt(n int64) (string, error) {
 // answer, as one entry to them all.
 func (d *Decisions) shown(o *office.Office, dec *Decision, people []string) (string, error) {
 	var b strings.Builder
-	fmt.Fprintf(&b, "A decision for %s: %s\n", inSentence(called(o, dec.Team)), dec.Does)
+	fmt.Fprintf(&b, "A decision for %s: %s\n", inSentence(called(o, dec.Team)), dec.Does(o))
 	switch dec.Kind {
 	case OfAction:
 		who := cmp.Or(dec.Whose.Name, "a run of "+dec.Team)
@@ -243,8 +261,8 @@ func (d *Decisions) shown(o *office.Office, dec *Decision, people []string) (str
 	} else if asked != nil {
 		fmt.Fprintf(&b, "For request %d, asked by %s: %s\n", dec.Request, asked["asker"], firstLine(asked["asked"].(string)))
 	}
-	for _, p := range dec.Passes {
-		fmt.Fprintf(&b, "%s passed it on%s\n", p.Called, noted(p.Note))
+	for _, w := range dec.Referrals {
+		fmt.Fprintf(&b, "%s referred it%s\n", w.Called, noted(w.Note))
 	}
 	fmt.Fprintf(&b, "Asked: %s.\n", names(o, people))
 	b.WriteString("Answer yes or refuse, with a note if you like.")
