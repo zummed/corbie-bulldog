@@ -209,9 +209,10 @@ function split(text, most) {
 
 // say: to a person directly in their conversation with the app, or in a
 // thread; the text in as many messages as it takes, as Markdown, which
-// Slack shows, the last with a button for each choice beside it. Slack takes a file only at files.slack.com, which this
-// machine does not reach, so each file is named, and not sent. What it
-// sent is named by its last message, the one that holds the buttons.
+// Slack shows, the last with a button for each choice beside it. Slack
+// takes a file only at files.slack.com, which this machine does not
+// reach, so each file is named, and not sent. What it sent is named by
+// its last message, the one that holds the buttons.
 let channel, thread
 if (input.direct) {
   const opened = call("conversations.open", { users: input.to })
