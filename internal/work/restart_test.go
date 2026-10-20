@@ -13,6 +13,7 @@ import (
 	"github.com/zummed/corbie/client"
 	"github.com/zummed/corbie/machine"
 
+	"github.com/zummed/corbie-bulldog/internal/bridges"
 	"github.com/zummed/corbie-bulldog/internal/requests"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 	"github.com/zummed/corbie-bulldog/shipped"
@@ -53,6 +54,9 @@ func TestWorkUnreadRecordNotTakenAsEnded(t *testing.T) {
 	b.reach.fail("show", unreachable)
 	b.restart()
 	b.until("the record could not be read", func() bool { return b.logged("could not be read") })
+	// The clock moves only once the pass that could not read it has said
+	// when to look again, each time.
+	b.still()
 	shows := b.reach.count("show")
 	b.later(Again / 2)
 	b.still()
@@ -61,6 +65,7 @@ func TestWorkUnreadRecordNotTakenAsEnded(t *testing.T) {
 	}
 	b.later(Again / 2)
 	b.until("the record is looked at again", func() bool { return b.reach.count("show") > shows })
+	b.still()
 	if got := b.runs(n)[0]; got.Status != going {
 		t.Fatalf("a run whose record could not be read was taken as %+v", got)
 	}
@@ -204,6 +209,14 @@ func TestWorkLooksOnEventsOnly(t *testing.T) {
 	n := b.chat("kit", "", "the kitchen socket sparked")
 	b.settled(n, requests.Answered)
 	b.until("the watch has listed", func() bool { return b.reach.count("watch") == 1 })
+	// The answer is carried to Kit after the request is answered: each
+	// run that carries it ends, and its ending is taken, before nothing
+	// is happening. Only the bridge's listening run and the routines'
+	// clocks go on.
+	b.until("no run is noted as going but those that go on", func() bool {
+		going, err := b.w.goingNotes()
+		return err == nil && !slices.ContainsFunc(going, func(n *note) bool { return n.Kind != bridges.KindIn && n.Kind != KindClock })
+	})
 	b.still()
 	shows, lists := b.reach.count("show"), b.reach.count("list")
 	// With nothing happening, the clock moving reads nothing: not Corbie,

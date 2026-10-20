@@ -141,6 +141,9 @@ func TestTheRequestAsData(t *testing.T) {
 	b := newBench(t, echo(house(t)))
 	n := b.chat("sam", "desk", "file the bill")
 	b.settled(n, requests.Answered)
+	// The garden is held on the sub-request, so its answer comes after
+	// what Sam says, and is not what the desk's next run is started on.
+	b.hold("shed", testkit.Say("locked"))
 	if _, err := b.reqs.Sub(n, b.reqs.Worker("echo"), "garden", "is the shed locked?", "ticket-1"); err != nil {
 		t.Fatal(err)
 	}
