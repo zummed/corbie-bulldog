@@ -131,6 +131,35 @@ func TestAHeldPutIsADecisionOfTheTeamWhoseFilesItWrites(t *testing.T) {
 	}
 }
 
+func TestAHeldPutsAskWaitsUntilItsYesIsKept(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	n := b.chat("kit", office.Top, "let me into the garden")
+	dec := b.draft(n, "Name Kit in the garden", kitInTheGarden(t))
+	if _, err := b.db.Exec(`CREATE TRIGGER full BEFORE UPDATE ON changes_puts BEGIN SELECT RAISE(FAIL, 'the disk is full'); END`); err != nil {
+		t.Fatal(err)
+	}
+	// Sam's yes is taken, but Changes cannot keep it, so Corbie is not
+	// answered: the job would run a write that names nobody.
+	r, err := b.d.Decide(ctx, dec.ID, b.reqs.Person("sam"), decisions.SaysYes, "")
+	if !r.Taken || err == nil || !strings.Contains(err.Error(), "is not answered until") {
+		t.Fatalf("a yes Changes could not keep is answered %+v, %v", r, err)
+	}
+	if got := b.get(dec.ID); got.Ended != decisions.Yes || b.answers(dec.Ask) != 0 {
+		t.Fatalf("the ask was answered before its yes was kept, %d times: %+v", b.answers(dec.Ask), got)
+	}
+	if _, err := b.db.Exec(`DROP TRIGGER full`); err != nil {
+		t.Fatal(err)
+	}
+	// As Bulldog starts again, the yes is kept, and the ask found waiting
+	// is answered; the write its job runs names Sam.
+	b.restart()
+	b.held(decisions.Ask{Run: dec.Ask, Team: office.Top, Request: n, Asking: []string{"builder", "steward"}, Jobs: []decisions.Job{*dec.Job}})
+	if o := b.runs(dec); o.Ended != changes.Written || o.Decider != "sam" || b.answers(dec.Ask) != 1 {
+		t.Fatalf("the change ended %+v, its ask answered %d times", o, b.answers(dec.Ask))
+	}
+}
+
 func TestAnUnfitPutIsRefusedByBulldog(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, house(t))
