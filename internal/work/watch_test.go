@@ -36,8 +36,14 @@ type watcher struct {
 }
 
 // watch has a person watch a run, on a goroutine of its own, as the
-// screens would.
+// screens would, once its start has reached Corbie: a run is noted
+// before its start is sent.
 func (b *bench) watch(run, person string) *watcher {
+	b.t.Helper()
+	b.until("the run "+run+" is in Corbie", func() bool {
+		_, err := b.corbie.Show(ctx, run)
+		return !errors.Is(err, client.ErrNoRun)
+	})
 	w := &watcher{done: make(chan error, 1)}
 	go func() {
 		w.done <- b.w.Follow(ctx, run, person, func(s Seen) {
