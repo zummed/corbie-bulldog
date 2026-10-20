@@ -175,13 +175,14 @@ func (b *Bridges) bridgeRow(name string) (bridgeRow, error) {
 // with it is taken. What each thing not yet taken said as a blob of the
 // run is read out of it first, before this area's work, since a slow read
 // holds up no other bridge; a thing already taken is not read again. A
-// thing that cannot be read is not taken, and is the bridge's trouble; one that could not be taken for a fault of Bulldog's
-// keeps the cursor where it was, so the next run hears it again. A run
-// that failed, that ended with no list of things, or, when it listens,
-// with no cursor to go on from, is the bridge's trouble, its cursor is
-// kept as it was, and it is started again after a pause that grows with
-// each failure in a row; what it handed over before it failed is taken
-// all the same, since the service was told it was received.
+// thing that cannot be read is not taken, and is the bridge's trouble;
+// one that could not be taken for a fault of Bulldog's keeps the cursor
+// where it was, so the next run hears it again. A run that failed, that
+// ended with no list of things, or, when it listens, with no cursor to go
+// on from, is the bridge's trouble, its cursor is kept as it was, and it
+// is started again after a pause that grows with each failure in a row;
+// what it handed over before it failed is taken all the same, since the
+// service was told it was received.
 func (b *Bridges) InEnded(name, run string, end End) (Taken, error) {
 	out := readHanded(end.Handed)
 	if end.Failed == "" {
