@@ -161,6 +161,19 @@ main { max-width: var(--page); margin: 0 auto; padding: var(--space) 24px 64px; 
 .room .room > .plate { background: var(--paper); color: var(--ink); border: 1.5px solid var(--ink); }
 .room .room > .plate a, .room .room > .plate b { color: var(--ink); }
 
+/* A team's room in bands, In, Team and Out, each its label beside its
+   rows; what a row holds is nested beneath it on a guide line */
+.bands { display: flex; flex-direction: column; }
+.band { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 0 14px; padding: 10px 0; border-top: 1px solid var(--line); }
+.band-label { font: 600 var(--small) var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink3); padding-top: 2px; }
+.band-rows { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.band-row { display: grid; grid-template-columns: minmax(96px, max-content) minmax(0, 1fr); gap: 4px 18px; align-items: baseline; }
+.band-k { display: flex; align-items: center; gap: 6px; font-size: var(--small); font-weight: 600; color: var(--ink2); }
+.band-v { min-width: 0; }
+.band-under { grid-column: 2; min-width: 0; padding-left: 14px; border-left: 1.5px solid var(--line); }
+.band-list { gap: 4px; }
+.settings-k { gap: 6px; flex-wrap: nowrap; }
+
 /* What a team read: hatched, seen only by its people */
 .sealed { border: 1.5px solid var(--ink); background: repeating-linear-gradient(135deg, var(--hatch-a) 0 6px, var(--hatch-b) 6px 12px); padding: 12px; }
 .sealed > .inner { background: var(--sheet); border: 1px solid var(--line); padding: 8px 12px; }
@@ -288,4 +301,6 @@ main.narrow #said { color: var(--ink2); font-size: 14px; }
   .kv { grid-template-columns: 1fr; gap: 2px; }
   .kv > dd { margin-bottom: 8px; }
   .versions { grid-template-columns: 1fr; }
+  .band, .band-row { grid-template-columns: 1fr; }
+  .band-under { grid-column: 1; }
 }

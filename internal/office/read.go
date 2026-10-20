@@ -308,7 +308,11 @@ func (r *reading) readModels(t *Team, node *yaml.Node) {
 			r.teamFile(t, v, "models: %s is a model written as Corbie writes one, a mapping such as { name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }, and this is %s", k.Value, describe(v))
 			continue
 		}
-		t.Models = append(t.Models, Model{Name: k.Value, Team: t.Name, Text: inRow(v)})
+		m := Model{Name: k.Value, Team: t.Name, Text: inRow(v)}
+		if secret := child(v, "secret"); secret != nil {
+			m.Secret = secret.Value
+		}
+		t.Models = append(t.Models, m)
 	}
 }
 

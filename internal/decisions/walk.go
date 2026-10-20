@@ -46,7 +46,7 @@ func walk(o *office.Office, dec *Decision) (stages []Stage, why string) {
 	}
 	switch dec.Kind {
 	case OfDisclosure:
-		stages = onward(o, t.Name, listed(t.Disclosure, t.Name, "disclosure", o))
+		stages = Disclosure(o, t.Name)
 	case OfAction:
 		var keys []string
 		for _, key := range []string{dec.Job.key(), dec.Job.entry()} {
@@ -83,6 +83,17 @@ func Walk(o *office.Office, team string, keys ...string) []Stage {
 		}
 	}
 	return onward(o, team, stages)
+}
+
+// Disclosure gives whom a team's disclosure is asked of, in order, in the
+// office as it is read, with no decision needed: its disclosure list, then
+// on outward as Walk goes. Of a team not in the office it gives nothing.
+func Disclosure(o *office.Office, team string) []Stage {
+	t := o.Teams[team]
+	if t == nil {
+		return nil
+	}
+	return onward(o, team, listed(t.Disclosure, team, "disclosure", o))
 }
 
 // onward gives the stages of a team's list and, where they reach no

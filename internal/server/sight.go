@@ -1,10 +1,15 @@
 package server
 
 import (
+	"encoding/json"
+	"maps"
 	"net/http"
+	"path"
 	"slices"
 	"strings"
 	"time"
+
+	"go.yaml.in/yaml/v3"
 
 	"github.com/zummed/corbie/machine"
 	"github.com/zummed/corbie/permission"
@@ -14,6 +19,7 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/decisions"
 	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/work"
+	"github.com/zummed/corbie-bulldog/shipped"
 )
 
 // What everyone signed in sees of the office.
@@ -94,21 +100,38 @@ type (
 		About  string   `json:"about,omitempty"`
 		People []string `json:"people"`
 		Lead   string   `json:"lead"`
-		Within string   `json:"within,omitempty"`
+		// LeadRuns says its lead can be started: a person always, and a
+		// worker with no problem.
+		LeadRuns bool   `json:"lead_runs"`
+		Within   string `json:"within,omitempty"`
 		// Reached are the people its decisions reach, who stand as its
 		// people, for a team with none of its own.
 		Reached []string `json:"reached,omitempty"`
-		// Heed is there when it names one, with its rule's path only to
-		// its people and the people who decide a change; Discloses, to
-		// them alone, says whether it sets a disclosure.
+		// Heed is there when it names one, with its rule's path and its
+		// settings only to its people and the people who decide a change;
+		// Discloses, to them alone, says whether it sets a disclosure.
 		Heed      *heedOut `json:"heed,omitempty"`
 		Discloses *bool    `json:"discloses,omitempty"`
 		// Docs are given only to those who may open them, in the one
 		// team's answer.
 		Docs []docOut `json:"docs,omitempty"`
 	}
+	// heedOut is a team's heed: its rule's path, the folder of a rule
+	// Bulldog ships, whether a problem stops it, and its settings.
 	heedOut struct {
-		Rule string `json:"rule,omitempty"`
+		Rule     string       `json:"rule,omitempty"`
+		Shipped  string       `json:"shipped,omitempty"`
+		Stopped  bool         `json:"stopped,omitempty"`
+		Settings []settingOut `json:"settings,omitempty"`
+	}
+	// settingOut is a setting a rule is given: as the team file writes
+	// it, or, marked as the default, the value it takes when not written,
+	// with what it is for when its page says.
+	settingOut struct {
+		Name    string `json:"name"`
+		Value   any    `json:"value"`
+		Default bool   `json:"default,omitempty"`
+		About   string `json:"about,omitempty"`
 	}
 	// docOut is one of a team's docs: its name, the path of its file in
 	// the team's docs folder without .md, and its size in bytes.
@@ -122,9 +145,28 @@ type (
 		Title   string   `json:"title,omitempty"`
 		Bridges []string `json:"bridges"`
 		// Teams and Decides are said only of the one looking: the teams
-		// they are in, and whether they decide a change.
-		Teams   []string `json:"teams,omitempty"`
-		Decides bool     `json:"decides_changes,omitempty"`
+		// they are in, and whether they decide a change; and so are who
+		// they are on each bridge, in the order a link is tried, each list
+		// that names them, and the teams whose walk ends at them.
+		Teams      []string      `json:"teams,omitempty"`
+		Decides    bool          `json:"decides_changes,omitempty"`
+		Identities []identityOut `json:"identities,omitempty"`
+		Lists      []namedOut    `json:"lists,omitempty"`
+		Walks      []string      `json:"walks,omitempty"`
+	}
+	// identityOut is who a person is on a bridge, and whether the bridge
+	// has a direct place a link can be sent to.
+	identityOut struct {
+		Bridge string `json:"bridge"`
+		ID     string `json:"id"`
+		Direct bool   `json:"direct"`
+	}
+	// namedOut is a team's list that names a person, by its key, and
+	// where on it they are, from 1.
+	namedOut struct {
+		Team string `json:"team"`
+		Key  string `json:"key"`
+		At   int    `json:"at"`
 	}
 	problemOut struct {
 		File   string `json:"file"`
@@ -175,6 +217,7 @@ func (s *site) me(person string, w http.ResponseWriter, r *http.Request) (any, e
 	me := personOf(o, person)
 	me.Teams = o.TeamsOf(person)
 	me.Decides = slices.Contains(changes.Deciders(o), person)
+	me.Identities, me.Lists, me.Walks = identitiesOf(o, person), listsNaming(o, person), walksTo(o, person)
 	load := s.Work.Load()
 	out := meOut{Me: me, Teams: []teamOut{}, People: []personOut{}, Waiting: len(waits), Problems: problems,
 		Office: officeOut{Name: o.Name(), About: o.TopTeam().About, Zone: o.Zone.String(),
@@ -185,7 +228,7 @@ func (s *site) me(person string, w http.ResponseWriter, r *http.Request) (any, e
 		if err != nil {
 			return nil, err
 		}
-		out.Teams = append(out.Teams, teamOf(o.Teams[name], people, me.Decides || slices.Contains(people, person)))
+		out.Teams = append(out.Teams, teamOf(o, o.Teams[name], people, me.Decides || slices.Contains(people, person)))
 	}
 	for _, name := range o.Everyone {
 		out.People = append(out.People, personOf(o, name))
@@ -317,9 +360,10 @@ func reached(entry string) []string {
 // teamOf gives a team as everyone sees it, with the people that stand as
 // its people, as the requests area gives them; and, to whole, one of its
 // people or of the people who decide a change, its heed's rule and
-// whether it sets a disclosure.
-func teamOf(t *office.Team, people []string, whole bool) teamOut {
-	out := teamOut{Name: t.Name, Called: t.Called, About: t.About, People: orEmpty(t.People), Lead: t.Lead, Within: t.Within}
+// settings, and whether it sets a disclosure.
+func teamOf(o *office.Office, t *office.Team, people []string, whole bool) teamOut {
+	out := teamOut{Name: t.Name, Called: t.Called, About: t.About, People: orEmpty(t.People), Lead: t.Lead, Within: t.Within,
+		LeadRuns: o.People[t.Lead] != nil || o.Workers[t.Lead] != nil && o.Workers[t.Lead].Runs()}
 	if len(t.People) == 0 {
 		out.Reached = people
 	}
@@ -328,10 +372,85 @@ func teamOf(t *office.Team, people []string, whole bool) teamOut {
 	}
 	if whole {
 		if t.Heed != nil {
-			out.Heed.Rule = t.Heed.Rule
+			out.Heed = heedOf(o, t.Heed)
 		}
 		discloses := t.HasDisclosure
 		out.Discloses = &discloses
+	}
+	return out
+}
+
+// heedOf gives a heed as its team's people see it: its rule, and its
+// settings, each as the team file writes it, or else, of a setting the
+// rule's definitions read, the value it takes when not written, marked as
+// the default; a rule Bulldog ships says what each is for.
+func heedOf(o *office.Office, h *office.Heed) *heedOut {
+	out := &heedOut{Rule: h.Rule, Stopped: !h.Runs(), Settings: []settingOut{}}
+	var known []shipped.Setting
+	if thing, ok := strings.CutPrefix(path.Dir(h.Rule), shipped.Dir+"/"); ok {
+		out.Shipped = thing
+		known = shipped.SettingsOf(thing)
+	} else if r := o.Rules[h.Rule]; r != nil && !r.Script {
+		found := map[string]any{}
+		if shipped.SettingsIn(r.Written, found) == nil {
+			for _, name := range slices.Sorted(maps.Keys(found)) {
+				known = append(known, shipped.Setting{Name: name, Value: found[name]})
+			}
+		}
+	}
+	for _, k := range known {
+		v, written := h.Settings[k.Name]
+		if !written {
+			v = k.Value
+		}
+		out.Settings = append(out.Settings, settingOut{Name: k.Name, Value: v, Default: !written, About: k.About})
+	}
+	for _, name := range slices.Sorted(maps.Keys(h.Settings)) {
+		if !slices.ContainsFunc(known, func(k shipped.Setting) bool { return k.Name == name }) {
+			out.Settings = append(out.Settings, settingOut{Name: name, Value: h.Settings[name]})
+		}
+	}
+	return out
+}
+
+// identitiesOf gives who a person is on each bridge, in the order a
+// one-time link is tried, and whether each bridge has a direct place.
+func identitiesOf(o *office.Office, person string) []identityOut {
+	out := []identityOut{}
+	for _, id := range o.People[person].Reached {
+		_, direct := o.Place(id.Bridge, office.Direct)
+		out = append(out, identityOut{Bridge: id.Bridge, ID: id.ID, Direct: direct})
+	}
+	return out
+}
+
+// listsNaming gives each list of deciders, a disclosure among them, that
+// names a person, with where on it they are.
+func listsNaming(o *office.Office, person string) []namedOut {
+	out := []namedOut{}
+	for _, name := range o.Order {
+		t := o.Teams[name]
+		lists := t.Decide
+		if t.HasDisclosure {
+			lists = append([]office.List{{Key: "disclosure", Deciders: t.Disclosure}}, lists...)
+		}
+		for _, l := range lists {
+			if i := slices.IndexFunc(l.Deciders, func(d office.Decider) bool { return d.Kind == office.IsPerson && d.Name == person }); i >= 0 {
+				out = append(out, namedOut{Team: name, Key: l.Key, At: i + 1})
+			}
+		}
+	}
+	return out
+}
+
+// walksTo gives the teams whose decisions end at a person when every rule
+// and worker on the way refers them.
+func walksTo(o *office.Office, person string) []string {
+	out := []string{}
+	for _, name := range o.Order {
+		if slices.Contains(o.Reached(name), person) {
+			out = append(out, name)
+		}
 	}
 	return out
 }
@@ -398,11 +517,14 @@ func problemsOf(ps office.Problems) []problemOut {
 type (
 	teamWhole struct {
 		teamOut
-		File       string       `json:"file"`
+		File string `json:"file"`
+		// Decide and Disclosure are its lists, each with who decides, in
+		// the order the walk asks them out to the people it ends at.
 		Decide     []listOut    `json:"decide"`
 		Disclosure []deciderOut `json:"disclosure,omitempty"`
 		Routines   []routineOut `json:"routines"`
 		Models     []modelOut   `json:"models"`
+		Rules      []ruleOut    `json:"rules"`
 		Workers    []workerOut  `json:"workers"`
 		Notes      []noteOut    `json:"notes"`
 		Problems   []problemOut `json:"problems"`
@@ -423,14 +545,35 @@ type (
 		Name string `json:"name"`
 		Team string `json:"team,omitempty"`
 	}
+	// routineOut is a routine as written, in the office's zone, with
+	// when it comes round next and its one status: due; skipped, when
+	// the request it last opened is still open, and the next coming round
+	// is let go by; or cannot run, when its worker cannot.
 	routineOut struct {
-		At  string `json:"at"`
-		To  string `json:"to"`
-		Say string `json:"say"`
+		At     string    `json:"at"`
+		To     string    `json:"to"`
+		Say    string    `json:"say"`
+		Zone   string    `json:"zone"`
+		Next   time.Time `json:"next,omitzero"`
+		Status string    `json:"status"`
+		Open   int64     `json:"open,omitempty"`
 	}
 	modelOut struct {
-		Name string `json:"name"`
-		Text string `json:"text"`
+		Name   string `json:"name"`
+		Text   string `json:"text"`
+		Secret string `json:"secret,omitempty"`
+	}
+	// ruleOut is a rule the team names, by its path, with the folder of
+	// one Bulldog ships; how the team names it: its heed, its disclosure
+	// or a list by its key; whether it is a bare script, given no
+	// permission; what it reaches; and whether it can be started.
+	ruleOut struct {
+		Path    string   `json:"path"`
+		Shipped string   `json:"shipped,omitempty"`
+		As      []string `json:"as"`
+		Script  bool     `json:"script,omitempty"`
+		Reach   reachOut `json:"reach"`
+		Runs    bool     `json:"runs"`
 	}
 	workerOut struct {
 		Name string `json:"name"`
@@ -438,10 +581,19 @@ type (
 		File string `json:"file"`
 		// Model is as it is sent; ModelName the word it is named by, and
 		// ModelFrom the team that gives that word.
-		Model     string    `json:"model,omitempty"`
-		ModelName string    `json:"model_name,omitempty"`
-		ModelFrom string    `json:"model_from,omitempty"`
-		Tools     []toolOut `json:"tools"`
+		Model     string `json:"model,omitempty"`
+		ModelName string `json:"model_name,omitempty"`
+		ModelFrom string `json:"model_from,omitempty"`
+		// Secret is the secret its model names as the service's key.
+		Secret string `json:"secret,omitempty"`
+		// Definition is what its file writes of how it runs, and Uses
+		// the files of the office it reads, its own among them.
+		Definition definitionOut `json:"definition"`
+		Uses       []string      `json:"uses"`
+		Tools      []toolOut     `json:"tools"`
+		// HeldHere are the colleagues it calls, as far down as they go,
+		// whose jobs that wait for a yes go to its ask.
+		HeldHere []string `json:"held_here"`
 		// MayAsk are the teams it may ask, by name, before any request
 		// above the one it works on leaves some out.
 		MayAsk []string `json:"may_ask"`
@@ -464,6 +616,25 @@ type (
 		Listed   bool         `json:"listed,omitempty"`
 		Waits    bool         `json:"waits"`
 		Deciders []deciderOut `json:"deciders"`
+		// Reach is what a script's or another machine's job may reach,
+		// what it is refused, and which of what it reaches is asked
+		// about.
+		Reach *toolReach `json:"reach,omitempty"`
+	}
+	toolReach struct {
+		reachOut
+		Deny     []string `json:"deny"`
+		AskAbout []string `json:"ask_about"`
+	}
+	// definitionOut is what a worker's file writes of how it runs: an
+	// agent's system and prompt, its inputs, its tools files, and whether
+	// it names the ask Bulldog ships.
+	definitionOut struct {
+		System     string   `json:"system,omitempty"`
+		Prompt     string   `json:"prompt,omitempty"`
+		Inputs     []string `json:"inputs"`
+		ToolsFiles []string `json:"tools_files"`
+		Asks       bool     `json:"asks"`
 	}
 	noteOut struct {
 		Name string `json:"name"`
@@ -495,25 +666,27 @@ func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any,
 	}
 	in := slices.Contains(people, person)
 	whole := in || slices.Contains(changes.Deciders(o), person)
-	seen := teamOf(t, people, whole)
+	seen := teamOf(o, t, people, whole)
 	if seen.Docs, err = s.docs(o, person, t.Name); err != nil {
 		return nil, err
 	}
 	if !whole {
 		return seen, nil
 	}
-	out := teamWhole{teamOut: seen, File: t.File, Decide: []listOut{}, Routines: []routineOut{}, Models: []modelOut{}, Workers: []workerOut{}, Notes: []noteOut{}}
+	out := teamWhole{teamOut: seen, File: t.File, Decide: []listOut{}, Routines: []routineOut{}, Models: []modelOut{}, Rules: rulesOf(o, t), Workers: []workerOut{}, Notes: []noteOut{}}
 	for _, l := range t.Decide {
-		out.Decide = append(out.Decide, listOut{Key: l.Key, Deciders: writtenAll(o, l.Deciders)})
+		out.Decide = append(out.Decide, listOut{Key: l.Key, Deciders: walked(o, t.Name, l.Key)})
 	}
 	if t.HasDisclosure {
-		out.Disclosure = writtenAll(o, t.Disclosure)
+		out.Disclosure = deciders(o, decisions.Disclosure(o, t.Name))
 	}
 	for _, rt := range t.Routines {
-		out.Routines = append(out.Routines, routineOut{At: rt.At, To: rt.To, Say: rt.Say})
+		if out.Routines, err = s.routineOf(o, t.Name, rt, out.Routines); err != nil {
+			return nil, err
+		}
 	}
 	for _, m := range t.Models {
-		out.Models = append(out.Models, modelOut{Name: m.Name, Text: m.Text})
+		out.Models = append(out.Models, modelOut{Name: m.Name, Text: m.Text, Secret: m.Secret})
 	}
 	for _, name := range t.Workers {
 		out.Workers = append(out.Workers, workerOf(o, o.Workers[name]))
@@ -534,6 +707,63 @@ func (s *site) team(person string, w http.ResponseWriter, r *http.Request) (any,
 		}
 	}
 	return out, nil
+}
+
+// routineOf adds a routine to those given, with when it comes round next,
+// and its one status.
+func (s *site) routineOf(o *office.Office, team string, rt office.Routine, to []routineOut) ([]routineOut, error) {
+	out := routineOut{At: rt.At, To: rt.To, Say: rt.Say, Zone: o.Zone.String(), Next: rt.Next(s.clock.Now(), o.Zone), Status: "due"}
+	open, err := s.Requests.RoutineOpen(team, rt)
+	if err != nil {
+		return nil, err
+	}
+	switch w := o.Workers[rt.To]; {
+	case w == nil || !w.Runs():
+		out.Status = "cannot run"
+	case open != 0:
+		out.Status, out.Open = "skipped", open
+	}
+	return append(to, out), nil
+}
+
+// rulesOf gives each rule a team names, in the order it names them: its
+// heed, its disclosure, then its lists.
+func rulesOf(o *office.Office, t *office.Team) []ruleOut {
+	out := []ruleOut{}
+	add := func(rule, as string) {
+		i := slices.IndexFunc(out, func(r ruleOut) bool { return r.Path == rule })
+		if i < 0 {
+			r := ruleOut{Path: rule, As: []string{}, Reach: reachOut{Hosts: []string{}, Secrets: []secretOut{}}}
+			if thing, ok := strings.CutPrefix(path.Dir(rule), shipped.Dir+"/"); ok {
+				r.Shipped = thing
+			}
+			if known := o.Rules[rule]; known != nil {
+				r.Script, r.Runs = known.Script, known.Runs()
+				if known.Draft != nil {
+					r.Reach = reachOf(changes.Allowed(o, rule, known.Draft))
+				}
+			}
+			i, out = len(out), append(out, r)
+		}
+		if !slices.Contains(out[i].As, as) {
+			out[i].As = append(out[i].As, as)
+		}
+	}
+	if t.Heed != nil {
+		add(t.Heed.Rule, "heed")
+	}
+	lists := t.Decide
+	if t.HasDisclosure {
+		lists = append([]office.List{{Key: "disclosure", Deciders: t.Disclosure}}, lists...)
+	}
+	for _, l := range lists {
+		for _, d := range l.Deciders {
+			if d.Kind == office.IsRule {
+				add(d.Name, l.Key)
+			}
+		}
+	}
+	return out
 }
 
 // docs gives a team's docs to one who may open them, and nothing to
@@ -616,13 +846,16 @@ type docText struct {
 	Text string `json:"text"`
 }
 
-// workerOf gives a worker as it is written: its model as it is sent; its
-// tools, a flow's stages or a statechart's jobs, each with what it does
-// and what its job is, and who decides each that waits for a yes; and the
-// teams it may ask.
+// workerOf gives a worker as it is written: its model as it is sent, with
+// its secret; what its file writes of how it runs, and the files it
+// reads; its tools, a flow's stages or a statechart's jobs, each with what
+// it does and what its job is, what a script's or a machine's reaches, and
+// who decides each that waits for a yes; the colleagues whose held jobs
+// come to its ask; and the teams it may ask.
 func workerOf(o *office.Office, w *office.Worker) workerOut {
-	out := workerOut{Name: w.Name, Type: w.Type, File: w.File, Model: w.Model, ModelName: w.ModelName, Tools: []toolOut{}, MayAsk: []string{},
-		Runs: w.Runs()}
+	def, secret := definitionOf(w)
+	out := workerOut{Name: w.Name, Type: w.Type, File: w.File, Model: w.Model, ModelName: w.ModelName, Secret: secret, Definition: def,
+		Uses: orEmpty(w.Uses), Tools: []toolOut{}, HeldHere: heldAt(o, w), MayAsk: []string{}, Runs: w.Runs()}
 	for _, t := range work.MayAsk(o, w.Team, w.Name, nil) {
 		out.MayAsk = append(out.MayAsk, t.Name)
 	}
@@ -636,8 +869,69 @@ func workerOf(o *office.Office, w *office.Worker) workerOut {
 		if t.Waits {
 			t.Deciders = walked(o, w.Team, tool.Name)
 		}
+		if t.Kind == office.ToolScript || t.Kind == office.ToolMachine {
+			t.Reach = &toolReach{reachOut: reachOf(tool.Allow), Deny: orEmpty(tool.Deny), AskAbout: orEmpty(tool.AskAbout)}
+		}
 		out.Tools = append(out.Tools, t)
 	}
+	return out
+}
+
+// definitionOf gives what a worker's file writes of how it runs, as it is
+// sent, and the secret its model names.
+func definitionOf(w *office.Worker) (definitionOut, string) {
+	out := definitionOut{Inputs: []string{}, ToolsFiles: []string{}}
+	var def struct {
+		System    string   `yaml:"system"`
+		Prompt    any      `yaml:"prompt"`
+		Input     []string `yaml:"input"`
+		ToolsFile []string `yaml:"tools_file"`
+		Ask       any      `yaml:"ask"`
+		Model     any      `yaml:"model"`
+	}
+	if yaml.Unmarshal(w.Definition, &def) != nil {
+		return out, ""
+	}
+	out.System, out.Inputs, out.ToolsFiles, out.Asks = def.System, orEmpty(def.Input), orEmpty(def.ToolsFile), def.Ask != nil
+	switch p := def.Prompt.(type) {
+	case nil:
+	case string:
+		out.Prompt = p
+	default:
+		text, _ := json.Marshal(p)
+		out.Prompt = string(text)
+	}
+	secret := ""
+	if m, ok := def.Model.(map[string]any); ok {
+		secret, _ = m["secret"].(string)
+	}
+	return out, secret
+}
+
+// heldAt gives the colleagues a worker calls, and those they call, as far
+// down as they go, that hold a job waiting for a yes and use its ask, since
+// they name none of their own: none when it names none.
+func heldAt(o *office.Office, w *office.Worker) []string {
+	out := []string{}
+	if w.Draft == nil || w.Draft.Definition.Ask == nil {
+		return out
+	}
+	seen := map[string]bool{w.Name: true}
+	var walk func(*office.Worker)
+	walk = func(at *office.Worker) {
+		for _, tool := range at.Held {
+			c := o.Workers[tool.Worker]
+			if tool.Kind != office.ToolWorker || c == nil || seen[c.Name] || c.Draft != nil && c.Draft.Definition.Ask != nil {
+				continue
+			}
+			seen[c.Name] = true
+			if slices.ContainsFunc(c.Held, func(t office.Tool) bool { return t.Waits }) {
+				out = append(out, c.Name)
+			}
+			walk(c)
+		}
+	}
+	walk(w)
 	return out
 }
 
@@ -664,11 +958,17 @@ func (s *site) atWork(team string) ([]atWork, error) {
 }
 
 // walked gives who decides a key of a team, in the order the walk asks
-// them: each rule, by its path in the office, and each worker, with the
-// team it is of, then each person of the people it ends at.
+// them.
 func walked(o *office.Office, team, key string) []deciderOut {
+	return deciders(o, decisions.Walk(o, team, key))
+}
+
+// deciders gives the stages of a walk as who decides: each rule, by its
+// path in the office, and each worker, with the team it is of, then each
+// person of the people it ends at.
+func deciders(o *office.Office, stages []decisions.Stage) []deciderOut {
 	out := []deciderOut{}
-	for _, s := range decisions.Walk(o, team, key) {
+	for _, s := range stages {
 		if s.Kind != decisions.IsPeople {
 			out = append(out, deciderOut{Kind: s.Kind, Name: s.Name, Team: teamOfWorker(o, s.Kind, s.Name)})
 			continue
@@ -676,15 +976,6 @@ func walked(o *office.Office, team, key string) []deciderOut {
 		for _, name := range s.People {
 			out = append(out, deciderOut{Kind: office.IsPerson, Name: name})
 		}
-	}
-	return out
-}
-
-// writtenAll gives a list of deciders each as it is written.
-func writtenAll(o *office.Office, deciders []office.Decider) []deciderOut {
-	out := []deciderOut{}
-	for _, d := range deciders {
-		out = append(out, deciderOut{Kind: d.Kind, Name: d.Written, Team: teamOfWorker(o, d.Kind, d.Name)})
 	}
 	return out
 }

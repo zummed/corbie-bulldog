@@ -317,7 +317,7 @@ func (r *reading) checkWorker(w *Worker) {
 	if w.AtTop && needsAsk(draft) {
 		stop("ask: something %s runs can wait for a yes, and Bulldog starts it at the top, as its team's lead or a routine's worker, so it names the ask Bulldog ships: ask: { machine: %s }", w.Name, ask)
 	}
-	w.Held = r.toolsOf(w, def)
+	w.Held = r.toolsOf(w, draft)
 	w.Tools = toolNames(w.Held)
 	if len(w.Problems) == 0 {
 		w.Draft = draft
@@ -388,7 +388,8 @@ func needsAsk(d *machine.Draft) bool {
 // Bulldog ships is Bulldog's; a script is a script; a machine that is a
 // file of the office is a worker of the same team, or another machine;
 // and a machine that is no file was written in place.
-func (r *reading) toolsOf(w *Worker, def *machine.Definition) []Tool {
+func (r *reading) toolsOf(w *Worker, draft *machine.Draft) []Tool {
+	def := draft.Definition
 	var tools []Tool
 	switch def.Type {
 	case "agent":
@@ -400,7 +401,7 @@ func (r *reading) toolsOf(w *Worker, def *machine.Definition) []Tool {
 			if t.Job != nil && strings.HasPrefix(t.Job.Script, "corbie:") {
 				continue
 			}
-			tool := r.tool(w, def, name, t.Job)
+			tool := r.tool(w, draft, name, t.Job)
 			tool.Does, tool.Args, tool.Listed = t.Does, t.Args, t.List != nil
 			tools = append(tools, tool)
 		}
@@ -410,7 +411,7 @@ func (r *reading) toolsOf(w *Worker, def *machine.Definition) []Tool {
 			return nil
 		}
 		for name, s := range f.Stages {
-			tools = append(tools, r.tool(w, def, name, s.Job))
+			tools = append(tools, r.tool(w, draft, name, s.Job))
 		}
 	case "statechart":
 		var c statechart.Chart
@@ -424,10 +425,10 @@ func (r *reading) toolsOf(w *Worker, def *machine.Definition) []Tool {
 					continue
 				}
 				if s.Job != nil {
-					tools = append(tools, r.tool(w, def, name, s.Job))
+					tools = append(tools, r.tool(w, draft, name, s.Job))
 				}
 				for job, spec := range s.Jobs {
-					tools = append(tools, r.tool(w, def, job, spec))
+					tools = append(tools, r.tool(w, draft, job, spec))
 				}
 				states(s.States)
 			}
@@ -439,11 +440,12 @@ func (r *reading) toolsOf(w *Worker, def *machine.Definition) []Tool {
 }
 
 // tool gives one job a worker's definition runs by name: what it is, told
-// by where it resolves from the worker's folder, and whether it waits for
-// a yes, as Corbie holds a job: marked for approval, or declaring a
+// by where it resolves from the worker's folder; whether it waits for a
+// yes, as Corbie holds a job: marked for approval, or declaring a
 // permission the definition lists to be asked about, a script's declaring
-// the definition's own allow with its own.
-func (r *reading) tool(w *Worker, def *machine.Definition, name string, job *machine.JobSpec) Tool {
+// the definition's own allow with its own; and what it may reach.
+func (r *reading) tool(w *Worker, draft *machine.Draft, name string, job *machine.JobSpec) Tool {
+	def := draft.Definition
 	tool := Tool{Name: name, Kind: ToolMachine}
 	var script, machine string
 	if job != nil {
@@ -453,6 +455,12 @@ func (r *reading) tool(w *Worker, def *machine.Definition, name string, job *mac
 			allow = append(slices.Clone(def.Allow), allow...)
 		}
 		tool.Waits = job.Approve || permission.Declares(allow, def.AskAbout)
+		tool.Allow, tool.Deny = reachOf(draft, job, allow)
+		for _, entry := range def.AskAbout {
+			if permission.Declares(tool.Allow, []string{entry}) {
+				tool.AskAbout = append(tool.AskAbout, entry)
+			}
+		}
 	}
 	file := path.Join(dirOf(w.File), script+machine)
 	_, inOffice := r.files[file]
@@ -468,6 +476,27 @@ func (r *reading) tool(w *Worker, def *machine.Definition, name string, job *mac
 		}
 	}
 	return tool
+}
+
+// reachOf gives what a job may reach and is refused, as written: a
+// script, what it is allowed, given as allow, and the definition's and its
+// own deny; a machine, what it and every machine it runs are allowed and
+// refused, a machine's job allowing nothing of its own.
+func reachOf(draft *machine.Draft, job *machine.JobSpec, allow []string) (reach, deny []string) {
+	deny = append(slices.Clone(draft.Definition.Deny), job.Deny...)
+	if !job.IsMachine() {
+		reach = slices.Clone(allow)
+	} else {
+		shipped.Machines("", draft.Children[job.Machine], func(_ string, d *machine.Draft) bool {
+			allow, refused, _ := shipped.Own(d.Definition)
+			reach = append(reach, allow...)
+			deny = append(deny, refused...)
+			return true
+		})
+	}
+	slices.Sort(reach)
+	slices.Sort(deny)
+	return slices.Compact(reach), slices.Compact(deny)
 }
 
 // toolNames gives the names of tools.

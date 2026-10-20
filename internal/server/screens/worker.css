@@ -43,3 +43,14 @@ button.wk-name > .who { text-decoration: inherit; }
 .wk-more { margin-left: 6px; }
 
 .wk-tags { gap: 6px 8px; padding-top: 2px; }
+
+/* What a tool reaches, nested beneath it on a guide line */
+.row.wk-tool > .wk-reach { grid-column: 1 / -1; padding-left: 14px; border-left: 1.5px solid var(--line); margin: 2px 0 4px; }
+.wk-reach .kv > dd { font-size: var(--data); }
+.wk-lock { gap: 4px 8px; }
+
+/* The definition, folded to its label */
+.wk-def > summary { display: flex; align-items: center; }
+.wk-def > summary .label { margin-bottom: 0; }
+.wk-def > .kv { margin-top: 8px; padding-left: 14px; border-left: 1.5px solid var(--line); }
+.wk-text { padding: 8px 10px; background: var(--sheet); border: 1px solid var(--line); max-height: 320px; overflow: auto; }

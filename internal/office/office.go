@@ -167,13 +167,38 @@ type Routine struct {
 	Line int
 }
 
+// Next gives the first time after a moment that the routine is due, as
+// its clock's timer is filled: its time of day in the zone, on its
+// weekday when it names one.
+func (r Routine) Next(after time.Time, zone *time.Location) time.Time {
+	m := atForm.FindStringSubmatch(r.At)
+	if m == nil {
+		return time.Time{}
+	}
+	at, _ := time.Parse("15:04", m[2])
+	local := after.In(zone)
+	for day := 0; day <= 8; day++ {
+		y, mo, d := local.Date()
+		due := time.Date(y, mo, d+day, at.Hour(), at.Minute(), 0, 0, zone)
+		if m[1] != "" && !strings.EqualFold(due.Weekday().String()[:3], m[1]) {
+			continue
+		}
+		if due.After(after) {
+			return due
+		}
+	}
+	return time.Time{}
+}
+
 // A Model is a model a team gives by name, as Corbie writes one.
 type Model struct {
 	Name string
 	Team string
 	// Text is the model written in a row, as a team file writes it:
-	// { name: sonnet, service: claude-code }.
-	Text string
+	// { name: sonnet, service: claude-code }; Secret is the secret it
+	// names as the service's key.
+	Text   string
+	Secret string
 }
 
 // A Person is someone real, written once under everyone.
@@ -263,6 +288,11 @@ type Tool struct {
 	// Listed is a list: entry, which gives the tools its server lists,
 	// each named after the entry, as github_create_issue.
 	Listed bool
+	// Allow and Deny are what its job may reach and is refused, as
+	// written: a machine's, those of it and every machine it runs; and
+	// AskAbout are the permissions the definition lists to be asked about
+	// that its job declares.
+	Allow, Deny, AskAbout []string
 }
 
 // What a tool's job is: a worker of the same team, another machine, a

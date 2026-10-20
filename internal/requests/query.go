@@ -205,6 +205,31 @@ func (s *Store) OpenOf(team string) ([]Summary, error) {
 	return open, nil
 }
 
+// RoutineOpen gives the request a team's routine opened that is still
+// open, or 0: a coming round of the routine while it is open is let go
+// by, and one opened for a coming round Bulldog stopped before noting is
+// found so too, and not opened again.
+func (s *Store) RoutineOpen(team string, routine office.Routine) (int64, error) {
+	open, err := s.OpenOf(team)
+	if err != nil {
+		return 0, err
+	}
+	for _, sum := range open {
+		if sum.Asker.Kind != IsTeam {
+			continue
+		}
+		r, err := s.Get(sum.Number)
+		if err != nil {
+			return 0, err
+		}
+		o := r.Origin
+		if r.Parent == 0 && o.Kind == ByRoutine && o.Team == team && o.At == routine.At && o.To == routine.To && o.Say == routine.Say {
+			return r.Number, nil
+		}
+	}
+	return 0, nil
+}
+
 // SaidBefore gives what was said before a request where it was asked: in
 // its team's other requests asked before it at the same listed place of
 // the same bridge, each read by every reader of it, their messages, noted

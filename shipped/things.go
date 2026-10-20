@@ -209,11 +209,9 @@ func SettingsOf(thing string) []Setting {
 				continue
 			}
 			contents, _ := File(name)
-			var def any
-			if err := yaml.Unmarshal(contents, &def); err != nil {
+			if err := SettingsIn(contents, found); err != nil {
 				panic(fmt.Sprintf("the shipped %s cannot be read: %v", name, err))
 			}
-			readSettings(def, found)
 		}
 		for _, name := range sortedKeys(found) {
 			out = append(out, Setting{Name: name, Value: found[name]})
@@ -231,6 +229,18 @@ func SettingsOf(thing string) []Setting {
 		out[i].About = line
 	}
 	return out
+}
+
+// SettingsIn finds each setting a definition reads, as written, into
+// found, with the default an expression that reads only it gives when it
+// is not written.
+func SettingsIn(contents []byte, found map[string]any) error {
+	var def any
+	if err := yaml.Unmarshal(contents, &def); err != nil {
+		return err
+	}
+	readSettings(def, found)
+	return nil
 }
 
 // readSettings finds each setting the text of a definition reads, with

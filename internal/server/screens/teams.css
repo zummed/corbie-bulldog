@@ -3,13 +3,17 @@
 .tm .head { margin-bottom: 0; }
 .tm .sect > .search { margin-bottom: 10px; }
 
-/* The top team's room: its own people and lead, then its teams */
+/* The top team's room: what it says of the office, its bands, then its
+   teams */
 .tm-room > .kv { margin-bottom: var(--gap); }
+.tm-room > .bands { margin-bottom: var(--gap); }
 .tm-room .plate .tag { color: var(--paper); border-color: var(--ink3); }
 
 /* One team on one line */
-.row.tm-team { display: grid; grid-template-columns: 22px fit-content(36%) minmax(0, 1fr) 118px minmax(0, 170px) 52px; gap: 4px 14px; align-items: center; }
-.row.tm-team.tm-flat { grid-template-columns: fit-content(46%) minmax(0, 1fr) 118px minmax(0, 170px) 52px; }
+.row.tm-team { display: grid; grid-template-columns: 22px fit-content(30%) minmax(0, 1fr) minmax(0, 150px) 118px minmax(0, 150px) 52px; gap: 4px 14px; align-items: center; }
+.row.tm-team.tm-flat { grid-template-columns: fit-content(40%) minmax(0, 1fr) minmax(0, 150px) 118px minmax(0, 150px) 52px; }
+.tm-places { flex-wrap: nowrap; gap: 6px; min-width: 0; }
+.tm-places > .who { min-width: 0; overflow: hidden; white-space: nowrap; }
 .tm-mine { text-align: right; }
 
 /* A name too long for its column ends in an ellipsis */
@@ -31,6 +35,11 @@
 .row.tm-person { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 160px); gap: 4px 14px; }
 
 .tm-page { gap: 6px; }
+
+/* Defined: the tools, models and docs, each group a table */
+.tm-groups { gap: var(--gap); }
+.tm-defined td { vertical-align: middle; }
+.tm-defined td.clip { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 @media (max-width: 720px) {
   .row.tm-team, .row.tm-team.tm-flat, .row.tm-person { display: flex; }

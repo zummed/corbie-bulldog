@@ -113,6 +113,15 @@
     return o.folk.has(t.lead) ? B.personEl(t.lead) : B.workerEl(t.lead, t.name, {bare: true});
   }
 
+  // placesCell gives the places that ask a team, the first and how many
+  // more.
+  function placesCell(t) {
+    const list = B.placesOf(t.name);
+    if (!list.length) return "";
+    return B.el("span", {class: "line tm-places", title: list.map((x) => x.bridge + " › " + x.place.name).join(", ")},
+      B.placeEl(list[0].bridge, list[0].place.name), list.length > 1 ? B.el("span", {class: "mono faint"}, "+" + (list.length - 1)) : null);
+  }
+
   function yours(o, t) {
     return o.mine.has(t.name) ? B.el("span", {class: "tag"}, "yours") : "";
   }
@@ -127,6 +136,7 @@
         around.length ? B.el("span", {class: "mono faint small tm-path"}, around.map((u) => u.called).join(" / ") + " /") : "",
         B.teamEl(t.name)),
       B.el("span", {class: "tm-about muted clip small", title: t.about || null}, t.about || ""),
+      B.el("span", {class: "tm-cut"}, placesCell(t)),
       B.el("span", {}, people(o, t.people, t.reached)),
       B.el("span", {class: "tm-cut"}, leadEl(o, t)),
       B.el("span", {class: "tm-mine"}, yours(o, t)));
@@ -155,38 +165,90 @@
     return li;
   }
 
-  // officeRows gives what the top team's room says of the whole office: how
-  // many runs are at work out of as many as it lets work, and how many
-  // wait their turn; who decides a change, in order; and each bridge with
-  // its one status.
+  // officeRows gives what the top team's room says of the whole office: its
+  // zone; how many runs are at work out of as many as it lets work, and
+  // how many wait their turn; who decides a change, in order; and each
+  // bridge with its one status.
   function officeRows(t) {
     if (t.within) return [];
     const runs = B.me.office.runs;
     const change = B.me.office.change || [];
     const bridges = B.me.office.bridges || [];
     return [
+      ["Zone", B.el("span", {class: "mono"}, B.me.office.zone)],
       ["Runs", B.el("span", {class: "line"}, B.el("span", {class: "mono"}, runs.working + " / " + runs.limit),
         runs.queued ? B.el("span", {class: "tag"}, "Queued " + runs.queued) : null)],
-      ["Change", change.length ? B.el("span", {class: "chain"}, change.flatMap((d, i) => [i ? B.el("span", {class: "then"}, "›") : null, B.deciderEl(d, t.name)])) : ""],
+      ["Change", change.length ? B.chain(change, t.name) : ""],
       ["Bridges", bridges.length ? B.el("span", {class: "line"}, bridges.map((b) =>
         B.el("span", {class: "line tm-bridge"}, B.el("a", {class: "who", href: "#/bridges"}, B.icon("bridge"), b.name), B.bridgeStatus(b)))) : ""],
     ];
   }
 
-  // room draws a top team as a room holding the tree of its teams.
+  // room draws a top team as a room: what it says of the whole office,
+  // then its bands, In, where it is asked and its heed; Team, its people
+  // and its lead; and Out, its disclosure and where its answer is said;
+  // and the tree of its teams.
   function room(o, t) {
-    const own = [
-      t.people && t.people.length ? ["People", people(o, t.people)] : null,
-      !(t.people && t.people.length) && t.reached && t.reached.length
-        ? [[B.el("span", {}, "Reached"), ...B.info("About reached", "The people this team's decisions reach. They stand as its people.")], people(o, null, t.reached)] : null,
-      ["Lead", leadEl(o, t)],
-      ...officeRows(t),
-    ].filter((p) => p && p[1] !== "");
+    const own = officeRows(t).filter((p) => p[1] !== "");
+    const channel = B.placesOf(t.name).some((x) => x.place.name !== "direct");
     return B.el("section", {class: "room tm-room", "aria-label": t.called},
       B.el("div", {class: "plate"}, B.el("a", {href: B.teamHref(t.name)}, t.called),
         t.about ? B.el("span", {class: "about"}, t.about) : null, yours(o, t) || null),
       own.length ? B.kv(own) : null,
+      B.el("div", {class: "bands"},
+        B.band("In", [
+          ["Asked", B.el("div", {class: "stack band-list"}, B.asksIn(t.name))],
+          channel || t.heed ? [B.el("span", {class: "line"}, "Heed", ...B.info("About heed", "Asked first about what is said at a channel place. Act: the lead starts. Note: kept in the request; nothing runs or is said.")),
+            B.heedEl(t), B.settingsEl(t.heed && t.heed.settings)] : null,
+        ]),
+        B.band("Team", [
+          t.people && t.people.length ? ["People", people(o, t.people)] : null,
+          !(t.people && t.people.length) && t.reached && t.reached.length
+            ? [B.el("span", {class: "line"}, "Reached", ...B.info("About reached", "The people this team's decisions reach. They stand as its people.")), people(o, null, t.reached)] : null,
+          ["Lead", B.el("span", {class: "line"}, leadEl(o, t), t.lead_runs ? null : B.el("span", {class: "status failed"}, "cannot run"))],
+        ]),
+        B.band("Out", [
+          t.discloses !== undefined ? ["Disclosure", t.discloses ? "Set" : B.el("span", {class: "faint"}, "None")] : null,
+          ["Answer", B.answersTo(t.name)],
+        ])),
       (o.inside.get(t.name) || []).length ? B.el("div", {class: "rows tm-tree"}, list(o, t.name)) : null);
+  }
+
+  // Defined: the tools, models and docs the teams' files define, each
+  // with the teams that use it.
+
+  function teamsCell(names) {
+    return names.length ? B.el("span", {class: "line"}, names.map(B.teamEl)) : B.el("span", {class: "faint"}, "None");
+  }
+
+  function table(head, rows) {
+    return B.el("div", {class: "scroll"}, B.el("table", {class: "table tm-defined"},
+      B.el("thead", {}, B.el("tr", {}, head.map((h) => B.el("th", {scope: "col"}, h)))),
+      B.el("tbody", {}, rows)));
+  }
+
+  const kinds = {script: "Script", machine: "Machine", tools: "Tools"};
+
+  function defined(d) {
+    const groups = [
+      d.tools.length ? B.el("div", {class: "group"}, B.label("Tools", B.el("span", {class: "count"}, String(d.tools.length))),
+        table(["Name", "Kind", "Teams"], d.tools.map((x) => B.el("tr", {},
+          B.el("td", {}, x.shipped ? B.el("span", {class: "line"}, B.el("a", {href: "#/shipped"}, x.shipped), B.el("span", {class: "faint"}, x.name)) : x.name),
+          B.el("td", {}, B.el("span", {class: "tag"}, kinds[x.kind] || x.kind)),
+          B.el("td", {}, teamsCell(x.teams)))))) : null,
+      d.models.length ? B.el("div", {class: "group"}, B.label("Models", B.el("span", {class: "count"}, String(d.models.length))),
+        table(["Model", "Teams"], d.models.map((x) => B.el("tr", {},
+          B.el("td", {class: "clip", title: x.name}, B.modelText(x.name) || x.name),
+          B.el("td", {}, teamsCell(x.teams)))))) : null,
+      d.docs.length ? B.el("div", {class: "group"}, B.label("Docs", B.el("span", {class: "count"}, String(d.docs.length))),
+        table(["Name", "Team", "Size", "Read by"], d.docs.map((x) => B.el("tr", {},
+          B.el("td", {}, x.name),
+          B.el("td", {}, B.teamEl(x.team)),
+          B.el("td", {class: "faint"}, B.size(x.size)),
+          B.el("td", {}, teamsCell(x.teams)))))) : null,
+    ].filter(Boolean);
+    return B.sect(B.label("Defined", ...B.info("About defined", "What the files of the teams you see define, with the teams that use each.")),
+      groups.length ? B.el("div", {class: "stack tm-groups"}, groups) : B.empty());
   }
 
   // search gives a search box that puts back what was searched for when
@@ -218,7 +280,7 @@
     });
   }
 
-  function view() {
+  function view(d) {
     const o = office();
 
     const teams = search("teamQ", "Search teams", o.teams, (t) => o.teamText.get(t), (found, q) => {
@@ -244,6 +306,7 @@
       B.head(null, "Teams"),
       B.sect(B.label("Teams", count(o.teams.length), ...B.info("About teams", "Teams are sealed: only people named in a team see what it read.")),
         teams.box, teams.out),
+      defined(d),
       B.sect(B.label("People", count(o.all.length)), folk.box, folk.out));
   }
 
@@ -252,8 +315,9 @@
   B.route(/^#\/teams$/, async function () {
     const f = focused();
     if (!drawn || drawn.me !== B.me) {
-      const sig = JSON.stringify([B.me.me.name, B.me.me.teams, B.me.teams, B.me.people, B.me.office]);
-      if (!drawn || drawn.sig !== sig) drawn = {sig, el: view()};
+      const d = await B.api("/api/defined");
+      const sig = JSON.stringify([B.me.me.name, B.me.me.teams, B.me.teams, B.me.people, B.me.office, d]);
+      if (!drawn || drawn.sig !== sig) drawn = {sig, el: view(d)};
       drawn.me = B.me;
     }
     again(drawn.el, f);

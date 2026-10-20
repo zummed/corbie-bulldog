@@ -229,7 +229,7 @@ func (w *Work) opening(n *note) (int64, error) {
 		return 0, nil
 	}
 	r := wr.routine
-	open, err := w.routineOpen(wr)
+	open, err := w.requests.RoutineOpen(wr.team, r)
 	if err != nil {
 		return 0, err
 	}
@@ -251,28 +251,4 @@ func (w *Work) opening(n *note) (int64, error) {
 		return 0, err
 	}
 	return asked.Number, nil
-}
-
-// routineOpen gives the routine's request still open, or 0: one opened for
-// a coming round Bulldog stopped before noting is found so too, and not
-// opened again.
-func (w *Work) routineOpen(wr written) (int64, error) {
-	open, err := w.requests.OpenOf(wr.team)
-	if err != nil {
-		return 0, err
-	}
-	for _, s := range open {
-		if s.Asker.Kind != requests.IsTeam {
-			continue
-		}
-		r, err := w.requests.Get(s.Number)
-		if err != nil {
-			return 0, err
-		}
-		o := r.Origin
-		if r.Parent == 0 && o.Kind == requests.ByRoutine && o.Team == wr.team && o.At == wr.routine.At && o.To == wr.routine.To && o.Say == wr.routine.Say {
-			return r.Number, nil
-		}
-	}
-	return 0, nil
 }

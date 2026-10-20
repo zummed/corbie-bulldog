@@ -31,11 +31,11 @@
   // B.reachEl gives what something reaches: the hosts it may connect to,
   // and each secret it may send, with where, nested beside its name.
   B.reachEl = function (r) {
-    const none = B.el("span", {class: "faint"}, "None");
+    const none = () => B.el("span", {class: "faint"}, "None");
     return B.kv([
-      ["Hosts", r.hosts.length ? B.el("span", {class: "line"}, r.hosts.map(hostEl)) : none],
+      ["Hosts", r.hosts.length ? B.el("span", {class: "line"}, r.hosts.map(hostEl)) : none()],
       ["Secrets", r.secrets.length ? B.el("div", {class: "br-secrets"}, r.secrets.map((x) =>
-        B.el("div", {class: "line"}, x.name === "*" ? "Every" : B.el("span", {class: "mono"}, x.name), B.el("span", {class: "faint"}, "→"), ...x.to.map(toEl)))) : none],
+        B.el("div", {class: "line"}, x.name === "*" ? "Every" : B.el("span", {class: "mono"}, x.name), B.el("span", {class: "faint"}, "→"), ...x.to.map(toEl)))) : none()],
     ]);
   };
 

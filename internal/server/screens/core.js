@@ -141,6 +141,77 @@ B.deciderEl = function (d, here) {
   return B.el("span", {class: "mono"}, d.called || d.name || d.kind);
 };
 B.bulldogEl = function () { return B.el("span", {class: "ic bulldog"}, "Bulldog"); };
+
+// chain gives who decides, in the order the walk asks them.
+B.chain = function (deciders, here) {
+  return B.el("span", {class: "chain"}, deciders.flatMap((d, i) => [i ? B.el("span", {class: "then", "aria-hidden": "true"}, "›") : null, B.deciderEl(d, here)]));
+};
+
+// placeEl gives a place a bridge listens in as the way to it: the bridge,
+// then the place.
+B.placeEl = function (bridge, place) {
+  return B.el("span", {class: "who"}, B.icon("bridge"), B.el("a", {href: "#/bridges"}, bridge), B.el("span", {class: "faint"}, "›"), B.el("span", {class: "mono"}, place));
+};
+
+// placesOf gives the places of every bridge that ask a team.
+B.placesOf = function (team) {
+  return (B.me.office.bridges || []).flatMap((b) => b.places.filter((p) => p.team === team).map((p) => ({bridge: b.name, place: p})));
+};
+
+// asksIn gives where a team is asked: each place of a bridge, the chat,
+// and another team's ask_team.
+B.asksIn = function (team) {
+  return [
+    ...B.placesOf(team).map((x) => B.el("span", {class: "line"}, B.placeEl(x.bridge, x.place.name), x.place.guests ? B.el("span", {class: "tag"}, "Guests") : null)),
+    B.el("span", {class: "who"}, B.icon("chat"), "Chat"),
+    B.el("span", {class: "line"}, "Sub-request", B.el("span", {class: "faint"}, "›"), B.el("span", {class: "mono"}, "ask_team")),
+  ];
+};
+
+// answersTo gives where a team's answer is said: back where it was
+// asked, a place of a bridge, the screens or the asking tool.
+B.answersTo = function (team) {
+  const sep = () => B.el("span", {class: "faint"}, "›");
+  const ways = [
+    ...B.placesOf(team).map((x) => B.placeEl(x.bridge, x.place.name)),
+    B.el("span", {class: "line"}, "Chat", sep(), "screens"),
+    B.el("span", {class: "line"}, "Sub-request", sep(), B.el("span", {class: "mono"}, "ask_team")),
+  ];
+  return B.el("span", {class: "line"}, ways.flatMap((w, i) => [i ? B.el("span", {class: "faint", "aria-hidden": "true"}, "·") : null, w]));
+};
+
+// band gives one band of a team's room, In, Team or Out: its label beside
+// the rows it holds, each a label and what it says, nested beneath when
+// it holds more.
+B.band = function (label, rows) {
+  const shown = rows.filter((r) => r && r[1] !== null && r[1] !== undefined && r[1] !== "");
+  if (!shown.length) return null;
+  return B.el("section", {class: "band", "aria-label": label},
+    B.el("div", {class: "band-label"}, label),
+    B.el("div", {class: "band-rows"}, shown.map(([k, v, under]) => B.el("div", {class: "band-row"},
+      B.el("div", {class: "band-k"}, k), B.el("div", {class: "band-v"}, v),
+      under ? B.el("div", {class: "band-under"}, under) : null))));
+};
+
+// heedEl gives a team's heed: its rule, a rule Bulldog ships linked to
+// Shipped, and whether a problem stops it, to those who see it; else Set,
+// or None when it names none.
+B.heedEl = function (t) {
+  if (!t.heed) return B.el("span", {class: "faint"}, "None");
+  if (!t.heed.rule) return "Set";
+  return B.el("span", {class: "line"}, B.ruleEl(t.heed.rule), B.el("span", {class: "tag"}, "Rule"),
+    t.heed.shipped ? B.el("a", {class: "tag", href: "#/shipped"}, "Shipped") : null,
+    t.heed.stopped ? B.el("span", {class: "status failed"}, "stopped") : null);
+};
+
+// settingsEl gives a rule's settings, each its value, marked Default when
+// the team file leaves it out, and what it is for behind its (i).
+B.settingsEl = function (settings) {
+  if (!settings || !settings.length) return null;
+  return B.kv(settings.map((x) => [B.el("span", {class: "line settings-k"}, B.el("span", {class: "mono"}, x.name), x.about ? B.info("About " + x.name, x.about) : ""),
+    B.el("span", {class: "line"}, B.el("span", {class: "mono"}, typeof x.value === "object" ? JSON.stringify(x.value) : String(x.value)),
+      x.default ? B.el("span", {class: "tag"}, "Default") : null)]));
+};
 B.guestEl = function (id, bridge) {
   return B.el("span", {class: "who"}, B.el("span", {class: "ic guest", "aria-hidden": "true"}, "?"), B.el("span", {}, "guest ", B.el("span", {class: "mono"}, id), " · " + bridge));
 };
@@ -191,6 +262,16 @@ B.status = function (r) {
 // bridgeStatus gives a bridge's one status: running, stopped, or, to the
 // top team's people, failing.
 B.bridgeStatus = function (b) { return B.el("span", {class: "status " + b.status}, b.status); };
+
+// modelText gives a model as it is sent, written in a row, in a few
+// words: its name and service, or "" when it gives neither.
+B.modelText = function (text) {
+  const field = (k) => {
+    const m = String(text || "").match(new RegExp("(?:^|[{,\\s])" + k + "\\s*:\\s*(\"[^\"]*\"|'[^']*'|[^,}\\s]+)"));
+    return m ? m[1].replace(/^["']|["']$/g, "") : "";
+  };
+  return [field("name"), field("service")].filter(Boolean).join(" · ");
+};
 
 // size gives a size in bytes as a person reads one.
 B.size = function (n) {

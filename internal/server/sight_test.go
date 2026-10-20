@@ -144,7 +144,7 @@ func TestServerEveryoneSeesTheOffice(t *testing.T) {
 	}
 	payments := teamIn(t, me, "payments")
 	if payments.About != "Charges, refunds and the ledger. Holds customer data." || !slices.Equal(payments.People, []string{"lee", "priya"}) ||
-		payments.Lead != "ledger" || payments.Within != "office" || payments.Reached != nil || payments.Discloses != nil {
+		payments.Lead != "ledger" || !payments.LeadRuns || payments.Within != "office" || payments.Reached != nil || payments.Discloses != nil {
 		t.Errorf("Dana sees payments as %+v", payments)
 	}
 	if platform := teamIn(t, me, "platform"); len(platform.People) != 0 || !slices.Equal(platform.Reached, []string{"al"}) {
@@ -277,7 +277,8 @@ func TestServerTeamSeenByItsPeople(t *testing.T) {
 		!refund.Waits || !slices.Equal(refund.Deciders, []deciderOut{{Kind: "person", Name: "lee"}, {Kind: "person", Name: "priya"}}) {
 		t.Errorf("Lee sees the ledger as %+v", ledger)
 	}
-	if !slices.Equal(lee.Disclosure, []deciderOut{{Kind: "rule", Name: "./disclosure.js"}}) || len(lee.Notes) != 1 || lee.Notes[0].Name != "refunds" {
+	if want := []deciderOut{{Kind: "rule", Name: "payments/disclosure.js"}, {Kind: "person", Name: "lee"}, {Kind: "person", Name: "priya"}}; !slices.Equal(lee.Disclosure, want) ||
+		len(lee.Notes) != 1 || lee.Notes[0].Name != "refunds" {
 		t.Errorf("Lee sees payments' disclosure %v and notes %v", lee.Disclosure, lee.Notes)
 	}
 	if !slices.ContainsFunc(lee.AtWork, func(a atWork) bool { return a.Worker == "ledger" && a.Request == d.payments }) {
@@ -373,7 +374,11 @@ func TestServerToolToldByWhereItResolves(t *testing.T) {
 	} {
 		got := tools(c.team, c.worker)
 		for _, want := range c.want {
-			if !reflect.DeepEqual(got[want.Name], want) {
+			tool := got[want.Name]
+			if (tool.Reach != nil) != (want.Kind == "script" || want.Kind == "machine") {
+				t.Errorf("the %s's %s is given what it reaches as %+v", c.worker, want.Name, tool.Reach)
+			}
+			if tool.Reach = nil; !reflect.DeepEqual(tool, want) {
 				t.Errorf("the %s's %s is %+v, not %+v", c.worker, want.Name, got[want.Name], want)
 			}
 		}
@@ -641,14 +646,13 @@ prompt: ${input.said}
 		return playHouse(turn)
 	})
 	s := b.serve()
-	want := []deciderOut{{Kind: "rule", Name: "./small-orders.js"}, {Kind: "worker", Name: "reviewer", Team: "garden"}, {Kind: "person", Name: "sam"}}
+	want := []deciderOut{{Kind: "rule", Name: "small-orders.js"}, {Kind: "worker", Name: "reviewer", Team: "garden"}, {Kind: "person", Name: "sam"}}
 	var whole teamWhole
 	s.as("sam").get("/api/teams/office").is(http.StatusOK).into(&whole)
 	list := whole.Decide[slices.IndexFunc(whole.Decide, func(l listOut) bool { return l.Key == "order_part" })]
 	if !slices.Equal(list.Deciders, want) {
 		t.Errorf("Sam is given the house's order_part as %+v", list.Deciders)
 	}
-	want[0].Name = "small-orders.js"
 	fixer := whole.Workers[slices.IndexFunc(whole.Workers, func(w workerOut) bool { return w.Name == "fixer" })]
 	if tool := fixer.Tools[slices.IndexFunc(fixer.Tools, func(t toolOut) bool { return t.Name == "order_part" })]; !slices.Equal(tool.Deciders, want) {
 		t.Errorf("Sam is given the fixer's order_part as decided by %+v", tool.Deciders)
