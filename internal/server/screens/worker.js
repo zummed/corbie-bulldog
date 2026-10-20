@@ -50,11 +50,15 @@
       B.el("div", {class: "pop", id, popover: "auto"}, ...shows),
     ];
   }
-  // toolName gives a tool by its name; a listed one stands for each tool
-  // its server lists, named after it.
+  const KITS = {talk: "the talk tools", docs: "the docs tools", notes: "the notes tool", build: "the builder's tools"};
+
+  // toolName gives a tool by its name, which shows what it does and, of
+  // one of Bulldog's, the kit it comes in; a listed one stands for each
+  // tool its server lists, named after it.
   function toolName(tool) {
     if (tool.listed) return pop(["Each tool the server of " + tool.name + " lists, as " + tool.name + "_<tool>"], B.el("span", {class: "mono"}, tool.name + "_*"));
-    return tool.does ? pop([tool.does], tool.name) : B.el("span", {class: "mono wk-name"}, tool.name);
+    const from = tool.kind === "bulldog" ? B.el("div", {class: "wk-does faint"}, "From Bulldog" + (KITS[tool.kit] ? ", in " + KITS[tool.kit] : "")) : null;
+    return tool.does || from ? pop([tool.does, from], tool.name) : B.el("span", {class: "mono wk-name"}, tool.name);
   }
 
   // authorisation gives who decides a tool that waits, in order; one that
@@ -144,6 +148,10 @@
           B.el("span", {class: "wk-c2"}, w.may_ask.length ? inline("teams", w.may_ask.map(B.teamEl)) : B.el("span", {class: "muted"}, "none"))));
       } else if (tool.kind === "bulldog" && tool.name === THREAD_TOOL) {
         can.push(row(B.el("span", {class: "wk-c1"}, toolName(tool)), B.el("span", {class: "wk-c2"}, "Thread")));
+      } else if (tool.kind === "bulldog" && tool.kit === "docs") {
+        const docs = tools.filter((x) => x.kind === "bulldog" && x.kit === "docs");
+        if (tool === docs[0]) can.push(row(B.el("span", {class: "wk-c1 line"}, docs.map(toolName)),
+          B.el("span", {class: "wk-c2"}, B.el("a", {href: B.teamHref(t.name)}, "Docs"))));
       } else if (tool.kind === "bulldog" && tool.name === NOTES_TOOL) {
         others.push(row(B.el("span", {class: "wk-c1"}, toolName(tool)),
           B.el("span", {class: "wk-c2"}, B.el("a", {href: B.teamHref(t.name)}, "Notes"))));
@@ -151,7 +159,7 @@
         changes.push(B.el("span", {class: "tag", title: tool.does || null}, tool.name));
       } else {
         can.push(row(B.el("span", {class: "wk-c1"}, toolName(tool)),
-          B.el("span", {class: "wk-c2"}, authorisation(tool, t)),
+          B.el("span", {class: "wk-c2 line"}, B.el("span", {class: "mono faint small"}, tool.kind), authorisation(tool, t)),
           fileEl(tool.file), reachEl(tool)));
       }
     }

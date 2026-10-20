@@ -158,14 +158,15 @@ B.placesOf = function (team) {
   return (B.me.office.bridges || []).flatMap((b) => b.places.filter((p) => p.team === team).map((p) => ({bridge: b.name, place: p})));
 };
 
-// asksIn gives where a team is asked: each place of a bridge, the chat,
-// and another team's ask_team.
+// asksIn gives where a team is asked, on one line: each place of a
+// bridge, the chat, and another team's ask_team.
 B.asksIn = function (team) {
-  return [
-    ...B.placesOf(team).map((x) => B.el("span", {class: "line"}, B.placeEl(x.bridge, x.place.name), x.place.guests ? B.el("span", {class: "tag"}, "Guests") : null)),
+  const ways = [
+    ...B.placesOf(team).map((x) => B.el("span", {class: "line"}, B.placeEl(x.bridge, x.place.name), x.place.guests ? B.el("span", {class: "faint small"}, "guests") : null)),
     B.el("span", {class: "who"}, B.icon("chat"), "Chat"),
-    B.el("span", {class: "line"}, "Sub-request", B.el("span", {class: "faint"}, "›"), B.el("span", {class: "mono"}, "ask_team")),
+    B.el("span", {class: "who", title: "Asked by another team's ask_team"}, "Sub-request"),
   ];
+  return B.el("span", {class: "line ways"}, ways.flatMap((w, i) => [i ? B.el("span", {class: "faint", "aria-hidden": "true"}, "·") : null, w]));
 };
 
 // answersTo gives where a team's answer is said: back where it was
@@ -182,15 +183,16 @@ B.answersTo = function (team) {
 
 // band gives one band of a team's room, In, Team or Out: its label beside
 // the rows it holds, each a label and what it says, nested beneath when
-// it holds more.
+// it holds more; a row with no label says it across the band.
 B.band = function (label, rows, ...more) {
   const shown = rows.filter((r) => r && r[1] !== null && r[1] !== undefined && r[1] !== "");
   if (!shown.length) return null;
   return B.el("section", {class: "band", "aria-label": label},
     B.el("div", {class: "band-label"}, label, ...more),
-    B.el("div", {class: "band-rows"}, shown.map(([k, v, under]) => B.el("div", {class: "band-row"},
+    B.el("div", {class: "band-rows"}, shown.map(([k, v, under]) => k ? B.el("div", {class: "band-row"},
       B.el("div", {class: "band-k"}, k), B.el("div", {class: "band-v"}, v),
-      under ? B.el("div", {class: "band-under"}, under) : null))));
+      under ? B.el("div", {class: "band-under"}, under) : null)
+      : B.el("div", {class: "band-row band-across"}, B.el("div", {class: "band-v"}, v)))));
 };
 
 // notesInfo gives the (i) of a team's notes.
@@ -224,15 +226,23 @@ B.entryLabel = function (decisions, e) {
   return d ? B.decisionWord(d.kind) : B.entryWord(e.kind);
 };
 
-// heedEl gives a team's heed: its rule, a rule Bulldog ships linked to
-// Shipped, and whether a problem stops it, to those who see it; else Set,
-// or None when it names none.
+// heedEl gives a team's heed on one line, to those who see it: its rule
+// by its short name, its short settings in brackets, the defaults faint,
+// and whether a problem stops it; and, opened, the rule's path and all
+// its settings. Else Set, or None when it names none.
 B.heedEl = function (t) {
   if (!t.heed) return B.el("span", {class: "faint"}, "None");
   if (!t.heed.rule) return "Set";
-  return B.el("span", {class: "line"}, B.ruleEl(t.heed.rule), B.el("span", {class: "tag"}, "Rule"),
-    t.heed.shipped ? B.el("a", {class: "tag", href: "#/shipped"}, "Shipped") : null,
+  const short = (t.heed.settings || []).filter((x) => x.value != null && typeof x.value !== "object" && String(x.value).length <= 24);
+  const line = B.el("span", {class: "line heed-line"},
+    B.el("span", {class: "who", title: t.heed.rule}, B.el("span", {class: "ic rule", "aria-hidden": "true"}),
+      B.el("span", {class: "mono"}, t.heed.rule.split("/").pop().replace(/\.[^.]+$/, ""))),
+    short.length ? B.el("span", {class: "mono heed-short"}, "(", short.flatMap((x, i) => [i ? ", " : "",
+      B.el("span", {class: x.default ? "faint" : "", title: x.name + (x.default ? ", the default" : "")}, String(x.value))]), ")") : null,
     t.heed.stopped ? B.el("span", {class: "status failed"}, "stopped") : null);
+  if (!(t.heed.settings || []).length) return line;
+  return B.el("details", {class: "heed"}, B.el("summary", {}, line),
+    B.el("div", {class: "heed-all"}, B.el("span", {class: "mono faint small"}, t.heed.rule), B.settingsEl(t.heed.settings)));
 };
 
 // leadCalled gives a team's lead as it is called, or "the lead".
@@ -242,13 +252,14 @@ B.leadCalled = function (t) {
 };
 
 // The labels of a team's Heed, Lead and Disclosure rows, each with what
-// it means for this team behind its (i).
+// it means for this team behind its (i); the lead's may be said in other
+// words, as where it stands in a tree.
 B.heedLabel = function (t) {
   return B.el("span", {class: "line"}, "Heed", ...B.info("About heed",
     "Asked first about what is said at a channel place. Act: " + B.leadCalled(t) + " starts. Note: kept in the request; nothing runs or is said."));
 };
-B.leadLabel = function (t) {
-  return B.el("span", {class: "line"}, "Lead", ...B.info("About lead", B.person(t.lead)
+B.leadLabel = function (t, word) {
+  return B.el("span", {class: "line"}, word || "Lead", ...B.info("About lead", B.person(t.lead)
     ? "Each request to " + t.called + " waits on " + B.leadCalled(t) + ", and what they say in it is its answer. A routine's request goes to the worker the routine names. Being lead decides nothing."
     : "Started on each request to " + t.called + ", and again on anything said to " + t.called + " in it, answered or not. A routine's request starts the worker the routine names. Being lead decides nothing."));
 };
@@ -257,7 +268,7 @@ B.disclosureLabel = function (t) {
     "Asked before anything leaves " + t.called + ": answers, questions and tells to people outside it, requests to other teams. Yes: disclosed as it was. Refused: back to " + B.leadCalled(t) + ", with the note."));
 };
 
-// settingsEl gives a rule's settings, each its value, marked Default when
+// settingsEl gives a rule's settings, each its value, marked default when
 // the team file leaves it out, or None when nothing gives it one, and what
 // it is for behind its (i).
 B.settingsEl = function (settings) {
@@ -265,7 +276,7 @@ B.settingsEl = function (settings) {
   const value = (x) => x.value == null ? B.el("span", {class: "faint"}, "None")
     : B.el("span", {class: "mono"}, typeof x.value === "object" ? JSON.stringify(x.value) : String(x.value));
   return B.kv(settings.map((x) => [B.el("span", {class: "line settings-k"}, B.el("span", {class: "mono"}, x.name), x.about ? B.info("About " + x.name, x.about) : ""),
-    B.el("span", {class: "line"}, value(x), x.default ? B.el("span", {class: "tag"}, "Default") : null)]));
+    B.el("span", {class: "line"}, value(x), x.default ? B.el("span", {class: "faint small"}, "default") : null)]));
 };
 B.guestEl = function (id, bridge) {
   return B.el("span", {class: "who"}, B.el("span", {class: "ic guest", "aria-hidden": "true"}, "?"), B.el("span", {}, "guest ", B.el("span", {class: "mono"}, id), " · " + bridge));

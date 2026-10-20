@@ -13,30 +13,45 @@
 .te-more { gap: 6px; }
 .te-found { display: flex; flex-direction: column; gap: 8px; }
 
-/* The tree of workers: each tool beneath the worker that holds it, on a
-   guide line; a colleague folds its own beneath it */
-.lt { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.lt .lt { margin: 4px 0 2px 9px; padding-left: 16px; border-left: 1.5px solid var(--line); }
+/* The tree of workers: beneath each worker, on a guide line, the
+   colleagues it calls, folded, then a line of what it does with Bulldog's
+   tools and a line of its own tools' names. How each stands, lead,
+   colleague or routine, is said faint at the tree's right. */
+.lt-tree { max-width: 640px; }
+.lt { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .lt-roots + .lt-roots { margin-top: 8px; }
-.lt-row { gap: 4px 10px; min-height: 26px; }
+.lt-under { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 6px 9px; padding: 2px 0 2px 16px; border-left: 1.5px solid var(--line); }
+.lt-row { flex-wrap: nowrap; gap: 4px 10px; min-height: 26px; flex: 1 1 auto; min-width: 0; }
 .lt-node > summary { display: flex; align-items: center; }
-.lt-lock { gap: 4px 6px; }
+.lt-roots > li > .lt-row, .lt-node > summary > .lt-row, .lt-leaf > .lt-row { width: 100%; }
+.lt-leaf { display: flex; padding-left: 14px; }
+.lt-role { margin-left: auto; font: var(--small) var(--mono); color: var(--ink3); }
+.lt-kits { gap: 4px 10px; color: var(--ink2); font-size: 14px; }
+.lt-kit { gap: 4px; }
+.lt-own { gap: 2px 16px; color: var(--ink2); }
+.lt-tool { gap: 3px; flex-wrap: nowrap; }
+.lt-lock { display: inline-flex; color: var(--ink3); }
 .lt-lock > .ic { width: 14px; height: 14px; }
 .lt-lock > .ic svg { width: 12px; height: 12px; }
 .lt-problem { margin: 2px 0 4px; }
 
-/* Authorisation and models: a key, then what it names */
+/* Authorisation and models: a key, then what it names; the lists of
+   deciders one to a line, unruled */
+.rows.te-lists { border-top: 0; }
+.rows.te-lists > .row { min-height: 28px; padding: 1px 0; border-bottom: 0; }
 .te-key { flex: none; min-width: 120px; color: var(--ink); }
 .te-models td { vertical-align: middle; }
 
 /* The side's lists */
-.row.te-rt { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 12px; padding: 6px 0; }
+.row.te-rt { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 6px 0; }
 .row.te-rt .te-say { grid-column: 1 / -1; color: var(--ink2); }
 .row.te-rt .te-rt-foot { grid-column: 1 / -1; gap: 4px 16px; }
 .status.due { color: var(--plan); } .status.due::before { background: transparent; border: 1.5px solid var(--plan); }
 .row.te-rule { flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px 0; }
-.row.te-rule > .kv { padding-left: 14px; border-left: 1.5px solid var(--line); }
-.te-at { color: var(--ink2); }
+.row.te-rule > .kv { grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; padding-left: 14px; border-left: 1.5px solid var(--line); }
+.row.te-rule > .kv > dd { font-size: var(--data); }
+.te-writers { gap: 4px 10px; margin-bottom: 8px; }
+.te-at { color: var(--ink2); gap: 4px 10px; min-width: 0; }
 .te-to { display: flex; min-width: 0; }
 .te-say { font: var(--data) var(--mono); min-width: 0; }
 .te-problem { color: var(--bad); font: var(--data)/1.5 var(--mono); align-items: baseline; }

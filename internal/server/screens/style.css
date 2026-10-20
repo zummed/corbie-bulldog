@@ -182,6 +182,15 @@ main { max-width: var(--page); margin: 0 auto; padding: var(--space) 24px 64px; 
 .band-v { min-width: 0; }
 .band-under { grid-column: 2; min-width: 0; padding-left: 14px; border-left: 1.5px solid var(--line); }
 .band-list { gap: 4px; }
+.band-row.band-across { grid-template-columns: minmax(0, 1fr); }
+.ways { gap: 4px 10px; }
+
+/* A heed: its rule and its short settings on a line, all of them opened
+   beneath it */
+.heed > summary { display: flex; align-items: center; }
+.heed-short { color: var(--ink2); }
+.heed-all { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 4px 6px; padding-left: 12px; border-left: 1.5px solid var(--line); }
+.heed-all .kv > dd { font-size: var(--data); }
 .settings-k { gap: 6px; flex-wrap: nowrap; }
 
 /* What a team read: hatched, seen only by its people */

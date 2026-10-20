@@ -195,8 +195,8 @@
       own.length ? B.kv(own) : null,
       B.el("div", {class: "bands"},
         B.band("In", [
-          ["Asked", B.el("div", {class: "stack band-list"}, B.asksIn(t.name))],
-          channel || t.heed ? [B.heedLabel(t), B.heedEl(t), B.settingsEl(t.heed && t.heed.settings)] : null,
+          ["Asked", B.asksIn(t.name)],
+          channel || t.heed ? [B.heedLabel(t), B.heedEl(t)] : null,
         ]),
         B.band("Team", [
           t.people && t.people.length ? ["People", people(o, t.people)] : null,
