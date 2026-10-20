@@ -132,7 +132,7 @@ func TestToolsNamed(t *testing.T) {
 func TestEveryShippedThingHasItsPage(t *testing.T) {
 	t.Parallel()
 	things := shipped.Things()
-	if !slices.Equal(things, []string{"tools/build", "tools/docs", "tools/notes", "tools/talk", "bridges/gitlab", "bridges/jira", "bridges/slack", "bridges/telegram", "rules/for-us", "rules/mentioned"}) {
+	if !slices.Equal(things, []string{"tools/build", "tools/docs", "tools/notes", "tools/talk", "bridges/gitlab", "bridges/jira", "bridges/slack", "bridges/telegram", "rules/for-us", "rules/mentioned", "signin/entra", "signin/google"}) {
 		t.Errorf("Bulldog ships %v", things)
 	}
 	pages := shipped.Pages()
@@ -190,6 +190,8 @@ var reaches = map[string]struct {
 	"bridges/telegram": {"0.2.0", []string{"net:api.telegram.org", "secret:TELEGRAM_TOKEN@net:api.telegram.org"}},
 	"rules/for-us":     {"0.2.0", []string{"net:api.typesafe.ai", "secret:TYPESAFE_KEY@net:api.typesafe.ai"}},
 	"rules/mentioned":  {"0.2.0", nil},
+	"signin/entra":     {"0.3.0", []string{"net:login.microsoftonline.com", "secret:ENTRA_CLIENT_SECRET@net:login.microsoftonline.com"}},
+	"signin/google":    {"0.3.0", []string{"net:oauth2.googleapis.com", "secret:GOOGLE_CLIENT_SECRET@net:oauth2.googleapis.com"}},
 }
 
 func TestShippedReachChangeHasAChangedLine(t *testing.T) {

@@ -1,8 +1,8 @@
 // Package shipped holds what Bulldog ships, as one tree, which is
 // .bulldog/ in every office: its own machines, flat at the top, the ask, a
 // tool's call, a routine's clock and the server's own run; and one folder
-// for each thing an office uses by its path there, a tools file, a bridge
-// or a rule, with the thing's page as its README.md. Each tool is a run that
+// for each thing an office uses by its path there, a tools file, a bridge,
+// a rule or a way to sign in, with the thing's page as its README.md. Each tool is a run that
 // only waits on a ticket, which Bulldog answers.
 package shipped
 
@@ -43,10 +43,12 @@ var ToolsFiles = []string{Talk, Notes, Docs, Build}
 
 // Page is the file of a shipped folder that is its page of the manual, its
 // first line saying what the thing is; Settings is a bridge's entry under
-// bridges in office.yaml, as it is shipped.
+// bridges in office.yaml, as it is shipped; SignIn is the machine of a
+// way to sign in, in its folder.
 const (
 	Page     = "README.md"
 	Settings = "settings.yaml"
+	SignIn   = "signin.yaml"
 )
 
 // The tickets the shipped machines wait on, and the event the server's own
@@ -62,11 +64,11 @@ const (
 // The tree is read from here, by the office's loader, and written into an
 // office's .bulldog/ for people to read; they are the same.
 //
-//go:embed ask.yaml call.yaml live.yaml clock.yaml tools bridges/*/* rules
+//go:embed ask.yaml call.yaml live.yaml clock.yaml tools bridges/*/* rules signin/*/*
 var tree embed.FS
 
 // kinds are the folders of the tree that hold one folder for each thing.
-var kinds = []string{"tools", "bridges", "rules"}
+var kinds = []string{"tools", "bridges", "rules", "signin"}
 
 // old are the files earlier versions shipped flat at the top, which are
 // taken away.
@@ -97,7 +99,7 @@ func File(name string) ([]byte, bool) {
 }
 
 // Things lists the folders of the things Bulldog ships, by their paths in
-// Dir, such as tools/talk, bridges/slack and rules/for-us.
+// Dir, such as tools/talk, bridges/slack, rules/for-us and signin/google.
 func Things() []string {
 	var things []string
 	for _, kind := range kinds {
@@ -157,6 +159,17 @@ func Bridges() []string {
 	var names []string
 	for _, thing := range Things() {
 		if name, ok := strings.CutPrefix(thing, "bridges/"); ok {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// SignIns lists the names of the ways to sign in Bulldog ships.
+func SignIns() []string {
+	var names []string
+	for _, thing := range Things() {
+		if name, ok := strings.CutPrefix(thing, "signin/"); ok {
 			names = append(names, name)
 		}
 	}
