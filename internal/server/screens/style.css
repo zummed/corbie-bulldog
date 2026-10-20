@@ -238,27 +238,20 @@ input[type="file"].in { min-height: 0; padding: 6px; border-style: dashed; font-
 .entry .k { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink2); min-width: 64px; }
 .entry .at { margin-left: auto; font: var(--small) var(--mono); color: var(--ink3); }
 .entry .body { margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
-.entry .foot { margin-top: 4px; font: var(--small) var(--mono); color: var(--ink3); }
 .entry.said .body { font-size: 16px; }
 .entry.asked .body { font-size: 18px; font-weight: 500; }
 .entry.asked::before, .entry.said::before, .entry.replied::before { background: var(--ink); border-color: var(--ink); }
 .entry.answer::before { background: var(--ink); border-color: var(--ink); border-radius: 1px; }
 .entry.answer .body { border: 1.5px solid var(--ink); background: var(--sheet); padding: 8px 12px; }
 .entry.question::before, .entry.decide::before { background: var(--wait); border-color: var(--wait); }
-.entry.waits .body { border-left: 3px solid var(--wait); padding-left: 10px; }
-.entry.quiet .body { color: var(--ink2); font-size: 14px; }
 .entry.bulldog .body, .entry.notice .body { font: var(--data) var(--mono); color: var(--ink2); }
-.entry.read { background: repeating-linear-gradient(135deg, var(--hatch-a) 0 6px, var(--hatch-b) 6px 12px); }
-.entry.read .body { background: var(--sheet); padding: 6px 10px; }
-.entry .reply { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
-.entry .reply .in { flex: 1 1 240px; }
 .files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 
 /* What flows: a line downward, a node on it for each step or stage. What
    goes on now breathes, what waits on someone rings, and the line
    trickles on below while anything is at work. Bulldog's own checks, a
    heed, an authorisation and a disclosure, are dashed. */
-:root { --node: 12px; --breathe: 1.8s; --flow-gap: 14px; }
+:root { --node: 12px; --breathe: 1.8s; --enter: 0.6s; --flow-gap: 14px; }
 .flow { display: flex; flex-direction: column; --phase: 0ms; }
 .flow > * > .line { position: relative; align-self: stretch; min-height: 28px; }
 .flow > * > .line::before { content: ""; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: var(--line); }
@@ -270,8 +263,13 @@ input[type="file"].in { min-height: 0; padding: 6px; border-style: dashed; font-
 .flow > .pending > .line::after { border-style: dashed; border-color: var(--ink3); }
 .flow > .tail > .line::after { display: none; }
 .flow.live > .tail > .line::before { background: linear-gradient(180deg, var(--plan) 0 6px, transparent 6px 12px) 0 0 / 2px 12px; opacity: 0.6; animation: descend 1.2s linear infinite; }
-.flow > .new { animation: enter 0.6s ease-out both; }
-.check { border: 1.5px dashed var(--ink2); }
+.flow > .new { animation: enter var(--enter) ease-out both; }
+
+/* A kind, of a step or a part, in a word; Bulldog's own checks, a heed, an
+   authorisation and a disclosure, are dashed, the chip of one and the box
+   of one alike */
+.chip { display: inline-flex; align-items: center; font: 500 11px/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink2); border: 1px solid var(--line); padding: 3px 5px; white-space: nowrap; }
+.chip.check, .pp-box.check { border-style: dashed; border-color: var(--ink2); color: var(--ink); }
 @keyframes descend { to { background-position: 0 12px; } }
 @keyframes breathe { 0%, 100% { opacity: 0.45; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1); } }
 @keyframes ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--wait) 60%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }

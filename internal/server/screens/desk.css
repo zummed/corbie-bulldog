@@ -8,7 +8,6 @@
 .desk-first { flex: 1 1 160px; min-width: 0; font: var(--data) var(--mono); color: var(--ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .desk-said { font-size: 17px; font-weight: 500; white-space: pre-wrap; word-break: break-word; }
 .desk .ask-card .label { margin-bottom: 0; }
-.desk-req .rq-of { display: none; }
 .desk-answer { display: flex; flex-direction: column; gap: var(--gap); }
 .desk-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .desk-error { font: var(--data) var(--mono); color: var(--bad); }

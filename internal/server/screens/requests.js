@@ -134,7 +134,7 @@
       return B.el("div", {class: "row link"}, n, cell("first muted", "put to you"),
         r.state ? cell("st", B.status(r)) : null);
     }
-    const st = B.status(r);
+    const st = B.status(B.standing(r));
     return B.el("div", {class: "row link" + (depth ? " sub" : "")},
       n,
       B.el("span", {class: "cell first" + nest, title: r.first}, B.el("span", {class: "text"}, r.first), toggle),

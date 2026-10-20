@@ -221,6 +221,17 @@
     return via.length ? B.el("span", {class: "line"}, via.map((x) => B.workerEl(x.name, t.name, {bare: true}))) : null;
   }
 
+  // inOffice gives a path the worker's file writes, from its own folder,
+  // as the path in the office it names.
+  function inOffice(w, path) {
+    const parts = w.file.split("/").slice(0, -1);
+    for (const step of path.split("/")) {
+      if (step === "" || step === ".") continue;
+      if (step === "..") parts.pop(); else parts.push(step);
+    }
+    return parts.join("/");
+  }
+
   // definition gives what the worker's file writes of how it runs, folded.
   function definition(w) {
     const d = w.definition;
@@ -229,7 +240,7 @@
       ["System", d.system ? B.el("pre", {class: "wk-text"}, d.system) : null],
       ["Prompt", d.prompt ? B.el("pre", {class: "wk-text"}, d.prompt) : null],
       ["Inputs", list(d.inputs)],
-      ["Tools files", d.tools_files.length ? B.el("span", {class: "line"}, d.tools_files.map(fileEl)) : null],
+      ["Tools files", d.tools_files.length ? B.el("span", {class: "line"}, d.tools_files.map((path) => fileEl(inOffice(w, path)))) : null],
       ["Uses", w.uses.length ? B.el("span", {class: "line"}, w.uses.map(fileEl)) : null],
     ]);
     const box = B.el("details", {class: "wk-def"}, B.el("summary", {}, B.label("Definition")), rows);
@@ -240,7 +251,7 @@
   // each request it is at work on, to watch.
   function statusEl(w, t) {
     if (!w.runs) return B.el("span", {class: "status failed"}, "cannot run");
-    const busy = (t.at_work || []).filter((a) => a.worker === w.name);
+    const busy = B.atWork(t).filter((a) => a.worker === w.name);
     if (!busy.length) return null;
     return B.el("span", {class: "line"}, B.status({state: "working"}), inline("runs", busy.map((a) =>
       B.el("a", {class: "mono small", href: "#/run/" + encodeURIComponent(a.run), title: "Watch " + w.name + " on #" + a.request, "aria-label": "Watch " + w.name + " on #" + a.request}, "#" + a.request))));

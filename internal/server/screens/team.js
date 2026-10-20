@@ -1,11 +1,11 @@
 // One team, as the way a request goes through it, downward: where it is
 // asked, its heed, the team, what its lead calls on, its disclosure and
 // where its answer goes back; each stage unfolds its setup on asking, and
-// beside it, to the team's people, what is in it now. Beside the stages,
-// to its people, its routines, models, what its rules reach, its notes
-// and problems, and its docs to those who may open them. A team may have
-// hundreds of people and many workers, so long lists are paged and
-// searched.
+// beside it, to the team's people, what is in it now. Beneath the stages,
+// to its people, its problems, and folded, its routines, models, what its
+// rules reach and its notes, and its docs to those who may open them. A
+// team may have hundreds of people and many workers, so long lists are
+// paged and searched.
 (function () {
   "use strict";
 
@@ -15,8 +15,6 @@
   const PAGE = 20;      // tools, routines, notes and lists shown before More
   const NOW = 3;        // things in a stage now shown before +N
   const FEW = 2;        // of the parts of what the lead calls on, how many are named before N more
-  const BREATHE = 1800; // ms, the beat of what breathes and rings, kept across drawings
-  const ENTER = 600;    // ms, how long a new thing takes to come in
 
   // What the view keeps while it is drawn again, for one team: what is
   // searched for, how many of each list are shown, which stages, notes,
@@ -150,7 +148,7 @@
   // tree, the lock of what waits for a yes in it, its one status, cannot
   // run or at work, with each request it is at work on, to watch.
   function workerRow(t, w, role, lock) {
-    const busy = (t.at_work || []).filter((a) => a.worker === w.name);
+    const busy = B.atWork(t).filter((a) => a.worker === w.name);
     return B.el("span", {class: "line lt-row"},
       B.workerEl(w.name, t.name, {bare: true}), roleEl(t, role), lock,
       w.runs === false ? B.el("span", {class: "status failed"}, "cannot run") : busy.length ? B.status({state: "working"}) : null,
@@ -263,10 +261,10 @@
   // What the lead calls on, in full: whom it may ask and who authorises
   // what waits, each when there is any.
 
-  function asksEl(t) {
+  // asked gives the teams the lead may ask.
+  function asked(t) {
     const lead = byName(t, t.lead);
-    if (!lead || !lead.may_ask.length) return null;
-    return B.el("span", {class: "line"}, lead.may_ask.map(B.teamEl));
+    return lead ? lead.may_ask : [];
   }
 
   function authorisationEl(t) {
@@ -307,6 +305,15 @@
     return body ? B.el("div", {class: "pp-block"}, B.el("div", {class: "pp-k"}, word), body) : null;
   }
 
+  // ways gives where the team is asked, in a line: the places of each
+  // bridge after it, then the chat and another team's request.
+  function ways(places) {
+    const by = new Map();
+    for (const x of places) by.set(x.bridge, [...(by.get(x.bridge) || []), x.place.name]);
+    const way = (text) => B.el("span", {class: "pp-way"}, text);
+    return [...[...by].map(([bridge, names]) => way(bridge + " › " + names.join(", "))), way("Chat"), way("Sub-request")];
+  }
+
   // waysOf gives where the team is asked: each place of a bridge, with
   // what is said of it, then the chat and another team's request.
   function waysOf(t, place, chat, sub) {
@@ -321,9 +328,8 @@
   function stages(t, whole) {
     const places = B.placesOf(t.name);
     const channel = places.filter((x) => x.place.name !== "direct");
-    const ways = [...places.map((x) => x.bridge + " › " + x.place.name), "Chat", "Sub-request"].join(" · ");
     const down = places.find((x) => x.status !== "running");
-    const out = [{id: "source", word: "Source", name: "Where it is asked", sub: ways,
+    const out = [{id: "source", word: "Source", name: "Where it is asked", sub: ways(places),
       also: down ? B.bridgeStatus({status: down.status}) : null,
       setup: waysOf(t, (x) => B.el("span", {class: "line"}, x.place.guests ? "Guests may ask" : "People of the office",
         x.status !== "running" ? B.bridgeStatus({status: x.status}) : null), "On the screens", "By another team, through its ask_team")}];
@@ -365,71 +371,75 @@
       const tools = lead ? lead.tools || [] : [];
       const own = tools.filter((tl) => tl.kind !== "bulldog" && !(tl.kind === "worker" && byName(t, tl.worker))).map((tl) => tl.listed ? tl.name + "_*" : tl.name);
       const kits = Object.keys(B.KITS).filter((k) => tools.some((tl) => tl.kind === "bulldog" && tl.kit === k)).map((k) => B.KITS[k]);
-      const teams = [...new Set(holding("ask_team").flatMap((w) => w.may_ask))];
+      const keys = (t.decide || []).map((l) => l.key + ": " + (l.deciders || []).map(deciderWord).join(", then "));
       const parts = [
         lead ? ["Colleagues", named(colleaguesOf(t, lead).map(([, c]) => c.name), 3)] : null,
         ["Tools", named(own, FEW)],
         ["Bulldog's", named(kits, FEW)],
-        ["Authorisation", named((t.decide || []).map((l) => l.key + " › " + (l.deciders || []).map(deciderWord).join(" › ")), FEW), true],
+        ["Authorisation", keys.length ? B.el("span", {class: "pp-keys"}, keys.slice(0, FEW + 1).map((k) => B.el("span", {}, k)),
+          keys.length > FEW + 1 ? B.el("span", {class: "faint"}, keys.length - FEW - 1 + " more") : null) : null, true],
         holding("ask_person").length ? ["People", named([...folk.map((n) => B.partyWord({kind: "person", name: n})), "whoever asked"], 3)] : null,
-        ["Other teams", named(teams.map(B.teamCalled), 3)],
+        ["Other teams", named(asked(t).map(B.teamCalled), 3)],
       ].filter((p) => p && p[1]);
       out.push({id: "handoff", word: "Handoff", name: lead ? "What " + lead.name + " calls on" : "What its workers call on", parts,
         setup: [block("Workers", tree(t)),
           block(B.el("span", {class: "line"}, "Authorisation", ...B.info("About authorisation", "Asked in order. A yes or a refusal ends it; a refer goes on, with its note, to whoever is next.")), authorisationEl(t)),
-          block("Other teams", asksEl(t))]});
+          block("Other teams", asked(t).length ? B.el("span", {class: "line"}, asked(t).map(B.teamEl)) : null)]});
     }
 
     if ((t.disclosure && t.disclosure.length) || t.discloses) {
       const ds = t.disclosure || [];
-      out.push({id: "disclosure", word: "Disclosure", check: true, name: ds.length ? deciderWord(ds[0]) : "Set",
+      out.push({id: "disclosure", word: "Disclosure", check: true, name: ds.length ? "Asked of " + deciderWord(ds[0]) : "Set",
         sub: ds.length > 1 ? "then " + ds.slice(1).map(deciderWord).join(", then ") : "",
         info: infoOf(B.disclosureLabel(t)),
         setup: ds.length ? B.kv([["Asked", B.chain(ds, t.name)], ["Not needed for", "People of " + t.called]]) : null});
     }
 
-    out.push({id: "answer", word: "Answer", name: "Back where it was asked", sub: ways,
+    out.push({id: "answer", word: "Answer", name: "Back where it was asked", sub: ways(places),
       setup: waysOf(t, () => "Where it was asked", "On the screens", "To the team that asked")});
     return out;
   }
 
+  // What a disclosure would let out, in a word or two.
+  const LEAVING = {answer: "its answer", question: "a question", tell: "a tell", sub: "a sub-request"};
+
   // nowItems gives what is in the team's stages now, each with the stage
   // it is beside, its key, kept across drawings, how it goes, working,
-  // waiting on someone, pending or done, its request, and what it is.
+  // waiting on someone, pending or done, its request, whom it waits on,
+  // what it is, and the request's first line. A run held while its
+  // request waits is not at work: what it waits on is beside its stage.
   function nowItems(t) {
     const firstOf = new Map((t.now || []).map((x) => [x.request, x.first]));
     const who = (ps) => (ps || []).map(B.partyWord).join(", ");
     const asked = (names) => (names || []).map((n) => B.partyWord({kind: "person", name: n})).join(", ");
-    const out = (t.at_work || []).map((a) => ({stage: "team", key: "work:" + a.request + ":" + a.run, cls: "working", request: a.request, text: a.worker, first: firstOf.get(a.request)}));
+    const out = B.atWork(t).map((a) => ({stage: "team", key: "work:" + a.request + ":" + a.run, cls: "working", request: a.request, text: a.worker, first: firstOf.get(a.request)}));
     for (const x of t.now || []) {
       const it = {key: x.kind + ":" + x.request + ":" + (x.entry || x.decision || x.sub || ""), request: x.request, first: x.first};
       switch (x.kind) {
         case "queued": Object.assign(it, {stage: "source", cls: "pending", text: "queued " + x.queued}); break;
         case "heed": Object.assign(it, {stage: "heed", cls: "working", text: shortRule(x.rule)}); break;
-        case "lead": Object.assign(it, {stage: "team", cls: "waiting", text: "waits on " + who(x.on)}); break;
-        case "question": Object.assign(it, {stage: "handoff", cls: "waiting", text: B.partyWord(x.by) + " asks " + who(x.to)}); break;
-        case "sub": Object.assign(it, {stage: "handoff", cls: x.state === "waiting" ? "waiting" : "working", text: "→ " + B.teamCalled(x.team) + " #" + x.sub}); break;
-        case "disclosure": Object.assign(it, {stage: "disclosure", cls: "waiting", text: x.what + " · " + asked(x.asked)}); break;
+        case "lead": Object.assign(it, {stage: "team", cls: "waiting", who: who(x.on)}); break;
+        case "question": Object.assign(it, {stage: "handoff", cls: "waiting", who: who(x.to), text: B.partyWord(x.by) + " asks"}); break;
+        case "sub": Object.assign(it, {stage: "handoff", cls: x.state === "waiting" ? "waiting" : "working", who: x.state === "waiting" ? who(x.on) : "", text: "→ " + B.teamCalled(x.team) + " #" + x.sub}); break;
+        case "disclosure": Object.assign(it, {stage: "disclosure", cls: "waiting", who: asked(x.asked), text: LEAVING[x.what] || x.what}); break;
         case "answered": Object.assign(it, {stage: "answer", cls: "done", text: x.label || ""}); break;
-        default: Object.assign(it, {stage: "handoff", cls: "waiting", text: x.does + " · " + asked(x.asked)});
+        default: Object.assign(it, {stage: "handoff", cls: "waiting", who: asked(x.asked), text: x.does});
       }
       out.push(it);
     }
     return out;
   }
 
-  // itemEl draws one thing in a stage now, leading to its request; one
-  // coming in, as far as it came.
+  // itemEl draws one thing in a stage now, leading to its request: whom
+  // it waits on whole, what it is and the request's first line cut short;
+  // one coming in, as far as it came.
   function itemEl(it, now) {
-    if (!state.seen.has(it.key)) state.seen.set(it.key, state.drawn ? now : 0);
-    const came = state.seen.get(it.key);
-    const coming = came && now - came < ENTER ? now - came : -1;
-    return B.el("a", {class: ["pp-item", it.cls, coming >= 0 ? "new" : ""].filter(Boolean).join(" "), href: "#/r/" + it.request,
-      title: it.first || null, style: coming > 0 ? "animation-delay: -" + coming + "ms" : null},
-    B.el("i", {class: "dot", "aria-hidden": "true"}),
-    B.el("span", {class: "mono pp-n"}, "#" + it.request),
-    it.text ? B.el("span", {class: "pp-what"}, it.text) : null,
-    it.first ? B.el("span", {class: "pp-first"}, it.first) : null);
+    return B.comeIn(B.el("a", {class: "pp-item " + it.cls, href: "#/r/" + it.request, title: it.first || null},
+      B.el("i", {class: "dot", "aria-hidden": "true"}),
+      B.el("span", {class: "mono pp-n"}, "#" + it.request),
+      it.who ? B.el("span", {class: "pp-who"}, it.who) : null,
+      it.text ? B.el("span", {class: "pp-what"}, it.text) : null,
+      it.first ? B.el("span", {class: "pp-first"}, it.first) : null), state.seen, it.key, state.drawn, now);
   }
 
   // stageEl draws one stage: its word beside the line, its node on it, its
@@ -437,12 +447,11 @@
   // the first few, then how many more, leading to the team's requests.
   function stageEl(t, s, items, now) {
     const head = B.el("span", {class: "pp-head"},
-      B.el("span", {class: "pp-word" + (s.check ? " check" : "")}, s.word),
       B.el("span", {class: "pp-name"}, s.name),
       s.sub ? B.el("span", {class: "mono pp-sub"}, s.sub) : null,
       s.also, s.info);
     const parts = s.parts && s.parts.length ? B.el("span", {class: "pp-parts"}, s.parts.map(([kind, name, check]) =>
-      B.el("span", {class: "pp-part"}, B.el("span", {class: "pp-kind" + (check ? " check" : "")}, kind), B.el("span", {class: "pp-pname"}, name)))) : null;
+      B.el("span", {class: "pp-part"}, B.el("span", {class: "chip" + (check ? " check" : "")}, kind), B.el("span", {class: "pp-pname"}, name)))) : null;
     const setup = [s.setup].flat(Infinity).filter(Boolean);
     const cls = "pp-box" + (s.check ? " check" : "");
     const box = setup.length ? opened("stage:" + s.id, cls, B.el("summary", {}, head, parts), B.el("div", {class: "pp-setup"}, setup))
@@ -456,21 +465,28 @@
   }
 
   // pipeEl draws the stages on their line, which trickles on while
-  // anything is going on in them; what is in a stage the team has not,
-  // as a decision of a routine's worker, is beside the team.
+  // anything in them is at work; what is in a stage the team has not, as
+  // a decision of a routine's worker, is beside the team.
   function pipeEl(t, whole) {
     const now = Date.now();
     const items = t.in ? nowItems(t) : [];
     const list = stages(t, whole);
     const ids = new Set(list.map((s) => s.id));
     const els = list.map((s) => stageEl(t, s, items.filter((it) => (ids.has(it.stage) ? it.stage : "team") === s.id), now));
+    const shown = new Set(items.map((it) => it.key));
+    for (const key of state.seen.keys()) if (!shown.has(key)) state.seen.delete(key);
     state.drawn = true;
-    const pipe = B.el("div", {class: "flow pipe" + (items.some((it) => it.cls !== "done") ? " live" : "")}, els);
-    pipe.style.setProperty("--phase", -(now % BREATHE) + "ms");
+    const pipe = B.keepBeat(B.el("div", {class: "flow pipe" + (items.some((it) => it.cls === "working") ? " live" : "")}, els), now);
     return B.el("section", {class: "pp-wrap", "aria-label": "How a request goes through " + t.called}, pipe);
   }
 
-  // The side
+  // Beneath the stages: its problems, and folded, how else it is written
+
+  // folded gives a part beneath the stages, folded until it is opened,
+  // kept open by key while the view is drawn again.
+  function folded(key, label, body) {
+    return opened("part:" + key, "te-part", B.el("summary", {}, typeof label === "string" ? B.label(label) : label), body);
+  }
 
   function problems(t) {
     const list = (t.problems || []).filter((p) => !p.worker || !byName(t, p.worker));
@@ -504,7 +520,7 @@
   // one status with when it comes next.
   function routines(t) {
     if (!t.routines || !t.routines.length) return null;
-    return B.sect("Routines", rows("routines", t.routines, (r) => {
+    return folded("routines", B.label("Routines", B.el("span", {class: "count"}, String(t.routines.length))), rows("routines", t.routines, (r) => {
       const button = t.in ? B.el("button", {class: "btn sm ghost", type: "button", "aria-label": "Run now: " + r.to + ", " + r.at}, "Run now") : null;
       if (button) button.addEventListener("click", () => runNow(t, r, button));
       return B.el("div", {class: "row te-rt"},
@@ -521,7 +537,7 @@
 
   function models(t) {
     if (!t.models || !t.models.length) return null;
-    return B.sect("Models", B.el("div", {class: "scroll"}, B.el("table", {class: "table te-models"},
+    return folded("models", B.label("Models", B.el("span", {class: "count"}, String(t.models.length))), B.el("div", {class: "scroll"}, B.el("table", {class: "table te-models"},
       B.el("thead", {}, B.el("tr", {}, ["Name", "Model", "Secret"].map((h) => B.el("th", {scope: "col"}, h)))),
       B.el("tbody", {}, t.models.map((m) => B.el("tr", {},
         B.el("td", {}, m.name),
@@ -536,7 +552,7 @@
   function rules(t) {
     const list = (t.rules || []).filter((r) => r.as.some((a) => a !== "heed"));
     if (!list.length) return null;
-    return B.sect("Rules", rows("rules", list, (r) => B.el("div", {class: "row te-rule"},
+    return folded("rules", B.label("Rules", B.el("span", {class: "count"}, String(list.length))), rows("rules", list, (r) => B.el("div", {class: "row te-rule"},
       B.el("span", {class: "line"}, B.ruleEl(r.path),
         r.shipped ? B.el("a", {class: "faint small", href: "#/office/bulldog"}, "From Bulldog") : null,
         r.script ? B.el("span", {class: "faint small"}, "script") : null,
@@ -548,8 +564,8 @@
   function notes(t) {
     const writers = t.writers || [];
     if (!(t.notes && t.notes.length) && !writers.length) return null;
-    return B.sect(B.label("Notes", B.el("span", {class: "count"}, String(t.notes.length)),
-      ...B.notesInfo()),
+    return folded("notes", B.label("Notes", B.el("span", {class: "count"}, String(t.notes.length)),
+      ...B.notesInfo()), B.el("div", {},
     writers.length ? B.el("span", {class: "line te-writers"}, B.el("span", {class: "faint small"}, "Written by"),
       writers.map((w) => worker(t, w)), ...B.info("About written by", "The workers of this team whose definitions name the notes tool. Each may write any of its notes, at once, with no decision.")) : null,
     t.notes.length ? rows("notes", t.notes, (n) => {
@@ -559,7 +575,7 @@
         B.el("pre", {}, n.text));
       d.addEventListener("toggle", () => { if (d.open) state.open.add(n.name); else state.open.delete(n.name); });
       return B.el("div", {class: "row te-note"}, d);
-    }, "te-notes") : null);
+    }, "te-notes") : null));
   }
 
   // Docs, nested by their folders, each opened in place.
@@ -619,7 +635,7 @@
 
   function docs(t) {
     if (!t.docs || !t.docs.length) return null;
-    return B.sect(B.label("Docs", B.el("span", {class: "count"}, String(t.docs.length)),
+    return folded("docs", B.label("Docs", B.el("span", {class: "count"}, String(t.docs.length)),
       ...B.info("About docs", "Read by the workers of this team and of the teams within, when they ask, through the docs tools. Written through a change.")),
     B.el("div", {class: "te-docs"}, folderEls(t, folders(t.docs), "")));
   }
@@ -638,11 +654,9 @@
       B.el("a", {class: "te-reqs", href: "#/requests?team=" + encodeURIComponent(t.name)}, "Requests"),
       whole && t.file ? B.el("span", {class: "mono faint small"}, t.file) : null,
       t.about ? B.el("p", {class: "te-about"}, t.about) : null);
-    const side = (whole ? [routines(t), models(t), rules(t), notes(t), docs(t), problems(t)] : [docs(t)]).filter(Boolean);
-    const out = B.el("div", {class: "te"}, head,
-      B.el("div", {class: "cols"},
-        B.el("div", {class: "main"}, pipeEl(t, whole)),
-        side.length ? B.el("div", {class: "side"}, side) : null));
+    const beneath = (whole ? [problems(t), routines(t), models(t), rules(t), notes(t), docs(t)] : [docs(t)]).filter(Boolean);
+    const out = B.el("div", {class: "te"}, head, pipeEl(t, whole),
+      beneath.length ? B.el("div", {class: "te-beneath"}, beneath) : null);
     refocus(out, at);
     return out;
   }, "teams");

@@ -12,8 +12,6 @@
   const WHAT = {answer: "Answer", question: "Question", tell: "Tell", sub: "Sub-request"};
   const FEW = 3; // of a long list of people, how many are drawn before +N
   const DEEP = 2; // how many levels of sub-requests are drawn before they open on asking
-  const BREATHE = 1800; // ms, the beat of what breathes and rings, kept across drawings
-  const ENTER = 600; // ms, how long a new step takes to come in
 
   // clip gives a text on one line, no longer than n.
   function clip(text, n) {
@@ -135,8 +133,9 @@
   }
 
   // decisionCard is a decision put to the one looking, to approve or
-  // refuse; request needs only its number.
-  B.decisionCard = function (request, d) {
+  // refuse; request needs only its number. In a step, whose head says
+  // what it is, the card is bare of it.
+  B.decisionCard = function (request, d, bare) {
     const n = request.number;
     const key = n + ":note:" + d.id;
     const note = field(key, () => B.el("input", {class: "in", type: "text", name: "note"}));
@@ -146,8 +145,8 @@
     yes.addEventListener("click", () => say("yes"));
     no.addEventListener("click", () => say("refuse"));
     return B.el("section", {class: "ask-card rq-card"},
-      B.el("div", {class: "line"}, B.el("span", {class: "rq-kind"}, B.decisionWord(d.kind)), B.teamEl(d.team)),
-      B.el("div", {class: "what"}, d.does),
+      bare ? null : B.el("div", {class: "line"}, B.el("span", {class: "rq-kind"}, B.decisionWord(d.kind)), B.teamEl(d.team)),
+      bare ? null : B.el("div", {class: "what"}, d.does),
       d.leaving ? leaving(d.leaving) : null,
       d.kind === "action" && args(d.args) ? B.el("div", {class: "mono small"}, args(d.args)) : null,
       chain(d),
@@ -344,6 +343,13 @@
 
   const RUN = {going: "working live", failed: "failed", cancelled: "rq-gone", lost: "failed", unsent: "failed"};
   const ENDS = {going: "working", done: "done", failed: "failed", cancelled: "cancelled", lost: "lost", unsent: "unsent"};
+
+  // ended gives how a run or a call stands: one going while its request
+  // waits is held, for what it waits on says that.
+  function ended(status, working) {
+    if (status === "going" && !working) return B.el("span", {class: "status held"}, "held");
+    return B.el("span", {class: "status " + (RUN[status] || "")}, ENDS[status] || status);
+  }
   const HEED = {act: "act", note: "noted"};
 
   const REPEATS = /(\.[0-9]+)?(#[0-9]+)?(@[0-9]+)?$/;
@@ -406,17 +412,17 @@
       c.worker ? B.workerEl(c.worker, team, {bare: true}) : null];
   }
 
-  function callEnd(c) {
-    return c.script ? null : B.el("span", {class: "status " + (RUN[c.status] || "")}, ENDS[c.status] || c.status);
+  function callEnd(c, working) {
+    return c.script ? null : ended(c.status, working);
   }
 
   // callsEl gives what a colleague called in turn, as a tree.
-  function callsEl(list, team) {
+  function callsEl(list, team, working) {
     if (!list || !list.length) return null;
     return B.el("ul", {class: "rq-calls"}, list.map((c) => B.el("li", {},
-      B.el("div", {class: "line"}, B.el("span", {class: "rq-chip" + (c.script ? "" : " solid")}, c.script ? "Tool" : "Colleague"),
-        callName(c, team), callEnd(c)),
-      callsEl(c.below, team))));
+      B.el("div", {class: "line"}, B.el("span", {class: "chip"}, c.script ? "Tool" : "Colleague"),
+        callName(c, team), callEnd(c, working)),
+      callsEl(c.below, team, working))));
   }
 
   // Steps
@@ -430,21 +436,14 @@
 
   const DEPTH = {asked: 0, said: 0, answer: 0, held: 0, late: 0, bulldog: 0, notice: 0};
   const FOLDED = new Set(["decision", "decide", "decided", "referred"]);
+  // What the kinds of step a person may not know mean, behind an (i).
   const KIND_ABOUT = {
-    Asked: "What was asked, first in every request.",
-    Said: "More said in the request. It makes an answered request working again; noted by the team's heed, it starts nothing.",
-    Question: "A worker's question to a person. It waits on them until they reply.",
-    Told: "A worker telling someone something. Nothing waits on it.",
-    Reply: "A person's reply to what was put to them. It ends their wait.",
     "Sub-request": "A worker asking another team, which makes a request of its own. The worker waits on its answer.",
     "Late answer": "A sub-request's answer that came when no run waited for it. It starts the lead again.",
     Held: "The lead's answer, held by the team's disclosure. It is said once it is disclosed.",
     Authorisation: "A held action's decision. The action waits on it.",
     Disclosure: "Asked before anything leaves the team. What would leave waits on it.",
-    Change: "A change to the office files. The change waits on it.",
     Heed: "Asked first about what is said at a channel place. Act: the lead starts. Note: kept in the request; nothing runs or is said.",
-    Colleague: "A worker of the team, used as a tool.",
-    Tool: "One of the team's own tools.",
   };
 
   // steps gives the steps of one request as the one looking sees it, in
@@ -458,7 +457,7 @@
     const answered = new Set(entries.map((e) => e.answers).filter(Boolean));
     const on = new Set((v.on || []).map(waitsOn).filter(Boolean));
     const noted = new Map(entries.filter((e) => e.kind === "noted").map((e) => [e.answers, e]));
-    const working = v.state === "working";
+    const working = atWork(v);
     const out = [];
     const key = (k) => prefix + k;
 
@@ -505,13 +504,13 @@
         if (r.kind === "decide") {
           if (decisions.some((d) => deciderOf(d, r.worker))) continue; // beneath its decision
           out.push(step({key: key("run:" + r.name), at: at(r.started), depth: depth + 1, kind: "Rule", check: true, now: r.status === "going" && working ? "working" : "",
-            what: B.ruleEl(r.worker), meta: runMeta(r), more: rec ? record(rec) : null}));
+            what: B.ruleEl(r.worker), meta: runMeta(r, working), more: rec ? record(rec) : null}));
           continue;
         }
         const going = r.status === "going";
         if (r.kind === "heed") {
           out.push(step({key: key("run:" + r.name), at: at(r.started), depth, kind: "Heed", check: true, now: going && working ? "working" : "",
-            what: [B.ruleShortEl(r.worker), B.el("span", {class: "status " + (HEED[r.says] || RUN[r.status] || "")}, r.says || ENDS[r.status] || r.status)],
+            what: [B.ruleShortEl(r.worker), r.says ? B.el("span", {class: "status " + (HEED[r.says] || "")}, r.says) : ended(r.status, working)],
             meta: r.how ? B.el("span", {class: "rq-note"}, r.how) : null,
             more: rec ? record(rec) : null}));
           continue;
@@ -519,12 +518,12 @@
         const again = leads.indexOf(r) > 0;
         out.push(step({key: key("run:" + r.name), at: at(r.started), depth, kind: "Team", now: going && working ? "working" : "",
           what: [r.worker ? B.workerEl(r.worker, r.team, {bare: true}) : B.el("span", {class: "mono"}, r.name), again ? "again" : "starts on it"],
-          meta: runMeta(r),
+          meta: runMeta(r, working),
           more: rec ? record(rec) : null}));
         for (const c of calls(rec, "")) {
           out.push(step({key: key("call:" + (c.id || r.name + ":" + c.tool + ":" + c.at)), at: c.at, depth: depth + 1,
             kind: c.script ? "Tool" : "Colleague", now: !c.script && c.status === "going" && working ? "working" : "",
-            what: callName(c, r.team), meta: callEnd(c), more: callsEl(c.below, r.team)}));
+            what: callName(c, r.team), meta: callEnd(c, working), more: callsEl(c.below, r.team, working)}));
         }
       }
     }
@@ -542,34 +541,41 @@
     return out.flatMap((s) => [s, ...(s.inside || [])]);
   }
 
+  // atWork says whether anything of a request is at work: it is working,
+  // not waiting its turn, and no sub-request it asked holds its run.
+  function atWork(v) {
+    return v.state === "working" && !v.queued && !(v.subs || []).some((s) => s.state !== "answered");
+  }
+
   // runMeta gives how a run went: when it started and ended, how it
   // stands, how much it said, and where it is watched.
-  function runMeta(r) {
-    return [B.el("span", {class: "status " + (RUN[r.status] || "")}, ENDS[r.status] || r.status),
+  function runMeta(r, working) {
+    return [ended(r.status, working),
       B.el("span", {class: "mono faint"}, B.when(r.started) + "–" + (r.ended ? B.when(r.ended) : "")),
       r.tokens ? B.el("span", {class: "mono faint"}, r.tokens + " tok") : null,
       B.el("a", {class: "rq-jump", href: "#/run/" + encodeURIComponent(r.name), "aria-label": "Watch " + (r.worker || r.name)}, "Watch")];
   }
 
   // decisionStep gives one decision where the thread first wrote it: what
-  // it is and how it stands, who decides it and who did, the rule runs
-  // that decided it, what the thread said of it, and its card when it is
-  // put to the one looking.
+  // it is and how it stands, who decides it and who did, each rule's run
+  // that decided it, to watch, what the thread said of it; or, put to the
+  // one looking, its card alone.
   function decisionStep(v, d, said, depth, key) {
     const anchor = said[0];
+    const s = step({key: key("dec:" + d.id), at: anchor ? Date.parse(anchor.at) || 0 : 0, entry: anchor ? anchor.id : Infinity, depth: depth + 1,
+      kind: B.decisionWord(d.kind), check: true, now: d.ended ? "" : "waiting", what: d.does});
+    if (d.mine && !d.ended) return Object.assign(s, {more: B.decisionCard(v, d, true)});
     const runs = (v.runs || []).filter((r) => r.kind === "decide" && deciderOf(d, r.worker));
     const recs = new Map((v.records || []).map((r) => [r.run, r]));
     const why = d.why && !(d.by && d.by.note === d.why) ? d.why : null;
-    return step({key: key("dec:" + d.id), at: anchor ? Date.parse(anchor.at) || 0 : 0, entry: anchor ? anchor.id : Infinity, depth: depth + 1,
-      kind: B.decisionWord(d.kind), check: true, now: d.ended ? "" : "waiting",
-      what: d.does, meta: [ending(d), why ? B.el("span", {class: "mono small muted"}, why) : null],
+    return Object.assign(s, {meta: [ending(d), why ? B.el("span", {class: "mono small muted"}, why) : null],
       more: [chain(d),
-        runs.map((r) => B.el("div", {class: "rq-ruled"}, B.el("div", {class: "line"}, B.ruleEl(r.worker), runMeta(r)), recs.has(r.name) ? record(recs.get(r.name)) : null)),
+        runs.map((r) => B.el("div", {class: "line rq-ruled"}, recs.has(r.name) ? record(recs.get(r.name)) : null,
+          B.el("a", {class: "rq-jump", href: "#/run/" + encodeURIComponent(r.name), "aria-label": "Watch " + r.worker}, "Watch"))),
         said.length > 1 ? B.el("details", {class: "rq-said"}, B.el("summary", {class: "mono small faint"}, said.length + " in the thread"),
           B.el("div", {class: "stack"}, said.map((e) => B.el("div", {class: "line rq-said-line"},
-            B.el("span", {class: "mono faint"}, B.when(e.at)), B.el("span", {class: "rq-chip"}, B.entryLabel(v.decisions, e)),
-            e.by && e.by.kind !== "bulldog" ? B.party(e.by) : null, B.el("span", {class: "small"}, e.text))))) : null,
-        d.mine && !d.ended ? B.decisionCard(v, d) : null]});
+            B.el("span", {class: "mono faint"}, B.when(e.at)), B.el("span", {class: "chip"}, B.entryLabel(v.decisions, e)),
+            e.by && e.by.kind !== "bulldog" ? B.party(e.by) : null, B.el("span", {class: "small"}, e.text))))) : null]});
   }
 
   // deciderOf says whether a rule is among a decision's deciders.
@@ -594,7 +600,7 @@
     });
     const state = sv && !sv.error ? sv : sum;
     s.what = [who(e.by, v.team), arrow(), B.teamEl(sum.team || (e.to[0] && e.to[0].name)),
-      B.el("a", {class: "mono", href: "#/r/" + n}, "#" + n), state.state ? B.status(state) : null, toggle];
+      B.el("a", {class: "mono", href: "#/r/" + n}, "#" + n), state.state ? B.status(B.standing(state)) : null, toggle];
     s.now = s.now || (state.state === "waiting" && !open ? "waiting" : "");
     if (open) {
       const inner = steps(sv, views, s.depth + 1, prefix + n + ":");
@@ -603,7 +609,7 @@
       s.inside = inner;
     } else {
       s.more = [s.more, sv && sv.error ? B.el("div", {class: "mono small bad"}, sv.error.message) : null,
-        (sum.decisions || []).map((d) => B.el("div", {class: "line"}, B.el("span", {class: "rq-chip check"}, B.decisionWord(d.kind)), B.el("span", {class: "rq-does"}, d.does), ending(d))),
+        (sum.decisions || []).map((d) => B.el("div", {class: "line"}, B.el("span", {class: "chip check"}, B.decisionWord(d.kind)), B.el("span", {class: "rq-does"}, d.does), ending(d))),
         sum.answer ? B.el("div", {class: "said rq-answered"}, sum.answer) : null];
     }
     return s;
@@ -611,7 +617,7 @@
 
   // tailStep gives what the request waits on at its end that no step of
   // it shows: its turn, its lead who is a person, or its answer, where it
-  // goes and how it stands.
+  // goes and, once there is one, how it stands.
   function tailStep(v, depth, key) {
     if (v.state === "working" && v.queued) {
       return step({key: key("queued"), at: Infinity, entry: Infinity, depth, kind: "Queued", now: "pending",
@@ -624,15 +630,15 @@
     }
     const a = v.answer;
     if (!a || a.entry || v.label === "noted") return null;
-    return step({key: key("answer:" + a.state), at: Infinity, entry: Infinity, depth, kind: "Answer", now: a.state === "waits" ? "pending" : "",
-      what: answerTo(v), meta: answerMeta(v)});
+    if (a.state === "waits") return step({key: key("answer:waits"), at: Infinity, entry: Infinity, depth, kind: "Answer", now: "pending", what: answerTo(v)});
+    return step({key: key("answer:" + a.state), at: Infinity, entry: Infinity, depth, kind: "Answer", what: answerTo(v), meta: answerMeta(v)});
   }
 
   // answerTo gives where a request's answer goes: the run that asked a
   // sub-request, the place or the chat it was asked in, or the people of a
   // routine's team.
   function answerTo(v) {
-    if (v.parent) return B.el("span", {class: "line"}, B.el("a", {class: "mono", href: "#/r/" + v.parent}, "#" + v.parent), B.el("span", {class: "faint"}, "›"), B.el("span", {class: "mono"}, "ask_team"));
+    if (v.parent) return B.el("span", {class: "line"}, "back to", B.el("a", {class: "mono", href: "#/r/" + v.parent}, "#" + v.parent));
     if (v.origin && v.origin.kind === "routine") return B.el("span", {class: "line"}, "People of", B.teamEl(v.origin.team));
     if (v.origin && v.origin.kind === "chat") return B.el("span", {class: "line"}, B.way(v.origin), B.el("span", {class: "faint"}, "›"), "screens");
     return B.way(v.origin);
@@ -649,28 +655,29 @@
     const d = v.disclosure;
     return [B.el("span", {class: "status " + ANSWER[a.state]}, a.state),
       a.why ? B.el("span", {class: "mono small muted"}, a.why) : null,
-      d && d.set ? B.el("span", {class: "line rq-disclosure"}, B.el("span", {class: "rq-chip check"}, "Disclosure"),
+      d && d.set ? B.el("span", {class: "line rq-disclosure"}, B.el("span", {class: "chip check"}, "Disclosure"),
         d.needed ? B.chain(d.deciders || [], v.team) : B.el("span", {class: "line"}, "not needed", B.info("About Not needed", "Read only by people of " + B.teamCalled(v.team) + "."))) : null];
   }
 
   // stepEl draws one step: its time beside the line, its node on it, and
   // what it is beside them; one coming in, as far as it came.
-  function stepEl(s, prev, coming) {
+  function stepEl(s, prev, now) {
     const time = s.at && s.at !== Infinity ? B.when(new Date(s.at).toISOString()) : "";
     const shown = time && time !== prev ? time : "";
-    const cls = ["step", "d" + Math.min(s.depth, 3), s.now, coming >= 0 ? "new" : ""].filter(Boolean).join(" ");
-    return B.el("div", {class: cls, "data-key": s.key, style: coming > 0 ? "animation-delay: -" + coming + "ms" : null},
+    const cls = ["step", "d" + Math.min(s.depth, 3), s.now].filter(Boolean).join(" ");
+    return B.comeIn(B.el("div", {class: cls, "data-key": s.key},
       B.el("span", {class: "t"}, shown),
       B.el("span", {class: "line", "aria-hidden": "true"}),
       B.el("div", {class: "body"},
         s.group ? B.el("div", {class: "group"}, s.group) : null,
         B.el("div", {class: "hd"},
-          B.el("span", {class: "rq-chip" + (s.check ? " check" : ""), title: KIND_ABOUT[s.kind] || null}, s.kind),
+          B.el("span", {class: "chip" + (s.check ? " check" : "")}, s.kind),
+          KIND_ABOUT[s.kind] ? B.info("About " + s.kind, KIND_ABOUT[s.kind]) : null,
           B.el("span", {class: "what"}, s.what),
           shown ? B.el("span", {class: "at"}, shown) : null),
         s.said ? B.el("div", {class: "said"}, s.said) : null,
         s.meta && [s.meta].flat(Infinity).some(Boolean) ? B.el("div", {class: "meta"}, s.meta) : null,
-        s.more && [s.more].flat(Infinity).some(Boolean) ? B.el("div", {class: "more"}, s.more) : null));
+        s.more && [s.more].flat(Infinity).some(Boolean) ? B.el("div", {class: "more"}, s.more) : null)), kept.seen, s.key, kept.drawn, now);
   }
 
   // flowEl draws the steps; only those not drawn before come in, and none
@@ -681,9 +688,7 @@
     let prev = "";
     const els = [];
     all.forEach((s, i) => {
-      if (!kept.seen.has(s.key)) kept.seen.set(s.key, kept.drawn ? now : 0);
-      const came = kept.seen.get(s.key);
-      els.push(stepEl(s, prev, came && now - came < ENTER ? now - came : -1));
+      els.push(stepEl(s, prev, now));
       if (s.at && s.at !== Infinity) prev = B.when(new Date(s.at).toISOString());
       if (i === 0 && v.before) {
         const button = B.el("button", {class: "btn ghost sm rq-earlier", type: "button"}, "Earlier");
@@ -694,17 +699,16 @@
     kept.drawn = true;
     kept.latest = Math.max(kept.latest, ...all.map((s) => s.at === Infinity ? 0 : s.at));
     if (live) els.push(B.el("div", {class: "step tail", "aria-hidden": "true"}, B.el("span", {class: "t"}), B.el("span", {class: "line"})));
-    const flow = B.el("section", {class: "flow rq-flow" + (live ? " live" : ""), "aria-label": "What happened"}, els);
-    flow.style.setProperty("--phase", -(Date.now() % BREATHE) + "ms");
-    return flow;
+    return B.keepBeat(B.el("section", {class: "flow rq-flow" + (live ? " live" : ""), "aria-label": "What happened"}, els), now);
   }
 
   // Live
 
-  // The runs at work in the requests drawn, each followed while it goes,
-  // so that what a colleague does shows as it is done; the page is drawn
-  // again for what is newer than all it shows, at most once a second, as
-  // any change draws it.
+  // The newest run at work in the requests drawn is followed while it
+  // goes, so that what a colleague does shows as it is done; the page is
+  // drawn again for what is newer than all it shows, at most once a
+  // second, as any change draws it. A run starting or ending is told of
+  // its request.
   const following = new Map();
   let soon = 0;
   function follow(names, n) {
@@ -768,8 +772,10 @@
     const first = asked ? firstLine(asked.text) : "";
     const all = steps(v, views, 0, "");
     const drawn = [v, ...[...views.values()].filter((x) => !x.error)];
-    const live = drawn.some((x) => x.state === "working");
-    follow(new Set(drawn.filter((x) => x.read && x.state === "working").flatMap((x) => (x.runs || []).filter((r) => r.kind === "work" && r.status === "going").map((r) => r.name))), n);
+    const live = drawn.some(atWork);
+    const going = drawn.filter((x) => x.read && atWork(x)).flatMap((x) => (x.runs || []).filter((r) => r.kind === "work" && r.status === "going"))
+      .sort((a, b) => (Date.parse(b.started) || 0) - (Date.parse(a.started) || 0));
+    follow(new Set(going.slice(0, 1).map((r) => r.name)), n);
 
     const crumbs = [B.el("a", {href: "#/requests"}, "Requests"), v.team ? B.el("a", {href: "#/requests?team=" + encodeURIComponent(v.team)}, B.teamCalled(v.team)) : null].filter(Boolean);
     const title = [B.el("span", {class: "rq-num"}, "#" + n), first ? B.el("span", {title: first.length > 90 ? first : null}, clip(first, 90)) : null];
@@ -782,7 +788,7 @@
       v.parent ? B.el("span", {class: "who"}, B.icon("branch"), "inside ", B.el("a", {class: "mono", href: "#/r/" + v.parent}, "#" + v.parent))
         : [B.party(v.asker), dot(), B.way(v.origin)],
       dot(), B.teamEl(v.team),
-      v.state ? [dot(), B.status(v), labelInfo(v)] : null,
+      v.state ? [dot(), B.status(B.standing(v)), labelInfo(v)] : null,
       source ? [dot(), source] : null,
       dot(), B.whenEl(v.made),
       stop) : null;

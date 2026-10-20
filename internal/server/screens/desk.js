@@ -215,7 +215,7 @@
           reqLink(r.number),
           B.el("span", {class: "grow clip mono"}, r.first || ""),
           r.team ? B.teamEl(r.team) : null,
-          r.state ? B.status(r) : null,
+          r.state ? B.status(B.standing(r)) : null,
           B.whenEl(r.made)))) : B.empty(),
         out.before ? more("#/requests?asked=me") : null);
     } catch (err) { return failed("Asked by you", err); }
@@ -246,7 +246,7 @@
     const teams = await Promise.all(names.map((name) => B.api("/api/teams/" + encodeURIComponent(name)).catch(() => null)));
     const rows = [];
     teams.forEach((t, i) => {
-      for (const w of (t && t.at_work) || []) rows.push(B.el("div", {class: "row"},
+      for (const w of t ? B.atWork(t) : []) rows.push(B.el("div", {class: "row"},
         B.el("span", {class: "grow"}, B.workerEl(w.worker, names[i])),
         reqLink(w.request),
         B.el("a", {href: "#/run/" + encodeURIComponent(w.run)}, "Watch")));

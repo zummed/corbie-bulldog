@@ -309,7 +309,53 @@ B.status = function (r) {
   if (r.state === "working" && r.queued) return B.el("span", {class: "status queued"}, "queued " + r.queued);
   const on = r.on && r.on.length ? " · " + r.on.map(B.partyWord).join(", ") : "";
   const word = r.state === "answered" && r.label ? r.label : r.state;
-  return B.el("span", {class: "status " + word + (r.state === "working" ? " live" : "")}, word + (r.state === "waiting" ? on : ""));
+  return B.el("span", {class: "status " + word + (r.state === "working" ? " live" : "")},
+    word + (r.state === "waiting" ? on + (r.in ? " in #" + r.in : "") : ""));
+};
+
+// standing gives a request as its one status says it: one at work whose
+// sub-request, as far down as they go, waits on someone stands waiting on
+// them, in that sub-request.
+B.standing = function (r) {
+  if (r.state !== "working" || r.queued) return r;
+  for (const s of r.subs || []) {
+    const deep = B.standing(s);
+    if (deep.state === "waiting") return Object.assign({}, r, {state: "waiting", on: deep.on, in: deep.in || s.number});
+  }
+  return r;
+};
+
+// atWork gives a team's workers at work, but for a run held while its
+// request waits: on someone, or on a sub-request it asked.
+const UNHELD = new Set(["queued", "heed", "answered"]);
+B.atWork = function (t) {
+  const held = new Set((t.now || []).filter((x) => !UNHELD.has(x.kind)).map((x) => x.request));
+  return (t.at_work || []).filter((a) => !held.has(a.request));
+};
+
+// What flows comes in only when it is new since a view was first drawn,
+// and a view drawn again finds it as far in as it came; what breathes and
+// rings keeps its beat across drawings. Both times are the tokens of the
+// stylesheet.
+function token(name) { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) * 1000 || 0; }
+
+// comeIn marks el as coming in, as far as it came, when key is new since
+// the view was first drawn; seen holds when each key came, 0 for those of
+// the first drawing.
+B.comeIn = function (el, seen, key, drawn, now) {
+  if (!seen.has(key)) seen.set(key, drawn ? now : 0);
+  const came = seen.get(key);
+  if (came && now - came < token("--enter")) {
+    el.classList.add("new");
+    if (now > came) el.style.animationDelay = -(now - came) + "ms";
+  }
+  return el;
+};
+
+// keepBeat sets the beat of what breathes and rings in el where it was.
+B.keepBeat = function (el, now) {
+  el.style.setProperty("--phase", -(now % token("--breathe")) + "ms");
+  return el;
 };
 
 // bridgeStatus gives a bridge's one status: running, stopped, or, to the
@@ -411,7 +457,17 @@ function header(nav) {
     B.me.waiting ? B.el("span", {class: "owed"}, B.me.waiting) : null,
     B.el("span", {class: "mono"}, B.me.me.called),
     B.el("span", {class: "ic person you", "aria-hidden": "true"}, initials(B.me.me.called))].filter(Boolean));
+  for (const runs of document.querySelectorAll(".of-runs")) runs.replaceWith(B.runsEl());
 }
+
+// runsEl gives how many runs of the office are at work of as many as it
+// lets work, and how many wait their turn; it is drawn again in place as
+// they change.
+B.runsEl = function () {
+  const runs = B.me.office.runs;
+  return B.el("span", {class: "line of-runs"}, B.el("span", {class: "mono"}, runs.working + " / " + runs.limit),
+    runs.queued ? B.el("span", {class: "tag"}, "Queued " + runs.queued) : null);
+};
 
 let showing = 0;
 
@@ -436,9 +492,12 @@ B.show = async function () {
 };
 
 // changed is what the stream of changes names: the office read again, or
-// the runs at work, fetches /api/me again; the view is drawn again, unless
-// it streams itself or something is being written in it, when the one
-// looking is told and shows it when they choose.
+// the runs at work, fetches /api/me again; the view is drawn again, once
+// for a burst of changes, unless it streams itself or something is being
+// written in it, when the one looking is told and shows it when they
+// choose.
+const REDRAW = 250; // ms, how long a burst of changes is gathered
+let redraw = 0;
 B.changed = async function (what) {
   if (what === "office" || what === "runs" || what === "waiting" || what === "" || what === undefined) {
     try { B.me = await B.api("/api/me"); } catch (err) { B.trouble(err); return; }
@@ -449,7 +508,7 @@ B.changed = async function (what) {
     document.getElementById("stale").hidden = false;
     return;
   }
-  B.show();
+  if (!redraw) redraw = setTimeout(() => { redraw = 0; B.show(); }, REDRAW);
 };
 
 // caresFor says whether the view shown is drawn again for what changed.
