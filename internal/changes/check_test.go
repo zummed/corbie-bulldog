@@ -13,9 +13,9 @@ func TestChangesCheckSaysEveryProblemTogether(t *testing.T) {
 	t.Parallel()
 	f := newOffice(t, house(t))
 	f.write(1, "garden/team.yaml", strings.Replace(house(t)["garden/team.yaml"], "people: [sam]", "people: [sam, jo]", 1))
-	f.write(1, "garden/clerk.yaml", "agent: clerk\ninput: [said]\nmodel: usual\nsystem: Again.\nprompt: ${input.said}\n")
+	f.write(1, "garden/clerk.yaml", "agent: clerk\ninput: { said: string }\nmodel: usual\nsystem: Again.\nprompt: ${input.said}\n")
 	f.write(1, "sparks.yaml", strings.Replace(house(t)["sparks.yaml"], "prompt: ${input.said}", "prompt: ${input.nothing", 1))
-	f.write(1, "weather.yaml", "agent: weather\ninput: [said]\nmodel: quick\nsystem: The weather.\nprompt: ${input.said}\n")
+	f.write(1, "weather.yaml", "agent: weather\ninput: { said: string }\nmodel: quick\nsystem: The weather.\nprompt: ${input.said}\n")
 	check := f.check(1)
 	lines := problemLines(check.Problems)
 	has(t, lines, "garden/team.yaml", "jo is nobody")
@@ -114,7 +114,7 @@ func TestChangesAWorkerCannotChangeWhoDecidesAChange(t *testing.T) {
 	t.Parallel()
 	files := house(t)
 	files["no-secrets.js"] = "return { says: \"refer\", note: \"looked\" }\n"
-	files["reviewer.yaml"] = "agent: reviewer\ninput: [said]\nmodel: usual\nsystem: You review.\nprompt: ${input.said}\n"
+	files["reviewer.yaml"] = "agent: reviewer\ninput: { said: string }\nmodel: usual\nsystem: You review.\nprompt: ${input.said}\n"
 	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  change: [./no-secrets.js, reviewer, sam]\n", 1)
 	f := newOffice(t, files)
 	for request, change := range map[int64][2]string{
@@ -228,7 +228,7 @@ func inPlaceIn(t *testing.T) map[string]string {
     job:
       machine:
         flow: verify
-        input: [heard]
+        input: { heard: any }
         stages:
           run: { job: { script: ./verify.js, input: { heard: "${input.heard}" } } }
         output: ${stages.run.output}

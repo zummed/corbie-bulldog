@@ -97,8 +97,8 @@ github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/xanzy/ssh-agent v0.3.3 h1:+/15pJfg/RsTxqYcX6fHqOXZwwMP+2VyYWJeWM2qQFM=
 github.com/xanzy/ssh-agent v0.3.3/go.mod h1:6dzNDKs0J9rVPHPhaGCukekBHKqfl+L3KghI1Bc68Uw=
-github.com/zummed/corbie v0.7.1 h1:Zv+49znKs7rDwJANGsPnSszODgnj2sLiwipws/mK+8M=
-github.com/zummed/corbie v0.7.1/go.mod h1:+5/UCGWKu1sGYLBLWEK1hQhun2QT9SuxZA82mmGjwcc=
+github.com/zummed/corbie v0.8.0 h1:jf6kYHZxJRhKhSV13+Y+K+Arjqx0A+dVo701HW1yK+Y=
+github.com/zummed/corbie v0.8.0/go.mod h1:+5/UCGWKu1sGYLBLWEK1hQhun2QT9SuxZA82mmGjwcc=
 go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
 go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=
 golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d/go.mod h1:IxCIyHEi3zRg3s0A5j5BB6A9Jmi73HwBIUl50j+osU4=

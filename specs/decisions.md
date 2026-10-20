@@ -46,7 +46,7 @@ return { says: "refer", note: `£${pounds} is more than I order alone.` }
 ```yaml
 # payments/no-account-numbers.yaml: needs the screening service, so a definition
 flow: no-account-numbers
-input: [text]
+input: { text: string }
 stages:
   check:
     job:

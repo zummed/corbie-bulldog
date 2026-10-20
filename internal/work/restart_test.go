@@ -604,7 +604,7 @@ func TestWorkSubRequestsAtMostEightDeep(t *testing.T) {
 	files := house(t)
 	for i := 1; i <= 9; i++ {
 		files[fmt.Sprintf("a%d/team.yaml", i)] = fmt.Sprintf("name: A%d\npeople: [sam]\nlead: sam\n", i)
-		files[fmt.Sprintf("a%d/w%d.yaml", i, i)] = fmt.Sprintf("agent: w%d\ninput: [said]\nmodel: usual\nprompt: ${input.said}\n", i)
+		files[fmt.Sprintf("a%d/w%d.yaml", i, i)] = fmt.Sprintf("agent: w%d\ninput: { said: string }\nmodel: usual\nprompt: ${input.said}\n", i)
 	}
 	b := newBench(t, files)
 	n := b.chat("sam", "a1", "begin")

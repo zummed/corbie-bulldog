@@ -1,6 +1,6 @@
 # The groundsman does the garden's heavy work, called by the gardener.
 agent: groundsman
-input: [said]
+input: { said: string }
 model: usual
 system: You dig, mow and keep the shed. Say what you did.
 prompt: ${input.said}

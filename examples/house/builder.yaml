@@ -1,6 +1,6 @@
 # The builder drafts changes to how the house is run. A person decides each.
 agent: builder
-input: [said]
+input: { said: string }
 model: usual
 system: |
   You change how the house is written: its workers, rules, routines and people. Read the manual's

@@ -287,7 +287,7 @@ func TestBridgesSignInLink(t *testing.T) {
 	// carried, is told of too.
 	third, err := d.SignIn("telegram", "sam", "https://house.example/signin/ghi")
 	must(t, err)
-	d.read(replace(t, d.files, "bridges/telegram/in.yaml", "input: [settings, cursor]", "input: [settings]"))
+	d.read(replace(t, d.files, "bridges/telegram/in.yaml", "input: { settings: any, cursor: any }", "input: { settings: any }"))
 	if got := d.carry(); len(got) != 0 || len(d.signedIn) != 3 || d.signedIn[2].Thing != third || !strings.Contains(d.signedIn[2].Failed, "stopped") {
 		t.Errorf("with the bridge stopped, the third link: %v, told %#v", places(got), d.signedIn)
 	}

@@ -134,7 +134,7 @@ func TestChangesAMovedWorkerTakesWhatIsItsAlone(t *testing.T) {
 	// What a builder's move takes is put, written and cleared from its
 	// draft with it.
 	office := house(t)
-	office["porter.yaml"] = "agent: porter\ninput: [said]\nmodel: usual\nsystem: You carry.\nprompt: ${input.said}\ntools:\n  carry: { does: Carry, args: {}, job: { script: ./tools/carry.js } }\n"
+	office["porter.yaml"] = "agent: porter\ninput: { said: string }\nmodel: usual\nsystem: You carry.\nprompt: ${input.said}\ntools:\n  carry: { does: Carry, args: {}, job: { script: ./tools/carry.js } }\n"
 	office["tools/carry.js"] = "return 1\n"
 	b := newOffice(t, office)
 	b.call(1, ToolRemove, map[string]any{"path": "porter.yaml"})
@@ -152,7 +152,7 @@ func TestChangesAMovedWorkerTakesWhatIsItsAlone(t *testing.T) {
 	// A worker of the top team takes only what is in the top team's own
 	// folder: a script it alone uses in the garden's stays where it is.
 	office = house(t)
-	office["porter.yaml"] = "agent: porter\ninput: [said]\nmodel: usual\nsystem: You carry.\nprompt: ${input.said}\ntools:\n  carry: { does: Carry, args: {}, job: { script: ./garden/tools/carry.js } }\n"
+	office["porter.yaml"] = "agent: porter\ninput: { said: string }\nmodel: usual\nsystem: You carry.\nprompt: ${input.said}\ntools:\n  carry: { does: Carry, args: {}, job: { script: ./garden/tools/carry.js } }\n"
 	office["garden/tools/carry.js"] = "return 1\n"
 	h := newOffice(t, office)
 	changed, _, err := h.c.Edited(Edit{Move: map[string]string{"porter": "garden"}})
@@ -299,7 +299,7 @@ func TestChangesAPersonPutsTheirOwn(t *testing.T) {
 		t.Errorf("it ended %+v", o)
 	}
 	// With the reviewer on the everything a change list of rules goes on to.
-	files["reviewer.yaml"] = "agent: reviewer\ninput: [said]\nmodel: usual\nsystem: You review.\nprompt: ${input.said}\n"
+	files["reviewer.yaml"] = "agent: reviewer\ninput: { said: string }\nmodel: usual\nsystem: You review.\nprompt: ${input.said}\n"
 	files["office.yaml"] = replaced(t, files, "office.yaml", "  everything: [sam]\n  change: [./no-secrets.js, sam]\n", "  everything: [reviewer, sam]\n  change: [./no-secrets.js]\n")
 	g := newOffice(t, files)
 	p, err = g.own("sam", "Again", Edit{Files: map[string]*string{"clerk.yaml": &text}})
@@ -426,7 +426,7 @@ func TestChangesAPersonWritesWhatTheyWereShown(t *testing.T) {
 // forty is a definition of forty lines, as a person writes one.
 func forty() string {
 	var b strings.Builder
-	b.WriteString("# The scribe writes things down.\nagent: scribe\ninput: [said]\nmodel: usual\n")
+	b.WriteString("# The scribe writes things down.\nagent: scribe\ninput: { said: string }\nmodel: usual\n")
 	b.WriteString("system: |\n  You write things down.\n\n  Shortly.\nprompt: ${input.said}\ntools:\n")
 	for i := 0; i < 8; i++ {
 		fmt.Fprintf(&b, "  # tool %d\n  t%d: { does: Tool %d, args: {}, job: { script: ./tools/circuits.js } }\n", i, i, i)

@@ -110,7 +110,7 @@ A worker writes its model out in full, as Corbie writes one, or names it by one 
 # fixer.yaml
 agent: fixer
 model: usual
-input: [said]
+input: { said: string }
 prompt: ${input.said}
 system: You do the repairs. Before anything electrical, ask sparks which circuit, and cut it.
 tools_file: [./.bulldog/tools/talk/talk.yaml]

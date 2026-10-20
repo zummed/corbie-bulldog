@@ -1,6 +1,6 @@
 # The ledger reads the charges and refunds them. A refund waits for a yes.
 agent: ledger
-input: [said, context]
+input: { said: string, context: string }
 model: usual
 system: You keep the ledger. Find charges, and refund what was charged wrongly. Never say a card or account number outside payments.
 prompt: ${input.context}

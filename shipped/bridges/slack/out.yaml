@@ -6,7 +6,7 @@
 # { refused }. Bulldog gives the text, and each file's data, as a blob of
 # the run's input. The app's bot token is the Corbie secret SLACK_TOKEN.
 flow: slack-out
-input: [settings, to, direct, text, files, answers, choices, ref]
+input: { settings: any, to: string, direct: boolean, text: blob, files: list, answers: any, choices: any, ref: any }
 stages:
   say:
     job:

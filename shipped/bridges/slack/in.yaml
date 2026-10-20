@@ -12,7 +12,7 @@
 # slack.com, files.slack.com and the hosts Slack's connections are made
 # to, and nothing written or run.
 flow: slack-in
-input: [settings, cursor]
+input: { settings: any, cursor: any }
 stages:
   hear:
     job:

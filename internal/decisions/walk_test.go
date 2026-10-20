@@ -13,7 +13,7 @@ import (
 
 // reviewer is a worker of the house that decides.
 const reviewer = `agent: reviewer
-input: [said]
+input: { said: string }
 model: usual
 system: You review what the fixer would do. End with { "says": "yes", "refuse" or "refer", "note": why }.
 prompt: ${input.said}

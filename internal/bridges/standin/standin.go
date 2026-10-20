@@ -40,7 +40,7 @@ const in = `# A stand-in bridge's in machine: it waits for what it heard, and en
 # with it, fails with the words given as fail, or hands over the things
 # given as hand and waits again.
 statechart: standin-in
-input: [settings, %s]
+input: { settings: any, %s: any }
 initial: waiting
 states:
   waiting:
@@ -63,7 +63,7 @@ const out = `# A stand-in bridge's out machine: it waits to be told how its carr
 # went, { sent } or { refused }, and ends with it, or fails with the words
 # given as fail.
 statechart: standin-out
-input: [settings, to, %stext]
+input: { settings: any, to: string, %stext: blob }
 initial: waiting
 states:
   waiting:
@@ -88,7 +88,7 @@ func Folder(hears, direct bool) map[string]string {
 	}
 	inputs := ""
 	if direct {
-		inputs = "direct, "
+		inputs = "direct: boolean, "
 	}
 	return map[string]string{
 		"in.yaml":    fmt.Sprintf(in, input),

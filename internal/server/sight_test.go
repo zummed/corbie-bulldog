@@ -353,7 +353,7 @@ func TestServerToolToldByWhereItResolves(t *testing.T) {
     does: Chalk it on the shed door
     args: { text: string }
     job:
-      machine: { statechart: chalk, input: [text], initial: done, states: { done: { end: done, output: "${input.text}" } } }
+      machine: { statechart: chalk, input: { text: string }, initial: done, states: { done: { end: done, output: "${input.text}" } } }
       input: { text: "${args.text}" }
 `
 	s := newBench(t, files).serve()
@@ -802,7 +802,7 @@ func TestServerDeciderGivenWithItsTeam(t *testing.T) {
 	// The garden's reviewer decides the house's orders after the
 	// small-orders rule, and refers them to Sam.
 	files["garden/reviewer.yaml"] = `agent: reviewer
-input: [said]
+input: { said: string }
 model: usual
 system: You review what is ordered. End with { "says": "yes", "refuse" or "refer", "note": why }.
 prompt: ${input.said}

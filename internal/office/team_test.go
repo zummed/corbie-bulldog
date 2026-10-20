@@ -394,7 +394,7 @@ func TestOfficeWhatAFlowsStagesAndAStatechartsJobsRun(t *testing.T) {
 
 	// A worker a flow runs is called by it, and the flow, the lead, still
 	// names the ask, since the fixer's cut_power waits for a yes.
-	steward := "flow: steward\ninput: [said, context]\nstages:\n  mend: { job: { machine: ./fixer.yaml, input: { said: \"${input.said}\" } } }\n" +
+	steward := "flow: steward\ninput: { said: string, context: string }\nstages:\n  mend: { job: { machine: ./fixer.yaml, input: { said: \"${input.said}\" } } }\n" +
 		"output: ${stages.mend.output}\nask: { machine: ./.bulldog/ask.yaml }\n"
 	runs(reads(t, with(house(t), map[string]string{"steward.yaml": steward})), "steward",
 		office.Tool{Name: "mend", Kind: office.ToolWorker, Worker: "fixer", File: "fixer.yaml"})
@@ -403,7 +403,7 @@ func TestOfficeWhatAFlowsStagesAndAStatechartsJobsRun(t *testing.T) {
 
 	// A statechart runs a state's one job by the state's name, and each
 	// named job by its own.
-	porch := "statechart: porch\ninput: [said]\ninitial: asking\nstates:\n" +
+	porch := "statechart: porch\ninput: { said: string }\ninitial: asking\nstates:\n" +
 		"  asking:\n    job: { machine: ./sparks.yaml, input: { said: \"Which circuit is the porch?\" } }\n    on: { done: locking }\n" +
 		"  locking:\n    jobs:\n      lock: { script: ./tools/cut-power.js, input: { circuit: porch }, approve: true }\n    on: { done: locked }\n" +
 		"  locked: { end: done }\n"

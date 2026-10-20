@@ -17,7 +17,7 @@ import (
 // what is said.
 func desk(files map[string]string, script string) map[string]string {
 	files["desk/team.yaml"] = "name: The desk\nabout: Papers.\npeople: [sam, kit]\nlead: filer\n"
-	files["desk/filer.yaml"] = "flow: filer\ninput: [said]\nstages:\n  a: { job: { script: ./filer.js, input: { said: \"${input.said}\" } } }\noutput: ${stages.a.output}\n"
+	files["desk/filer.yaml"] = "flow: filer\ninput: { said: string }\nstages:\n  a: { job: { script: ./filer.js, input: { said: \"${input.said}\" } } }\noutput: ${stages.a.output}\n"
 	files["desk/filer.js"] = script
 	return files
 }
@@ -460,7 +460,7 @@ func TestWorkNoRequestWorkingWithNothingToMoveIt(t *testing.T) {
 func TestATeamWithNoPeopleIsToldThroughWhomItsDecisionsReach(t *testing.T) {
 	t.Parallel()
 	files := work(t)
-	files["platform/ops.yaml"] = "flow: ops\ninput: [said]\nstages:\n  a: { job: { script: ./ops.js } }\noutput: ${stages.a.output}\n"
+	files["platform/ops.yaml"] = "flow: ops\ninput: { said: string }\nstages:\n  a: { job: { script: ./ops.js } }\noutput: ${stages.a.output}\n"
 	files["platform/ops.js"] = "return env.get(\"GITLAB_TOKEN\")\n"
 	b := newBench(t, files)
 	_, let := b.hold("charged twice", testkit.Say("asked platform"))

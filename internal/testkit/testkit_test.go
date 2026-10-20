@@ -36,7 +36,7 @@ func TestAnAgentIsAnsweredByTheStandIn(t *testing.T) {
 		return Say("it said " + turn.Last())
 	})
 	d := draft(t, `agent: echo
-input: [said]
+input: { said: string }
 model: `+model.Line()+`
 system: You echo.
 prompt: ${input.said}

@@ -103,7 +103,7 @@ func TestChangesSayWhatChangesInPeople(t *testing.T) {
 func TestChangesSayWhatChangesInWorkers(t *testing.T) {
 	t.Parallel()
 	f := newOffice(t, house(t))
-	check := saysOf(t, f, map[string]string{"weather.yaml": "agent: weather\ninput: [said]\nmodel: usual\nsystem: The weather.\nprompt: ${input.said}\n"})
+	check := saysOf(t, f, map[string]string{"weather.yaml": "agent: weather\ninput: { said: string }\nmodel: usual\nsystem: The weather.\nprompt: ${input.said}\n"})
 	has(t, check.Says, "weather joins the house")
 	has(t, check.Says, "weather's model is sonnet (claude-code)")
 	check = saysOf(t, f, map[string]string{"fixer.yaml": replaced(t, house(t), "fixer.yaml",
@@ -146,7 +146,7 @@ func porch(waits bool) string {
 	if waits {
 		approve = ", approve: true"
 	}
-	return "statechart: porch\ninput: [said]\ninitial: asking\nstates:\n" +
+	return "statechart: porch\ninput: { said: string }\ninitial: asking\nstates:\n" +
 		"  asking:\n    job: { machine: ./sparks.yaml, input: { said: \"Which circuit is the porch?\" } }\n    on: { done: locking }\n" +
 		"  locking:\n    jobs:\n      lock: { script: ./tools/cut-power.js, input: { circuit: porch }" + approve + " }\n    on: { done: locked }\n" +
 		"  locked: { end: done }\n"

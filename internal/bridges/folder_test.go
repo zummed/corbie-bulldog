@@ -20,7 +20,7 @@ import (
 func TestBridgesMachinesHandedAsWritten(t *testing.T) {
 	t.Parallel()
 	files := house(t)
-	files["bridges/telegram/out.yaml"] = "agent: standin-out\ninput: [settings, to, direct, text]\nmodel: usual\nprompt: ${input.text}\n"
+	files["bridges/telegram/out.yaml"] = "agent: standin-out\ninput: { settings: any, to: string, direct: boolean, text: blob }\nmodel: usual\nprompt: ${input.text}\n"
 	d := open(t, files)
 	// parsed gives a machine of the bridge's folder as Corbie reads it from
 	// text, with the folder's files.
@@ -119,7 +119,7 @@ func TestBridgesIdentityByBridgeName(t *testing.T) {
 
 func TestBridgesBrokenBridgeStopsOnlyItself(t *testing.T) {
 	t.Parallel()
-	files := replace(t, work(t), "bridges/gitlab/in.yaml", "input: [settings, cursor]", "input: [settings, cursor, delivery]")
+	files := replace(t, work(t), "bridges/gitlab/in.yaml", "input: { settings: any, cursor: any }", "input: { settings: any, cursor: any, delivery: any }")
 	files = replace(t, files, "office.yaml", "  gitlab:\n", "  jira: { places: {} }\n  matrix: { places: {} }\n  gitlab:\n")
 	maps.Copy(files, standin.In("teams", standin.Folder(false, true)))
 	matrix := standin.In("matrix", standin.Folder(false, true))

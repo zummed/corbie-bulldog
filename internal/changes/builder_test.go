@@ -110,7 +110,7 @@ func TestBuilderListsEveryFile(t *testing.T) {
 	t.Parallel()
 	f := newOffice(t, house(t))
 	f.write(1, "weather.yaml", "agent: weather\n")
-	f.write(1, "clerk.yaml", "agent: clerk\nmodel: usual\nsystem: Money.\nprompt: ${input.said}\ninput: [said]\n")
+	f.write(1, "clerk.yaml", "agent: clerk\nmodel: usual\nsystem: Money.\nprompt: ${input.said}\ninput: { said: string }\n")
 	f.call(1, ToolRemove, map[string]any{"path": "bins.yaml"})
 	lines := strings.Split(f.call(1, ToolFiles, nil).Text, "\n")
 	has(t, lines, "weather.yaml: new")

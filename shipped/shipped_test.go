@@ -60,7 +60,8 @@ func TestEveryShippedFileIsADefinitionCorbieTakes(t *testing.T) {
 	contents, _ := shipped.File(shipped.Call)
 	call := parse(t, string(contents), nil)
 	body := string(call.Definition.Body)
-	if call.Definition.Name != "call" || !slices.Equal(call.Definition.Input, []string{"tool", "args", "unanswered"}) ||
+	takes, _ := call.Definition.Input["properties"].(map[string]any)
+	if call.Definition.Name != "call" || len(takes) != 3 || takes["tool"] == nil || takes["args"] == nil || takes["unanswered"] == nil ||
 		!strings.Contains(body, `"ticket":"`+shipped.CallTicket+`"`) || !strings.Contains(body, `"too_long":"7d"`) || !strings.Contains(body, `"output":"${input.unanswered}"`) {
 		t.Errorf("the call is %s, taking %v: %s", call.Definition.Name, call.Definition.Input, body)
 	}
@@ -253,7 +254,7 @@ func TestTheClockIsADefinitionCorbieTakes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Definition.Name != "clock" || !slices.Equal(d.Definition.Input, []string{"due"}) {
+	if takes, _ := d.Definition.Input["properties"].(map[string]any); d.Definition.Name != "clock" || len(takes) != 1 || takes["due"] == nil {
 		t.Errorf("the clock is %s, given %v", d.Definition.Name, d.Definition.Input)
 	}
 }

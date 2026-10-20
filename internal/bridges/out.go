@@ -180,7 +180,7 @@ func (b *Bridges) sentence(bridge string, t thing, text string) error {
 // person directly: it takes the input direct. A bridge whose service has
 // no direct place carries only what goes to an origin.
 func takesDirect(bridge *office.Bridge) bool {
-	return bridge.Out != nil && slices.Contains(bridge.Out.Definition.Input, InputDirect)
+	return bridge.Out != nil && office.Takes(bridge.Out, InputDirect)
 }
 
 // scan looks at every request the store has told of since it was last

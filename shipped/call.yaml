@@ -4,7 +4,7 @@
 # model gave it as args, and what the tool says when no answer comes:
 #   job: { machine: ./call.yaml, input: { tool: tell, args: "${args}", unanswered: … } }
 statechart: call
-input: [tool, args, unanswered]
+input: { tool: string, args: map, unanswered: any }
 initial: waiting
 states:
   waiting:

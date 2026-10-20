@@ -88,7 +88,7 @@ func TestChangesWalkGoesOnToEverything(t *testing.T) {
 	t.Parallel()
 	files := house(t)
 	files["no-secrets.js"] = "return { says: \"yes\", note: \"no secrets\" }\n"
-	files["reviewer.yaml"] = "agent: reviewer\ninput: [said]\nmodel: usual\nsystem: You review.\nprompt: ${input.said}\n"
+	files["reviewer.yaml"] = "agent: reviewer\ninput: { said: string }\nmodel: usual\nsystem: You review.\nprompt: ${input.said}\n"
 	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [reviewer, sam]\n  change: [./no-secrets.js]\n", 1)
 	f := newOffice(t, files)
 	var names []string

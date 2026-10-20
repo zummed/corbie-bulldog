@@ -6,7 +6,7 @@
 # timeout, a timer of the chart's, which ends it as act whatever its
 # script is doing, the runner it was on gone among it.
 statechart: for-us
-input: [said, request, settings]
+input: { said: string, request: map, settings: any }
 initial: deciding
 states:
   deciding:

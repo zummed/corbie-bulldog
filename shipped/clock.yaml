@@ -3,7 +3,7 @@
 # time comes it waits on its ticket, and once Bulldog answers that it
 # waits for its time again.
 statechart: clock
-input: [due]
+input: { due: string }
 initial: waiting
 states:
   waiting: { timers: { due: "${input.due}" }, on: { due: come } }

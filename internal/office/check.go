@@ -668,7 +668,7 @@ func (r *reading) checkBridges() {
 				continue
 			}
 			b.In = draft
-			b.Listens, b.Hears = slices.Contains(draft.Definition.Input, "cursor"), slices.Contains(draft.Definition.Input, "delivery")
+			b.Listens, b.Hears = Takes(draft, "cursor"), Takes(draft, "delivery")
 			if b.Listens == b.Hears {
 				p.Text = "input: an in machine takes cursor, and listens, or delivery, and hears, and this takes both or neither"
 				b.Problems = append(b.Problems, p)

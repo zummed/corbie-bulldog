@@ -56,8 +56,8 @@ func TestTheBridgesInTheFiles(t *testing.T) {
 	says(t, broken(t, replace(t, files, "office.yaml", "  gitlab:\n    site: gitlab.com\n    places:\n      platform/api: { team: platform }\n", ""), "gitlab", "slack"), "bridges/gitlab", "does not name")
 	says(t, broken(t, with(files, map[string]string{"bridges/gitlab/in.yaml": "", "bridges/gitlab/out.yaml": "", "bridges/gitlab/gitlab.js": "", "bridges/gitlab/README.md": ""}), "gitlab", "slack"), "no folder bridges/gitlab")
 	says(t, broken(t, with(files, map[string]string{"bridges/gitlab/out.yaml": ""}), "gitlab", "slack"), "no out.yaml")
-	says(t, broken(t, replace(t, files, "bridges/gitlab/in.yaml", "input: [settings, cursor]", "input: [settings, cursor, delivery]"), "gitlab", "slack"), "both or neither")
-	says(t, broken(t, replace(t, files, "bridges/gitlab/in.yaml", "input: [settings, cursor]", "input: [settings]"), "gitlab", "slack"), "both or neither")
+	says(t, broken(t, replace(t, files, "bridges/gitlab/in.yaml", "input: { settings: any, cursor: any }", "input: { settings: any, cursor: any, delivery: any }"), "gitlab", "slack"), "both or neither")
+	says(t, broken(t, replace(t, files, "bridges/gitlab/in.yaml", "input: { settings: any, cursor: any }", "input: { settings: any }"), "gitlab", "slack"), "both or neither")
 	says(t, broken(t, with(files, map[string]string{"bridges/jira/in.yaml": "flow: jira-in\n"}), "jira", "slack", "gitlab"), "bridges/jira", "does not name")
 	// The house without its bridge reads with no problem.
 	reads(t, stringsOf(examples.NewHouse()))

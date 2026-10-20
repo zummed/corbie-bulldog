@@ -2,7 +2,7 @@
 # itself: its colleagues, in crew.yaml, are its tools, and it asks the
 # garden what is the garden's.
 agent: steward
-input: [said, context]
+input: { said: string, context: string }
 model: usual
 system: |
   You look after the house for Sam and Kit. Hand repairs to the fixer, money and orders to the

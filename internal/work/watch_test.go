@@ -19,7 +19,7 @@ import (
 // what it reads, and peek at what they may not.
 func watching(t *testing.T) map[string]string {
 	files := house(t)
-	files["fixer.yaml"] = "agent: fixer\nmodel: usual\ninput: [said]\nprompt: ${input.said}\ntools_file: [./.bulldog/tools/talk/talk.yaml]\ntools:\n" +
+	files["fixer.yaml"] = "agent: fixer\nmodel: usual\ninput: { said: string }\nprompt: ${input.said}\ntools_file: [./.bulldog/tools/talk/talk.yaml]\ntools:\n" +
 		"  meter: { does: Read the meter, args: {}, job: { script: ./tools/meter.js } }\n" +
 		"  peek: { does: Look at what it may not, args: {}, job: { script: ./tools/peek.js } }\n"
 	files["tools/meter.js"] = "log(\"the meter reads 42\")\nreturn 42\n"

@@ -4,7 +4,7 @@
 # given no cursor, hears nothing, and ends with the cursor past all that
 # came before it. The bot's token is the Corbie secret TELEGRAM_TOKEN.
 flow: telegram-in
-input: [settings, cursor]
+input: { settings: any, cursor: any }
 stages:
   hear:
     job:

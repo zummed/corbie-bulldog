@@ -235,7 +235,7 @@ func TestWorkAHeedRunIsTheTeams(t *testing.T) {
 func TestWorkNoLeadWhileAHeedWeighs(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, heeding(t, "./for-us.yaml", map[string]string{
-		"for-us.yaml": "agent: for-us\ninput: [said]\nmodel: usual\nprompt: \"Weigh: ${input.said}\"\n",
+		"for-us.yaml": "agent: for-us\ninput: { said: string }\nmodel: usual\nprompt: \"Weigh: ${input.said}\"\n",
 	}))
 	held, let := b.hold("Weigh:", testkit.Say(`{ "says": "act" }`))
 	n := must(b.reqs.AskAt("slack", "#help", "#help/1700.1", "", "U0DANA00", "@bot first", nil, false)).Number

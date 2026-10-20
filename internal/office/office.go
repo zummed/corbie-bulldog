@@ -368,6 +368,13 @@ func (b *Bridge) Dir() string {
 	return "bridges/" + b.Name
 }
 
+// Takes says whether a machine's input names name.
+func Takes(m *machine.Draft, name string) bool {
+	names, _ := m.Definition.Input["properties"].(map[string]any)
+	_, ok := names[name]
+	return ok
+}
+
 // A Place is one a bridge listens in, by its name in the bridge's words.
 type Place struct {
 	Name string

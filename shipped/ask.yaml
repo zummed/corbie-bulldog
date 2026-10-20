@@ -7,7 +7,7 @@
 # runs can be held:
 #   ask: { machine: ./.bulldog/ask.yaml }
 statechart: ask
-input: [asking, jobs]
+input: { asking: any, jobs: any }
 initial: asking
 states:
   asking:

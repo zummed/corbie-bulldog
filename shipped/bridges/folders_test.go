@@ -2,7 +2,6 @@ package bridges_test
 
 import (
 	"encoding/json"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -37,7 +36,7 @@ func TestBridgesShippedFoldersAreChecked(t *testing.T) {
 	}
 	for name, want := range map[string][3]bool{"telegram": {true, false, true}, "slack": {true, false, true}, "gitlab": {true, false, false}, "jira": {true, false, false}} {
 		b := o.Bridges[name]
-		direct := slices.Contains(b.Out.Definition.Input, "direct")
+		direct := office.Takes(b.Out, "direct")
 		if !b.Runs() || b.Dir() != ".bulldog/bridges/"+name || b.Listens != want[0] || b.Hears != want[1] || direct != want[2] {
 			t.Errorf("%s listens %v, hears %v, says things directly %v", name, b.Listens, b.Hears, direct)
 		}

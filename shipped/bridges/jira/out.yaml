@@ -6,7 +6,7 @@
 # file's data, as a blob of the run's input. It speaks to the Jira at the
 # settings' site.
 flow: jira-out
-input: [settings, to, text, files]
+input: { settings: any, to: string, text: blob, files: list }
 stages:
   say:
     job:

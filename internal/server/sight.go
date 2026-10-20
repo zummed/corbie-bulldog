@@ -888,17 +888,17 @@ func workerOf(o *office.Office, w *office.Worker) workerOut {
 func definitionOf(w *office.Worker) (definitionOut, string) {
 	out := definitionOut{Inputs: []string{}, ToolsFiles: []string{}}
 	var def struct {
-		System    string   `yaml:"system"`
-		Prompt    any      `yaml:"prompt"`
-		Input     []string `yaml:"input"`
-		ToolsFile []string `yaml:"tools_file"`
-		Ask       any      `yaml:"ask"`
-		Model     any      `yaml:"model"`
+		System    string    `yaml:"system"`
+		Prompt    any       `yaml:"prompt"`
+		Input     yaml.Node `yaml:"input"`
+		ToolsFile []string  `yaml:"tools_file"`
+		Ask       any       `yaml:"ask"`
+		Model     any       `yaml:"model"`
 	}
 	if yaml.Unmarshal(w.Definition, &def) != nil {
 		return out, ""
 	}
-	out.System, out.Inputs, out.ToolsFiles, out.Asks = def.System, orEmpty(def.Input), orEmpty(def.ToolsFile), def.Ask != nil
+	out.System, out.Inputs, out.ToolsFiles, out.Asks = def.System, inputNames(&def.Input), orEmpty(def.ToolsFile), def.Ask != nil
 	switch p := def.Prompt.(type) {
 	case nil:
 	case string:
@@ -993,6 +993,32 @@ func teamOfWorker(o *office.Office, kind, name string) string {
 		return w.Team
 	}
 	return ""
+}
+
+// inputNames gives the names a definition's input: gives, in the order
+// written: those of the short form, or the properties of the full form.
+func inputNames(shape *yaml.Node) []string {
+	names := []string{}
+	if shape.Kind != yaml.MappingNode {
+		return names
+	}
+	if properties := valueOf(shape, "properties"); valueOf(shape, "type") != nil && properties != nil {
+		shape = properties
+	}
+	for i := 0; i+1 < len(shape.Content); i += 2 {
+		names = append(names, shape.Content[i].Value)
+	}
+	return names
+}
+
+// valueOf gives the value of a mapping's key, or nil.
+func valueOf(m *yaml.Node, key string) *yaml.Node {
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		if m.Content[i].Value == key {
+			return m.Content[i+1]
+		}
+	}
+	return nil
 }
 
 func orEmpty[T any](list []T) []T {

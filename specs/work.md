@@ -159,7 +159,7 @@ A routine is written in its team file as a time, `at`, which is a time of day wi
 
 ```yaml
 statechart: clock
-input: [due]
+input: { due: string }
 initial: waiting
 states:
   waiting: { timers: { due: "${input.due}" }, on: { due: come } }

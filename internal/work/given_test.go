@@ -60,7 +60,7 @@ func holdsNone(t *testing.T, what, text string, parts ...string) {
 // request it is given, as data, and a note.
 func echo(files map[string]string) map[string]string {
 	files["desk/team.yaml"] = "name: The desk\nabout: Papers.\npeople: [sam]\nlead: echo\n"
-	files["desk/echo.yaml"] = "flow: echo\ninput: [request]\nstages:\n  a: { job: { script: ./echo.js, input: { request: \"${input.request}\" } } }\noutput: ${stages.a.output}\n"
+	files["desk/echo.yaml"] = "flow: echo\ninput: { request: map }\nstages:\n  a: { job: { script: ./echo.js, input: { request: \"${input.request}\" } } }\noutput: ${stages.a.output}\n"
 	files["desk/echo.js"] = "return input.request\n"
 	files["desk/notes/stamps.md"] = "First class only.\n"
 	return files

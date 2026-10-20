@@ -3,7 +3,7 @@
 # thread. Its own ask_team, written in full, stands before the talk
 # tools' and takes only those two teams.
 agent: bot
-input: [said, context]
+input: { said: string, context: string }
 model: usual
 system: |
   You answer what is asked in #help. You know little yourself: ask platform about GitLab and deploys,

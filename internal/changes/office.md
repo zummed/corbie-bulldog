@@ -64,7 +64,7 @@ A worker is a Corbie machine, an agent, a flow or a statechart, directly in a te
 ```yaml
 # weather.yaml
 agent: weather
-input: [said, context]
+input: { said: string, context: string }
 model: usual
 system: You say what the weather will do here, and whether the washing can go out.
 prompt: ${input.context}
@@ -248,7 +248,7 @@ A bridge of the office's own names no `from`, and its machines are in `bridges/<
 ```yaml
 # bridges/slack/out.yaml
 flow: slack-out
-input: [settings, to, text]
+input: { settings: any, to: string, text: blob }
 stages:
   say:
     job:

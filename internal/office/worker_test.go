@@ -91,7 +91,7 @@ func TestOfficeDefinitionCarriesWorkerName(t *testing.T) {
 func TestARefusedWorkerStopsItselfAndWhatRunsIt(t *testing.T) {
 	t.Parallel()
 	files := replace(t, house(t), "sparks.yaml", ", job: { script: ./tools/circuits.js }", "")
-	files = replace(t, files, "sparks.yaml", "input: [said]", `input: [said, "no good"]`)
+	files = replace(t, files, "sparks.yaml", "input: { said: string }", `input: { said: string, n: numbr }`)
 	o, problems := read(t, files)
 	if o == nil {
 		t.Fatalf("the house is refused: %v", problems)
@@ -120,9 +120,9 @@ func TestARefusedWorkerStopsItselfAndWhatRunsIt(t *testing.T) {
 	// What is wrong in a definition a worker runs that is no worker's is
 	// said on that definition's file.
 	files = replace(t, house(t), "fixer.yaml", "machine: ./sparks.yaml", "machine: ./tools/meter.yaml")
-	files["tools/meter.yaml"] = "flow: meter\ninput: [said, \"no good\"]\nstages: { read: { job: { script: ./circuits.js } } }\noutput: ${stages.read.output}\n"
+	files["tools/meter.yaml"] = "flow: meter\ninput: { said: string, n: numbr }\nstages: { read: { job: { script: ./circuits.js } } }\noutput: ${stages.read.output}\n"
 	_, problems = read(t, files)
-	if p := says(t, problems.OfWorker("fixer"), "input"); p.File != "tools/meter.yaml" || p.Place != "input[1]" {
+	if p := says(t, problems.OfWorker("fixer"), "input"); p.File != "tools/meter.yaml" || p.Place != "input" {
 		t.Errorf("the meter's problem is said as %#v", p)
 	}
 	o, problems = read(t, replace(t, house(t), "steward.yaml", "prompt: ${input.context}", "prompt: ${input.context"))

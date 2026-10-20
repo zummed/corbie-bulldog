@@ -171,7 +171,7 @@ func deep(files map[string]string, depth int) map[string]string {
 		job = fmt.Sprintf("machine:\n  flow: x%d\n  stages:\n    a:\n      job:\n%s  output: ${stages.a.output}\n", i, indent(job, 8))
 	}
 	files = caller(files, "tell", "{}")
-	files["desk/filer.yaml"] = "flow: filer\ninput: [said]\nstages:\n  a:\n    job:\n" + indent(job, 6) + "output: ${stages.a.output}\n"
+	files["desk/filer.yaml"] = "flow: filer\ninput: { said: string }\nstages:\n  a:\n    job:\n" + indent(job, 6) + "output: ${stages.a.output}\n"
 	return files
 }
 
