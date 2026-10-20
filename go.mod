@@ -3,6 +3,7 @@ module github.com/zummed/corbie-bulldog
 go 1.27.1
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/dop251/goja v0.0.0-20261004200024-481fdb442bb4
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/zummed/corbie v0.7.1
@@ -15,7 +16,6 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
-	github.com/coder/websocket v1.8.15 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/dlclark/regexp2/v2 v2.8.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect

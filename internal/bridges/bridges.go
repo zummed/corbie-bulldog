@@ -4,9 +4,10 @@
 // a speaker is, and how each thing is carried once, in order, place by
 // place. It never speaks to Corbie: whoever drives Corbie asks it which
 // runs to start, starts them with the labels it gives, and hands it back
-// what a listening run hands over as it goes and how each ended. What it keeps, it keeps in its own part of the store:
-// each bridge's cursor and the trouble of its last run, the things heard,
-// and every thing carried, with how its runs went.
+// what a listening run hands over as it goes and how each ended. What it
+// keeps, it keeps in its own part of the store: each bridge's cursor and
+// the trouble of its last run, the things heard, and every thing carried,
+// with how its runs went.
 package bridges
 
 import (

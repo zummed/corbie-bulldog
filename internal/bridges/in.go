@@ -172,10 +172,10 @@ func (b *Bridges) bridgeRow(name string) (bridgeRow, error) {
 // InEnded takes what an in run heard, once it has ended: each thing once,
 // by its id, what a listening run handed over as it went first, and for a
 // listening run the cursor it ended with, kept only after everything heard
-// with it is taken. What each thing said as a blob of the run is read out
-// of it first, before this area's work, since a slow read holds up no
-// other bridge. A thing that cannot be read is not taken, and is the
-// bridge's trouble; one that could not be taken for a fault of Bulldog's
+// with it is taken. What each thing not yet taken said as a blob of the
+// run is read out of it first, before this area's work, since a slow read
+// holds up no other bridge; a thing already taken is not read again. A
+// thing that cannot be read is not taken, and is the bridge's trouble; one that could not be taken for a fault of Bulldog's
 // keeps the cursor where it was, so the next run hears it again. A run
 // that failed, that ended with no list of things, or, when it listens,
 // with no cursor to go on from, is the bridge's trouble, its cursor is
@@ -190,7 +190,9 @@ func (b *Bridges) InEnded(name, run string, end End) (Taken, error) {
 		out.problems = append(out.problems, output.problems...)
 		out.cursor, out.answer, out.fault = output.cursor, output.answer, output.fault
 	}
-	readAll(out.things, end.Fetch)
+	if err := b.readAll(name, out.things, end.Fetch); err != nil {
+		return Taken{}, err
+	}
 	b.mu.Lock()
 	defer b.unlock()
 	o, err := b.office()
@@ -252,7 +254,9 @@ func (b *Bridges) InEnded(name, run string, end End) (Taken, error) {
 // run handed over is handed back then.
 func (b *Bridges) Handed(name string, end End) (Taken, error) {
 	out := readHanded(end.Handed)
-	readAll(out.things, end.Fetch)
+	if err := b.readAll(name, out.things, end.Fetch); err != nil {
+		return Taken{}, err
+	}
 	b.mu.Lock()
 	defer b.unlock()
 	o, err := b.office()
@@ -406,11 +410,34 @@ func readHanded(handed []any) ran {
 	return r
 }
 
-// readAll reads out of the run what each thing said as a blob.
-func readAll(things []thing, fetch func(string) ([]byte, error)) {
+// readAll reads out of the run what each thing said as a blob, but for a
+// thing already taken, which take passes over, so that its files are not
+// read out of the run again, nor is a failure to read them its trouble.
+func (b *Bridges) readAll(name string, things []thing, fetch func(string) ([]byte, error)) error {
 	for i := range things {
-		things[i].unread = readBlobs(&things[i], fetch)
+		taken, err := b.taken(name, things[i].ID)
+		if err != nil {
+			return err
+		}
+		if !taken {
+			things[i].unread = readBlobs(&things[i], fetch)
+		}
 	}
+	return nil
+}
+
+// taken says whether a thing has been taken, by its bridge and its id.
+func (b *Bridges) taken(name, id string) (bool, error) {
+	b.mu.Lock()
+	defer b.unlock()
+	err := b.db.QueryRow(`SELECT 1 FROM bridges_heard WHERE bridge = ? AND id = ?`, name, id).Scan(new(int))
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, failed(err)
+	}
+	return true, nil
 }
 
 // readThings reads a list of things heard. A thing without its id, its

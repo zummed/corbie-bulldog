@@ -246,6 +246,42 @@ func TestAListeningRunsHandoversAreTakenAfterARestart(t *testing.T) {
 	}
 }
 
+func TestAHandedOverThingsBlobsAreReadFromTheRun(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	long := strings.Repeat("the kitchen socket sparked; ", 700)
+	picture := func(name, data string) []any {
+		return []any{map[string]any{"name": name, "data": map[string]any{"$make": data}}}
+	}
+	// Handed over as the run goes, its text and its file are read out of
+	// what the run emitted.
+	run := b.listening("telegram")
+	b.hand(run, thing("said", "4472", "direct", "4472", "text", map[string]any{"$make": long}, "files", picture("socket.jpg", "jpeg")))
+	first := b.at("telegram", "4472")
+	b.holdsFile(first, "kit", long, "socket.jpg", "jpeg")
+	// Handed over while Bulldog is away, by a run that then ends, it is
+	// read out of the ended run's record.
+	b.halt()
+	b.hand(run, thing("said", "4471", "direct", "4471", "text", map[string]any{"$make": "the hall light"}, "files", picture("light.jpg", "flicker")))
+	b.hear(run, 4)
+	b.corbie.Ended(t, run)
+	b.restart()
+	second := b.at("telegram", "4471")
+	b.holdsFile(second, "sam", "the hall light", "light.jpg", "flicker")
+}
+
+// holdsFile fails unless a request was asked with a text and one file.
+func (b *bench) holdsFile(n int64, person, text, name, data string) {
+	b.t.Helper()
+	asks := b.entries(n, requests.KindAsked)
+	if len(asks) != 1 || asks[0].Text != text || len(asks[0].Files) != 1 || asks[0].Files[0].Name != name {
+		b.t.Fatalf("request %d is asked as %v", n, b.thread(n))
+	}
+	if got, err := b.reqs.File(n, asks[0].ID, name, person); err != nil || string(got) != data {
+		b.t.Errorf("the file %s of request %d is %q: %v", name, n, got, err)
+	}
+}
+
 // runsOfKind gives the runs of a kind noted, oldest first.
 func (w *Work) runsOfKind(t *testing.T, kind string) []*note {
 	t.Helper()

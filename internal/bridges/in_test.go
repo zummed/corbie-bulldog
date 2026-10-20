@@ -112,6 +112,34 @@ func TestBridgesCursorKeptAfterTaking(t *testing.T) {
 	}
 }
 
+func TestBridgesTakenThingNotReadAgain(t *testing.T) {
+	t.Parallel()
+	d := open(t, house(t))
+	picture := said("4471", "direct", "4471", "look", "files", []any{map[string]any{"name": "socket.jpg", "data": map[string]any{"$blob": "emits/handing/0/0/files/0/data"}}})
+	reads := 0
+	fetch := func(string) ([]byte, error) { reads++; return []byte("jpeg"), nil }
+	s := d.listening("telegram")
+	_, err := d.Handed("telegram", bridges.End{Handed: []any{[]any{picture}}, Fetch: fetch})
+	must(t, err)
+	// Handed back once the run has ended, the picture already taken is
+	// not read again, and a read that would fail now is nobody's trouble.
+	gone := func(string) ([]byte, error) { reads++; return nil, errors.New("the run's record is gone") }
+	_, err = d.InEnded("telegram", s.Labels["run"], bridges.End{Output: heard(7), Handed: []any{[]any{picture}}, Fetch: gone})
+	must(t, err)
+	if reads != 1 {
+		t.Errorf("the picture is read out of the run %d times", reads)
+	}
+	if got := d.thread(1); len(got) != 1 || d.latest() != 1 {
+		t.Errorf("the picture is taken as %v", got)
+	}
+	if troubles, err := d.Troubles(); err != nil || len(troubles) != 0 {
+		t.Errorf("the troubles are %v: %v", troubles, err)
+	}
+	if s := d.listening("telegram"); s.Input["cursor"] != float64(7) {
+		t.Errorf("the cursor kept is %v", s.Input["cursor"])
+	}
+}
+
 func TestBridgesWhatIsHeard(t *testing.T) {
 	t.Parallel()
 	d := open(t, work(t))

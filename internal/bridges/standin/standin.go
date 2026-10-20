@@ -2,8 +2,9 @@
 // tests and the demo, whose machines answer as they are told to. Its in
 // machine waits on a ticket, and ends with what it is answered, fails with
 // the words it is given as fail, or hands over the things it is given as
-// hand and waits again; its out machine ends or fails alike. It reaches no
-// service and needs no key.
+// hand and waits again, each { "$make": text } in them as a blob of the
+// text; its out machine ends or fails alike. It reaches no service and
+// needs no key.
 package standin
 
 import (
@@ -18,10 +19,16 @@ const (
 	Carried = "carried"
 )
 
-// The stand-in's script: it hands over the things it is given, or fails
-// with the words it is given.
-const script = `if (input.hand !== undefined) {
-  emit("heard", input.hand)
+// The stand-in's script: it hands over the things it is given, with each
+// { "$make": text } in them made a blob of the text, or fails with the
+// words it is given.
+const script = `const made = v =>
+  Array.isArray(v) ? v.map(made)
+  : v === null || typeof v !== "object" ? v
+  : typeof v.$make === "string" ? blobs.make(v.$make)
+  : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, made(x)]))
+if (input.hand !== undefined) {
+  emit("heard", made(input.hand))
   return null
 }
 throw new Error(input.fail)
