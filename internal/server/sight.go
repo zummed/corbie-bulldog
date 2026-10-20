@@ -62,11 +62,15 @@ type (
 		In       *machineOut `json:"in,omitempty"`
 		Out      *machineOut `json:"out,omitempty"`
 	}
-	// machineOut is one of a bridge's machines, by its file, with the
-	// hosts it may connect to and each secret it may send, with where,
-	// once Corbie has checked it.
+	// machineOut is one of a bridge's machines, by its file, with what it
+	// reaches once Corbie has checked it.
 	machineOut struct {
-		File    string      `json:"file"`
+		File string `json:"file"`
+		reachOut
+	}
+	// reachOut is the hosts a machine may connect to and each secret it
+	// may send, with where.
+	reachOut struct {
 		Hosts   []string    `json:"hosts,omitzero"`
 		Secrets []secretOut `json:"secrets,omitzero"`
 	}
@@ -235,21 +239,35 @@ func (s *site) bridgeOf(o *office.Office, b *office.Bridge, failing *failingOut,
 
 // machineOf gives one of a bridge's machines by its file, and, once Corbie
 // has checked it, the hosts it may connect to and each secret it may send,
-// with where: each entry as the bridge's settings fill it, and a group as
-// what it stands for of these.
+// with where, as the bridge's settings fill them.
 func machineOf(o *office.Office, file string, d *machine.Draft, settings any) *machineOut {
 	if d == nil {
 		return &machineOut{File: file}
 	}
-	out := &machineOut{File: file, Hosts: []string{}, Secrets: []secretOut{}}
+	return &machineOut{File: file, reachOut: reachOf(fillAll(changes.Allowed(o, file, d), settings))}
+}
+
+// fillAll gives permissions each as a bridge's settings fill it.
+func fillAll(entries []string, settings any) []string {
 	fill := machine.NewEvaluator(time.Time{}, nil)
 	scope := machine.Scope{"input": map[string]any{bridges.InputSettings: settings}}
-	var entries []string
-	for _, entry := range changes.Allowed(o, file, d) {
-		entries = append(entries, reached(filled(fill, scope, entry))...)
+	var out []string
+	for _, entry := range entries {
+		out = append(out, filled(fill, scope, entry))
 	}
-	slices.Sort(entries)
-	for _, entry := range slices.Compact(entries) {
+	return out
+}
+
+// reachOf gives permissions as the hosts and secrets they reach, with
+// where each secret may go: a group as what it stands for of these.
+func reachOf(entries []string) reachOut {
+	out := reachOut{Hosts: []string{}, Secrets: []secretOut{}}
+	var all []string
+	for _, entry := range entries {
+		all = append(all, reached(entry)...)
+	}
+	slices.Sort(all)
+	for _, entry := range slices.Compact(all) {
 		kind, scope, _ := strings.Cut(entry, ":")
 		switch kind {
 		case permission.Net:

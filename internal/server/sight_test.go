@@ -228,24 +228,24 @@ func TestServerBridgeSettingsAndReachToChangeDeciders(t *testing.T) {
 	if !reflect.DeepEqual(slack.Settings, want) {
 		t.Errorf("Al is given the Slack bridge's settings as %#v", slack.Settings)
 	}
-	in := &machineOut{File: "bridges/slack/in.yaml", Hosts: []string{"slack.com"},
-		Secrets: []secretOut{{Name: "SLACK_SIGNING_SECRET", To: []string{"*"}}, {Name: "SLACK_TOKEN", To: []string{"slack.com"}}}}
+	in := &machineOut{File: "bridges/slack/in.yaml", reachOut: reachOut{Hosts: []string{"slack.com"},
+		Secrets: []secretOut{{Name: "SLACK_SIGNING_SECRET", To: []string{"*"}}, {Name: "SLACK_TOKEN", To: []string{"slack.com"}}}}}
 	if !reflect.DeepEqual(slack.In, in) {
 		t.Errorf("Al is given the Slack bridge's in machine as %+v", slack.In)
 	}
-	if out := (&machineOut{File: "bridges/slack/out.yaml", Hosts: []string{}, Secrets: []secretOut{}}); !reflect.DeepEqual(slack.Out, out) {
+	if out := (&machineOut{File: "bridges/slack/out.yaml", reachOut: reachOut{Hosts: []string{}, Secrets: []secretOut{}}}); !reflect.DeepEqual(slack.Out, out) {
 		t.Errorf("Al is given the Slack bridge's out machine as %+v", slack.Out)
 	}
 	if settings, ok := gitlab.Settings.(map[string]any); !ok || settings["site"] != "gitlab.com" {
 		t.Errorf("Al is given the GitLab bridge's settings as %#v", gitlab.Settings)
 	}
-	in = &machineOut{File: "bridges/gitlab/in.yaml", Hosts: []string{"${input.cursor}", "gitlab.com"},
-		Secrets: []secretOut{{Name: "GITLAB_TOKEN", To: []string{"net.unencrypted:gitlab.com", "gitlab.com"}}}}
+	in = &machineOut{File: "bridges/gitlab/in.yaml", reachOut: reachOut{Hosts: []string{"${input.cursor}", "gitlab.com"},
+		Secrets: []secretOut{{Name: "GITLAB_TOKEN", To: []string{"net.unencrypted:gitlab.com", "gitlab.com"}}}}}
 	if !reflect.DeepEqual(gitlab.In, in) {
 		t.Errorf("Al is given the GitLab bridge's in machine as %+v", gitlab.In)
 	}
-	out := &machineOut{File: "bridges/gitlab/out.yaml", Hosts: []string{"*"},
-		Secrets: []secretOut{{Name: "*", To: []string{"*"}}, {Name: "SIGNER", To: []string{"exec:gpg"}}}}
+	out := &machineOut{File: "bridges/gitlab/out.yaml", reachOut: reachOut{Hosts: []string{"*"},
+		Secrets: []secretOut{{Name: "*", To: []string{"*"}}, {Name: "SIGNER", To: []string{"exec:gpg"}}}}}
 	if !reflect.DeepEqual(gitlab.Out, out) {
 		t.Errorf("Al is given the GitLab bridge's out machine as %+v", gitlab.Out)
 	}

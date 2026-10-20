@@ -25,14 +25,16 @@ const StoreFile = "bulldog.db"
 // its tables.
 const (
 	Area    = "server"
-	Version = 3
+	Version = 4
 )
 
 // tables makes the server's part: each person's key, and each one-time
 // link sent to sign in, known by a hash of what it carries and never by
 // what it carries, with the bridge and the thing it is carried as, and
 // the bridges still to be tried, with whom each reached, when it was asked
-// for. A link is kept only once a bridge has taken it to carry.
+// for. A link is kept only once a bridge has taken it to carry. One row
+// keeps the version of Bulldog that serves the office, and the one that
+// ran before it.
 const tables = `
 CREATE TABLE server_keys (
 	person TEXT PRIMARY KEY,
@@ -50,6 +52,11 @@ CREATE TABLE server_links (
 );
 CREATE INDEX server_links_person ON server_links (person, made);
 CREATE INDEX server_links_thing ON server_links (thing);
+CREATE TABLE server_versions (
+	one     INTEGER PRIMARY KEY CHECK (one = 1),
+	running TEXT NOT NULL,
+	before  TEXT NOT NULL
+);
 `
 
 // stamped is how a time is kept in the server's part: in UTC, and always
@@ -102,6 +109,35 @@ func ready(db *sql.DB) error {
 		return fmt.Errorf("the store's keys were kept by another Bulldog, in the shape of version %d and not %d: remove .bulldog/bulldog.db and start again, and the office starts again with nothing kept", version, Version)
 	}
 	return nil
+}
+
+// ran keeps the version of Bulldog that serves the office now, and gives
+// the one that ran before it, "" when none did, and whether this start is
+// the first of the version. A start of the same version again gives the
+// same before, so what changed since it is shown while the version runs.
+func ran(db *sql.DB, version string) (before string, upgraded bool, err error) {
+	tx, err := db.Begin()
+	if err != nil {
+		return "", false, fmt.Errorf("the version that ran before cannot be read: %w", err)
+	}
+	defer tx.Rollback()
+	var running string
+	switch err := tx.QueryRow(`SELECT running, before FROM server_versions`).Scan(&running, &before); {
+	case errors.Is(err, sql.ErrNoRows):
+		_, err = tx.Exec(`INSERT INTO server_versions (one, running, before) VALUES (1, ?, '')`, version)
+		if err != nil {
+			return "", false, fmt.Errorf("the version cannot be kept: %w", err)
+		}
+		return "", false, tx.Commit()
+	case err != nil:
+		return "", false, fmt.Errorf("the version that ran before cannot be read: %w", err)
+	case running == version:
+		return before, false, nil
+	}
+	if _, err := tx.Exec(`UPDATE server_versions SET running = ?, before = ?`, version, running); err != nil {
+		return "", false, fmt.Errorf("the version cannot be kept: %w", err)
+	}
+	return running, true, tx.Commit()
 }
 
 // keyed gives every person of a good reading a key, making one for each

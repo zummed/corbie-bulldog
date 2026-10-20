@@ -34,6 +34,9 @@ type site struct {
 	// asked are the names a one-time link was asked for, which are
 	// looked at one after another, apart from the asking.
 	asked chan string
+	// version is which Bulldog serves the office, and before the one that
+	// ran before it, "" when none did.
+	version, before string
 }
 
 // The most a body is read of: JSON, and a form with files.
@@ -71,6 +74,7 @@ func routes(s *site) http.Handler {
 	mux.HandleFunc("GET /api/teams/{team}", s.api(s.team))
 	mux.HandleFunc("GET /api/teams/{team}/docs/{doc...}", s.api(s.doc))
 	mux.HandleFunc("POST /api/teams/{team}/routines/now", s.api(s.routineNow))
+	mux.HandleFunc("GET /api/shipped", s.api(s.shipped))
 	mux.HandleFunc("GET /api/office/files", s.api(s.files))
 	mux.HandleFunc("GET /api/office/file", s.api(s.file))
 	mux.HandleFunc("POST /api/office/check", s.api(s.check))

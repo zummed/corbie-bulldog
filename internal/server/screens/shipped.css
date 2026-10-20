@@ -1,0 +1,31 @@
+/* shipped: the things Bulldog ships, grouped, each a block with what it
+   is nested beneath it. */
+.shs { display: flex; flex-direction: column; gap: var(--space); }
+.shs .head { margin-bottom: 0; }
+.sh-group { display: flex; flex-direction: column; }
+.sh-group > .label { margin-bottom: 0; padding-bottom: 6px; border-bottom: var(--wall) solid var(--ink); }
+
+/* A thing: a head with its name and status, then what it is on a guide
+   line beneath */
+.sh { border-bottom: 1px solid var(--line); padding-bottom: var(--gap); }
+.sh-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; padding: 10px 0; }
+.sh-body { display: flex; flex-direction: column; gap: var(--gap); margin-left: 9px; padding-left: 18px; border-left: 1.5px solid var(--line); }
+.sh-body .kv .kv { padding-left: 14px; border-left: 1.5px solid var(--line); }
+.sh-uses { gap: 8px; }
+.sh-use { display: flex; flex-direction: column; gap: 6px; }
+.sh-setting { gap: 6px; flex-wrap: nowrap; }
+
+/* The page, folded to its first line */
+.sh-page > summary { cursor: pointer; }
+.sh-page > pre { margin-top: 8px; padding: 10px 12px; background: var(--sheet); border-left: 3px solid var(--faint); }
+
+/* One status: used, unused, copied; what changed is a mark beside it */
+.status.sh-used { color: var(--good); } .status.sh-used::before { background: var(--good); }
+.status.sh-unused { color: var(--ink3); } .status.sh-unused::before { background: transparent; border: 1.5px solid var(--ink3); }
+.status.sh-copied { color: var(--plan); } .status.sh-copied::before { background: var(--plan); border-radius: 1px; }
+.sh-mark { gap: 6px; }
+.tag.sh-changed { color: var(--wait); border-color: var(--wait); }
+
+@media (max-width: 640px) {
+  .sh-body { margin-left: 0; padding-left: 12px; }
+}

@@ -6,6 +6,39 @@
 (function () {
   "use strict";
 
+  // hostEl gives where something may reach: a host, a setting that names
+  // one, or anywhere.
+  function hostEl(host) {
+    if (host === "*") return "Anywhere";
+    const setting = /^\$\{input\.settings\.(\w+)\}$/.exec(host);
+    if (setting) return B.el("span", {class: "line"}, B.el("span", {class: "mono"}, setting[1]), B.el("span", {class: "faint"}, "Setting"));
+    return B.el("span", {class: "mono"}, host);
+  }
+
+  // The places a secret may go that are no host reached over an encrypted
+  // connection, by how they are written.
+  const destinations = {"net.unencrypted": "Unencrypted", "exec": "Program", "fs.write": "File"};
+
+  // toEl gives where a secret may go: a host or anywhere, or, labelled, a
+  // host over any connection, a program or a path.
+  function toEl(to) {
+    const i = to.indexOf(":");
+    const label = i < 0 ? undefined : destinations[to.slice(0, i)];
+    if (!label) return hostEl(to);
+    return B.el("span", {class: "line"}, B.el("span", {class: "faint"}, label), B.el("span", {class: "mono"}, to.slice(i + 1)));
+  }
+
+  // B.reachEl gives what something reaches: the hosts it may connect to,
+  // and each secret it may send, with where, nested beside its name.
+  B.reachEl = function (r) {
+    const none = B.el("span", {class: "faint"}, "None");
+    return B.kv([
+      ["Hosts", r.hosts.length ? B.el("span", {class: "line"}, r.hosts.map(hostEl)) : none],
+      ["Secrets", r.secrets.length ? B.el("div", {class: "br-secrets"}, r.secrets.map((x) =>
+        B.el("div", {class: "line"}, x.name === "*" ? "Every" : B.el("span", {class: "mono"}, x.name), B.el("span", {class: "faint"}, "→"), ...x.to.map(toEl)))) : none],
+    ]);
+  };
+
   // heedEl gives a place's heed: none at a direct place, which is never
   // weighed; the rule, to those who see it; else whether the team sets
   // one.
@@ -60,37 +93,12 @@
     return "";
   }
 
-  // hostEl gives where a machine may reach: a host, or anywhere.
-  function hostEl(host) {
-    return host === "*" ? "Anywhere" : B.el("span", {class: "mono"}, host);
-  }
-
-  // The places a secret may go that are no host reached over an encrypted
-  // connection, by how they are written.
-  const destinations = {"net.unencrypted": "Unencrypted", "exec": "Program", "fs.write": "File"};
-
-  // toEl gives where a secret may go: a host or anywhere, or, labelled, a
-  // host over any connection, a program or a path.
-  function toEl(to) {
-    const i = to.indexOf(":");
-    const label = i < 0 ? undefined : destinations[to.slice(0, i)];
-    if (!label) return hostEl(to);
-    return B.el("span", {class: "line"}, B.el("span", {class: "faint"}, label), B.el("span", {class: "mono"}, to.slice(i + 1)));
-  }
-
   // machineEl gives one of a bridge's machines, to those who see it: its
-  // file, then, once Corbie has checked it, the hosts it may connect to and
-  // each secret it may send, with where, nested beneath.
+  // file, then, once Corbie has checked it, what it reaches nested
+  // beneath.
   function machineEl(m) {
     if (!m.hosts) return B.el("span", {class: "mono"}, m.file);
-    const none = B.el("span", {class: "faint"}, "None");
-    return B.el("div", {class: "br-machine"},
-      B.el("span", {class: "mono"}, m.file),
-      B.kv([
-        ["Hosts", m.hosts.length ? B.el("span", {class: "line"}, m.hosts.map(hostEl)) : none],
-        ["Secrets", m.secrets.length ? B.el("div", {class: "br-secrets"}, m.secrets.map((x) =>
-          B.el("div", {class: "line"}, x.name === "*" ? "Every" : B.el("span", {class: "mono"}, x.name), B.el("span", {class: "faint"}, "→"), ...x.to.map(toEl)))) : none],
-      ]));
+    return B.el("div", {class: "br-machine"}, B.el("span", {class: "mono"}, m.file), B.reachEl(m));
   }
 
   // valueEl gives a setting as written: a list or a mapping nested, each
@@ -121,7 +129,7 @@
         B.bridgeStatus(b)),
       B.el("div", {class: "br-body"},
         B.kv([
-          ["Folder", b.shipped ? B.el("span", {class: "line"}, "Shipped", B.el("span", {class: "mono faint"}, b.folder)) : B.el("span", {class: "mono"}, b.folder)],
+          ["Folder", b.shipped ? B.el("span", {class: "line"}, B.el("a", {href: "#/shipped"}, "Shipped"), B.el("span", {class: "mono faint"}, b.folder)) : B.el("span", {class: "mono"}, b.folder)],
           ["In", b.in ? B.el("div", {class: "br-in"}, inEl(b), machineEl(b.in)) : inEl(b)],
           b.out ? ["Out", machineEl(b.out)] : null,
           settingsEl(b),

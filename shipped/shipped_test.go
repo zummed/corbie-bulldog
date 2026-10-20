@@ -153,6 +153,89 @@ func TestEveryShippedThingHasItsPage(t *testing.T) {
 	}
 }
 
+// reaches are what each thing Bulldog ships reaches, as its definitions
+// write it, with the version of Bulldog whose Changed line says so. A
+// thing whose reach changes says what it lets more by in a Changed line of
+// a newer version, and is recorded here again with that version.
+var reaches = map[string]struct {
+	version string
+	reach   []string
+}{
+	"tools/build":      {"0.2.0", nil},
+	"tools/docs":       {"0.2.0", nil},
+	"tools/notes":      {"0.2.0", nil},
+	"tools/talk":       {"0.2.0", nil},
+	"bridges/gitlab":   {"0.2.0", []string{"net:${input.settings.site}", "secret:GITLAB_TOKEN@net:${input.settings.site}"}},
+	"bridges/jira":     {"0.2.0", []string{"net:${input.settings.site}", "secret:JIRA_TOKEN@net:${input.settings.site}"}},
+	"bridges/slack":    {"0.2.0", []string{"net:files.slack.com", "net:slack.com", "secret:SLACK_SIGNING_SECRET@*", "secret:SLACK_TOKEN@net:files.slack.com", "secret:SLACK_TOKEN@net:slack.com"}},
+	"bridges/telegram": {"0.2.0", []string{"net:api.telegram.org", "secret:TELEGRAM_TOKEN@net:api.telegram.org"}},
+	"rules/for-us":     {"0.2.0", []string{"net:api.typesafe.ai", "secret:TYPESAFE_KEY@net:api.typesafe.ai"}},
+	"rules/mentioned":  {"0.2.0", nil},
+}
+
+func TestShippedReachChangeHasAChangedLine(t *testing.T) {
+	t.Parallel()
+	for _, thing := range shipped.Things() {
+		was, ok := reaches[thing]
+		if !ok {
+			t.Errorf("what %s reaches is not recorded: record it with the version its page's Changed first names it in", thing)
+			continue
+		}
+		changed := shipped.Changed(thing)
+		if !slices.ContainsFunc(changed, func(c shipped.Change) bool { return c.Version == was.version }) {
+			t.Errorf("%s is recorded as of %s, and its page has no Changed line for %s", thing, was.version, was.version)
+		}
+		now := shipped.Reach(thing)
+		if slices.Equal(now, was.reach) {
+			continue
+		}
+		if latest := shipped.Latest(changed); shipped.Newer(latest, was.version) {
+			t.Errorf("%s now reaches %q, said in its Changed line for %s: record it here with %s", thing, now, latest, latest)
+		} else {
+			t.Errorf("%s now reaches %q, not %q, and its page has no Changed line newer than %s: say there what it lets more by, as %q", thing, now, was.reach, was.version, "0.3.0: may now connect to …")
+		}
+	}
+}
+
+func TestShippedSettingsAndChangesReadFromTheFiles(t *testing.T) {
+	t.Parallel()
+	got := map[string]any{}
+	for _, s := range shipped.SettingsOf("rules/for-us") {
+		got[s.Name] = s.Value
+		if s.About == "" || strings.HasPrefix(s.About, "`") {
+			t.Errorf("for-us's %s is said %q", s.Name, s.About)
+		}
+	}
+	if len(got) != 4 || got["timeout"] != "10s" || got["threshold"] != 0.5 || got["model"] != "jev-latest" || got["question"] == nil {
+		t.Errorf("for-us's settings are %v", got)
+	}
+	var names []string
+	for _, s := range shipped.SettingsOf("bridges/gitlab") {
+		names = append(names, s.Name)
+		if s.Name == "site" && s.Value != "gitlab.com" {
+			t.Errorf("gitlab's site is %v", s.Value)
+		}
+	}
+	if !slices.Equal(names, []string{"from", "site", "places"}) {
+		t.Errorf("gitlab's settings are %v", names)
+	}
+	if s := shipped.SettingsOf("rules/mentioned"); len(s) != 0 {
+		t.Errorf("mentioned has the settings %v", s)
+	}
+	page := []byte("A copy.\n\n## Changed\n\n- 0.1.0: first shipped.\n- 0.2.0: run in place.\n- dev: not a version.\n")
+	if c := shipped.ChangedIn(page); len(c) != 2 || shipped.Latest(c) != "0.2.0" || c[0].Text != "first shipped." {
+		t.Errorf("the page's Changed lines are %v", c)
+	}
+	for _, v := range []struct {
+		a, b  string
+		newer bool
+	}{{"0.2.0", "0.1.0", true}, {"0.10.0", "0.9.1", true}, {"0.2.0", "0.2.0", false}, {"0.2.0", "dev", false}, {"dev", "0.1.0", false}, {"0.2.0", "", false}} {
+		if shipped.Newer(v.a, v.b) != v.newer {
+			t.Errorf("%q newer than %q is not %v", v.a, v.b, v.newer)
+		}
+	}
+}
+
 func TestNotesToolSaysWhoReadsNotes(t *testing.T) {
 	t.Parallel()
 	contents, _ := shipped.File(shipped.Notes)

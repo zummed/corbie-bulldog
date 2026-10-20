@@ -7,11 +7,11 @@
   "use strict";
 
   const PAGE = 50;
-  const empty = () => ({files: {}, move: {}, remove: []});
+  const empty = () => ({files: {}, set: [], move: {}, remove: []});
 
   // The draft of a change of one's own, as it is made on the screens: whole
-  // files, or null for one removed; and workers moved or taken away. It is
-  // kept while the screens are open.
+  // files, or null for one removed; fields of files set; and workers moved
+  // or taken away. It is kept while the screens are open.
   let draft = empty();
 
   // The office's files and history, as fetched for the office the
@@ -35,6 +35,7 @@
   function draftBody() {
     const d = {};
     if (Object.keys(draft.files).length) d.files = draft.files;
+    if (draft.set.length) d.set = draft.set;
     if (Object.keys(draft.move).length) d.move = draft.move;
     if (draft.remove.length) d.remove = draft.remove;
     return d;
@@ -47,6 +48,18 @@
     state.drafts++;
     update();
   }
+
+  // B.drafting adds a draft another screen made, as Use and Copy on
+  // Shipped do, to the draft, a field set again taking the place of the
+  // one before, and opens Changes on it.
+  B.drafting = function (edit) {
+    const same = (a, b) => a.path === b.path && a.field.join("\n") === b.field.join("\n");
+    Object.assign(draft.files, edit.files || {});
+    for (const s of edit.set || []) draft.set = draft.set.filter((x) => !same(x, s)).concat([s]);
+    state.check = null;
+    state.drafts++;
+    location.hash = "#/changes";
+  };
 
   // cleared empties the draft, once it is put.
   function cleared() {
@@ -237,6 +250,9 @@
     const rows = [
       ...Object.entries(draft.files).map(([p, t]) => partRow(t === null ? "remove" : "write",
         B.el("a", {class: "mono", href: fileHref(p)}, p), () => { delete draft.files[p]; }, update)),
+      ...draft.set.map((s) => partRow("set",
+        [B.el("a", {class: "mono", href: fileHref(s.path)}, s.path), B.el("span", {class: "mono faint"}, s.field.join("."))],
+        () => { draft.set = draft.set.filter((x) => x !== s); }, update)),
       ...Object.entries(draft.move).map(([w, t]) => partRow("move",
         [B.workerEl(w), B.el("span", {class: "faint mono"}, "→"), B.teamEl(t)], () => { delete draft.move[w]; }, update)),
       ...draft.remove.map((w) => partRow("remove", B.workerEl(w), () => { draft.remove = draft.remove.filter((x) => x !== w); }, update)),

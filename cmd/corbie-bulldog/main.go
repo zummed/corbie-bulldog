@@ -138,8 +138,9 @@ func serve(e *cli.Env, args []string) error {
 		return err
 	}
 	l, u := where(*listen, *url)
+	bulldog, _ := versions()
 	err = server.Serve(e.Context(), server.Options{Dir: dir, Identity: id, Corbie: c, Store: e.Address(), Clock: work.Wall{},
-		Listen: l, URL: u, Out: e.Out})
+		Listen: l, URL: u, Version: bulldog, Out: e.Out})
 	// A server that was stopped has done what it was asked, which Corbie's
 	// program would take for a failure.
 	if errors.Is(err, context.Canceled) && e.Context().Err() != nil {
