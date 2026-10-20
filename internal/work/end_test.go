@@ -471,12 +471,15 @@ func TestWorkStartErrorsReported(t *testing.T) {
 	back := b.away("work_requests")
 	let()
 	b.corbie.Ended(t, run.Name)
-	b.until("the ending could not be kept", func() bool { return b.logged("could not keep how the run of steward ended") })
+	// It is logged before the house is told.
+	b.until("the house is told its ending could not be kept", func() bool {
+		return slices.ContainsFunc(b.entries(n, requests.KindBulldog), func(e requests.Entry) bool {
+			return e.Read == "office" && strings.Contains(e.Text, "could not keep how the run of steward ended")
+		})
+	})
 	back()
-	if !slices.ContainsFunc(b.entries(n, requests.KindBulldog), func(e requests.Entry) bool {
-		return e.Read == "office" && strings.Contains(e.Text, "could not keep how the run of steward ended")
-	}) {
-		t.Errorf("the house is not told its ending could not be kept: %v", b.thread(n))
+	if !b.logged("could not keep how the run of steward ended") {
+		t.Error("the ending that could not be kept is not in the log")
 	}
 	b.later(Again)
 	b.settled(n, requests.Answered)
