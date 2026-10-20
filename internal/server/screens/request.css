@@ -81,6 +81,8 @@ form.reply .field { flex: 1 1 240px; }
 .rq-runs, .rq-asks, .rq-list, .rq-decs { display: flex; flex-direction: column; gap: 8px; }
 .rq-run .kind { min-width: 36px; }
 .rq-run .rq-end, .rq-asks .rq-end { margin-left: auto; }
+.rq-calls { list-style: none; margin: 6px 0 0 9px; padding-left: 12px; display: flex; flex-direction: column; gap: 4px; border-left: 1.5px solid var(--line); }
+.rq-calls .rq-end { margin-left: auto; }
 .rq-jump { font: var(--small) var(--mono); }
 .rq-now { color: var(--wait); font: var(--data) var(--mono); }
 .rq-decs { margin-top: 6px; padding-left: 12px; border-left: 1.5px solid var(--line); }

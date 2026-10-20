@@ -172,7 +172,8 @@ func (d *Decisions) served(o *office.Office, dec *Decision) (map[string]any, err
 
 // disclosure gives what a disclosure decider is shown: what would leave, and
 // whether it is an answer, a question, a tell or a sub-request; whom it is
-// to, and where it will be read; and the team's notes, read now.
+// to, a team asked by its folder name too, and where it will be read; and
+// the team's notes, read now.
 func (d *Decisions) disclosure(o *office.Office, dec *Decision) (map[string]any, error) {
 	s := dec.Said
 	out := map[string]any{"what": s.What, "text": s.Text, "said_in": s.Request}
@@ -184,7 +185,7 @@ func (d *Decisions) disclosure(o *office.Office, dec *Decision) (map[string]any,
 		}
 		out["to"] = partyCalled(asks)
 	case SaysSub:
-		out["to"] = called(o, s.Team)
+		out["to"], out["to_team"] = called(o, s.Team), s.Team
 	default:
 		out["to"] = d.whoCalled(o, s.To)
 	}
@@ -209,8 +210,8 @@ func (d *Decisions) disclosure(o *office.Office, dec *Decision) (map[string]any,
 // decide it are shown it: what it is, an answer, a question, a tell or a
 // sub-request, and its text; whom it is to; the origin at the top of its
 // tree, where it may in the end be read; and the requests it goes through
-// from that top, ending with the team a sub-request would ask, not yet
-// made.
+// from that top, ending with the team a sub-request asks, numbered once it
+// is made.
 type Leaving struct {
 	What    string
 	Text    string
@@ -259,7 +260,17 @@ func (d *Decisions) Leaving(dec *Decision) (*Leaving, error) {
 		out.Through = append(out.Through, Through{Number: a.Number, Team: a.Team})
 	}
 	if s.What == SaysSub {
-		out.Through = append(out.Through, Through{Team: s.Team})
+		made := Through{Team: s.Team}
+		if s.Ticket != "" {
+			n, ok, err := d.requests.OfTicket(s.Ticket)
+			if err != nil {
+				return nil, err
+			}
+			if ok {
+				made.Number = n
+			}
+		}
+		out.Through = append(out.Through, made)
 	}
 	return out, nil
 }

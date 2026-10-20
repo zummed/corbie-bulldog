@@ -268,10 +268,10 @@ func TestDisclosureDeciderShownWhatWouldLeave(t *testing.T) {
 		t.Fatalf("the rule is given %v", r.Input)
 	}
 	r.says(decisions.SaysYes, "")
-	q := b.disclose(decisions.Said{What: decisions.SaysSub, Request: sub, By: b.reqs.Worker("ledger"), Team: "platform", Text: "what deployed?"})
+	q := b.disclose(decisions.Said{What: decisions.SaysSub, Request: sub, By: b.reqs.Worker("ledger"), Team: "platform", Text: "what deployed?", Ticket: "t-8"})
 	r = b.runner.next(t)
 	rel = r.Input["disclosure"].(map[string]any)
-	if rel["what"] != "sub" || rel["to"] != "Platform" || rel["said_in"] != sub || r.Input["does"] != "Question to Platform, to disclose" {
+	if rel["what"] != "sub" || rel["to"] != "Platform" || rel["to_team"] != "platform" || rel["said_in"] != sub || r.Input["does"] != "Question to Platform, to disclose" {
 		t.Fatalf("the rule is given %v", r.Input)
 	}
 	r.says(decisions.SaysRefer, "unsure")
@@ -293,6 +293,23 @@ func TestDisclosureDeciderShownWhatWouldLeave(t *testing.T) {
 	if l.What != "sub" || l.Text != "what deployed?" || l.To.Kind != requests.IsTeam || l.To.Name != "platform" ||
 		l.ReadAt.Bridge != "slack" || l.ReadAt.Heard != "#help" || !slices.Equal(l.Through, through) {
 		t.Errorf("Lee is shown what would leave as %+v", l)
+	}
+	// Once Lee lets it go and the sub-request is made, it is that
+	// sub-request, numbered.
+	b.decide(q, "lee", decisions.SaysYes, "")
+	made, err := b.reqs.Sub(sub, b.reqs.Worker("ledger"), "platform", "what deployed?", "t-8")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dec, err = b.d.Get(q); err != nil {
+		t.Fatal(err)
+	}
+	if l, err = b.d.Leaving(dec); err != nil {
+		t.Fatal(err)
+	}
+	through[2].Number = made.Number
+	if !slices.Equal(l.Through, through) {
+		t.Errorf("the disclosure let go goes through %+v", l.Through)
 	}
 }
 

@@ -462,9 +462,45 @@
   const ENDS = {going: "working", done: "done", failed: "failed", cancelled: "cancelled", lost: "lost", unsent: "unsent"};
   const HEED = {act: "act", note: "noted"};
 
+  const REPEATS = /(\.[0-9]+)?(#[0-9]+)?(@[0-9]+)?$/;
+
+  // colleagues gives the colleagues a run's record shows it calling, each
+  // by the tool it was called as and its worker, with how its run ended
+  // and the colleagues it called in turn. Bulldog's own machines, the ask
+  // among them, are not colleagues.
+  function colleagues(rec) {
+    const under = {}, ended = {};
+    for (const ev of rec && Array.isArray(rec.events) ? rec.events : []) {
+      if (ev.name !== undefined) continue;
+      if (ev.status && ev.status !== "running") ended[ev.id] = ev.status;
+      for (const a of ev.asks || []) {
+        const machine = a.job && a.job.machine || "";
+        if (a.kind !== "child" || !a.child || /(^|\/)\.bulldog\//.test(machine)) continue;
+        const worker = /\.ya?ml$/.test(machine) ? machine.split("/").pop().replace(/\.ya?ml$/, "") : "";
+        (under[ev.id] = under[ev.id] || []).push({id: a.child, tool: a.name.replace(REPEATS, ""), worker});
+      }
+    }
+    const tree = (id) => (under[id] || []).map((c) => ({...c, status: ended[c.id] || "going", below: tree(c.id)}));
+    return tree(rec ? rec.run : "");
+  }
+
+  // callsEl gives colleague calls as a tree: the tool, the worker it
+  // reached, and how its run ended.
+  function callsEl(calls, team) {
+    if (!calls.length) return null;
+    return B.el("ul", {class: "rq-calls"}, calls.map((c) => B.el("li", {},
+      B.el("div", {class: "line"},
+        c.worker !== c.tool ? B.el("span", {class: "mono"}, c.tool) : null,
+        c.worker && c.worker !== c.tool ? B.el("span", {class: "faint", "aria-hidden": "true"}, "›") : null,
+        c.worker ? B.workerEl(c.worker, team, {bare: true}) : null,
+        B.el("span", {class: "rq-end status " + (RUN[c.status] || "")}, ENDS[c.status] || c.status)),
+      callsEl(c.below, team))));
+  }
+
   // runRow gives one run: its kind, its worker or rule, when it started
-  // and ended, how it ended, a heed's act or note, and its word on it.
-  function runRow(r) {
+  // and ended, how it ended, a heed's act or note, and its word on it;
+  // and beneath it, from its record, the colleagues it called.
+  function runRow(r, rec) {
     const ends = r.says || ENDS[r.status] || r.status;
     return B.el("div", {class: "rq-run"},
       B.el("div", {class: "line"},
@@ -475,7 +511,8 @@
         B.el("span", {class: "mono small faint"}, B.when(r.started) + "–" + (r.ended ? B.when(r.ended) : "")),
         r.tokens ? B.el("span", {class: "mono small faint"}, r.tokens + " tok") : null,
         B.el("a", {class: "rq-end rq-jump", href: "#/run/" + encodeURIComponent(r.name), "aria-label": "Watch " + (r.worker || r.name)}, "Watch")),
-      r.how ? B.el("div", {class: "rq-note small"}, r.how) : null);
+      r.how ? B.el("div", {class: "rq-note small"}, r.how) : null,
+      callsEl(colleagues(rec), r.team));
   }
 
   // The way, in bands
@@ -503,7 +540,7 @@
     const lead = t && t.lead ? (B.person(t.lead) ? B.personEl(t.lead) : B.workerEl(t.lead, v.team, {bare: true})) : null;
     const runs = v.runs || [];
     return B.band("Team", [["Team", B.el("span", {class: "line"}, B.teamEl(v.team), lead ? [B.el("span", {class: "faint", "aria-hidden": "true"}, "›"), lead] : null),
-      runs.length ? paged(B.el("div", {class: "rq-runs"}), runs, 8, runRow, "runs") : null]]);
+      runs.length ? paged(B.el("div", {class: "rq-runs"}), runs, 8, (r) => runRow(r, (v.records || []).find((x) => x.run === r.name)), "runs") : null]]);
   }
 
   // answerTo gives where a request's answer goes: the run that asked a
