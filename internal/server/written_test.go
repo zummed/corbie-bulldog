@@ -190,8 +190,9 @@ func TestServerHeedSettingWithNoDefaultHasNoValue(t *testing.T) {
 	t.Parallel()
 	files := workOffice(t)
 	files["office.yaml"] += "heed: { rule: ./rules/heed.yaml, level: 3 }\n"
-	files["rules/heed.yaml"] = "flow: heed\nstages:\n  weigh:\n    job:\n      script: ./heed.js\n" +
-		"      input: { word: \"${input.settings.word}\", level: \"${input.settings.level ?? 2}\", tone: \"${input.settings.tone ?? 'plain'}\" }\n" +
+	files["rules/heed.yaml"] = "flow: heed\ninput:\n  type: object\n  properties:\n    settings:\n      type: object\n      properties:\n" +
+		"        word: { type: string }\n        level: { type: number, default: 2 }\n        tone: { type: string, default: plain, description: How it is said. }\n" +
+		"stages:\n  weigh:\n    job:\n      script: ./heed.js\n      input: { settings: \"${input.settings}\" }\n" +
 		"output: ${stages.weigh.output}\n"
 	files["rules/heed.js"] = "export default function () { return { says: 'act' }; }\n"
 	s := newBench(t, files).serve()
@@ -201,7 +202,7 @@ func TestServerHeedSettingWithNoDefaultHasNoValue(t *testing.T) {
 	if office.Heed == nil {
 		t.Fatal("Al sees no heed of the office")
 	}
-	want := []settingOut{{Name: "level", Value: 3.0}, {Name: "tone", Value: "plain", Default: true}, {Name: "word"}}
+	want := []settingOut{{Name: "word"}, {Name: "level", Value: 3.0}, {Name: "tone", Value: "plain", Default: true, About: "How it is said."}}
 	if !reflect.DeepEqual(office.Heed.Settings, want) {
 		t.Errorf("Al sees the heed's settings as %+v", office.Heed.Settings)
 	}

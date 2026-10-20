@@ -383,9 +383,8 @@ func teamOf(o *office.Office, t *office.Team, people []string, whole bool) teamO
 
 // heedOf gives a heed as its team's people see it: its rule, and its
 // settings, each as the team file writes it, or else, of a setting the
-// rule's definitions read, the value it takes when not written, marked as
-// the default, or none when nothing gives one; a rule Bulldog ships says
-// what each is for.
+// rule's input gives, its default, marked as the default, or none when it
+// has none; with what each is for, as the rule says.
 func heedOf(o *office.Office, h *office.Heed) *heedOut {
 	out := &heedOut{Rule: h.Rule, Stopped: !h.Runs(), Settings: []settingOut{}}
 	var known []shipped.Setting
@@ -393,12 +392,7 @@ func heedOf(o *office.Office, h *office.Heed) *heedOut {
 		out.Shipped = thing
 		known = shipped.SettingsOf(thing)
 	} else if r := o.Rules[h.Rule]; r != nil && !r.Script {
-		found := map[string]any{}
-		if shipped.SettingsIn(r.Written, found) == nil {
-			for _, name := range slices.Sorted(maps.Keys(found)) {
-				known = append(known, shipped.Setting{Name: name, Value: found[name]})
-			}
-		}
+		known, _ = shipped.SettingsIn(r.Written)
 	}
 	for _, k := range known {
 		v, written := h.Settings[k.Name]

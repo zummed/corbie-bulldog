@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/zummed/corbie/machine"
 	"go.yaml.in/yaml/v3"
@@ -185,9 +184,9 @@ type Setting struct {
 
 // SettingsOf gives the settings of a shipped thing: a bridge's, each key
 // of its entry as shipped, in order, with its value there; any other's,
-// each setting its definitions read, sorted, with the default an
-// expression that reads only it gives when it is not written. Each has
-// its line from the page's Settings.
+// each its definitions' input gives under settings, in order, with its
+// default. Each says what it is for as its input does, or else as its
+// line on the page's Settings.
 func SettingsOf(thing string) []Setting {
 	var out []Setting
 	if Kind(thing) == "bridge" {
@@ -203,22 +202,27 @@ func SettingsOf(thing string) []Setting {
 			out = append(out, Setting{Name: m.Content[i].Value, Value: v})
 		}
 	} else {
-		found := map[string]any{}
 		for _, name := range filesOf(thing) {
 			if path.Ext(name) != ".yaml" || slices.Contains(ToolsFiles, name) {
 				continue
 			}
 			contents, _ := File(name)
-			if err := SettingsIn(contents, found); err != nil {
+			settings, err := SettingsIn(contents)
+			if err != nil {
 				panic(fmt.Sprintf("the shipped %s cannot be read: %v", name, err))
 			}
-		}
-		for _, name := range sortedKeys(found) {
-			out = append(out, Setting{Name: name, Value: found[name]})
+			for _, setting := range settings {
+				if !slices.ContainsFunc(out, func(s Setting) bool { return s.Name == setting.Name }) {
+					out = append(out, setting)
+				}
+			}
 		}
 	}
 	about := pageLines(thing, "## Settings")
 	for i := range out {
+		if out[i].About != "" {
+			continue
+		}
 		line := about["`"+out[i].Name+"`"]
 		// A line that begins with the default says it once more.
 		if value, ok := strings.CutPrefix(line, "`"); ok {
@@ -231,50 +235,45 @@ func SettingsOf(thing string) []Setting {
 	return out
 }
 
-// SettingsIn finds each setting a definition reads, as written, into
-// found, with the default an expression that reads only it gives when it
-// is not written.
-func SettingsIn(contents []byte, found map[string]any) error {
-	var def any
+// SettingsIn gives each setting a definition's input gives under
+// settings, in the order written, with its default and what it is for.
+func SettingsIn(contents []byte) ([]Setting, error) {
+	var def yaml.Node
 	if err := yaml.Unmarshal(contents, &def); err != nil {
-		return err
+		return nil, err
 	}
-	readSettings(def, found)
-	return nil
+	var out []Setting
+	if len(def.Content) == 0 {
+		return out, nil
+	}
+	settings := valueOf(valueOf(valueOf(valueOf(def.Content[0], "input"), "properties"), "settings"), "properties")
+	if settings == nil || settings.Kind != yaml.MappingNode {
+		return out, nil
+	}
+	for i := 0; i+1 < len(settings.Content); i += 2 {
+		s := Setting{Name: settings.Content[i].Value}
+		if v := valueOf(settings.Content[i+1], "default"); v != nil {
+			v.Decode(&s.Value)
+		}
+		if v := valueOf(settings.Content[i+1], "description"); v != nil {
+			s.About = v.Value
+		}
+		out = append(out, s)
+	}
+	return out, nil
 }
 
-// readSettings finds each setting the text of a definition reads, with
-// the default of a text that is one expression reading only it.
-func readSettings(v any, found map[string]any) {
-	switch v := v.(type) {
-	case map[string]any:
-		for _, item := range v {
-			readSettings(item, found)
-		}
-	case []any:
-		for _, item := range v {
-			readSettings(item, found)
-		}
-	case string:
-		var names []string
-		for _, r := range machine.Reads(v, "input") {
-			if r.Name == "settings" && r.Part != "" && r.Part != "*" {
-				names = append(names, r.Part)
-			}
-		}
-		for _, name := range names {
-			if _, ok := found[name]; !ok {
-				found[name] = nil
-			}
-		}
-		if len(names) != 1 || !strings.HasPrefix(v, "${") || !strings.HasSuffix(v, "}") || strings.Count(v, "${") != 1 {
-			return
-		}
-		scope := machine.Scope{"input": map[string]any{"settings": map[string]any{}}}
-		if value, err := machine.NewEvaluator(time.Time{}, nil).Text(v, scope, v); err == nil && value != nil {
-			found[names[0]] = value
+// valueOf gives the value of a mapping's key, or nil.
+func valueOf(m *yaml.Node, key string) *yaml.Node {
+	if m == nil || m.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		if m.Content[i].Value == key {
+			return m.Content[i+1]
 		}
 	}
+	return nil
 }
 
 // pageLines gives the lines of a section of a shipped thing's page that
