@@ -341,17 +341,17 @@
 
   // rules gives what the team's rules say that its room does not: of
   // each it names in a list or as its disclosure, by its path, whether it
-  // comes with Bulldog, whether it is stopped, and what it reaches. The
-  // heed's rule is said on the heed.
+  // comes with Bulldog, whether it is stopped, and that it is a bare
+  // script, or what it reaches. The heed's rule is said on the heed.
   function rules(t) {
-    const list = (t.rules || []).map((r) => ({r, reach: r.script ? null : B.reachEl(r.reach)}))
-      .filter(({r, reach}) => r.as.some((a) => a !== "heed") && (!r.runs || reach));
+    const list = (t.rules || []).filter((r) => r.as.some((a) => a !== "heed"));
     if (!list.length) return null;
-    return B.sect("Rules", rows("rules", list, ({r, reach}) => B.el("div", {class: "row te-rule"},
+    return B.sect("Rules", rows("rules", list, (r) => B.el("div", {class: "row te-rule"},
       B.el("span", {class: "line"}, B.ruleEl(r.path),
         r.shipped ? B.el("a", {class: "faint small", href: "#/office/bulldog"}, "From Bulldog") : null,
+        r.script ? B.el("span", {class: "faint small"}, "script") : null,
         r.runs ? null : B.el("span", {class: "status failed"}, "stopped")),
-      reach), "te-rules"));
+      r.script ? null : B.reachEl(r.reach)), "te-rules"));
   }
 
   // notes gives the team's notes, and the workers that may write them.
