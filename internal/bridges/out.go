@@ -164,6 +164,7 @@ func (b *Bridges) add(th thingRow) error {
 	if err != nil {
 		return failed(err)
 	}
+	b.carried(th.request)
 	return nil
 }
 
@@ -379,6 +380,7 @@ func (b *Bridges) Carry() ([]Start, time.Time, error) {
 			if _, err := b.db.Exec(`UPDATE bridges_things SET state = ?, run = '', why = ? WHERE id = ?`, Sending, why, th.id); err != nil {
 				return nil, time.Time{}, failed(err)
 			}
+			b.carried(th.request)
 			starts = append(starts, start)
 			break
 		}
@@ -394,6 +396,7 @@ func (b *Bridges) leave(th thingRow, state, why string) error {
 		state, why, ofSignIn, th.id); err != nil {
 		return failed(err)
 	}
+	b.carried(th.request)
 	if th.kind == ofSignIn {
 		b.told = append(b.told, SignIn{Thing: th.id, Failed: why})
 	}
@@ -607,6 +610,7 @@ func (b *Bridges) OutEnded(id int64, run string, end End) error {
 	if err != nil {
 		return failed(err)
 	}
+	b.carried(th.request)
 	if th.kind == ofSignIn {
 		b.told = append(b.told, SignIn{Thing: id, Sent: sent != "", Refused: refused, Failed: failure})
 	}

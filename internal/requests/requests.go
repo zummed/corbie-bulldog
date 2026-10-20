@@ -488,6 +488,11 @@ func (s *Store) commit(do func(tx *sql.Tx) (*change, error)) ([]int64, error) {
 	return c.changed, nil
 }
 
+// Tell tells the watchers of each request that what another area keeps
+// of it changed, as how an entry of it is carried, as a write to the
+// request itself would.
+func (s *Store) Tell(numbers ...int64) { s.tell(numbers) }
+
 func (s *Store) tell(changed []int64) {
 	s.mu.Lock()
 	var watchers []func(int64)

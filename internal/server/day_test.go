@@ -273,9 +273,14 @@ func TestServerTheHousesDay(t *testing.T) {
 		return walk != 0
 	})
 	s.answered(walk)
+	// Kit's screen is told of the request as its answer is carried on
+	// Telegram, which writes nothing to the request itself.
+	screen := kit.stream("/api/events")
+	screen.next()
 	for _, at := range []string{"4471", "4472"} {
 		b.deliver("telegram", at, "Nothing is open.")
 	}
+	screen.until("the answer carried is told", changed(walk))
 	answered := kit.until(walk, "is carried to Sam and Kit, on their screens and on Telegram", func(v viewOut) bool {
 		sent := map[string]bool{}
 		for _, c := range v.Entries[len(v.Entries)-1].Carried {

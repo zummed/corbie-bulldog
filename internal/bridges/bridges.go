@@ -14,6 +14,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sync"
 	"time"
@@ -180,12 +181,13 @@ type Bridges struct {
 	unwatch  func()
 
 	// mu makes this area's work one thing at a time. told are the sign-in
-	// links whose carrying ended while it was held, told of once it is let
-	// go.
-	mu      sync.Mutex
-	o       *office.Office
-	scanned bool
-	told    []SignIn
+	// links whose carrying ended while it was held, and carrying the
+	// requests whose carrying changed, each told of once it is let go.
+	mu       sync.Mutex
+	o        *office.Office
+	scanned  bool
+	told     []SignIn
+	carrying map[int64]bool
 
 	// pending are the requests the store has told of since they were last
 	// looked at, kept apart since the store tells of them while it writes.
@@ -230,14 +232,30 @@ func (b *Bridges) Close() { b.unwatch() }
 // unlock lets this area's work go, and then tells the server how each
 // sign-in link whose carrying ended meanwhile ended.
 func (b *Bridges) unlock() {
-	told := b.told
-	b.told = nil
+	told, carrying := b.told, slices.Sorted(maps.Keys(b.carrying))
+	b.told, b.carrying = nil, nil
 	b.mu.Unlock()
 	for _, s := range told {
 		if b.SignedIn != nil {
 			b.SignedIn(s)
 		}
 	}
+	if len(carrying) > 0 {
+		b.requests.Tell(carrying...)
+	}
+}
+
+// carried has the requests told, once this area's work is let go, that
+// how an entry of a request is carried changed: a sign-in link is of no
+// request.
+func (b *Bridges) carried(request int64) {
+	if request == 0 {
+		return
+	}
+	if b.carrying == nil {
+		b.carrying = map[int64]bool{}
+	}
+	b.carrying[request] = true
 }
 
 func older(version int) error {
@@ -331,8 +349,15 @@ func (b *Bridges) unclaim() error {
 	if _, err := b.db.Exec(`UPDATE bridges_bridges SET claimed = 0 WHERE run = ''`); err != nil {
 		return failed(err)
 	}
+	unclaimed, err := b.things(`WHERE state = ? AND run = ''`, Sending)
+	if err != nil {
+		return err
+	}
 	if _, err := b.db.Exec(`UPDATE bridges_things SET state = ? WHERE state = ? AND run = ''`, Waiting, Sending); err != nil {
 		return failed(err)
+	}
+	for _, th := range unclaimed {
+		b.carried(th.request)
 	}
 	return nil
 }
