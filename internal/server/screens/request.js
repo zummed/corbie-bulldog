@@ -501,8 +501,13 @@
       const recs = new Map((v.records || []).map((r) => [r.run, r]));
       const leads = (v.runs || []).filter((r) => r.kind === "work");
       for (const r of v.runs || []) {
-        if (r.kind === "decide") continue; // beneath its decision
         const rec = recs.get(r.name);
+        if (r.kind === "decide") {
+          if (decisions.some((d) => deciderOf(d, r.worker))) continue; // beneath its decision
+          out.push(step({key: key("run:" + r.name), at: at(r.started), depth: depth + 1, kind: "Rule", check: true, now: r.status === "going" && working ? "working" : "",
+            what: B.ruleEl(r.worker), meta: runMeta(r), more: rec ? record(rec) : null}));
+          continue;
+        }
         const going = r.status === "going";
         if (r.kind === "heed") {
           out.push(step({key: key("run:" + r.name), at: at(r.started), depth, kind: "Heed", check: true, now: going && working ? "working" : "",
@@ -598,6 +603,7 @@
       s.inside = inner;
     } else {
       s.more = [s.more, sv && sv.error ? B.el("div", {class: "mono small bad"}, sv.error.message) : null,
+        (sum.decisions || []).map((d) => B.el("div", {class: "line"}, B.el("span", {class: "rq-chip check"}, B.decisionWord(d.kind)), B.el("span", {class: "rq-does"}, d.does), ending(d))),
         sum.answer ? B.el("div", {class: "said rq-answered"}, sum.answer) : null];
     }
     return s;
