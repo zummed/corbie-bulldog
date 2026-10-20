@@ -30,7 +30,7 @@
 .te-models td { vertical-align: middle; }
 
 /* The side's lists */
-.row.te-rt { display: grid; grid-template-columns: 82px minmax(0, 1fr) auto; gap: 2px 12px; padding: 6px 0; }
+.row.te-rt { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 12px; padding: 6px 0; }
 .row.te-rt .te-say { grid-column: 1 / -1; color: var(--ink2); }
 .row.te-rt .te-rt-foot { grid-column: 1 / -1; gap: 4px 16px; }
 .status.due { color: var(--plan); } .status.due::before { background: transparent; border: 1.5px solid var(--plan); }

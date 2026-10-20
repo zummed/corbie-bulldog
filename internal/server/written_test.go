@@ -155,13 +155,51 @@ func TestServerOneLookingSeesWhereTheyAreReachedAndWhatTheyDecide(t *testing.T) 
 func TestServerIdentitiesGivenToTheirPersonAlone(t *testing.T) {
 	t.Parallel()
 	s := newBench(t, workOffice(t)).serve()
-	for person, theirs := range map[string][]string{"dana": {"U0DANA00"}, "al": {"U0AL0000", "1041"}, "raj": {"U0RAJ000", "1187"}} {
+	everyone := []string{"U0DANA00", "U0AL0000", "1041", "U0RAJ000", "1187", "U0LEE000", "U0PRI000"}
+	for person, theirs := range map[string][]string{"dana": {"U0DANA00"}, "al": {"U0AL0000", "1041"}, "lee": {"U0LEE000"}, "raj": {"U0RAJ000", "1187"}} {
 		body := string(s.as(person).get("/api/me").is(http.StatusOK).body)
-		for _, id := range []string{"U0DANA00", "U0AL0000", "1041", "U0RAJ000", "1187", "U0LEE000"} {
+		for _, id := range everyone {
 			if strings.Contains(body, id) != slices.Contains(theirs, id) {
 				t.Errorf("%s's /api/me holds %s: %v", person, id, !slices.Contains(theirs, id))
 			}
 		}
+		// Al decides a change and sees every team: no other answer gives
+		// anyone's identity, his own among them.
+		for _, path := range []string{"/api/teams/office", "/api/teams/payments", "/api/teams/support", "/api/teams/platform", "/api/defined", "/api/shipped", "/api/requests"} {
+			body := string(s.as(person).get(path).body)
+			for _, id := range everyone {
+				if strings.Contains(body, id) {
+					t.Errorf("%s's %s holds %s", person, path, id)
+				}
+			}
+		}
+	}
+	// The office's files hold everyone's, and only those who decide a
+	// change read them.
+	if file := string(s.as("al").get("/api/office/file?path=office.yaml").is(http.StatusOK).body); !strings.Contains(file, "U0LEE000") {
+		t.Errorf("Al's office.yaml holds no identity of Lee's: %s", file)
+	}
+	s.as("lee").get("/api/office/file?path=office.yaml").is(http.StatusNotFound)
+}
+
+func TestServerHeedSettingWithNoDefaultHasNoValue(t *testing.T) {
+	t.Parallel()
+	files := workOffice(t)
+	files["office.yaml"] += "heed: { rule: ./rules/heed.yaml, level: 3 }\n"
+	files["rules/heed.yaml"] = "flow: heed\nstages:\n  weigh:\n    job:\n      script: ./heed.js\n" +
+		"      input: { word: \"${input.settings.word}\", level: \"${input.settings.level ?? 2}\", tone: \"${input.settings.tone ?? 'plain'}\" }\n" +
+		"output: ${stages.weigh.output}\n"
+	files["rules/heed.js"] = "export default function () { return { says: 'act' }; }\n"
+	s := newBench(t, files).serve()
+
+	var office teamWhole
+	s.as("al").get("/api/teams/office").is(http.StatusOK).into(&office)
+	if office.Heed == nil {
+		t.Fatal("Al sees no heed of the office")
+	}
+	want := []settingOut{{Name: "level", Value: 3.0}, {Name: "tone", Value: "plain", Default: true}, {Name: "word"}}
+	if !reflect.DeepEqual(office.Heed.Settings, want) {
+		t.Errorf("Al sees the heed's settings as %+v", office.Heed.Settings)
 	}
 }
 

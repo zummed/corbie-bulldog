@@ -198,9 +198,12 @@
   }
 
   // askEl gives where what it runs that waits for a yes is asked about:
-  // the ask Bulldog ships, when it names it, or else the nearest above.
-  function askEl(w) {
-    return w.definition.asks ? B.bulldogEl() : B.el("span", {class: "faint"}, "Above");
+  // the ask Bulldog ships, when it names it, or else the colleagues whose
+  // ask its held jobs come to, or None.
+  function askEl(w, t) {
+    if (w.definition.asks) return B.bulldogEl();
+    const via = (t.workers || []).filter((x) => (x.held_here || []).includes(w.name));
+    return via.length ? B.el("span", {class: "line"}, via.map((x) => B.workerEl(x.name, t.name, {bare: true}))) : B.el("span", {class: "faint"}, "None");
   }
 
   // definition gives what the worker's file writes of how it runs, folded.
@@ -243,7 +246,7 @@
       B.el("div", {class: "wk-meta"},
         B.kv([
           ["Start", start(w, t)],
-          ["Ask", askEl(w)],
+          ["Ask", askEl(w, t)],
           ["Model", model(w)],
           ["Type", B.el("span", {class: "who"}, B.icon(w.type, "faint"), B.el("span", {class: "mono"}, w.type))],
           ["File", fileEl(w.file)],

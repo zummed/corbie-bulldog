@@ -113,13 +113,11 @@
     return o.folk.has(t.lead) ? B.personEl(t.lead) : B.workerEl(t.lead, t.name, {bare: true});
   }
 
-  // placesCell gives the places that ask a team, the first and how many
-  // more.
+  // placesCell gives the places that ask a team, one under another.
   function placesCell(t) {
     const list = B.placesOf(t.name);
     if (!list.length) return "";
-    return B.el("span", {class: "line tm-places", title: list.map((x) => x.bridge + " › " + x.place.name).join(", ")},
-      B.placeEl(list[0].bridge, list[0].place.name), list.length > 1 ? B.el("span", {class: "mono faint"}, "+" + (list.length - 1)) : null);
+    return B.el("span", {class: "tm-places"}, list.map((x) => B.placeEl(x.bridge, x.place.name)));
   }
 
   function yours(o, t) {

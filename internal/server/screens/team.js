@@ -266,7 +266,7 @@
       const button = t.in ? B.el("button", {class: "btn sm ghost", type: "button", "aria-label": "Run now: " + r.to + ", " + r.at}, "Run now") : null;
       if (button) button.addEventListener("click", () => runNow(t, r, button));
       return B.el("div", {class: "row te-rt"},
-        B.el("span", {class: "mono te-at", title: r.zone}, r.at),
+        B.el("span", {class: "line te-at"}, B.el("span", {class: "mono"}, r.at), B.el("span", {class: "faint small"}, "(" + r.zone + ")")),
         B.el("span", {class: "te-to"}, worker(t, r.to)),
         button || B.el("span", {}),
         B.el("span", {class: "te-say clip", title: r.say}, r.say),

@@ -126,10 +126,11 @@ type (
 	}
 	// settingOut is a setting a rule is given: as the team file writes
 	// it, or, marked as the default, the value it takes when not written,
-	// with what it is for when its page says.
+	// or no value when nothing gives one, with what it is for when its
+	// page says.
 	settingOut struct {
 		Name    string `json:"name"`
-		Value   any    `json:"value"`
+		Value   any    `json:"value,omitempty"`
 		Default bool   `json:"default,omitempty"`
 		About   string `json:"about,omitempty"`
 	}
@@ -383,7 +384,8 @@ func teamOf(o *office.Office, t *office.Team, people []string, whole bool) teamO
 // heedOf gives a heed as its team's people see it: its rule, and its
 // settings, each as the team file writes it, or else, of a setting the
 // rule's definitions read, the value it takes when not written, marked as
-// the default; a rule Bulldog ships says what each is for.
+// the default, or none when nothing gives one; a rule Bulldog ships says
+// what each is for.
 func heedOf(o *office.Office, h *office.Heed) *heedOut {
 	out := &heedOut{Rule: h.Rule, Stopped: !h.Runs(), Settings: []settingOut{}}
 	var known []shipped.Setting
@@ -403,7 +405,7 @@ func heedOf(o *office.Office, h *office.Heed) *heedOut {
 		if !written {
 			v = k.Value
 		}
-		out.Settings = append(out.Settings, settingOut{Name: k.Name, Value: v, Default: !written, About: k.About})
+		out.Settings = append(out.Settings, settingOut{Name: k.Name, Value: v, Default: !written && v != nil, About: k.About})
 	}
 	for _, name := range slices.Sorted(maps.Keys(h.Settings)) {
 		if !slices.ContainsFunc(known, func(k shipped.Setting) bool { return k.Name == name }) {

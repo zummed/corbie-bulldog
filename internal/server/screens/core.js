@@ -205,12 +205,14 @@ B.heedEl = function (t) {
 };
 
 // settingsEl gives a rule's settings, each its value, marked Default when
-// the team file leaves it out, and what it is for behind its (i).
+// the team file leaves it out, or None when nothing gives it one, and what
+// it is for behind its (i).
 B.settingsEl = function (settings) {
   if (!settings || !settings.length) return null;
+  const value = (x) => x.value == null ? B.el("span", {class: "faint"}, "None")
+    : B.el("span", {class: "mono"}, typeof x.value === "object" ? JSON.stringify(x.value) : String(x.value));
   return B.kv(settings.map((x) => [B.el("span", {class: "line settings-k"}, B.el("span", {class: "mono"}, x.name), x.about ? B.info("About " + x.name, x.about) : ""),
-    B.el("span", {class: "line"}, B.el("span", {class: "mono"}, typeof x.value === "object" ? JSON.stringify(x.value) : String(x.value)),
-      x.default ? B.el("span", {class: "tag"}, "Default") : null)]));
+    B.el("span", {class: "line"}, value(x), x.default ? B.el("span", {class: "tag"}, "Default") : null)]));
 };
 B.guestEl = function (id, bridge) {
   return B.el("span", {class: "who"}, B.el("span", {class: "ic guest", "aria-hidden": "true"}, "?"), B.el("span", {}, "guest ", B.el("span", {class: "mono"}, id), " · " + bridge));
