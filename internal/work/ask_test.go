@@ -73,6 +73,36 @@ func TestAHeldJobIsAskedOfItsTeam(t *testing.T) {
 	}
 }
 
+func TestAWorkerAskedToAdviseIsToldItsYesGoesOn(t *testing.T) {
+	t.Parallel()
+	files := house(t)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "  everything: [sam]\n", "  everything: [sam]\n  cut_power: [clerk: advise, sam]\n", 1)
+	b := newBench(t, files)
+	fix := fixing("cut_power", map[string]any{"circuit": "4"})
+	told := make(chan string, 1)
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		if strings.Contains(turn.System, "You keep the house's accounts") {
+			select {
+			case told <- turn.Prompt():
+			default:
+			}
+			return testkit.Say(`{ "says": "yes", "note": "A new socket is within this month's money." }`)
+		}
+		return fix(turn)
+	})
+	n := b.chat("kit", "", "the kitchen socket sparked")
+	dec := b.held(n)
+	holds(t, "what the clerk is told", <-told, "You advise on it: a refusal from you ends it. Your yes does not end it", "to Sam")
+	if len(dec.Referrals) != 1 || !dec.Referrals[0].Recommends || dec.Referrals[0].Name != "clerk" || strings.Join(dec.Asked, ",") != "sam" {
+		t.Fatalf("the clerk's yes made the decision %+v", dec)
+	}
+	holds(t, "what Sam is asked", b.waitsOn(n, decisions.KindDecide).Text, "clerk recommends yes: A new socket is within this month's money.")
+	if r, err := b.d.Decide(ctx, dec.ID, b.reqs.Person("sam"), "yes", ""); err != nil || !r.Taken {
+		t.Fatalf("Sam's yes: %v %v", r, err)
+	}
+	holds(t, "the steward's answer", b.answered(n).Text, "Circuit 4 is off.")
+}
+
 func TestAnAskThatEndsUnansweredIsWithdrawn(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, house(t))

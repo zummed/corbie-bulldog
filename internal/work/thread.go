@@ -18,20 +18,21 @@ import (
 // entryLabels are the words a thread's entries are read by, for their kinds;
 // Bulldog's own entries have none.
 var entryLabels = map[string]string{
-	requests.KindAsked:     "Asked",
-	requests.KindSaid:      "Said",
-	requests.KindQuestion:  "Question",
-	requests.KindTold:      "Told",
-	requests.KindReplied:   "Reply",
-	requests.KindSub:       "Sub-request",
-	requests.KindAnswer:    "Answer",
-	requests.KindLate:      "Late answer",
-	requests.KindHeld:      "Held",
-	decisions.KindDecision: "Decision",
-	decisions.KindDecide:   "Asked to decide",
-	decisions.KindDecided:  "Verdict",
-	decisions.KindReferred: "Referred",
-	decisions.KindNotice:   "Notice",
+	requests.KindAsked:        "Asked",
+	requests.KindSaid:         "Said",
+	requests.KindQuestion:     "Question",
+	requests.KindTold:         "Told",
+	requests.KindReplied:      "Reply",
+	requests.KindSub:          "Sub-request",
+	requests.KindAnswer:       "Answer",
+	requests.KindLate:         "Late answer",
+	requests.KindHeld:         "Held",
+	decisions.KindDecision:    "Decision",
+	decisions.KindDecide:      "Asked to decide",
+	decisions.KindDecided:     "Verdict",
+	decisions.KindReferred:    "Referred",
+	decisions.KindRecommended: "Recommends yes",
+	decisions.KindNotice:      "Notice",
 }
 
 // readThread gives the thread of the call's request, oldest first, from
