@@ -2,9 +2,9 @@
 // lead, its heed; Team, its people and, to its people, the tree of what
 // the lead calls, each worker at work with what on; Out, whom it may
 // ask, who authorises and who discloses. Beside it, to its people, its
-// routines, models, rules, notes and problems, and its docs to those who
-// may open them. A team may have hundreds of people and
-// many workers, so long lists are paged and searched.
+// routines, models, what its rules reach, its notes and problems, and its
+// docs to those who may open them. A team may have hundreds of people
+// and many workers, so long lists are paged and searched.
 (function () {
   "use strict";
 
@@ -116,11 +116,10 @@
 
   // The tree of workers: the lead at its root, beneath each worker the
   // colleagues it calls, folded, then what it does with Bulldog's tools,
-  // by their kits, and the names of its own tools; workers the lead does
-  // not reach stand beside it as roots of their own. Each tool's kind,
-  // what it does and its file are on the worker's own page.
-
-  const kits = {talk: "Talks to people and teams", docs: "Reads docs", notes: "Writes notes", build: "Drafts changes to the office"};
+  // by their kits, and the names of its own tools, each leading to it on
+  // the worker's page; workers the lead does not reach stand beside it as
+  // roots of their own. Each tool's kind, what it does and its file are
+  // on the worker's own page.
 
   function byName(t, name) { return (t.workers || []).find((x) => x.name === name); }
 
@@ -129,72 +128,112 @@
     return (t.problems || []).filter((p) => p.worker === name).map((p) => B.el("div", {class: "mono te-problem lt-problem"}, p.text));
   }
 
-  // workerRow gives a worker on one line: its name, the lock of a
-  // colleague that waits for a yes, its one status, cannot run or at
-  // work, with each request it is at work on, to watch, and how it stands
-  // in the tree.
+  // roleEl gives how a worker stands in the tree, said faint after its
+  // name: the lead, with its (i), a colleague, one a routine starts, or
+  // one nothing starts.
+  function roleEl(t, role) {
+    if (!role) return null;
+    if (role === "lead") return B.el("span", {class: "line lt-role"}, ...B.leadLabel(t, "lead").childNodes);
+    if (role === "unused") return B.el("span", {class: "line lt-role"}, "unused", ...B.info("About unused",
+      "Not the lead, called by no worker of " + t.called + " and started by no routine, so nothing runs it."));
+    return B.el("span", {class: "lt-role"}, role);
+  }
+
+  // workerRow gives a worker on one line: its name, how it stands in the
+  // tree, the lock of what waits for a yes in it, its one status, cannot
+  // run or at work, with each request it is at work on, to watch.
   function workerRow(t, w, role, lock) {
     const busy = (t.at_work || []).filter((a) => a.worker === w.name);
     return B.el("span", {class: "line lt-row"},
-      B.workerEl(w.name, t.name, {bare: true}), lock,
+      B.workerEl(w.name, t.name, {bare: true}), roleEl(t, role), lock,
       w.runs === false ? B.el("span", {class: "status failed"}, "cannot run") : busy.length ? B.status({state: "working"}) : null,
-      w.runs !== false && t.in ? busy.map((a) => B.el("a", {class: "mono small", href: "#/run/" + encodeURIComponent(a.run), title: "Watch " + w.name + " on #" + a.request, "aria-label": "Watch " + w.name + " on #" + a.request}, "#" + a.request)) : null,
-      role ? B.el("span", {class: "lt-role"}, role) : null);
+      w.runs !== false && t.in ? busy.map((a) => B.el("a", {class: "mono small", href: "#/run/" + encodeURIComponent(a.run), title: "Watch " + w.name + " on #" + a.request, "aria-label": "Watch " + w.name + " on #" + a.request}, "#" + a.request)) : null);
   }
 
-  // lockEl gives a small lock on a tool that waits for a yes, saying who
-  // decides it, or that nobody does, when asked.
+  // lockOf gives a small lock that says, when asked, what waits for a
+  // yes: a tool, with who decides it, or that nobody does; or a colleague
+  // that holds tools that wait.
+  let locks = 0;
+  function lockOf(said) {
+    const id = "lt-lock-" + ++locks;
+    return [B.el("button", {class: "lt-lock", type: "button", popovertarget: id, "aria-label": said}, B.icon("lock")),
+      B.el("div", {class: "pop", id, popover: "auto"}, said)];
+  }
   function lockEl(t, tl) {
     if (!tl.waits) return null;
     const who = (tl.deciders || []).map((d) => d.kind === "person" ? B.personCalled(d.name) : d.kind === "bulldog" ? "Bulldog" : d.name);
-    const said = "Waits for a yes: " + (who.length ? who.join(", then ") : "refused, since nobody decides it");
-    return B.el("span", {class: "lt-lock", title: said, role: "img", "aria-label": said}, B.icon("lock"));
+    return lockOf(tl.name + " waits for a yes: " + (who.length ? who.join(", then ") : "refused, since nobody decides it"));
   }
 
-  function nameEl(t, tl) {
-    return B.el("span", {class: "line lt-tool"}, B.el("span", {class: "mono"}, tl.listed ? tl.name + "_*" : tl.name), lockEl(t, tl));
+  // holdsWaiting says whether anything a worker runs, or its colleagues
+  // run, as far down as they go, waits for a yes.
+  function holdsWaiting(t, w, seen) {
+    return (w.tools || []).some((tl) => {
+      if (tl.waits) return true;
+      const c = tl.kind === "worker" ? byName(t, tl.worker) : null;
+      return c && !seen.has(c.name) && holdsWaiting(t, c, new Set(seen).add(c.name));
+    });
+  }
+
+  function nameEl(t, w, tl) {
+    return B.el("span", {class: "line lt-tool"},
+      B.el("a", {class: "mono lt-name", href: B.workerHref(t.name, w.name) + "?tool=" + encodeURIComponent(tl.name)}, tl.listed ? tl.name + "_*" : tl.name),
+      lockEl(t, tl));
   }
 
   // colleagueNode gives a colleague beneath the worker that calls it,
   // holding its own beneath it, folded, unless it is already above it or
   // holds nothing.
   function colleagueNode(t, w, tl, c, above) {
-    const row = workerRow(t, c, "colleague", lockEl(t, tl));
+    const lock = lockEl(t, tl) || (holdsWaiting(t, c, new Set(above).add(c.name)) ? lockOf(c.name + " holds tools that wait for a yes") : null);
+    const row = workerRow(t, c, "colleague", lock);
     const body = above.has(c.name) ? null : [...problemEls(t, c.name), under(t, c, new Set(above).add(c.name))].filter(Boolean);
     if (!body || !body.length) return B.el("li", {class: "lt-leaf"}, row);
     return B.el("li", {}, opened("tree:" + w.name + "/" + tl.name, "lt-node", B.el("summary", {}, row), B.el("div", {}, body)));
   }
 
+  // colleaguesOf gives the colleagues a worker calls, each with the tool
+  // that calls it. A worker Corbie refused has no tools to tell them by,
+  // so they are the workers whose files it reads that none of the others
+  // reads in turn.
+  function colleaguesOf(t, w) {
+    if ((w.tools || []).length || w.runs !== false) {
+      return (w.tools || []).filter((tl) => tl.kind === "worker" && byName(t, tl.worker)).map((tl) => [tl, byName(t, tl.worker)]);
+    }
+    const read = (t.workers || []).filter((x) => x.name !== w.name && (w.uses || []).includes(x.file));
+    return read.filter((x) => !read.some((y) => y !== x && (y.uses || []).includes(x.file)))
+      .map((x) => [{name: x.name, kind: "worker", worker: x.name}, x]);
+  }
+
   // under gives what is beneath a worker: its colleagues, a line of what
   // it does with Bulldog's tools, and a line of its own tools' names.
   function under(t, w, above) {
-    const colleagues = [], kitted = new Map(), own = [];
+    const colleagues = colleaguesOf(t, w), kitted = new Map(), own = [];
     for (const tl of w.tools || []) {
-      const c = tl.kind === "worker" ? byName(t, tl.worker) : null;
-      if (c) colleagues.push([tl, c]);
-      else if (tl.kind === "bulldog" && kits[tl.kit]) kitted.set(tl.kit, [...(kitted.get(tl.kit) || []), tl]);
+      if (tl.kind === "worker" && byName(t, tl.worker)) continue;
+      if (tl.kind === "bulldog" && B.KITS[tl.kit]) kitted.set(tl.kit, [...(kitted.get(tl.kit) || []), tl]);
       else own.push(tl);
     }
     if (!colleagues.length && !kitted.size && !own.length) return null;
-    const kitEls = Object.keys(kits).filter((k) => kitted.has(k)).map((k) => B.el("span", {class: "line lt-kit", title: kitted.get(k).map((tl) => tl.name).join(", ")},
-      kits[k], kitted.get(k).map((tl) => lockEl(t, tl))));
+    const kitEls = Object.keys(B.KITS).filter((k) => kitted.has(k)).map((k) => B.el("span", {class: "line lt-kit"},
+      B.el("a", {class: "lt-name", href: B.workerHref(t.name, w.name) + "?tool=" + encodeURIComponent(kitted.get(k)[0].name), title: kitted.get(k).map((tl) => tl.name).join(", ")}, B.KITS[k]),
+      kitted.get(k).map((tl) => lockEl(t, tl))));
     return B.el("div", {class: "lt-under"},
       colleagues.length ? paged("colleagues of " + w.name, colleagues, ([tl, c]) => colleagueNode(t, w, tl, c, above), PAGE, B.el("ul", {class: "lt"}), (b) => B.el("li", {}, b)) : null,
       kitEls.length ? B.el("span", {class: "line lt-kits"}, kitEls.flatMap((e, i) => [i ? B.el("span", {class: "faint", "aria-hidden": "true"}, "·") : null, e])) : null,
-      own.length ? paged("tools of " + w.name, own, (tl) => nameEl(t, tl), PAGE, B.el("span", {class: "line lt-own"}), (b) => b) : null);
+      own.length ? paged("tools of " + w.name, own, (tl) => nameEl(t, w, tl), PAGE, B.el("span", {class: "line lt-own"}), (b) => b) : null);
   }
 
   // reached gives the workers a worker calls, as far down as they go.
   function reached(t, w, into) {
-    for (const tl of w.tools || []) {
-      const c = tl.kind === "worker" ? byName(t, tl.worker) : null;
-      if (c && !into.has(c.name)) { into.add(c.name); reached(t, c, into); }
+    for (const [, c] of colleaguesOf(t, w)) {
+      if (!into.has(c.name)) { into.add(c.name); reached(t, c, into); }
     }
     return into;
   }
 
   // tree gives the lead, open, with all it calls beneath it, and beside it
-  // each worker it does not reach, as one a routine starts or unreached.
+  // each worker it does not reach, as one a routine starts or unused.
   function tree(t) {
     const workers = t.workers || [];
     if (!workers.length) return null;
@@ -204,12 +243,12 @@
     const root = (w) => {
       const routine = (t.routines || []).some((r) => r.to === w.name);
       const body = [...problemEls(t, w.name), under(t, w, new Set([w.name]))].filter(Boolean);
-      const row = workerRow(t, w, routine ? "routine" : "unreached");
+      const row = workerRow(t, w, routine ? "routine" : "unused");
       return body.length ? B.el("li", {}, opened("tree:" + w.name, "lt-node", B.el("summary", {}, row), B.el("div", {}, body)))
         : B.el("li", {class: "lt-leaf"}, row);
     };
     return B.el("div", {class: "lt-tree"},
-      lead ? B.el("ul", {class: "lt lt-roots"}, B.el("li", {}, workerRow(t, lead, B.leadLabel(t, "lead")),
+      lead ? B.el("ul", {class: "lt lt-roots"}, B.el("li", {}, workerRow(t, lead, "lead"),
         problemEls(t, lead.name), under(t, lead, new Set([lead.name])))) : null,
       roots.length ? paged("roots", roots, root, ROOTS, B.el("ul", {class: "lt lt-roots"}), (b) => B.el("li", {}, b)) : null);
   }
@@ -231,6 +270,14 @@
 
   function disclosureEl(t) {
     return t.disclosure && t.disclosure.length ? B.chain(t.disclosure, t.name) : null;
+  }
+
+  // pairs gives each word beside what it says, the words on the same left
+  // edge as the rows of a band that need none; none when nothing is said.
+  function pairs(list) {
+    const shown = list.filter((p) => p && p[1]);
+    if (!shown.length) return null;
+    return B.el("div", {class: "te-pairs"}, shown.map(([k, v]) => [B.el("div", {class: "te-word"}, k), B.el("div", {class: "te-said"}, v)]));
   }
 
   // The side
@@ -292,18 +339,19 @@
         B.el("td", {}, m.secret || B.el("span", {class: "faint"}, "None"))))))));
   }
 
-  const ruleWords = {heed: "heed", disclosure: "disclosure"};
-
-  // rules gives each rule the team names: its path, how it is named, as
-  // the heed, the disclosure or a list's key, whether it is stopped, and
-  // what it reaches, or that it is a bare script.
+  // rules gives what the team's rules say that its room does not: of
+  // each it names in a list or as its disclosure, by its path, whether it
+  // comes with Bulldog, whether it is stopped, and what it reaches. The
+  // heed's rule is said on the heed.
   function rules(t) {
-    if (!t.rules || !t.rules.length) return null;
-    return B.sect("Rules", rows("rules", t.rules, (r) => B.el("div", {class: "row te-rule"},
+    const list = (t.rules || []).map((r) => ({r, reach: r.script ? null : B.reachEl(r.reach)}))
+      .filter(({r, reach}) => r.as.some((a) => a !== "heed") && (!r.runs || reach));
+    if (!list.length) return null;
+    return B.sect("Rules", rows("rules", list, ({r, reach}) => B.el("div", {class: "row te-rule"},
       B.el("span", {class: "line"}, B.ruleEl(r.path),
-        B.el("span", {class: "mono faint small"}, r.as.map((a) => ruleWords[a] || a).join(", ")),
+        r.shipped ? B.el("a", {class: "faint small", href: "#/office/bulldog"}, "From Bulldog") : null,
         r.runs ? null : B.el("span", {class: "status failed"}, "stopped")),
-      r.script ? B.el("span", {class: "faint small"}, "script") : B.reachEl(r.reach)), "te-rules"));
+      reach), "te-rules"));
   }
 
   // notes gives the team's notes, and the workers that may write them.
@@ -398,7 +446,7 @@
     const crumbs = [B.el("a", {href: "#/teams"}, "Teams"), ...within(t).map((u) => B.el("a", {href: B.teamHref(u.name)}, u.called))];
     const head = B.head(crumbs, t.called,
       B.el("a", {class: "te-reqs", href: "#/requests?team=" + encodeURIComponent(t.name)}, "Requests"),
-      whole && t.file ? B.el("span", {class: "mono faint small te-file"}, t.file) : null,
+      whole && t.file ? B.el("span", {class: "mono faint small"}, t.file) : null,
       t.about ? B.el("p", {class: "te-about"}, t.about) : null);
     const treed = whole && byName(t, t.lead);
     const channel = B.placesOf(t.name).some((x) => x.place.name !== "direct");
@@ -407,22 +455,26 @@
         : [B.el("b", {}, "Office"), ...B.info("About the office", "The top team, written in office.yaml. A decision nobody else takes ends at its everything.")]),
       B.el("div", {class: "bands"},
         B.band("In", [
-          ["", B.asksIn(t.name)],
-          channel || t.heed ? [B.heedLabel(t), B.heedEl(t)] : null,
+          ["", B.asksIn(t.name, true)],
+          ["", pairs([channel || t.heed ? [B.heedLabel(t), B.heedEl(t)] : null])],
         ]),
         B.band("Team", [
           ["", people(t)],
-          !(t.people && t.people.length) && t.reached && t.reached.length
-            ? [B.el("span", {class: "line"}, "Reached", ...B.info("About reached", "The people this team's decisions reach. They stand as its people.")),
-              B.el("span", {class: "line te-people te-reached"}, t.reached.map((n) => B.personEl(n)))] : null,
-          treed ? null : [B.leadLabel(t), B.el("span", {class: "line"}, leadEl(t), t.lead_runs ? null : B.el("span", {class: "status failed"}, "cannot run"))],
+          ["", pairs([
+            !(t.people && t.people.length) && t.reached && t.reached.length
+              ? [B.el("span", {class: "line"}, "Reached", ...B.info("About reached", "The people this team's decisions reach. They stand as its people.")),
+                B.el("span", {class: "line te-people te-reached"}, t.reached.map((n) => B.personEl(n)))] : null,
+            treed ? null : [B.leadLabel(t), B.el("span", {class: "line"}, leadEl(t), t.lead_runs ? null : B.el("span", {class: "status failed"}, "cannot run"))],
+          ])],
           whole ? ["", tree(t)] : null,
-          ["Teams inside", inside(t)],
+          ["", pairs([["Teams inside", inside(t)]])],
         ]),
         B.band("Out", [
-          whole ? ["Asks", asksEl(t)] : null,
-          whole ? [B.el("span", {class: "line"}, "Authorisation", ...B.info("About authorisation", "Asked in order. A yes or a refusal ends it; a refer goes on, with its note, to whoever is next.")), authorisationEl(t)] : null,
-          whole ? [B.disclosureLabel(t), disclosureEl(t)] : null,
+          ["", whole ? pairs([
+            ["Asks", asksEl(t)],
+            [B.el("span", {class: "line"}, "Authorisation", ...B.info("About authorisation", "Asked in order. A yes or a refusal ends it; a refer goes on, with its note, to whoever is next.")), authorisationEl(t)],
+            [B.disclosureLabel(t), disclosureEl(t)],
+          ]) : null],
         ])));
 
     const side = (whole ? [routines(t), models(t), rules(t), notes(t), docs(t), problems(t)] : [docs(t)]).filter(Boolean);

@@ -42,7 +42,13 @@ button.wk-name > .who { text-decoration: inherit; }
 .wk-face > span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .wk-more { margin-left: 6px; }
 
-.wk-tags { gap: 6px 8px; padding-top: 2px; }
+/* A kit of Bulldog's tools: its tools' names, then whom or what they
+   reach */
+.wk-kit { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; }
+.wk-kit-tool { gap: 4px; flex-wrap: nowrap; }
+
+/* The row of a tool the address names */
+.row.wk-hit { background: var(--faint); box-shadow: -8px 0 0 var(--faint), 8px 0 0 var(--faint); }
 
 /* What a tool reaches, nested beneath it on a guide line */
 .row.wk-tool > .wk-reach { grid-column: 1 / -1; padding-left: 14px; border-left: 1.5px solid var(--line); margin: 2px 0 4px; }

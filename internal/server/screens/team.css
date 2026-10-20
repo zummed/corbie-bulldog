@@ -13,10 +13,15 @@
 .te-more { gap: 6px; }
 .te-found { display: flex; flex-direction: column; gap: 8px; }
 
+/* A band's words, each beside what it says, on the band's one left edge */
+.te-pairs { display: grid; grid-template-columns: minmax(120px, max-content) minmax(0, 1fr); gap: 8px 14px; align-items: baseline; }
+.te-word { display: flex; align-items: center; gap: 6px; font-size: var(--small); font-weight: 600; color: var(--ink2); }
+.te-said { min-width: 0; }
+
 /* The tree of workers: beneath each worker, on a guide line, the
    colleagues it calls, folded, then a line of what it does with Bulldog's
    tools and a line of its own tools' names. How each stands, lead,
-   colleague or routine, is said faint at the tree's right. */
+   colleague or routine, is said faint after its name. */
 .lt-tree { max-width: 640px; }
 .lt { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .lt-roots + .lt-roots { margin-top: 8px; }
@@ -25,14 +30,16 @@
 .lt-node > summary { display: flex; align-items: center; }
 .lt-roots > li > .lt-row, .lt-node > summary > .lt-row, .lt-leaf > .lt-row { width: 100%; }
 .lt-leaf { display: flex; padding-left: 14px; }
-.lt-role { margin-left: auto; font: var(--small) var(--mono); color: var(--ink3); }
+.lt-role { font: var(--small) var(--mono); color: var(--ink3); gap: 4px; }
 .lt-kits { gap: 4px 10px; color: var(--ink2); font-size: 14px; }
 .lt-kit { gap: 4px; }
 .lt-own { gap: 2px 16px; color: var(--ink2); }
 .lt-tool { gap: 3px; flex-wrap: nowrap; }
-.lt-lock { display: inline-flex; color: var(--ink3); }
-.lt-lock > .ic { width: 14px; height: 14px; }
-.lt-lock > .ic svg { width: 12px; height: 12px; }
+.lt-name { color: inherit; }
+.lt-name:hover { color: var(--plan); }
+.lt-lock { display: inline-flex; align-items: center; padding: 1px; border: 0; background: none; color: var(--wait); cursor: pointer; }
+.lt-lock > .ic { width: 16px; height: 16px; }
+.lt-lock > .ic svg { width: 14px; height: 14px; }
 .lt-problem { margin: 2px 0 4px; }
 
 /* Authorisation and models: a key, then what it names; the lists of
@@ -67,3 +74,8 @@
 .te-folder > summary, .te-doc > summary { padding: 2px 0; }
 .te-size { margin-left: 10px; }
 .te-doc pre { margin: 8px 0 10px 14px; padding: 10px 12px; background: var(--sheet); border: 1px solid var(--line); color: var(--ink); }
+
+@media (max-width: 640px) {
+  .te-pairs { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .te-said { margin-bottom: 6px; }
+}

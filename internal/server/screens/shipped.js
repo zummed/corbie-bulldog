@@ -1,8 +1,9 @@
-// From Bulldog, a part of the office's page: each thing Bulldog ships, grouped by what it is, with its one
-// status, and beneath it its page, what it reaches, its settings and where
-// the office uses it. The people who decide a change also see what changed
-// in it since the version that ran before, the office's copies of it, and
-// Use and Copy, which open a draft on Changes.
+// From Bulldog, a part of the office's page: each thing Bulldog ships,
+// grouped by what it is, with its one status, and beneath it its page,
+// what it reaches, its settings and where the office uses it. The people
+// who decide a change also see what changed in it since the version that
+// ran before, the office's copies of it, and Use and Copy, which open a
+// draft on Changes.
 (function () {
   "use strict";
 
@@ -37,7 +38,7 @@
   }
 
   function settingsEl(t) {
-    if (!t.settings.length) return B.el("span", {class: "faint"}, "None");
+    if (!t.settings.length) return null;
     return B.kv(t.settings.map((s) => [B.el("span", {class: "line sh-setting"}, B.el("span", {class: "mono"}, s.name),
       s.about ? B.info("About " + s.name, s.about) : ""), valueEl(s.value)]));
   }

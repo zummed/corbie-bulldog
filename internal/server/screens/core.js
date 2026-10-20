@@ -128,6 +128,15 @@ B.teamEl = function (name) {
 B.ruleEl = function (name) {
   return B.el("span", {class: "who"}, B.el("span", {class: "ic rule", "aria-hidden": "true"}), B.el("span", {class: "mono"}, name));
 };
+// ruleShortEl gives a rule by its short name, the last part of its path
+// without its kind, its path when asked.
+B.ruleShortEl = function (path) {
+  return B.el("span", {class: "who", title: path}, B.el("span", {class: "ic rule", "aria-hidden": "true"}),
+    B.el("span", {class: "mono"}, path.split("/").pop().replace(/\.[^.]+$/, "")));
+};
+
+// The kits Bulldog's tools come in, by what they let a worker do.
+B.KITS = {talk: "Talks to people and teams", docs: "Reads docs", notes: "Writes notes", build: "Drafts changes to the office"};
 // deciderEl gives one decider: a person, a worker with the team it is of,
 // a rule by its path, or Bulldog. A worker of another team than here is
 // given with its team.
@@ -155,14 +164,16 @@ B.placeEl = function (bridge, place) {
 
 // placesOf gives the places of every bridge that ask a team.
 B.placesOf = function (team) {
-  return (B.me.office.bridges || []).flatMap((b) => b.places.filter((p) => p.team === team).map((p) => ({bridge: b.name, place: p})));
+  return (B.me.office.bridges || []).flatMap((b) => b.places.filter((p) => p.team === team).map((p) => ({bridge: b.name, place: p, status: b.status})));
 };
 
 // asksIn gives where a team is asked, on one line: each place of a
-// bridge, the chat, and another team's ask_team.
-B.asksIn = function (team) {
+// bridge, with the bridge's one status when it is not running and that
+// is asked for, the chat, and another team's ask_team.
+B.asksIn = function (team, withStatus) {
   const ways = [
-    ...B.placesOf(team).map((x) => B.el("span", {class: "line"}, B.placeEl(x.bridge, x.place.name), x.place.guests ? B.el("span", {class: "faint small"}, "guests") : null)),
+    ...B.placesOf(team).map((x) => B.el("span", {class: "line"}, B.placeEl(x.bridge, x.place.name), x.place.guests ? B.el("span", {class: "faint small"}, "guests") : null,
+      withStatus && x.status !== "running" ? B.bridgeStatus({status: x.status}) : null)),
     B.el("span", {class: "who"}, B.icon("chat"), "Chat"),
     B.el("span", {class: "who", title: "Asked by another team's ask_team"}, "Sub-request"),
   ];
@@ -216,21 +227,25 @@ B.entryLabel = function (decisions, e) {
 
 // heedEl gives a team's heed on one line, to those who see it: its rule
 // by its short name, its short settings in brackets, the defaults faint,
-// and whether a problem stops it; and, opened, the rule's path and all
-// its settings. Else Set, or None when it names none.
+// and whether a problem stops it; and, opened, the rule's path, whether
+// it comes with Bulldog, all its settings, and, where the team's rules
+// are given, what the rule reaches. Else Set, or None when it names none.
 B.heedEl = function (t) {
   if (!t.heed) return B.el("span", {class: "faint"}, "None");
   if (!t.heed.rule) return "Set";
   const short = (t.heed.settings || []).filter((x) => x.value != null && typeof x.value !== "object" && String(x.value).length <= 24);
-  const line = B.el("span", {class: "line heed-line"},
-    B.el("span", {class: "who", title: t.heed.rule}, B.el("span", {class: "ic rule", "aria-hidden": "true"}),
-      B.el("span", {class: "mono"}, t.heed.rule.split("/").pop().replace(/\.[^.]+$/, ""))),
+  const line = B.el("span", {class: "line"}, B.ruleShortEl(t.heed.rule),
     short.length ? B.el("span", {class: "mono heed-short"}, "(", short.flatMap((x, i) => [i ? ", " : "",
       B.el("span", {class: x.default ? "faint" : "", title: x.name + (x.default ? ", the default" : "")}, String(x.value))]), ")") : null,
     t.heed.stopped ? B.el("span", {class: "status failed"}, "stopped") : null);
-  if (!(t.heed.settings || []).length) return line;
+  const rule = (t.rules || []).find((r) => r.path === t.heed.rule);
+  const reach = rule && !rule.script ? B.reachEl(rule.reach) : null;
+  if (!(t.heed.settings || []).length && !rule) return line;
   return B.el("details", {class: "heed"}, B.el("summary", {}, line),
-    B.el("div", {class: "heed-all"}, B.el("span", {class: "mono faint small"}, t.heed.rule), B.settingsEl(t.heed.settings)));
+    B.el("div", {class: "heed-all"},
+      B.el("span", {class: "line"}, B.el("span", {class: "mono faint small"}, t.heed.rule),
+        rule && rule.shipped ? B.el("a", {class: "faint small", href: "#/office/bulldog"}, "From Bulldog") : null),
+      B.settingsEl(t.heed.settings), reach));
 };
 
 // leadCalled gives a team's lead as it is called, or "the lead".

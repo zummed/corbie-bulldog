@@ -1,8 +1,9 @@
-// Bridges, a part of the office's page: each bridge of the office with the folder it runs, whether it
-// listens or hears, its one status, and beneath it the places it listens
-// in, each read as the way something said there goes: to its team, past
-// the team's heed, to its lead, and past its disclosure. The people who
-// decide a change also see its settings and what its machines reach.
+// Bridges, a part of the office's page: each bridge of the office with
+// the folder it runs, whether it listens or hears, its one status, and
+// beneath it the places it listens in, each read as the way something
+// said there goes: to its team, past the team's heed, to its lead, and
+// past its disclosure. The people who decide a change also see its
+// settings and what its machines reach.
 (function () {
   "use strict";
 
@@ -29,13 +30,14 @@
   }
 
   // B.reachEl gives what something reaches: the hosts it may connect to,
-  // and each secret it may send, with where, nested beside its name.
+  // and each secret it may send, with where, nested beside its name; or
+  // null when it reaches nothing.
   B.reachEl = function (r) {
-    const none = () => B.el("span", {class: "faint"}, "None");
+    if (!r || !r.hosts.length && !r.secrets.length) return null;
     return B.kv([
-      ["Hosts", r.hosts.length ? B.el("span", {class: "line"}, r.hosts.map(hostEl)) : none()],
+      ["Hosts", r.hosts.length ? B.el("span", {class: "line"}, r.hosts.map(hostEl)) : null],
       ["Secrets", r.secrets.length ? B.el("div", {class: "br-secrets"}, r.secrets.map((x) =>
-        B.el("div", {class: "line"}, x.name === "*" ? "Every" : B.el("span", {class: "mono"}, x.name), B.el("span", {class: "faint"}, "→"), ...x.to.map(toEl)))) : none()],
+        B.el("div", {class: "line"}, x.name === "*" ? "Every" : B.el("span", {class: "mono"}, x.name), B.el("span", {class: "faint"}, "→"), ...x.to.map(toEl)))) : null],
     ]);
   };
 
@@ -45,7 +47,7 @@
   function heedEl(place, t) {
     if (place.name === "direct") return "";
     if (!t || !t.heed) return B.el("span", {class: "faint"}, "None");
-    return t.heed.rule ? B.ruleEl(t.heed.rule) : "Set";
+    return t.heed.rule ? B.ruleShortEl(t.heed.rule) : "Set";
   }
 
   function disclosureEl(t) {
@@ -98,8 +100,9 @@
   // file, then, once Corbie has checked it, what it reaches nested
   // beneath.
   function machineEl(m) {
-    if (!m.hosts) return B.el("span", {class: "mono"}, m.file);
-    return B.el("div", {class: "br-machine"}, B.el("span", {class: "mono"}, m.file), B.reachEl(m));
+    const reach = m.hosts ? B.reachEl(m) : null;
+    if (!reach) return B.el("span", {class: "mono"}, m.file);
+    return B.el("div", {class: "br-machine"}, B.el("span", {class: "mono"}, m.file), reach);
   }
 
   // valueEl gives a setting as written: a list or a mapping nested, each

@@ -1,18 +1,17 @@
 // Worker: one worker of a team, what it is, how it is started and who
 // calls it, its definition folded, and a drawing of what it can do, with
-// what each tool reaches, whom it can ask, and the colleagues whose held
-// jobs come to its ask. A worker may have hundreds of tools and callers,
-// so each list shows a few and More the rest.
+// what each tool reaches and who decides it, the colleagues it calls,
+// what it does with Bulldog's tools, by their kits, and the colleagues
+// whose held jobs come to its ask. A worker may have hundreds of tools
+// and callers, so each list shows a few and More the rest.
 (function () {
   "use strict";
 
   const FACES = 4;   // people drawn before "+n"
   const PAGE = 12;   // rows of a group drawn before More
   const INLINE = 6;  // callers, runs and teams drawn on a line before More
-  const NOTES_TOOL = "write_notes";
   const PEOPLE_TOOLS = ["ask_person", "tell"];
   const TEAMS_TOOL = "ask_team";
-  const THREAD_TOOL = "read_thread";
 
   // What the view keeps while it is drawn again, for one worker: how many
   // of each list are shown.
@@ -50,14 +49,13 @@
       B.el("div", {class: "pop", id, popover: "auto"}, ...shows),
     ];
   }
-  const KITS = {talk: "the talk tools", docs: "the docs tools", notes: "the notes tool", build: "the builder's tools"};
 
   // toolName gives a tool by its name, which shows what it does and, of
   // one of Bulldog's, the kit it comes in; a listed one stands for each
   // tool its server lists, named after it.
   function toolName(tool) {
     if (tool.listed) return pop(["Each tool the server of " + tool.name + " lists, as " + tool.name + "_<tool>"], B.el("span", {class: "mono"}, tool.name + "_*"));
-    const from = tool.kind === "bulldog" ? B.el("div", {class: "wk-does faint"}, "From Bulldog" + (KITS[tool.kit] ? ", in " + KITS[tool.kit] : "")) : null;
+    const from = tool.kind === "bulldog" ? B.el("div", {class: "wk-does faint"}, "From Bulldog" + (tool.kit ? ", in the " + tool.kit + " tools" : "")) : null;
     return tool.does || from ? pop([tool.does, from], tool.name) : B.el("span", {class: "mono wk-name"}, tool.name);
   }
 
@@ -77,7 +75,7 @@
     const r = tool.reach;
     if (!r || !r.hosts.length && !r.secrets.length && !r.deny.length && !r.ask_about.length) return null;
     const list = (xs) => B.el("span", {class: "line"}, xs.map((x) => B.el("span", {class: "mono"}, x)));
-    const rows = B.reachEl(r);
+    const rows = B.reachEl(r) || B.kv([]);
     rows.append(...[
       r.deny.length ? [B.el("dt", {}, "Deny"), B.el("dd", {}, list(r.deny))] : [],
       r.ask_about.length ? [B.el("dt", {}, "Ask about"), B.el("dd", {}, list(r.ask_about))] : [],
@@ -102,7 +100,9 @@
       : B.el("span", {class: "mono small muted wk-file"}, path);
   }
 
-  function row(...cells) { return B.el("div", {class: "row wk-tool"}, ...cells); }
+  // row gives one line of the drawing; tools names the tools it is of, so
+  // that a link to one of them is brought to it.
+  function row(tools, ...cells) { return B.el("div", {class: "row wk-tool", "data-tools": tools.map((x) => x.name).join(" ")}, ...cells); }
   function group(key, label, rows) {
     if (!rows.length) return null;
     return B.el("div", {class: "group"}, B.label(...[label].flat(), rows.length > PAGE ? B.el("span", {class: "count"}, String(rows.length)) : null),
@@ -112,7 +112,7 @@
   // parts gives a flow's stages or a statechart's jobs, each with what it
   // runs: a worker of the team, one of Bulldog's tools, or a file.
   function parts(w, t) {
-    return [group("stages", w.type === "flow" ? "Stages" : "Jobs", (w.tools || []).map((tool) => row(
+    return [group("stages", w.type === "flow" ? "Stages" : "Jobs", (w.tools || []).map((tool) => row([tool],
       B.el("span", {class: "wk-c1"}, toolName(tool)),
       B.el("span", {class: "wk-c2 line"},
         tool.kind === "worker" ? B.workerEl(tool.worker, t.name, {bare: true}) : null,
@@ -128,48 +128,52 @@
     if (w.type === "flow" || w.type === "statechart") return parts(w, t);
     const tools = w.tools || [];
     if (!tools.some((tool) => tool.kind)) {
-      return [group("tools", "Tools", tools.map((tool) => row(B.el("span", {class: "wk-c1 mono"}, tool.name),
+      return [group("tools", "Tools", tools.map((tool) => row([tool], B.el("span", {class: "wk-c1 mono"}, tool.name),
         B.el("span", {class: "wk-c2"}, authorisation(tool, t)))))];
     }
-    const can = [], colleagues = [], others = [], changes = [];
-    const said = tools.filter((tool) => tool.kind === "bulldog" && PEOPLE_TOOLS.includes(tool.name));
+    const can = [], colleagues = [], kitted = new Map();
     for (const tool of tools) {
       if (tool.kind === "worker") {
         const name = tool.worker || tool.name;
         const face = B.el("span", {class: "who"}, B.el("span", {class: "ic worker", "aria-hidden": "true"}, String(name).slice(0, 2)), name);
-        colleagues.push(row(B.el("span", {class: "wk-c1"}, tool.does
+        colleagues.push(row([tool], B.el("span", {class: "wk-c1"}, tool.does
           ? pop([B.workerEl(name, t.name, {bare: true}), B.el("div", {class: "wk-does"}, tool.does)], face)
-          : B.workerEl(name, t.name, {bare: true}))));
-      } else if (tool.kind === "bulldog" && PEOPLE_TOOLS.includes(tool.name)) {
-        if (tool === said[0] && (t.people || []).length) others.push(row(B.el("span", {class: "wk-c1 line"}, said.map(toolName)),
-          B.el("span", {class: "wk-c2"}, faces(t.people, t))));
-      } else if (tool.kind === "bulldog" && tool.name === TEAMS_TOOL) {
-        others.push(row(B.el("span", {class: "wk-c1"}, toolName(tool)),
-          B.el("span", {class: "wk-c2"}, w.may_ask.length ? inline("teams", w.may_ask.map(B.teamEl)) : B.el("span", {class: "muted"}, "none"))));
-      } else if (tool.kind === "bulldog" && tool.name === THREAD_TOOL) {
-        can.push(row(B.el("span", {class: "wk-c1"}, toolName(tool)), B.el("span", {class: "wk-c2"}, "Thread")));
-      } else if (tool.kind === "bulldog" && tool.kit === "docs") {
-        const docs = tools.filter((x) => x.kind === "bulldog" && x.kit === "docs");
-        if (tool === docs[0]) can.push(row(B.el("span", {class: "wk-c1 line"}, docs.map(toolName)),
-          B.el("span", {class: "wk-c2"}, B.el("a", {href: B.teamHref(t.name)}, "Docs"))));
-      } else if (tool.kind === "bulldog" && tool.name === NOTES_TOOL) {
-        others.push(row(B.el("span", {class: "wk-c1"}, toolName(tool)),
-          B.el("span", {class: "wk-c2"}, B.el("a", {href: B.teamHref(t.name)}, "Notes"))));
-      } else if (tool.kind === "bulldog") {
-        changes.push(B.el("span", {class: "tag", title: tool.does || null}, tool.name));
+          : B.workerEl(name, t.name, {bare: true})), B.el("span", {class: "wk-c2"}, authorisation(tool, t))));
+      } else if (tool.kind === "bulldog" && B.KITS[tool.kit]) {
+        kitted.set(tool.kit, [...(kitted.get(tool.kit) || []), tool]);
       } else {
-        can.push(row(B.el("span", {class: "wk-c1"}, toolName(tool)),
-          B.el("span", {class: "wk-c2 line"}, B.el("span", {class: "mono faint small"}, tool.kind), authorisation(tool, t)),
+        can.push(row([tool], B.el("span", {class: "wk-c1"}, toolName(tool)),
+          B.el("span", {class: "wk-c2 line"}, B.el("span", {class: "mono faint small"}, tool.kind === "bulldog" ? "From Bulldog" : tool.kind), authorisation(tool, t)),
           fileEl(tool.file), reachEl(tool)));
       }
     }
+    const kits = Object.keys(B.KITS).filter((k) => kitted.has(k)).map((k) => {
+      const list = kitted.get(k);
+      return row(list, B.el("span", {class: "wk-c1"}, B.KITS[k]),
+        B.el("span", {class: "wk-c2 wk-kit"},
+          B.el("span", {class: "line"}, list.map((tool) => B.el("span", {class: "line wk-kit-tool"}, toolName(tool), authorisation(tool, t)))),
+          kitReach(k, list, w, t)));
+    });
     return [
       group("can do", "Can do", can),
-      group("can ask", "Can ask", [...colleagues, ...others]),
+      group("colleagues", "Colleagues", colleagues),
+      group("from bulldog", "From Bulldog", kits),
       group("held here", [B.el("span", {}, "Held here"), ...B.info("About held here", "Colleagues whose actions that wait for a yes are asked about through " + w.name + "'s ask.")],
-        w.held_here.map((name) => row(B.el("span", {class: "wk-c1"}, B.workerEl(name, t.name, {bare: true}))))),
-      changes.length ? B.el("div", {class: "group"}, B.label("Changes"), B.el("div", {class: "line wk-tags"}, changes)) : null,
+        w.held_here.map((name) => row([], B.el("span", {class: "wk-c1"}, B.workerEl(name, t.name, {bare: true}))))),
     ];
+  }
+
+  // kitReach gives whom or what a kit of Bulldog's tools reaches: the
+  // talk tools the team's people and the teams it may ask, the notes tools
+  // the team's notes, and the docs tools the team's docs, when it has any.
+  function kitReach(kit, list, w, t) {
+    const has = (name) => list.some((tool) => tool.name === name);
+    if (kit === "talk") return B.el("span", {class: "line"},
+      PEOPLE_TOOLS.some(has) && (t.people || []).length ? faces(t.people, t) : null,
+      has(TEAMS_TOOL) && w.may_ask.length ? inline("teams", w.may_ask.map(B.teamEl)) : null);
+    if (kit === "notes") return B.el("a", {href: B.teamHref(t.name)}, "Notes");
+    if (kit === "docs" && (t.docs || []).length) return B.el("a", {href: B.teamHref(t.name)}, "Docs");
+    return null;
   }
 
   function drawing(w, t) {
@@ -193,25 +197,28 @@
       w.secret ? B.el("span", {class: "line"}, B.el("span", {class: "faint small"}, "Secret"), B.el("span", {class: "mono"}, w.secret)) : null);
   }
 
-  // start gives how the worker is started: as its team's lead, on its
-  // requests, by a routine, or as a tool of a colleague.
+  // start says in words how the worker is started: as its team's lead,
+  // on each of its requests; by its routines, at their times; and by the
+  // colleagues that call it as a tool; or that nothing starts it.
   function start(w, t) {
     const callers = (t.workers || []).filter((x) => x.name !== w.name && (x.tools || []).some((tool) => tool.kind === "worker" && tool.worker === w.name));
+    const at = (t.routines || []).filter((r) => r.to === w.name).map((r) => r.at);
+    const sep = () => B.el("span", {class: "faint", "aria-hidden": "true"}, "·");
     const out = [
-      t.lead === w.name ? B.el("a", {class: "tag", href: "#/requests?team=" + encodeURIComponent(t.name)}, "Lead") : null,
-      (t.routines || []).some((r) => r.to === w.name) ? B.el("span", {class: "tag"}, "Routine") : null,
-      ...callers.map((x) => B.el("span", {class: "line"}, B.el("span", {class: "tag"}, "Tool of"), B.workerEl(x.name, t.name, {bare: true}))),
+      t.lead === w.name ? B.el("span", {class: "line"}, "On each", B.el("a", {href: "#/requests?team=" + encodeURIComponent(t.name)}, "request"), "to " + B.teamCalled(t.name), ...B.leadLabel(t, "").querySelectorAll(".info, .pop")) : null,
+      at.length ? B.el("span", {class: "line"}, "By its routine" + (at.length > 1 ? "s" : "") + " at", at.map((x) => B.el("span", {class: "mono"}, x))) : null,
+      callers.length ? B.el("span", {class: "line"}, "Called by", callers.map((x) => B.workerEl(x.name, t.name, {bare: true}))) : null,
     ].filter(Boolean);
-    return out.length ? B.el("span", {class: "line"}, out) : B.el("span", {class: "faint"}, "None");
+    return out.length ? B.el("span", {class: "line"}, out.flatMap((x, i) => [i ? sep() : null, x])) : B.el("span", {class: "faint"}, "Nothing");
   }
 
   // askEl gives where what it runs that waits for a yes is asked about:
   // the ask Bulldog ships, when it names it, or else the colleagues whose
-  // ask its held jobs come to, or None.
+  // ask its held jobs come to; none when there is neither.
   function askEl(w, t) {
-    if (w.definition.asks) return B.bulldogEl();
+    if (w.definition.asks) return "Bulldog's ask";
     const via = (t.workers || []).filter((x) => (x.held_here || []).includes(w.name));
-    return via.length ? B.el("span", {class: "line"}, via.map((x) => B.workerEl(x.name, t.name, {bare: true}))) : B.el("span", {class: "faint"}, "None");
+    return via.length ? B.el("span", {class: "line"}, via.map((x) => B.workerEl(x.name, t.name, {bare: true}))) : null;
   }
 
   // definition gives what the worker's file writes of how it runs, folded.
@@ -229,13 +236,29 @@
     return box;
   }
 
-  function runs(w, t) {
-    return inline("runs", (t.at_work || []).filter((a) => a.worker === w.name).map((a) => B.el("span", {class: "mono"},
-      B.el("a", {href: "#/r/" + a.request}, "#" + a.request), B.el("span", {class: "faint"}, " · "),
-      B.el("a", {href: "#/run/" + encodeURIComponent(a.run), "aria-label": "Watch #" + a.request}, "Watch"))));
+  // statusEl gives the worker's one status, cannot run or at work, with
+  // each request it is at work on, to watch.
+  function statusEl(w, t) {
+    if (!w.runs) return B.el("span", {class: "status failed"}, "cannot run");
+    const busy = (t.at_work || []).filter((a) => a.worker === w.name);
+    if (!busy.length) return null;
+    return B.el("span", {class: "line"}, B.status({state: "working"}), inline("runs", busy.map((a) =>
+      B.el("a", {class: "mono small", href: "#/run/" + encodeURIComponent(a.run), title: "Watch " + w.name + " on #" + a.request, "aria-label": "Watch " + w.name + " on #" + a.request}, "#" + a.request))));
   }
 
-  B.route(/^#\/t\/([^/]+)\/w\/([^/]+)$/, async function (m) {
+  // bringTo brings the row of a tool into view, and marks it, when the
+  // address names one.
+  function bringTo(root, tool) {
+    if (!tool) return;
+    setTimeout(() => {
+      const at = [...root.querySelectorAll(".wk-tool[data-tools]")].find((r) => r.dataset.tools.split(" ").includes(tool));
+      if (!at || !at.isConnected) return;
+      at.classList.add("wk-hit");
+      at.scrollIntoView({block: "center"});
+    }, 0);
+  }
+
+  B.route(/^#\/t\/([^/]+)\/w\/([^/?]+)(?:\?.*)?$/, async function (m) {
     const team = decodeURIComponent(m[1]), name = decodeURIComponent(m[2]);
     keepFor(team + "/" + name);
     const crumbs = [B.el("a", {href: "#/teams"}, "Teams"), B.el("a", {href: B.teamHref(team)}, B.teamCalled(team)), name];
@@ -246,24 +269,20 @@
     if (!w) return B.el("div", {class: "wk"}, B.head(crumbs, name), B.empty(missing));
 
     const title = B.el("span", {class: "who wk-title"}, B.el("span", {class: "ic worker lg", "aria-hidden": "true"}, String(w.name).slice(0, 2)), w.name);
-    const busy = (t.at_work || []).some((a) => a.worker === w.name);
-    return B.el("div", {class: "wk"},
-      B.head(crumbs, title,
-        t.lead === w.name ? B.el("span", {class: "tag"}, "Lead of " + B.teamCalled(t.name)) : null,
-        !w.runs ? B.el("span", {class: "status failed"}, "cannot run") : busy ? B.status({state: "working"}) : null),
+    const out = B.el("div", {class: "wk"},
+      B.head(crumbs, title, statusEl(w, t)),
       B.el("div", {class: "wk-meta"},
         B.kv([
-          ["Start", start(w, t)],
-          ["Ask", askEl(w, t)],
+          ["Started", start(w, t)],
+          [B.el("span", {class: "line"}, "Asks through", ...B.info("About asks through",
+            "Where a job it runs that waits for a yes goes to be decided: the ask Bulldog ships, which its file names, or the ask of the colleague that calls it.")), askEl(w, t)],
           ["Model", model(w)],
           ["Type", B.el("span", {class: "who"}, B.icon(w.type, "faint"), B.el("span", {class: "mono"}, w.type))],
           ["File", fileEl(w.file)],
-        ]),
-        B.kv([
-          ["Team", B.teamEl(t.name)],
-          ["Runs", runs(w, t)],
         ])),
       definition(w),
       drawing(w, t));
+    bringTo(out, B.query().get("tool"));
+    return out;
   }, "teams");
 })();
