@@ -383,7 +383,7 @@
       ].filter((p) => p && p[1]);
       out.push({id: "handoff", word: "Handoff", name: lead ? "What " + lead.name + " calls on" : "What its workers call on", parts,
         setup: [block("Workers", tree(t)),
-          block(B.el("span", {class: "line"}, "Authorisation", ...B.info("About authorisation", "Asked in order. A yes or a refusal ends it; a refer goes on, with its note, to whoever is next.")), authorisationEl(t)),
+          block(B.el("span", {class: "line"}, "Authorisation", ...B.info("About authorisation", "Asked in order. A yes or a refusal ends it; a refer goes on, with its note, to whoever is next. One that advises may refuse, and its yes goes on to whoever is next as a recommendation.")), authorisationEl(t)),
           block("Other teams", asked(t).length ? B.el("span", {class: "line"}, asked(t).map(B.teamEl)) : null)]});
     }
 

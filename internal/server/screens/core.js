@@ -238,7 +238,7 @@ B.leadLabel = function (t, word) {
 };
 B.disclosureLabel = function (t) {
   return B.el("span", {class: "line"}, "Disclosure", ...B.info("About disclosure",
-    "Asked before anything leaves " + t.called + ": answers, questions and tells to people outside it, requests to other teams. Yes: disclosed as it was. Refused: back to " + B.leadCalled(t) + ", with the note."));
+    "Asked before anything leaves " + t.called + ": answers, questions and tells to people outside it, requests to other teams. Yes: disclosed as it was. Refused: back to " + B.leadCalled(t) + ", with the note. One that advises passes its yes on to whoever is next, as a recommendation."));
 };
 
 // settingsEl gives a rule's settings, each its value, marked default when
