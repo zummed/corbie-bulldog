@@ -1,10 +1,10 @@
 Microsoft Entra ID: a person signs in to the screens with their work account in the office's directory, when the office writes its sign-in name under their name.
 
-The sign-in page shows "Sign in with Microsoft". Bulldog sends the browser to the directory, with a challenge and a nonce of its own, and the directory sends it back to `<office url>/signin/<name>/back` with a code. Bulldog starts this machine with the code, and the machine, which alone holds the app's secret, takes the code to Microsoft, reads the ID token Microsoft answers and checks it: it is for the office's app, of the directory `tenant` names, Microsoft's, not expired, and carries the nonce Bulldog gave. Its answer is the account's sign-in name, `preferred_username`, or its `email` where it has none, in small letters, and Bulldog signs in the one person the office writes with that name under the method's name. An account of another directory, and one the office does not write, sign nobody in.
+The sign-in page shows "Sign in with Microsoft". Bulldog sends the browser to the directory, with a challenge and a nonce of its own, and the directory sends it back to `<office url>/signin/<name>/back` with a code. Bulldog starts this machine with the code, and the machine, which alone holds the app's secret, takes the code to Microsoft, reads the ID token Microsoft answers and checks it: it is for the office's app, of the directory `tenant` names, Microsoft's, not expired, and carries the nonce Bulldog gave. Its answer is the account's sign-in name, `preferred_username`, in small letters, and Bulldog signs in the one person the office writes with that name under the method's name. An account of another directory, and one the office does not write, sign nobody in.
 
 ## Needs
 
-- `ENTRA_CLIENT_SECRET`, the app's client secret, for `login.microsoftonline.com`. Only this machine's job holds it; Bulldog never sees it.
+- `ENTRA_CLIENT_SECRET`, the app's client secret, for `login.microsoftonline.com`. Only this machine's job holds it; Bulldog never sees it. The name is fixed, so two methods from this folder in one office send the same secret.
 
 ## Settings
 
@@ -12,7 +12,7 @@ The sign-in page shows "Sign in with Microsoft". Bulldog sends the browser to th
 - `tenant`: the directory's ID, the Directory (tenant) ID on the app's Overview page, a GUID.
 - `client_id`: the app's Application (client) ID, on its Overview page. It is no secret.
 - `authorize`: `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize`. Where Bulldog sends the browser; `{tenant}` is the tenant setting.
-- `scope`: `openid profile email`. What the directory is asked for.
+- `scope`: `openid profile`. What the directory is asked for: `profile` carries the sign-in name.
 - `label`: `Microsoft`. What the sign-in page calls it.
 
 ## Set up at Microsoft
@@ -26,6 +26,8 @@ The sign-in page shows "Sign in with Microsoft". Bulldog sends the browser to th
 ## Leaves out
 
 - Any account of another directory, and any account the office does not write: the directory's yes is only who the person is, never that they may come in.
+- The account's `email`, which the directory does not check.
+- The account's object ID, `oid`, which never changes, for now. The answer is the sign-in name, which the directory gives and may change: its admins rename accounts, and a guest account carries the name its home directory gave it. Writing a name trusts the tenant's admins, and its guests' home directories, with it. Only an account of the tenant is taken, whatever its name.
 
 ## Example
 

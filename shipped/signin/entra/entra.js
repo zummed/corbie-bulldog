@@ -45,6 +45,8 @@ if (claims.tid !== input.tenant) return { refused: "That account is of another d
 if (claims.iss !== "https://" + site + "/" + claims.tid + "/v2.0") return { refused: "The ID token is not Microsoft's." }
 if (!(claims.exp * 1000 > Date.now())) return { refused: "Microsoft's ID token has expired." }
 if (claims.nonce !== input.nonce) return { refused: "Microsoft's ID token is not for this sign-in." }
-const name = claims.preferred_username || claims.email
+// The sign-in name alone: an account's email is not checked by the
+// directory, and a token asked for with the profile scope carries the name.
+const name = claims.preferred_username
 if (typeof name !== "string" || name === "") return { refused: "Microsoft gave no sign-in name for the account." }
 return { identity: name.toLowerCase() }

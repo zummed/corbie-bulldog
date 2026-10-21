@@ -25,7 +25,7 @@ input:
         tenant: { type: string, pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", description: "The directory's ID, the Directory (tenant) ID on the app's Overview page." }
         client_id: { type: string, minLength: 1, description: "The app's Application (client) ID, on its Overview page." }
         authorize: { type: string, default: "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize", description: "The directory's authorization endpoint, where Bulldog sends the browser; {tenant} is the tenant setting." }
-        scope: { type: string, default: "openid profile email", description: "What the directory is asked for: the ID token, with the person's sign-in name." }
+        scope: { type: string, default: "openid profile", description: "What the directory is asked for: the ID token, with the person's sign-in name." }
         label: { type: string, default: Microsoft, description: "What the sign-in page calls it, as Sign in with Microsoft." }
 stages:
   exchange:

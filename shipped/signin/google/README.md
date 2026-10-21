@@ -4,7 +4,7 @@ The sign-in page shows "Sign in with Google". Bulldog sends the browser to Googl
 
 ## Needs
 
-- `GOOGLE_CLIENT_SECRET`, the OAuth client's secret, for `oauth2.googleapis.com`. Only this machine's job holds it; Bulldog never sees it.
+- `GOOGLE_CLIENT_SECRET`, the OAuth client's secret, for `oauth2.googleapis.com`. Only this machine's job holds it; Bulldog never sees it. The name is fixed, so two methods from this folder in one office send the same secret.
 
 ## Settings
 

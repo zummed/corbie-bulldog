@@ -206,9 +206,9 @@ func TestEntraGivesTheSignInNameOfItsDirectory(t *testing.T) {
 			t.Errorf("%s ended with %v", code, out)
 		}
 	}
-	// One with no sign-in name but an address is known by it.
+	// One with no sign-in name is refused, whatever address it gives.
 	p.code("email", entra(map[string]any{"preferred_username": nil, "email": "Al@Corp.example"}))
-	if out := said(t, signIn(t, files, "email", settings)); out["identity"] != "al@corp.example" {
+	if out := said(t, signIn(t, files, "email", settings)); out["identity"] != nil || out["refused"] == nil {
 		t.Errorf("the sign-in by address ended with %v", out)
 	}
 }
