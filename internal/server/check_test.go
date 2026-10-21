@@ -58,6 +58,7 @@ func TestServerCheckListsTheWorkOffice(t *testing.T) {
 		"Support (support), within Platform support",
 		"slack, a bridge that ",
 		"gitlab, a bridge that ",
+		"entra, a sign-in method running .bulldog/signin/entra, for al, dana, lee, priya, raj\n",
 		"3 runs at work at once\n",
 	} {
 		if !strings.Contains(listing, part) {
