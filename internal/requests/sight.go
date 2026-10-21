@@ -296,6 +296,29 @@ func (s *Store) Sees(n int64, person string) (bool, error) {
 	return l.seesDone(r, person)
 }
 
+// SeesAny says whether a person sees anything of a request, as View gives
+// it: what was done of it, or the entries of it they see alone. A request
+// that is not there they see nothing of.
+func (s *Store) SeesAny(n int64, person string) (bool, error) {
+	l, err := s.look(s.db)
+	if err != nil {
+		return false, err
+	}
+	r, err := l.req(n)
+	if errors.Is(err, ErrNotThere) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	done, err := l.seesDone(r, person)
+	if err != nil || done {
+		return done, err
+	}
+	_, shown, err := l.seen(n, false, person)
+	return len(shown) > 0, err
+}
+
 // MaySay says whether someone may say more in a request, as it came in.
 // One who may not see it is told it is not there.
 func (s *Store) MaySay(n int64, w Who, in Where) (bool, error) {

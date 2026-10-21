@@ -121,28 +121,20 @@ func TestRequestsFailureNotARefusal(t *testing.T) {
 	var refusal requests.Refusal
 	for _, err := range []error{
 		errOf(d.View(d.dana, "dana")), errOf(d.List("dana", requests.Filter{})), errOf(d.WaitingOn("dana")),
-		errOf(d.Sees(d.dana, "dana")), errOf(d.MaySay(d.dana, d.Person("dana"), requests.Screens)),
+		errOf(d.Sees(d.dana, "dana")), errOf(d.SeesAny(d.dana, "dana")), errOf(d.MaySay(d.dana, d.Person("dana"), requests.Screens)),
 		errOf(d.Say(d.dana, d.Person("dana"), "more", nil, requests.Screens, false)), errOf(d.AskInChat("dana", "", "new", nil)),
 	} {
 		if err == nil || errors.Is(err, requests.ErrNotThere) || errors.As(err, &refusal) {
 			t.Errorf("a store that cannot be read is told as %v", err)
 		}
 	}
-	// One watching is told the store failed, with no number, and not
-	// nothing.
+	// Whether someone sees a change is answered with the failure, and not
+	// with nothing.
 	w := workDay(t)
-	w.Watch(func(int64) { must(t, errOf(w.db.Exec(`ALTER TABLE requests_files RENAME TO requests_lost`))) })
-	var told []error
-	stop := w.WatchAs("raj", func(n int64, err error) {
-		if n != 0 {
-			t.Errorf("the failure is told with %d", n)
-		}
-		told = append(told, err)
-	})
-	defer stop()
-	must(t, errOf(w.AskInChat("dana", "", "in the chat", nil)))
-	if len(told) != 1 || told[0] == nil || errors.Is(told[0], requests.ErrNotThere) {
-		t.Errorf("the watcher is told %v", told)
+	n := got[*requests.Request](t)(w.AskInChat("dana", "", "in the chat", nil)).Number
+	must(t, errOf(w.db.Exec(`ALTER TABLE requests_files RENAME TO requests_lost`)))
+	if sees, err := w.SeesAny(n, "raj"); sees || err == nil || errors.Is(err, requests.ErrNotThere) || errors.As(err, &refusal) {
+		t.Errorf("whether Raj sees a change is answered %v, %v", sees, err)
 	}
 }
 

@@ -403,20 +403,6 @@ func (s *Store) Watch(fn func(number int64)) func() {
 	}
 }
 
-// WatchAs has fn told of each change to a request the person may see any
-// of, and of no other. When the store fails in judging whether they may,
-// fn is told the failure, with no number.
-func (s *Store) WatchAs(person string, fn func(number int64, err error)) func() {
-	return s.Watch(func(n int64) {
-		switch _, err := s.View(n, person); {
-		case err == nil:
-			fn(n, nil)
-		case !errors.Is(err, ErrNotThere):
-			fn(0, err)
-		}
-	})
-}
-
 // A querier is the store, or one write to it.
 type querier interface {
 	Exec(query string, args ...any) (sql.Result, error)

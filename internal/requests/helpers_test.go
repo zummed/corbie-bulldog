@@ -119,6 +119,21 @@ func moved(files map[string]string, from, to string) map[string]string {
 	return out
 }
 
+// told gives the requests a person is told of as each write changes
+// them, as a screen of theirs is: each they see any of, judged as it is
+// told. A store that fails in judging fails the test.
+func (d *desk) told(person string) (*[]int64, func()) {
+	var told []int64
+	stop := d.Watch(func(n int64) {
+		sees, err := d.SeesAny(n, person)
+		must(d.t, err)
+		if sees {
+			told = append(told, n)
+		}
+	})
+	return &told, stop
+}
+
 func must(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {

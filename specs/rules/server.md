@@ -396,7 +396,7 @@ and these, open without a key:
 
 **C-server-41** A screen that connects is sent `hello` first, and fetches what it shows. Whatever changed while it was away would otherwise be missed. *Test:* `server_events_begin_with_hello`
 
-**C-server-42** A change never waits on a screen. A screen whose stream has fallen behind misses what it could not take, and the next thing it is sent is `hello`. A slow browser must not stall whoever is writing, and a screen that missed a change must not go on showing it. *Test:* `server_slow_screen_never_blocks`
+**C-server-42** A change never waits on a screen: whoever writes it only marks it for each screen, and what the one looking may see of it is judged on their own stream, at once for all that was marked since it was last sent anything, each request once. A change marked while a stream judges is judged after it. A screen whose stream has fallen behind, by what was marked for it whether they see it or not, and by far more than an office writes while a stream judges, misses what it could not take, and the next thing it is sent is `hello`. A slow browser, or many screens open, must not stall whoever is writing, and a screen that missed a change must not go on showing it. *Test:* `server_slow_screen_never_blocks`
 
 **C-server-43** Both streams are sent with `Cache-Control: no-store` and `X-Accel-Buffering: no`. A proxy in front would buffer a stream, and changes would come late or never. *Test:* `server_streams_not_buffered`
 

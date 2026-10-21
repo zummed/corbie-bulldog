@@ -378,24 +378,20 @@ func TestRequestsSightFollowsTheFiles(t *testing.T) {
 	n := got[*requests.Request](t)(h.AskInChat("kit", "", "the socket", nil)).Number
 	must(t, h.Failed(n, "secret LEDGER_KEY wrong"))
 	failure := h.thread(n)[1]
-	var told []int64
-	stop := h.WatchAs("sam", func(n int64, err error) {
-		must(t, err)
-		told = append(told, n)
-	})
+	told, stop := h.told("sam")
 	defer stop()
 	h.read(replace(t, files, "office.yaml", "people: [sam, kit]", "people: [kit]"))
 	must(t, errOf(h.Say(n, h.Person("kit"), "it sparked again", nil, requests.Screens, false)))
-	if h.sees(n, "sam") || h.shows(n, "sam") != nil || len(told) != 0 {
-		t.Errorf("Sam, taken out of the house, sees %q of Kit's request, and is told of %v", h.shows(n, "sam"), told)
+	if h.sees(n, "sam") || h.shows(n, "sam") != nil || len(*told) != 0 {
+		t.Errorf("Sam, taken out of the house, sees %q of Kit's request, and is told of %v", h.shows(n, "sam"), *told)
 	}
 	if ds := got[[]requests.Delivery](t)(h.Deliveries(failure.ID)); len(ds) != 1 || ds[0].Person != "kit" {
 		t.Errorf("the house's failure is carried to %+v", ds)
 	}
 	h.read(files)
 	must(t, errOf(h.Say(n, h.Person("kit"), "and again", nil, requests.Screens, false)))
-	if !h.sees(n, "sam") || !slices.Equal(told, []int64{n}) || !holds(h.shows(n, "sam"), "LEDGER_KEY") || len(h.shows(n, "sam")) != 5 {
-		t.Errorf("Sam, put back, sees %q and is told of %v", h.shows(n, "sam"), told)
+	if !h.sees(n, "sam") || !slices.Equal(*told, []int64{n}) || !holds(h.shows(n, "sam"), "LEDGER_KEY") || len(h.shows(n, "sam")) != 5 {
+		t.Errorf("Sam, put back, sees %q and is told of %v", h.shows(n, "sam"), *told)
 	}
 	// Platform's people are those its decisions reach, read each time.
 	d := workDay(t)
@@ -417,11 +413,7 @@ func TestRequestsUnseenSameAsAbsent(t *testing.T) {
 	t.Parallel()
 	d := workDay(t)
 	unseen := got[*requests.Request](t)(d.AskInChat("dana", "", "in the chat", nil)).Number
-	var told []int64
-	stop := d.WatchAs("raj", func(n int64, err error) {
-		must(t, err)
-		told = append(told, n)
-	})
+	told, stop := d.told("raj")
 	defer stop()
 	must(t, errOf(d.Say(unseen, d.Person("dana"), "more", nil, requests.Screens, false)))
 	_, e1 := d.View(unseen, "raj")
@@ -442,8 +434,8 @@ func TestRequestsUnseenSameAsAbsent(t *testing.T) {
 			t.Error("Raj's list holds Dana's chat")
 		}
 	}
-	if len(told) != 0 || len(got[[]requests.Wait](t)(d.WaitingOn("raj"))) != 0 {
-		t.Errorf("Raj is told of %v", told)
+	if len(*told) != 0 || len(got[[]requests.Wait](t)(d.WaitingOn("raj"))) != 0 {
+		t.Errorf("Raj is told of %v", *told)
 	}
 }
 

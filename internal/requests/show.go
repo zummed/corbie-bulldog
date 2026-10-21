@@ -404,17 +404,13 @@ func (s *Store) View(n int64, person string) (*View, error) {
 	if err != nil {
 		return nil, err
 	}
-	es, err := l.entries(n)
+	es, shown, err := l.seen(n, done, person)
 	if err != nil {
 		return nil, err
 	}
-	puts, err := l.puts(n)
-	if err != nil {
-		return nil, err
-	}
-	v := &View{Number: n, Whole: done, Entries: l.shown(es, puts, done, person)}
+	v := &View{Number: n, Whole: done, Entries: shown}
 	if !done {
-		if len(v.Entries) == 0 {
+		if len(shown) == 0 {
 			return nil, ErrNotThere
 		}
 		return v, nil
@@ -440,6 +436,21 @@ func (s *Store) View(n int64, person string) (*View, error) {
 		return nil, err
 	}
 	return v, nil
+}
+
+// seen reads a request's thread, and gives it with the entries of it a
+// person sees, done saying whether they see what was done of it. A
+// request they see neither what was done of nor any entry of is, to them,
+// not there.
+func (l *look) seen(n int64, done bool, person string) (es, shown []Entry, err error) {
+	if es, err = l.entries(n); err != nil {
+		return nil, nil, err
+	}
+	puts, err := l.puts(n)
+	if err != nil {
+		return nil, nil, err
+	}
+	return es, l.shown(es, puts, done, person), nil
 }
 
 // tree gives the sub-requests beneath a request, as far down as they go.

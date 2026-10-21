@@ -14,6 +14,7 @@ import (
 	"github.com/zummed/corbie/client"
 	"github.com/zummed/corbie/machine"
 
+	"github.com/zummed/corbie-bulldog/internal/requests"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 	"github.com/zummed/corbie-bulldog/internal/work"
 	"github.com/zummed/corbie-bulldog/shipped"
@@ -188,48 +189,89 @@ func TestServerSlowScreenNeverBlocks(t *testing.T) {
 	t.Parallel()
 	sc := newScreen()
 	for i := range 10 * Behind {
-		sc.put(fmt.Sprintf("request:%d", i))
+		sc.put(mark{request: int64(i + 1)})
 	}
 	got := sc.take()
-	if len(got) == 0 || got[0] != Hello || len(got) > Behind {
+	if len(got) == 0 || got[0] != (mark{what: Hello}) || len(got) > Behind {
 		t.Errorf("a screen that fell behind is sent %v", got)
+	}
+	// What is put while the screen is judging what it took wakes it
+	// again, so nothing put is left unsent.
+	<-sc.wake
+	sc.put(mark{request: 1})
+	taken := sc.take()
+	sc.put(mark{request: 2})
+	select {
+	case <-sc.wake:
+	default:
+		t.Error("a change put while the screen judged what it took does not wake it")
+	}
+	if taken = append(taken, sc.take()...); len(taken) != 2 {
+		t.Errorf("the screen takes %v", taken)
 	}
 
 	// A screen whose browser takes nothing keeps nobody who changes
-	// anything waiting, and once it takes again it is sent hello.
+	// anything waiting. Once it takes again, what it was marked for and
+	// may not see is sent as nothing while it is less than Behind, and
+	// past Behind the screen is sent hello.
 	b := newBench(t, house(t))
 	held, let := b.hold()
 	defer let()
 	s := b.serve()
 	a := s.areasOf()
 	st := &site{Areas: *a, clock: b.clock, say: func(string, ...any) {}, screens: &screens{}}
-	w := newStalled(b.poke)
-	watching, stop := context.WithCancel(ctx)
-	defer stop()
-	ended := make(chan struct{})
-	go func() {
-		defer close(ended)
-		st.events("kit", w, httptest.NewRequestWithContext(watching, http.MethodGet, "/api/events", nil))
-	}()
-	b.until("the screen is sent hello", func() bool { return strings.Contains(w.String(), "event: hello") })
-	s.chat("kit", "", "the first question")
-	<-w.waiting
-	// Every request asked now is told to the stalled screen, and asking
-	// never waits on it.
-	for i := range 2 * Behind {
-		if _, err := a.Requests.AskInChat("kit", "", fmt.Sprintf("question %d", i), nil); err != nil {
+	hedge, roses := s.chat("sam", "garden", "the hedge"), s.chat("sam", "garden", "the roses")
+	kits := s.chat("kit", "", "the first question")
+	b.until("the steward has a turn", func() bool { return held() > 0 })
+	kitSays := func(text string) {
+		if _, err := a.Requests.Say(kits, a.Requests.Person("kit"), text, nil, requests.Screens, false); err != nil {
 			t.Fatal(err)
 		}
 	}
-	b.until("the steward has a turn", func() bool { return held() > 0 })
-	close(w.gate)
-	b.until("the screen is sent hello once it takes again", func() bool { return strings.Count(w.String(), "event: hello") == 2 })
-	after := strings.SplitN(w.String(), "event: hello", 3)[2]
-	if strings.Count(after, "event: change") > Behind {
-		t.Errorf("once it fell behind, the screen is sent:%s", after)
+	// stall gives Kit's screen stalled in sending her a change to her own
+	// request, and what lets it take again.
+	stall := func() (*stalled, func()) {
+		w := newStalled(b.poke)
+		watching, stop := context.WithCancel(ctx)
+		ended := make(chan struct{})
+		go func() {
+			defer close(ended)
+			st.events("kit", w, httptest.NewRequestWithContext(watching, http.MethodGet, "/api/events", nil))
+		}()
+		b.until("the screen is sent hello", func() bool { return strings.Contains(w.String(), "event: hello") })
+		kitSays("is it on yet?")
+		<-w.waiting
+		t.Cleanup(func() { stop(); <-ended })
+		return w, func() { close(w.gate) }
 	}
-	stop()
-	<-ended
+	// samSays has Sam say more in his requests to the garden, which Kit
+	// does not see, one and then the other, as many times as is given.
+	samSays := func(times int) {
+		for i := range times {
+			n := []int64{hedge, roses}[i%2]
+			if _, err := a.Requests.Say(n, a.Requests.Person("sam"), fmt.Sprintf("and %d", i), nil, requests.Screens, false); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	names := func(out string, ns ...int64) bool {
+		return slices.ContainsFunc(ns, func(n int64) bool { return strings.Contains(out, fmt.Sprintf("data: request:%d\n", n)) })
+	}
+	w, take := stall()
+	samSays(Behind / 2)
+	take()
+	kitSays("and now?")
+	b.until("Kit's own change is sent after Sam's", func() bool { return strings.Count(w.String(), fmt.Sprintf("data: request:%d\n", kits)) == 2 })
+	if strings.Count(w.String(), "event: hello") != 1 || names(w.String(), hedge, roses) {
+		t.Errorf("stalled while Sam said more %d times, Kit's screen is sent:%s", Behind/2, w.String())
+	}
+	w, take = stall()
+	samSays(Behind + 1)
+	take()
+	b.until("the screen is sent hello once it takes again", func() bool { return strings.Count(w.String(), "event: hello") == 2 })
+	if names(w.String(), hedge, roses) {
+		t.Errorf("once it fell behind, the screen is sent:%s", w.String())
+	}
 }
 
 func TestServerStreamsNotBuffered(t *testing.T) {
