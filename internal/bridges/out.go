@@ -177,6 +177,21 @@ func (b *Bridges) sentence(bridge string, t thing, text string) error {
 	return b.add(thingRow{bridge: bridge, place: t.Place, kind: ofSentence, text: text})
 }
 
+// directOrigin says whether a request's origin is its asker's direct place
+// itself, so what goes to it goes to them directly; one said in a thread
+// of their direct conversation, which some services hold, is that thread,
+// and what goes to it goes there, as to a channel's.
+func (b *Bridges) directOrigin(origin *requests.Origin, n int64) (bool, error) {
+	if origin.Heard != office.Direct {
+		return false, nil
+	}
+	r, err := b.requests.Get(n)
+	if err != nil {
+		return false, err
+	}
+	return origin.Place == r.Asker.ID, nil
+}
+
 // takesDirect says whether a bridge's out machine says something to a
 // person directly: it takes the input direct. A bridge whose service has
 // no direct place carries only what goes to an origin.
@@ -266,7 +281,11 @@ func (b *Bridges) queue(o *office.Office, e requests.Entry, bridge, person strin
 			if origin.Kind != requests.AtPlace || e.In.Bridge == origin.Bridge && e.In.Place == origin.Place || bridge != "" && origin.Bridge != bridge {
 				continue
 			}
-			th := thingRow{bridge: origin.Bridge, place: origin.Place, direct: origin.Heard == office.Direct, kind: ofEntry, request: e.Request, entry: e.ID}
+			direct, err := b.directOrigin(origin, e.Request)
+			if err != nil {
+				return err
+			}
+			th := thingRow{bridge: origin.Bridge, place: origin.Place, direct: direct, kind: ofEntry, request: e.Request, entry: e.ID}
 			if bridge := o.Bridges[origin.Bridge]; bridge == nil || !bridge.Runs() {
 				th.state, th.why = GivenUp, stopped(origin.Bridge, bridge)
 			}

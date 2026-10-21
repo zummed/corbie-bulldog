@@ -93,21 +93,9 @@ if (input.do === "hear") {
     return {
       id: "press:" + body.user.id + ":" + action.action_ts, kind: "choice", from: body.user.id,
       heard_in: where.direct ? "direct" : where.name,
-      place: where.direct ? body.user.id : channel + "/" + (container.thread_ts || container.message_ts),
+      place: (channel || container.channel_id) + "/" + (container.thread_ts || container.message_ts),
       answers: cut < 0 ? value : value.slice(0, cut), choice: cut < 0 ? "" : value.slice(cut + 1),
     }
-  }
-
-  // answered gives what a message said to the app directly answers: what
-  // it replies under, or else the app's latest message in that
-  // conversation before it, so a person answers a question by typing in
-  // their conversation with the app. What the app sent is named as
-  // channel/ts, as say names it.
-  const answered = message => {
-    if (message.thread_ts && message.thread_ts !== message.ts) return message.channel + "/" + message.thread_ts
-    const history = must("conversations.history", null, { channel: message.channel, latest: message.ts, limit: "20" })
-    const sent = (history.messages || []).find(m => m.bot_id)
-    return sent ? message.channel + "/" + sent.ts : undefined
   }
 
   // named gives a text with the app's own mention, <@its id>, written as
@@ -151,13 +139,10 @@ if (input.do === "hear") {
     const thing = {
       id: body.event_id || e.client_msg_id || e.channel + "/" + e.ts, kind: "said", from: e.user,
       heard_in: direct ? "direct" : where.name,
-      place: direct ? e.user : e.channel + "/" + (e.thread_ts || e.ts),
+      place: e.channel + "/" + (e.thread_ts || e.ts),
       readers: where.readers || [], text: big(text.text), files: files,
     }
-    if (direct) {
-      const answers = answered(e)
-      if (answers) thing.answers = answers
-    }
+    if (direct && e.thread_ts && e.thread_ts !== e.ts) thing.answers = e.channel + "/" + e.thread_ts
     if (text.mentioned) thing.mentioned = true
     return thing
   }

@@ -355,9 +355,10 @@ func TestBridgesSlackPlaceIsTheThread(t *testing.T) {
 	if readers, _ := json.Marshal(a[0]["readers"]); string(readers) != `["U0DANA00","U0AL0000","U0GUEST0"]` || a[0]["id"] != "Ev1" {
 		t.Errorf("the top is heard as %v", a[0])
 	}
-	// What is said to the app directly is the sender's direct place.
+	// What is said to the app directly is heard in direct, and is said at
+	// its thread, as in a channel.
 	dm := event("Ev3", map[string]any{"type": "message", "channel": "D0DANA00", "channel_type": "im", "user": "U0DANA00", "text": "to you", "ts": "1700000010.000100"})
-	if c := sl.hears(dm); len(c) != 1 || c[0]["heard_in"] != "direct" || c[0]["place"] != "U0DANA00" {
+	if c := sl.hears(dm); len(c) != 1 || c[0]["heard_in"] != "direct" || c[0]["place"] != "D0DANA00/1700000010.000100" || c[0]["answers"] != nil {
 		t.Errorf("a direct message is heard as %v", c)
 	}
 	// What the app itself posted is not heard.
@@ -394,7 +395,7 @@ func TestBridgesSlackChoicesAreButtons(t *testing.T) {
 		"actions":   []any{map[string]any{"action_id": "choice-0", "value": "r12:yes", "action_ts": "1700000002.1"}}})
 	things := sl.hears(press)
 	if len(things) != 1 || things[0]["kind"] != "choice" || things[0]["choice"] != "yes" || things[0]["answers"] != "r12" ||
-		things[0]["from"] != "U0LEE000" || things[0]["heard_in"] != "direct" || things[0]["place"] != "U0LEE000" {
+		things[0]["from"] != "U0LEE000" || things[0]["heard_in"] != "direct" || things[0]["place"] != "D0LEE000/1700000001.000100" {
 		t.Errorf("Lee's press is heard as %v", things)
 	}
 	// An answer goes into its thread, with its files.
@@ -436,25 +437,21 @@ func TestBridgesSlackQuestionChoicesAreButtons(t *testing.T) {
 func TestBridgesSlackDirectReplyAnswersWhatWasSent(t *testing.T) {
 	t.Parallel()
 	sl, s := newSlackBridge(t)
-	// A question carried to Priya directly, and her typed reply in her
-	// conversation with the app.
+	// A question carried to Priya directly. Her typed message in her
+	// conversation with the app replies to nothing, and is at its own
+	// thread: Bulldog takes it as her answer while the question waits on
+	// her. Slack is not asked what the app said before.
 	ref := sent(t, s.carry(map[string]any{"to": "U0PRI000", "direct": true, "text": "Which card?", "choices": []any{}, "ref": "r7"}))
 	reply := event("Ev7", map[string]any{"type": "message", "channel": "D0PRI000", "channel_type": "im", "user": "U0PRI000", "text": "the visa", "ts": "1800000000.000100"})
 	things := sl.hears(reply)
-	if len(things) != 1 || things[0]["answers"] != ref || things[0]["place"] != "U0PRI000" || things[0]["heard_in"] != "direct" {
-		t.Errorf("the reply is heard as %v, and what was sent is %s", things, ref)
+	if len(things) != 1 || things[0]["answers"] != nil || things[0]["place"] != "D0PRI000/1800000000.000100" || things[0]["heard_in"] != "direct" || sl.asked["conversations.history"] != 0 {
+		t.Errorf("the reply is heard as %v", things)
 	}
-	// A reply under the app's message answers that message.
+	// A reply under the app's message answers that message, at its thread.
 	under := event("Ev8", map[string]any{"type": "message", "channel": "D0PRI000", "channel_type": "im", "user": "U0PRI000", "text": "under it",
-		"ts": "1800000001.000100", "thread_ts": "1700000099.000100"})
-	if things := sl.hears(under); len(things) != 1 || things[0]["answers"] != "D0PRI000/1700000099.000100" {
-		t.Errorf("a reply under a message is heard as %v", things)
-	}
-	// In a conversation the app has said nothing in, a message answers
-	// nothing.
-	first := event("Ev9", map[string]any{"type": "message", "channel": "D0DANA00", "channel_type": "im", "user": "U0DANA00", "text": "hello", "ts": "1800000002.000100"})
-	if things := sl.hears(first); len(things) != 1 || things[0]["answers"] != nil {
-		t.Errorf("a first message is heard as %v", things)
+		"ts": "1800000001.000100", "thread_ts": strings.TrimPrefix(ref, "D0PRI000/")})
+	if things := sl.hears(under); len(things) != 1 || things[0]["answers"] != ref || things[0]["place"] != ref {
+		t.Errorf("a reply under a message is heard as %v, and what was sent is %s", things, ref)
 	}
 }
 

@@ -5,10 +5,10 @@
 # telling Slack it was received. It ends when Slack warns that it will
 # close the connection, or after four minutes, well within its time limit,
 # and Bulldog starts the next. With the app's bot token, SLACK_TOKEN, it
-# reads a channel's name and who is in it, the files said there, and what
-# the app last said in a person's conversation with it, which what they
-# type there answers: the app needs the im:history scope for that, and a
-# run without it fails, saying so. The job's allow list is what limits it:
+# reads a channel's name and who is in it, and the files said there; the
+# app needs the im:history scope for Slack to send what a person types in
+# their conversation with it. A message said there is given at its
+# thread, as one in a channel is. The job's allow list is what limits it:
 # slack.com, files.slack.com and the hosts Slack's connections are made
 # to, and nothing written or run.
 flow: slack-in

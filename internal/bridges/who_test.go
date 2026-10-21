@@ -465,3 +465,59 @@ func TestBridgesChoiceOnAQuestionAnswersIt(t *testing.T) {
 		t.Errorf("a question with no choices is carried as %v", out)
 	}
 }
+
+func TestBridgesADirectThreadIsItsOwnConversation(t *testing.T) {
+	t.Parallel()
+	d := open(t, replace(t, work(t), "office.yaml", `"#help": { guests: true }`, `"#help": { guests: true }
+      direct: {}`))
+	dm := func(place, text string, more ...any) {
+		d.delivered("slack", said("U0DANA00", "direct", place, text, more...))
+	}
+	// Dana's first message to the app directly begins a request, said at
+	// its own thread, which is where its answer goes, and not to her
+	// directly.
+	dm("D0DANA00/1.0", "is the API down?")
+	first := d.latest()
+	d.answer(first, "bot", "It is up.")
+	out := to(d.carry(), "slack", "D0DANA00/1.0")
+	if len(out) != 1 || out[0].Input["direct"] != false {
+		t.Fatalf("the answer is carried as %v", out)
+	}
+	d.ended(out[0], map[string]any{"sent": "D0DANA00/1.5"})
+	// Her next message, replying to nothing, begins a request of its own;
+	// her reply in the first's thread goes on in the first.
+	dm("D0DANA00/2.0", "and the ledger?")
+	second := d.latest()
+	dm("D0DANA00/1.0", "thanks", "answers", "D0DANA00/1.0")
+	if second == first || d.latest() != second || !slices.Equal(d.thread(first)[2:], []string{"said: thanks"}) {
+		t.Errorf("Dana's messages go to %d and %d: %v", first, second, d.thread(first))
+	}
+	// A question to her goes to its request's thread, and her reply there
+	// answers it.
+	_, err := d.requests.Put(second, d.requests.Worker("bot"), requests.KindQuestion, requests.Identity("slack", "U0DANA00"), "which ledger?", nil)
+	must(t, err)
+	for _, s := range to(d.carry(), "slack", "D0DANA00/2.0") {
+		d.ended(s, map[string]any{"sent": "D0DANA00/2.5"})
+	}
+	dm("D0DANA00/2.0", "payments", "answers", "D0DANA00/2.0")
+	if got := d.thread(second); got[len(got)-1] != "replied: payments" {
+		t.Errorf("Dana's answer is %v", got)
+	}
+	// A question carried to Al directly is answered by his next message,
+	// while it waits on him, and once it waits no longer his next begins a
+	// request.
+	_, err = d.requests.Put(second, d.requests.Worker("bot"), requests.KindQuestion, d.requests.Person("al"), "may I refund it?", nil)
+	must(t, err)
+	for _, s := range to(d.carry(), "slack", "U0AL0000") {
+		d.ended(s, map[string]any{"sent": "D0AL0000/3.0"})
+	}
+	before := d.latest()
+	d.delivered("slack", said("U0AL0000", "direct", "D0AL0000/4.0", "yes"))
+	if got := d.thread(second); got[len(got)-1] != "replied: yes" || d.latest() != before {
+		t.Errorf("Al's answer is %v", got)
+	}
+	d.delivered("slack", said("U0AL0000", "direct", "D0AL0000/5.0", "one more thing"))
+	if d.latest() == before {
+		t.Errorf("Al's message after his answer is said in %d", second)
+	}
+}

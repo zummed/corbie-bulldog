@@ -650,7 +650,7 @@ func (b *Bridges) said(o *office.Office, bridge string, t thing) (handing, error
 			return handing{}, err
 		}
 		switch {
-		case sent == nil || sent.entry == 0 || sent.place != t.Place:
+		case sent == nil || sent.entry == 0 || !at(sent, t):
 		case sent.direct && t.From != sent.place:
 			return handing{}, b.sentence(bridge, t, notYours)
 		case sent.person != "":
@@ -718,27 +718,49 @@ func (b *Bridges) heardRequest(bridge, id, place string) (int64, error) {
 	return n, nil
 }
 
+// at says whether a thing was said where a thing carried was: at its
+// place, or, for one carried to a person directly, anywhere in their
+// direct conversation, which a service whose direct conversations hold
+// threads gives as a thread of it.
+func at(sent *thingRow, t thing) bool {
+	return sent.place == t.Place || sent.direct && t.HeardIn == office.Direct
+}
+
 // goesOn takes something said that answers nothing in particular where it
 // goes on from what went before at its place, and says whether it was
-// taken. At a place that holds threads, it is said in the latest request
-// whose origin is the place, when its sender may say more in it, and
-// answers the question put there that waits on them, if one does. A
-// threadless place holds every conversation its people have there, so
-// there it only answers the latest question carried there, while that
-// still waits on its sender.
+// taken. Said in a thread of its own in a direct conversation, replying to
+// nothing, or at a threadless place, it first answers the latest question
+// carried to its sender directly, or there, while that still waits on
+// them. A threadless place holds every
+// conversation its people have there, so there that is all it does. At a
+// place that holds threads, it is said in the latest request whose origin
+// is the place, when its sender may say more in it, and answers the
+// question put there that waits on them, if one does.
 func (b *Bridges) goesOn(o *office.Office, bridge string, t thing, who requests.Who, in requests.Where) (handing, bool, error) {
-	if t.Threadless {
-		sent, err := b.latestQuestion(`WHERE bridge = ? AND place = ? AND kind = ? AND state = ? ORDER BY id DESC`, bridge, t.Place, ofEntry, Sent)
-		if err != nil || sent == nil {
+	thread := t.HeardIn == office.Direct && t.Place != t.From
+	if t.Threadless || thread && t.Answers == "" {
+		place := t.Place
+		if thread {
+			place = t.From
+		}
+		sent, err := b.latestQuestion(`WHERE bridge = ? AND place = ? AND kind = ? AND state = ? ORDER BY id DESC`, bridge, place, ofEntry, Sent)
+		if err != nil {
 			return handing{}, false, err
 		}
-		if sent.person != "" {
-			still, err := b.stillFor(o, sent)
-			if err != nil || !still {
+		still := sent != nil
+		if still && sent.person != "" {
+			if still, err = b.stillFor(o, sent); err != nil {
 				return handing{}, false, err
 			}
 		}
-		return b.reply(sent, who, t, in)
+		if still {
+			if h, ok, err := b.reply(sent, who, t, in); err != nil || ok {
+				return h, ok, err
+			}
+		}
+		if t.Threadless {
+			return handing{}, false, nil
+		}
 	}
 	n, ok, err := b.requests.LatestAt(bridge, t.Place)
 	if err != nil || !ok {
@@ -868,7 +890,7 @@ func (b *Bridges) chose(o *office.Office, bridge string, t thing) (handing, erro
 	switch {
 	case person == nil && !(listed && p.Guests):
 		return handing{}, b.sentence(bridge, t, notFromGuests)
-	case sent == nil || sent.entry == 0 || sent.place != t.Place:
+	case sent == nil || sent.entry == 0 || !at(sent, t):
 		return handing{}, b.sentence(bridge, t, noSuchThing)
 	case sent.direct && t.From != sent.place:
 		return handing{}, b.sentence(bridge, t, notYours)
