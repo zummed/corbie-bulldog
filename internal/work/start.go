@@ -413,9 +413,10 @@ func (w *Work) start(ctx context.Context, rd ready) bool {
 	return true
 }
 
-// send sends the start of a run kept as going.
+// send sends the start of a run kept as going, good for Life.
 func (w *Work) send(ctx context.Context, draft *machine.Draft, s client.Start) error {
 	defer w.sendingDone(s.Run)
+	s.Life = Life
 	_, err := w.corbie.Start(ctx, draft, s)
 	return err
 }

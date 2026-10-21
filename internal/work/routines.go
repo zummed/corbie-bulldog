@@ -213,7 +213,7 @@ func (w *Work) come(ctx context.Context, id string) error {
 			return err
 		}
 	}
-	_, err = w.corbie.Reply(ctx, id, ticket, map[string]any{"request": request}, 0)
+	_, err = w.corbie.Reply(ctx, id, ticket, map[string]any{"request": request}, Life)
 	return err
 }
 

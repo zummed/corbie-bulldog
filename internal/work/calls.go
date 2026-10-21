@@ -186,7 +186,7 @@ func (w *Work) giveLater(run string, err error) {
 	w.again("give:" + run)
 }
 
-// give answers the ticket a run waits on.
+// give answers the ticket a run waits on, with an answer good for Life.
 func (w *Work) give(ctx context.Context, run, ticket string, value any) error {
 	tickets, err := w.corbie.Tickets(ctx, run)
 	switch {
@@ -197,7 +197,7 @@ func (w *Work) give(ctx context.Context, run, ticket string, value any) error {
 	case tickets[ticket] == "":
 		return errGone
 	}
-	_, err = w.corbie.Reply(ctx, run, tickets[ticket], value, 0)
+	_, err = w.corbie.Reply(ctx, run, tickets[ticket], value, Life)
 	return err
 }
 

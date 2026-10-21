@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/zummed/corbie/client"
+	corbieid "github.com/zummed/corbie/identity"
 
 	"github.com/zummed/corbie-bulldog/internal/bridges"
 	"github.com/zummed/corbie-bulldog/internal/decisions"
@@ -229,6 +230,13 @@ func (w *Work) ended(ctx context.Context, name string) {
 	switch {
 	case errors.Is(err, client.ErrNoRun) && (n.Status == unsent || w.isSending(name)):
 		// Not sent, or not yet: the watch sees it once Corbie holds it.
+		return
+	case errors.Is(err, client.ErrNeverTaken) && w.clock.Now().Before(n.Noted.Add(Life+2*corbieid.ClockAllowance)):
+		// Corbie reckons a start as never taken up once a few minutes
+		// have passed, whatever life it was given: until its own has,
+		// and twice the time Corbie lets clocks differ by, it may be
+		// taken up yet.
+		w.showAgain(name)
 		return
 	case errors.Is(err, client.ErrNoRun):
 		w.lost(ctx, n)

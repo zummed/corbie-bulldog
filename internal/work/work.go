@@ -66,6 +66,9 @@ const (
 	DocsLimit = 20_000
 	// ToolWait is how long a shipped tool waits on its ticket.
 	ToolWait = 7 * 24 * time.Hour
+	// Life is how long a start, or an answer to a ticket, that work sends
+	// is good for: a controller behind on a burst takes it up within it.
+	Life = time.Hour
 )
 
 // Corbie is what work uses of Corbie's client: a *client.Client.

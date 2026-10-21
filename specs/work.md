@@ -184,7 +184,7 @@ Corbie needs nothing from Bulldog to keep going. A run goes on, a call waits, an
 
 Bulldog watches every run with its office's label, and begins again a second later if watching cannot begin. The watch is how work learns that a run ended, a run asked to decide among them: work reads how it ended once, when the watch sees it end, and gives that to the decider waiting on it. When the first listing ends, it settles: each run it has noted as going that is not running is read for how it ended, each waiting call is answered from what was kept or done now, each waiting clock is acted on, and what waits to start is started.
 
-A run is never taken to have ended from a record that could not be read. A run with the office's label that Bulldog has no note of is left over from an office that no longer has it, and is cancelled. A noted run Corbie never took up, or has no record of, is ended as lost, unless its start is still being sent.
+A run is never taken to have ended from a record that could not be read. A run with the office's label that Bulldog has no note of is left over from an office that no longer has it, and is cancelled. A noted run Corbie never took up, or has no record of, is ended as lost, unless its start is still being sent; one Corbie says it never took up, only once the hour its start was good for has passed. Every start and every answer to a ticket Bulldog sends is good for an hour, so a controller behind on a burst takes it up late rather than refusing it.
 
 Bulldog looks for runs to start when a request is opened, something is said, a run ends, a call is answered, or the office is read again. The one timer of this area's own looks again at what it could not read or reach. What people do on the screens never waits on Corbie.
 
@@ -204,6 +204,7 @@ A run goes on as it was started when the files change, and the worker's next run
 | how long a heed weighs | its rule's own: Bulldog keeps no limit; for-us's is its `timeout`, 10s unless the team file sets it |
 | runs of one request in a row with nothing said in it by a person | 20; then the request is answered as stopped at the limit, or, where the last of them was started by a refused answer, the asker is told that the team did not disclose its answer; a person saying more in it starts it again |
 | how long a shipped tool waits | 7 days |
+| how long a start, or an answer to a ticket, that Bulldog sends is good for | an hour |
 | how far up Bulldog looks for the worker that called | 16 runs |
 | when Bulldog looks again at what it could not read or reach | 30 seconds |
 

@@ -163,6 +163,50 @@ func TestWorkNotedRunWithoutRecordEndedAsLost(t *testing.T) {
 	}
 }
 
+func TestWorkAStartIsGoodForAnHour(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	b.says(fixing("tell", map[string]any{"text": "on it"}))
+	b.answered(b.chat("kit", "", "the kitchen socket sparked"))
+	var lives []time.Duration
+	b.reach.set(func(f *flaky) { lives = slices.Clone(f.lives) })
+	if len(lives) < 2 || slices.ContainsFunc(lives, func(l time.Duration) bool { return l != Life }) {
+		t.Errorf("the starts and the replies sent were good for %v", lives)
+	}
+
+	// A start Corbie says was never taken up may be taken up until its
+	// hour has passed.
+	b = newBench(t, house(t))
+	b.halt()
+	n := b.chat("kit", "", "the kitchen socket sparked")
+	name, err := b.corbie.NewRun()
+	if err != nil {
+		t.Fatal(err)
+	}
+	thread, err := b.reqs.Thread(n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := b.w.keep(&note{Name: name, Kind: KindWork, Team: "office", Request: n, Worker: "steward",
+		Labels: map[string]string{LabelBulldog: identity}, Seen: thread[0].ID, Noted: b.clock.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	b.reach.fail("show", client.ErrNeverTaken)
+	b.restart()
+	b.until("the run is looked at", func() bool { return b.reach.count("show") > 0 })
+	b.still()
+	b.later(30 * time.Minute)
+	b.still()
+	if runs := b.runs(n); len(runs) != 1 || runs[0].Status != going {
+		t.Fatalf("a start within its hour was taken as %+v", runs)
+	}
+	b.later(Life)
+	b.settled(n, requests.Answered)
+	if runs := b.runs(n); len(runs) != 1 || runs[0].Status != lost {
+		t.Errorf("the runs are %+v", runs)
+	}
+}
+
 func TestWorkRunBeingSentNotLost(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, work(t))

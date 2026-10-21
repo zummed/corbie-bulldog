@@ -538,8 +538,10 @@ type flaky struct {
 	// in for what a run is shown as; replying is told of each reply before
 	// it is sent, and fails it with what it gives.
 	cancelled func(run string)
-	showing   func(*client.Run) *client.Run
-	replying  func(run string) error
+	// lives are the lives of every start and reply sent, in turn.
+	lives    []time.Duration
+	showing  func(*client.Run) *client.Run
+	replying func(run string) error
 }
 
 func (f *flaky) failing(what string) error {
@@ -572,6 +574,7 @@ func (f *flaky) Start(ctx context.Context, d *machine.Draft, s client.Start) (st
 	}
 	f.mu.Lock()
 	starting, lie := f.starting, f.lie
+	f.lives = append(f.lives, s.Life)
 	f.mu.Unlock()
 	if lie {
 		if _, err := f.Client.Start(ctx, d, s); err != nil {
@@ -663,6 +666,7 @@ func (f *flaky) Reply(ctx context.Context, run, ticket string, value any, life t
 	}
 	f.mu.Lock()
 	replying := f.replying
+	f.lives = append(f.lives, life)
 	f.mu.Unlock()
 	if replying != nil {
 		if err := replying(run); err != nil {
