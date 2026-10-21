@@ -32,6 +32,17 @@ func (b *bench) carryOn(bridge, to string) map[string]any {
 	return in
 }
 
+// markOn stays until the next out run of a bridge carries to a place, ends
+// it as sent, and gives the mark it carried, or its text.
+func (b *bench) markOn(bridge, to string) string {
+	b.t.Helper()
+	in := b.carryOn(bridge, to)
+	if w, ok := in["working"].(string); ok && in["answers"] == nil {
+		return w
+	}
+	return fmt.Sprint(in["text"])
+}
+
 // outRuns counts the out runs of a bridge started.
 func (b *bench) outRuns(bridge string) int {
 	b.t.Helper()
@@ -53,29 +64,66 @@ func TestWorkMarkedWhileTheLeadWorks(t *testing.T) {
 		t.Errorf("%d out runs of slack were started for what was noted", runs)
 	}
 	// What it lets through starts the lead, marked while it works: the
-	// mark goes on, the answer goes, and the mark comes off after it.
-	asked := thing("said", "U0DANA00", "#help", "C1/1.0", "text", "@bot customer 4411 was charged twice")
-	b.hand(listening, asked)
+	// mark goes on, the answer goes, and the team is done after it.
+	b.hand(listening, thing("said", "U0DANA00", "#help", "C1/1.0", "text", "@bot customer 4411 was charged twice"))
 	b.started(n, 1)
-	if in := b.carryOn("slack", "C1/1.0"); in["working"] != true || in["answers"] != asked["id"] || in["text"] != "" {
+	if in := b.carryOn("slack", "C1/1.0"); in["working"] != "working" || in["answers"] != nil || in["text"] != "" {
 		t.Errorf("the first out run is given %v", in)
 	}
 	if in := b.carryOn("slack", "C1/1.0"); in["text"] != "Duplicate confirmed." || in["working"] != nil {
 		t.Errorf("the second out run is given %v", in)
 	}
-	if in := b.carryOn("slack", "C1/1.0"); in["working"] != false || in["answers"] != asked["id"] {
-		t.Errorf("the third out run is given %v", in)
+	if got := b.markOn("slack", "C1/1.0"); got != "done" {
+		t.Errorf("the third out run carries %q", got)
 	}
 	b.settled(n, requests.Answered)
-	// A follow-up in the thread is marked on its own.
-	more := thing("said", "U0DANA00", "#help", "C1/1.0", "text", "@bot and the second card?")
-	b.hand(listening, more)
+	// A follow-up in the thread is marked the same.
+	b.hand(listening, thing("said", "U0DANA00", "#help", "C1/1.0", "text", "@bot and the second card?"))
 	b.started(n, 2)
-	got := []any{b.carryOn("slack", "C1/1.0")["answers"], b.carryOn("slack", "C1/1.0")["text"], b.carryOn("slack", "C1/1.0")["answers"]}
-	if !slices.Equal(got, []any{more["id"], "Duplicate confirmed.", more["id"]}) {
+	got := []string{b.markOn("slack", "C1/1.0"), b.markOn("slack", "C1/1.0"), b.markOn("slack", "C1/1.0")}
+	if !slices.Equal(got, []string{"working", "Duplicate confirmed.", "done"}) {
 		t.Errorf("the follow-up is carried as %v", got)
 	}
 	b.settled(n, requests.Answered)
+	if runs := b.outRuns("slack"); runs != 6 {
+		t.Errorf("%d out runs of slack were started", runs)
+	}
+}
+
+func TestWorkMarkWaitsWhileAPersonIsAsked(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, marking(t))
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		if turn.Number == 1 {
+			return testkit.Use("ask_person", map[string]any{"question": "may I refund 4411?", "who": "Al"})
+		}
+		return testkit.Say("Refunded.")
+	})
+	listening := b.listening("slack")
+	b.hand(listening, thing("said", "U0DANA00", "#help", "C1/1.0", "text", "@bot customer 4411 was charged twice"))
+	n := b.at("slack", "C1/1.0")
+	b.started(n, 1)
+	if got := b.markOn("slack", "C1/1.0"); got != "working" {
+		t.Errorf("as the bot starts, the thread is carried %q", got)
+	}
+	// The bot asks Al, directly: the thread waits on someone while the
+	// question does, and the team works again once Al answers.
+	if in := b.carryOn("slack", "U0AL0000"); in["text"] != "may I refund 4411?" {
+		t.Errorf("Al is carried %v", in)
+	}
+	if got := b.markOn("slack", "C1/1.0"); got != "waiting" {
+		t.Errorf("while Al is asked, the thread is carried %q", got)
+	}
+	q := b.waitsOn(n, requests.KindQuestion)
+	if _, err := b.reqs.Reply(q.ID, b.reqs.Person("al"), "yes", nil, requests.Screens); err != nil {
+		t.Fatal(err)
+	}
+	got := []string{b.markOn("slack", "C1/1.0"), b.markOn("slack", "C1/1.0"), b.markOn("slack", "C1/1.0")}
+	if !slices.Equal(got, []string{"working", "Refunded.", "done"}) {
+		t.Errorf("once Al answers, the thread is carried %v", got)
+	}
+	b.settled(n, requests.Answered)
+	b.still()
 	if runs := b.outRuns("slack"); runs != 6 {
 		t.Errorf("%d out runs of slack were started", runs)
 	}
@@ -104,24 +152,46 @@ func TestWorkMarkOffHoweverTheRunEnds(t *testing.T) {
 	held, let := b.hold("", testkit.Say("done"))
 	defer let()
 	listening := b.listening("slack")
-	asked := thing("said", "U0DANA00", "#help", "C1/1.0", "text", "@bot customer 4411 was charged twice")
-	b.hand(listening, asked)
+	b.hand(listening, thing("said", "U0DANA00", "#help", "C1/1.0", "text", "@bot customer 4411 was charged twice"))
 	n := b.at("slack", "C1/1.0")
 	b.started(n, 1)
 	b.until("the bot is held", func() bool { return held() == 1 })
-	if in := b.carryOn("slack", "C1/1.0"); in["working"] != true || in["answers"] != asked["id"] {
-		t.Errorf("the mark is given %v", in)
+	if got := b.markOn("slack", "C1/1.0"); got != "working" {
+		t.Errorf("the mark is %q", got)
 	}
-	// Al stops it while the bot works: Dana is told, and then the mark
-	// comes off.
+	// Al stops it while the bot works: Dana is told, and then the team is
+	// done there.
 	if err := b.w.Stop(ctx, n, b.reqs.Person("al")); err != nil {
 		t.Fatal(err)
 	}
 	if in := b.carryOn("slack", "C1/1.0"); !strings.Contains(fmt.Sprint(in["text"]), "stopped by Al") || in["working"] != nil {
 		t.Errorf("after the stop, the out run is given %v", in)
 	}
-	if in := b.carryOn("slack", "C1/1.0"); in["working"] != false || in["answers"] != asked["id"] {
-		t.Errorf("the mark comes off as %v", in)
+	if got := b.markOn("slack", "C1/1.0"); got != "done" {
+		t.Errorf("after the stop, the mark is %q", got)
 	}
 	b.settled(n, requests.Answered)
+
+	// A run that fails, here at its turn limit, has Dana told, and then
+	// the team is done there.
+	files := marking(t)
+	files["bot.yaml"] = strings.Replace(files["bot.yaml"], "model: usual", "model: usual\nlimits: { turns: 1 }", 1)
+	f := newBench(t, files)
+	f.says(func(testkit.Turn) testkit.Reply { return testkit.Use("list_docs", map[string]any{}) })
+	failing := f.listening("slack")
+	f.hand(failing, thing("said", "U0DANA00", "#help", "C1/1.0", "text", "@bot customer 4411 was charged twice"))
+	m := f.at("slack", "C1/1.0")
+	if got := f.markOn("slack", "C1/1.0"); got != "working" {
+		t.Errorf("the mark is %q", got)
+	}
+	if got := f.markOn("slack", "C1/1.0"); got == "done" || got == "working" {
+		t.Errorf("after the failure, the thread is carried %q", got)
+	}
+	if got := f.markOn("slack", "C1/1.0"); got != "done" {
+		t.Errorf("after the failure, the mark is %q", got)
+	}
+	f.settled(m, requests.Answered)
+	if runs := f.runs(m); len(runs) != 1 || runs[0].Status != failed {
+		t.Errorf("the bot's runs are %+v", runs)
+	}
 }

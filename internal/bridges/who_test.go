@@ -496,7 +496,11 @@ func TestBridgesADirectThreadIsItsOwnConversation(t *testing.T) {
 	// answers it.
 	_, err := d.requests.Put(second, d.requests.Worker("bot"), requests.KindQuestion, requests.Identity("slack", "U0DANA00"), "which ledger?", nil)
 	must(t, err)
-	for _, s := range to(d.carry(), "slack", "D0DANA00/2.0") {
+	out = d.carry()
+	if direct := to(out, "slack", "U0DANA00"); len(direct) != 0 {
+		t.Errorf("the question is also carried to Dana directly: %v", direct)
+	}
+	for _, s := range to(out, "slack", "D0DANA00/2.0") {
 		d.ended(s, map[string]any{"sent": "D0DANA00/2.5"})
 	}
 	dm("D0DANA00/2.0", "payments", "answers", "D0DANA00/2.0")
@@ -519,5 +523,13 @@ func TestBridgesADirectThreadIsItsOwnConversation(t *testing.T) {
 	d.delivered("slack", said("U0AL0000", "direct", "D0AL0000/5.0", "one more thing"))
 	if d.latest() == before {
 		t.Errorf("Al's message after his answer is said in %d", second)
+	}
+	// A request asked at her direct place itself, as before the bridge gave
+	// a thread, is still answered to her directly.
+	dm("U0DANA00", "and the old way?")
+	old := d.latest()
+	d.answer(old, "bot", "Still answered.")
+	if out := to(d.carry(), "slack", "U0DANA00"); len(out) != 1 || out[0].Input["direct"] != true || textIn(out[0]) != "Still answered." {
+		t.Errorf("the answer to a request asked at her direct place is carried as %v", out)
 	}
 }

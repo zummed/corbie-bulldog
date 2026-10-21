@@ -352,12 +352,12 @@ func (b *Bridges) marksFailing(name string) (Trouble, error) {
 	t := Trouble{Bridge: name}
 	var went, latest int64
 	var since string
-	if err := b.db.QueryRow(`SELECT coalesce(max(id), 0) FROM bridges_things WHERE bridge = ? AND kind IN (?, ?) AND state = ?`,
-		name, ofWorking, ofNotWorking, Sent).Scan(&went); err != nil {
+	if err := b.db.QueryRow(`SELECT coalesce(max(id), 0) FROM bridges_things WHERE bridge = ? AND kind = ? AND state = ?`,
+		name, ofMark, Sent).Scan(&went); err != nil {
 		return t, failed(err)
 	}
-	if err := b.db.QueryRow(`SELECT count(*), coalesce(min(made), ''), coalesce(max(id), 0) FROM bridges_things WHERE bridge = ? AND kind IN (?, ?) AND state = ? AND id > ?`,
-		name, ofWorking, ofNotWorking, GivenUp, went).Scan(&t.Failures, &since, &latest); err != nil {
+	if err := b.db.QueryRow(`SELECT count(*), coalesce(min(made), ''), coalesce(max(id), 0) FROM bridges_things WHERE bridge = ? AND kind = ? AND state = ? AND runs > 0 AND id > ?`,
+		name, ofMark, GivenUp, went).Scan(&t.Failures, &since, &latest); err != nil {
 		return t, failed(err)
 	}
 	if t.Failures == 0 {
@@ -367,7 +367,7 @@ func (b *Bridges) marksFailing(name string) (Trouble, error) {
 	if err != nil || th == nil {
 		return t, err
 	}
-	t.Error, t.Since = "a mark that the team works on a message was not carried: "+th.why, unstamp(since)
+	t.Error, t.Since = "a mark of what a team is doing in a thread was not carried: "+th.why, unstamp(since)
 	return t, nil
 }
 
@@ -765,11 +765,11 @@ func at(sent *thingRow, t thing) bool {
 // taken. Said in a thread of its own in a direct conversation, replying to
 // nothing, or at a threadless place, it first answers the latest question
 // carried to its sender directly, or there, while that still waits on
-// them. A threadless place holds every
-// conversation its people have there, so there that is all it does. At a
-// place that holds threads, it is said in the latest request whose origin
-// is the place, when its sender may say more in it, and answers the
-// question put there that waits on them, if one does.
+// them. A threadless place holds every conversation its people have
+// there, so there that is all it does. At a place that holds threads, it
+// is said in the latest request whose origin is the place, when its sender
+// may say more in it, and answers the question put there that waits on
+// them, if one does.
 func (b *Bridges) goesOn(o *office.Office, bridge string, t thing, who requests.Who, in requests.Where) (handing, bool, error) {
 	thread := t.HeardIn == office.Direct && t.Place != t.From
 	if t.Threadless || thread && t.Answers == "" {

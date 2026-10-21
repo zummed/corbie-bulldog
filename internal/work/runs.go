@@ -366,8 +366,7 @@ func (w *Work) lost(ctx context.Context, n *note) {
 }
 
 // worked has the bridges told, once a lead's run on a request has ended
-// and what it said is written, that the team is no longer working on what
-// it started on.
+// and what it said is written, that the team is done with it.
 func (w *Work) worked(n *note) {
 	if err := w.bridges.Worked(n.Request); err != nil {
 		w.Log("request %d: the bridges could not be told that %s is no longer working on it: %v", n.Request, n.Worker, err)

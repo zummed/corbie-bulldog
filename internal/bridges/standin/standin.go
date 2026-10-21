@@ -98,11 +98,11 @@ func Folder(hears, direct bool) map[string]string {
 }
 
 // Marking gives a stand-in bridge's files with an out machine that takes
-// working, as Slack's does, so it is told when a team starts and stops
-// working on a thing heard at a place.
+// working, as Slack's does, so it is told what a team is doing on a
+// request asked at a place.
 func Marking(folder map[string]string) map[string]string {
 	out := maps.Clone(folder)
-	out["out.yaml"] = strings.Replace(folder["out.yaml"], "text: blob }", `text: blob, working: "boolean?" }`, 1)
+	out["out.yaml"] = strings.Replace(folder["out.yaml"], "text: blob }", `text: blob, working: "string?" }`, 1)
 	return out
 }
 

@@ -50,8 +50,8 @@ const (
 // The inputs a bridge's machines are given. An in machine that takes
 // cursor listens, and one that takes delivery hears; an out machine that
 // takes direct can say something to a person directly, and is told so,
-// and one that takes working is told when a team starts and stops
-// working on a thing heard at a place.
+// and one that takes working is told what a team is doing on a request
+// asked at a place: working, waiting on a person, or done.
 const (
 	InputSettings = "settings"
 	InputCursor   = "cursor"

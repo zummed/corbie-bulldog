@@ -26,20 +26,18 @@ const (
 )
 
 // The kinds of thing carried: an entry of a request, a sentence answering
-// what someone said on a bridge, a one-time sign-in link, and the marks
-// that a team is working on an entry heard at its request's origin, and
-// is no longer.
+// what someone said on a bridge, a one-time sign-in link, and a mark of
+// what a team is doing at a request's origin, which its text says.
 const (
-	ofEntry      = "entry"
-	ofSentence   = "sentence"
-	ofSignIn     = "sign-in"
-	ofWorking    = "working"
-	ofNotWorking = "not working"
+	ofEntry    = "entry"
+	ofSentence = "sentence"
+	ofSignIn   = "sign-in"
+	ofMark     = "mark"
 )
 
 // marks says whether a kind of thing is a mark: no entry's carrying, and
 // shown on no request.
-func marks(kind string) bool { return kind == ofWorking || kind == ofNotWorking }
+func marks(kind string) bool { return kind == ofMark }
 
 // Chat is the built-in chat's name as a bridge, which no bridge of the
 // office takes.
@@ -214,12 +212,27 @@ func takesWorking(bridge *office.Bridge) bool {
 	return bridge.Out != nil && office.Takes(bridge.Out, InputWorking)
 }
 
-// Working keeps a mark, to be carried to a request's origin, on each of
-// the entries a run of its lead starts on that was heard there: the team
-// is working on it. Only a bridge that runs, and whose out machine takes
-// working, is told. What waits to be carried is looked at first, so the
-// mark goes after everything said before it.
-func (b *Bridges) Working(request int64, entries []int64) error {
+// What a mark says a team is doing in the thread at a request's origin:
+// working on it, waiting on a person, or done.
+const (
+	markWorking = "working"
+	markWaiting = "waiting"
+	markDone    = "done"
+)
+
+// Working keeps a mark, to be carried to a request's origin, that the team
+// is working on it: a run of its lead has started. Only a bridge that
+// runs, and whose out machine takes working, is told. What waits to be
+// carried is looked at first, so the mark goes after everything said
+// before it.
+func (b *Bridges) Working(request int64) error { return b.marking(request, markWorking) }
+
+// Worked keeps a mark, to be carried to a request's origin, that the team
+// is done with it, once its lead's run has ended. What the run said is
+// looked at first, so its answer goes before the mark.
+func (b *Bridges) Worked(request int64) error { return b.marking(request, markDone) }
+
+func (b *Bridges) marking(request int64, state string) error {
 	b.mu.Lock()
 	defer b.unlock()
 	o, err := b.office()
@@ -228,6 +241,34 @@ func (b *Bridges) Working(request int64, entries []int64) error {
 	}
 	if err := b.scan(o); err != nil {
 		return err
+	}
+	return b.markAs(o, request, state)
+}
+
+// lastMark gives the latest mark of a request that went, is to go, or was
+// given up by a run that may have made it all the same, or nil.
+func (b *Bridges) lastMark(request int64) (*thingRow, error) {
+	things, err := b.things(`WHERE request = ? AND kind = ? AND state != ? AND NOT (state = ? AND runs = 0) ORDER BY id DESC LIMIT 1`,
+		request, ofMark, Withdrawn, GivenUp)
+	if err != nil || len(things) == 0 {
+		return nil, err
+	}
+	return &things[0], nil
+}
+
+// markAs keeps a mark of what a team is doing at a request's origin,
+// unless its latest mark says so already: so done comes only after the
+// team was marked at work there, whether that mark went or not, and
+// waiting only while it is at work.
+func (b *Bridges) markAs(o *office.Office, request int64, state string) error {
+	last, err := b.lastMark(request)
+	switch {
+	case err != nil:
+		return err
+	case last != nil && last.text == state:
+		return nil
+	case state != markWorking && (last == nil || last.text == markDone):
+		return nil
 	}
 	r, err := b.requests.Get(request)
 	if err != nil {
@@ -240,45 +281,31 @@ func (b *Bridges) Working(request int64, entries []int64) error {
 	if bridge := o.Bridges[origin.Bridge]; bridge == nil || !bridge.Runs() || !takesWorking(bridge) {
 		return nil
 	}
-	for _, e := range entries {
-		var heard int
-		if err := b.db.QueryRow(`SELECT count(*) FROM bridges_heard WHERE bridge = ? AND place = ? AND entry = ?`, origin.Bridge, origin.Place, e).
-			Scan(&heard); err != nil {
-			return failed(err)
-		}
-		if heard == 0 {
-			continue
-		}
-		th := thingRow{bridge: origin.Bridge, place: origin.Place, direct: origin.Heard == office.Direct, kind: ofWorking, request: request, entry: e}
-		if err := b.add(th); err != nil {
-			return err
-		}
+	direct, err := b.directOrigin(&origin, request)
+	if err != nil {
+		return err
 	}
-	return nil
+	return b.add(thingRow{bridge: origin.Bridge, place: origin.Place, direct: direct, kind: ofMark, request: request, text: state})
 }
 
-// Worked keeps, for each mark of a request that went or is still to go, a
-// mark to be carried after it that the team is no longer working on that
-// entry, once its lead's run has ended. What the run said is looked at
-// first, so its answer goes before the mark comes off.
-func (b *Bridges) Worked(request int64) error {
-	b.mu.Lock()
-	defer b.unlock()
-	o, err := b.office()
+// follow keeps, while a request's lead is marked at work at its origin, a
+// mark of where the request stands: waiting while it waits on a person,
+// as on a question put to them or a decision that has reached them, and
+// working again once nothing does.
+func (b *Bridges) follow(o *office.Office, n int64) error {
+	last, err := b.lastMark(n)
+	if err != nil || last == nil || last.text == markDone {
+		return err
+	}
+	st, err := b.requests.State(n)
 	if err != nil {
 		return err
 	}
-	if err := b.scan(o); err != nil {
-		return err
-	}
-	marked, err := b.things(`WHERE request = ? AND kind = ? AND state IN (?, ?, ?) ORDER BY id`, request, ofWorking, Waiting, Sending, Sent)
-	if err != nil {
-		return err
-	}
-	for _, th := range marked {
-		if err := b.add(thingRow{bridge: th.bridge, place: th.place, direct: th.direct, kind: ofNotWorking, request: request, entry: th.entry}); err != nil {
-			return err
-		}
+	switch {
+	case st.Is == requests.Waiting && slices.ContainsFunc(st.On, func(p requests.Party) bool { return p.Kind == requests.IsPerson || p.Kind == requests.IsGuest }):
+		return b.markAs(o, n, markWaiting)
+	case st.Is == requests.Waiting || st.Is == requests.Working:
+		return b.markAs(o, n, markWorking)
 	}
 	return nil
 }
@@ -322,7 +349,8 @@ func (b *Bridges) markAll(numbers []int64) {
 }
 
 // look keeps what each entry of a request not yet looked at is to be
-// carried as.
+// carried as, and then a mark of where it stands, when its lead is marked
+// at work.
 func (b *Bridges) look(o *office.Office, n int64) error {
 	var seen int64
 	if err := b.db.QueryRow(`SELECT entry FROM bridges_seen WHERE request = ?`, n).Scan(&seen); err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -344,7 +372,7 @@ func (b *Bridges) look(o *office.Office, n int64) error {
 			return failed(err)
 		}
 	}
-	return nil
+	return b.follow(o, n)
 }
 
 // queue keeps where an entry is carried, as Requests says: to its
@@ -511,12 +539,12 @@ func (b *Bridges) leave(th thingRow, state, why string) error {
 func (b *Bridges) prepare(o *office.Office, th thingRow) (Start, string, string, error) {
 	bridge := o.Bridges[th.bridge]
 	switch {
+	case marks(th.kind) && (bridge == nil || !bridge.Runs() || !takesWorking(bridge)):
+		return Start{}, Withdrawn, fmt.Sprintf("the bridge %s shows nothing now of what a team is doing", th.bridge), nil
 	case bridge == nil || !bridge.Runs():
 		return Start{}, GivenUp, stopped(th.bridge, bridge), nil
 	case th.direct && !takesDirect(bridge):
 		return Start{}, GivenUp, fmt.Sprintf("the bridge %s says nothing to anyone directly", th.bridge), nil
-	case marks(th.kind) && !takesWorking(bridge):
-		return Start{}, Withdrawn, fmt.Sprintf("the bridge %s no longer marks what a team works on", th.bridge), nil
 	}
 	input := map[string]any{
 		InputSettings: bridge.Settings, "to": th.place, InputDirect: th.direct,
@@ -528,17 +556,13 @@ func (b *Bridges) prepare(o *office.Office, th thingRow) (Start, string, string,
 	switch th.kind {
 	case ofSignIn:
 		start.Kind = KindSignIn
-	case ofWorking, ofNotWorking:
+	case ofMark:
 		r, err := b.requests.Get(th.request)
 		if err != nil {
 			return Start{}, "", "", err
 		}
 		start.Labels = requests.Labels(r)
-		heard, err := b.heardOf(th.bridge, th.entry)
-		if err != nil {
-			return Start{}, "", "", err
-		}
-		input["answers"], input[InputWorking] = heard, th.kind == ofWorking
+		input[InputWorking], text = th.text, ""
 	case ofEntry:
 		still, err := b.stillFor(o, &th)
 		if err != nil {
