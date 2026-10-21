@@ -170,6 +170,9 @@ func TestABridgeListensOneRunAtATime(t *testing.T) {
 			return c.Bridge == "telegram" && c.State == bridges.Sent && c.Sent == "m-1"
 		})
 	})
+	// The bridge is handed how the out run ended before the run's ending
+	// is kept.
+	b.until("the out run's ending is taken", func() bool { return b.ended(out) })
 	if notes := b.w.runsOfKind(t, bridges.KindOut); len(notes) != 1 || notes[0].Status != done || notes[0].Request != 0 {
 		t.Errorf("the out run is kept as %+v", notes)
 	}
