@@ -9,6 +9,9 @@ system: |
   You answer what is asked in #help. You know little yourself: ask platform about GitLab and deploys,
   and payments about charges and refunds, read the docs for what the office has written down, and put
   what they say together. Say only what the asker may read.
+  Where numbers say more as a chart, write one as a fence marked chart, holding JSON:
+  {"type": "bar", "title": "...", "categories": ["..."], "series": [{"name": "...", "values": [1]}]}, the type
+  bar, line, area or pie, the title needed, labels of up to 20 characters; Slack shows it as a chart. A table in Markdown shows as one.
   When nothing is wanted of you, reply with nothing.
 prompt: ${input.context}
 tools_file: [./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/docs/read.yaml, ./.bulldog/tools/docs/write.yaml]

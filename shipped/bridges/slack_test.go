@@ -124,10 +124,15 @@ func (sl *slack) serve(w http.ResponseWriter, r *http.Request) {
 		markdown, _ := body["markdown_text"].(string)
 		thread, _ := body["thread_ts"].(string)
 		blocks, _ := body["blocks"].([]any)
-		inBlocks := 0
+		inBlocks, charts, unfetched := 0, 0, false
 		for _, b := range blocks {
-			if b := b.(map[string]any); b["type"] == "markdown" {
+			switch b := b.(map[string]any); b["type"] {
+			case "markdown":
 				inBlocks += len([]rune(b["text"].(string)))
+			case "data_visualization":
+				charts++
+			case "image":
+				unfetched = unfetched || strings.Contains(b["image_url"].(string), "unreachable")
 			}
 		}
 		switch {
@@ -137,7 +142,7 @@ func (sl *slack) serve(w http.ResponseWriter, r *http.Request) {
 		case len([]rune(text)) > 40000 || len([]rune(markdown)) > 12000:
 			answer(map[string]any{"ok": false, "error": "msg_too_long"})
 			return
-		case inBlocks > 12000:
+		case inBlocks > 12000 || charts > 2 || len(blocks) > 50 || unfetched:
 			answer(map[string]any{"ok": false, "error": "invalid_blocks"})
 			return
 		case sl.gone[thread]:
@@ -593,5 +598,107 @@ func TestBridgesSlackAppMentionIsItsName(t *testing.T) {
 		if things := sl.hears(said); len(things) != 1 || things[0]["text"] != want || things[0]["from"] != "U0DANA00" {
 			t.Errorf("%q is heard as %v", text, things)
 		}
+	}
+}
+
+func TestBridgesSlackChartsAndImagesShown(t *testing.T) {
+	t.Parallel()
+	sl, s := newSlackBridge(t)
+	chart := "```chart\n" + `{"type": "bar", "title": "Refunds by week", "categories": ["W1", "W2", "W3"],
+ "series": [{"name": "Refunds", "values": [4, 7, 3]}, {"name": "Charges", "values": [40, 52, 47]}], "y_label": "Count"}` + "\n```\n"
+	image := "![The refunds dashboard](https://ledger.example.com/refunds.png)\n"
+	text := "**Refunds** are down this week.\n\n" + chart + "\n" + image + "See [the ledger](https://ledger.example.com)."
+	sent(t, s.carry(map[string]any{"to": "C0HELP00/1700000001.000100", "text": text}))
+	if len(sl.posted) != 1 || sl.posted[0]["markdown_text"] != nil || sl.posted[0]["text"] != "**Refunds** are down this week." {
+		t.Fatalf("an answer with a chart is posted as %v", sl.posted)
+	}
+	shown, _ := json.Marshal(sl.posted[0]["blocks"])
+	want := `[{"text":"**Refunds** are down this week.","type":"markdown"},` +
+		`{"chart":{"axis_config":{"categories":["W1","W2","W3"],"y_label":"Count"},"series":[` +
+		`{"data":[{"label":"W1","value":4},{"label":"W2","value":7},{"label":"W3","value":3}],"name":"Refunds"},` +
+		`{"data":[{"label":"W1","value":40},{"label":"W2","value":52},{"label":"W3","value":47}],"name":"Charges"}],"type":"bar"},` +
+		`"title":"Refunds by week","type":"data_visualization"},` +
+		`{"alt_text":"The refunds dashboard","image_url":"https://ledger.example.com/refunds.png","type":"image"},` +
+		`{"text":"See [the ledger](https://ledger.example.com).","type":"markdown"}]`
+	if string(shown) != want {
+		t.Errorf("the blocks are\n%s\nnot\n%s", shown, want)
+	}
+
+	// A pie is a slice for each category.
+	sl.posted = nil
+	pie := "```chart\n" + `{"type": "pie", "title": "Where refunds go", "categories": ["Card", "Bank"], "series": [{"name": "Refunds", "values": [9, 3]}]}` + "\n```"
+	sent(t, s.carry(map[string]any{"to": "C0HELP00/1700000001.000100", "text": pie}))
+	if shown, _ := json.Marshal(sl.posted[0]["blocks"]); string(shown) != `[{"chart":{"segments":[{"label":"Card","value":9},{"label":"Bank","value":3}],"type":"pie"},"title":"Where refunds go","type":"data_visualization"}]` ||
+		sl.posted[0]["text"] != "Where refunds go" {
+		t.Errorf("a pie is posted as %v", sl.posted)
+	}
+
+	// A chart Slack could not show as written, and any other fence, are
+	// said as written.
+	for _, written := range []string{
+		"```chart\n{\"type\": \"bar\", \"title\": \"Refunds\", \"categories\": [\"a week far too long to be a label\"], \"series\": [{\"name\": \"n\", \"values\": [1]}]}\n```",
+		"```chart\n{\"type\": \"pie\", \"title\": \"Refunds\", \"categories\": [\"a\"], \"series\": [{\"name\": \"n\", \"values\": [0]}]}\n```",
+		"```chart\nnot JSON\n```",
+		"```chart\n{\"type\": \"bar\", \"categories\": [\"a\"], \"series\": [{\"name\": \"n\", \"values\": [1]}]}\n```",
+		"```chart\n{\"type\": \"bar\", \"title\": \"T\", \"categories\": [\"a\", \"a\"], \"series\": [{\"name\": \"n\", \"values\": [1, 2]}]}\n```",
+		"```chart\n{\"type\": \"bar\", \"title\": \"T\", \"categories\": [\"a\", \"b\"], \"series\": [{\"name\": \"n\", \"values\": [1]}]}\n```",
+		"    " + image,
+		"```chart\n{\"type\": \"bar\"}",
+		"```json\n" + `{"type": "bar", "title": "T", "categories": ["a"], "series": [{"name": "n", "values": [1]}]}` + "\n```",
+		"```\n" + image + "```",
+	} {
+		sl.posted = nil
+		sent(t, s.carry(map[string]any{"to": "C0HELP00/1700000001.000100", "text": written}))
+		if len(sl.posted) != 1 || sl.posted[0]["markdown_text"] != written {
+			t.Errorf("%q is posted as %v", written, sl.posted)
+		}
+	}
+
+	// Three charts go two to a message, in order, and a decision's buttons
+	// are beside the last.
+	sl.posted = nil
+	three := "First.\n" + chart + "Second.\n" + chart + "Third.\n" + chart + "Refund them?"
+	sent(t, s.carry(map[string]any{"to": "U0LEE000", "direct": true, "text": three, "choices": []any{"yes", "no"}, "ref": "r4"}))
+	kinds := [][]string{}
+	for _, p := range sl.posted {
+		kind := []string{}
+		for _, b := range p["blocks"].([]any) {
+			kind = append(kind, b.(map[string]any)["type"].(string))
+		}
+		kinds = append(kinds, kind)
+	}
+	if fmt.Sprint(kinds) != "[[markdown data_visualization markdown data_visualization markdown] [data_visualization markdown actions]]" {
+		t.Errorf("three charts are posted as %v", kinds)
+	}
+
+	// An image Slack cannot fetch is said as written, the message it was in
+	// with it.
+	sl.posted = nil
+	gone := "The dashboard:\n![the dashboard](https://unreachable.example.com/d.png)\nas it was."
+	sent(t, s.carry(map[string]any{"to": "C0HELP00/1700000001.000100", "text": gone}))
+	if len(sl.posted) != 1 || sl.posted[0]["markdown_text"] != gone {
+		t.Errorf("an image Slack cannot fetch is posted as %v", sl.posted)
+	}
+	// In a decision, it is said with the buttons beside it, and what was
+	// sent is that message.
+	sl.posted = nil
+	ref := sent(t, s.carry(map[string]any{"to": "U0LEE000", "direct": true, "text": gone, "choices": []any{"yes", "no"}, "ref": "r9"}))
+	if len(sl.posted) != 1 || len(sl.posted[0]["blocks"].([]any)) != 2 || sl.posted[0]["blocks"].([]any)[0].(map[string]any)["text"] != gone ||
+		ref != "D0LEE000/"+sl.posted[0]["ts"].(string) {
+		t.Errorf("a decision with an image Slack cannot fetch is posted as %v, and sent as %s", sl.posted, ref)
+	}
+
+	// Markdown beside charts goes on in the next message past 12,000
+	// characters, and images past 49 blocks, leaving room for the buttons.
+	sl.posted = nil
+	long := strings.Repeat("a", 6000) + "\n" + chart + strings.Repeat("b", 6001)
+	sent(t, s.carry(map[string]any{"to": "C0HELP00/1700000001.000100", "text": long}))
+	if len(sl.posted) != 2 || len(sl.posted[0]["blocks"].([]any)) != 2 || len(sl.posted[1]["blocks"].([]any)) != 1 {
+		t.Errorf("long Markdown beside a chart is posted as %v", sl.posted)
+	}
+	sl.posted = nil
+	sent(t, s.carry(map[string]any{"to": "U0LEE000", "direct": true, "text": strings.Repeat(image, 60), "choices": []any{"yes"}, "ref": "r10"}))
+	if len(sl.posted) != 2 || len(sl.posted[0]["blocks"].([]any)) != 49 || len(sl.posted[1]["blocks"].([]any)) != 12 {
+		t.Errorf("60 images are posted as %d messages", len(sl.posted))
 	}
 }
