@@ -327,3 +327,26 @@ func TestBridgesDisclosureShownAsWorking(t *testing.T) {
 		t.Errorf("the request waits on %+v", st.On)
 	}
 }
+
+func TestBridgesOlderMarksLetGo(t *testing.T) {
+	t.Parallel()
+	d := open(t, marking(t))
+	n := d.ask("C1/1.0", "customer 4411 was charged twice")
+	// Marks of a message, as an older Bulldog kept them, still to be
+	// carried when it is upgraded, are let go, and nothing is carried.
+	for _, kind := range []string{"working", "not working"} {
+		_, err := d.db.Exec(`INSERT INTO bridges_things(bridge, place, kind, request, entry, state, made) VALUES ('slack', 'C1/1.0', ?, ?, 1, 'waiting', '2026-10-20T09:00:00Z')`, kind, n)
+		must(t, err)
+	}
+	if got := d.drain(); len(got) != 0 {
+		t.Errorf("what is carried is %v", marked(got))
+	}
+	var left int
+	must(t, d.db.QueryRow(`SELECT count(*) FROM bridges_things WHERE kind IN ('working', 'not working') AND state = 'withdrawn'`).Scan(&left))
+	if left != 2 {
+		t.Errorf("%d of the older marks are let go", left)
+	}
+	if troubles, _ := d.Troubles(); len(troubles) != 0 {
+		t.Errorf("the bridges failing are %+v", troubles)
+	}
+}

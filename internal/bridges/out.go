@@ -35,9 +35,16 @@ const (
 	ofMark     = "mark"
 )
 
-// marks says whether a kind of thing is a mark: no entry's carrying, and
-// shown on no request.
-func marks(kind string) bool { return kind == ofMark }
+// The kinds of mark an older Bulldog kept, on and off a message heard, of
+// which one not yet carried is let go.
+const (
+	ofOnMessage  = "working"
+	ofOffMessage = "not working"
+)
+
+// marks says whether a kind of thing is a mark, as this Bulldog keeps one
+// or an older one did: no entry's carrying, and shown on no request.
+func marks(kind string) bool { return kind == ofMark || kind == ofOnMessage || kind == ofOffMessage }
 
 // Chat is the built-in chat's name as a bridge, which no bridge of the
 // office takes.
@@ -602,6 +609,8 @@ func (b *Bridges) leave(th thingRow, state, why string) error {
 func (b *Bridges) prepare(o *office.Office, th thingRow) (Start, string, string, error) {
 	bridge := o.Bridges[th.bridge]
 	switch {
+	case marks(th.kind) && th.kind != ofMark:
+		return Start{}, Withdrawn, "it marks a message, as an older Bulldog did, and this one marks what a team is doing in a thread", nil
 	case marks(th.kind) && (bridge == nil || !bridge.Runs() || !takesWorking(bridge)):
 		return Start{}, Withdrawn, fmt.Sprintf("the bridge %s shows nothing now of what a team is doing", th.bridge), nil
 	case bridge == nil || !bridge.Runs():
