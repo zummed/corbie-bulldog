@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -206,6 +207,44 @@ func TestWorkCallerFoundWithinSixteenRuns(t *testing.T) {
 		case depth > Climb:
 			holds(t, "seventeen runs up", refusal, "at most 16 runs up", "not done")
 		}
+	}
+}
+
+func TestWorkRunsAboveACallFromTheWatch(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		switch {
+		case strings.Contains(turn.Prompt(), "socket sparked") && turn.Number == 1:
+			return testkit.Use("fixer", map[string]any{"job": "mend the kitchen socket"})
+		case turn.Prompt() == "mend the kitchen socket" && turn.Number <= 2:
+			return testkit.Use("tell", map[string]any{"text": fmt.Sprintf("step %d", turn.Number)})
+		case turn.Prompt() == "mend the kitchen socket":
+			return testkit.Say("fixer heard: " + turn.Last())
+		}
+		return testkit.Say("steward heard: " + turn.Last())
+	})
+	// How often the steward's and the fixer's runs were read, as each
+	// call is answered.
+	var mu sync.Mutex
+	var shown []int
+	b.reach.set(func(f *flaky) {
+		f.replying = func(string) error {
+			mu.Lock()
+			defer mu.Unlock()
+			shown = append(shown, f.count("show steward")+f.count("show fixer"))
+			return nil
+		}
+	})
+	n := b.chat("kit", "", "the kitchen socket sparked")
+	holds(t, "the steward's answer", b.answered(n).Text, "steward heard: fixer heard: Told Kit")
+	b.reach.set(func(f *flaky) { f.replying = nil })
+	mu.Lock()
+	defer mu.Unlock()
+	// The first call may come before the watch has told of the runs above
+	// it; by the second, it has.
+	if len(shown) != 2 || shown[1] != shown[0] {
+		t.Errorf("the runs above the calls were read so often, as each was answered: %v", shown)
 	}
 }
 

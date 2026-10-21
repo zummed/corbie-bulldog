@@ -33,10 +33,15 @@ func (w *Work) update(ctx context.Context, u client.Update) {
 		return
 	case u.Run == nil:
 		w.listed, w.settled = false, false
-		w.roots, w.calls = map[string]bool{}, map[string]call{}
+		w.roots, w.tree, w.calls = map[string]bool{}, map[string]branch{}, map[string]call{}
 		return
 	}
 	r := u.Run
+	if r.HasEnded() {
+		delete(w.tree, r.ID)
+	} else {
+		w.tree[r.ID] = branch{parent: r.Parent, machine: r.Machine}
+	}
 	if isLive(r) {
 		// The server's own run is the server's to keep and end.
 		return

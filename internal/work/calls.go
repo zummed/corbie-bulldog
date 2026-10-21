@@ -215,24 +215,29 @@ func (w *Work) inputOf(ctx context.Context, run string) (map[string]any, error) 
 }
 
 // above gives the machines above a run, nearest first, and the run at the
-// top, which Bulldog started. A call more than Climb runs below it is
-// refused, with a sentence.
+// top, which Bulldog started. Each run above is where the watch told it
+// sits, or, when the watch has not told of it yet, as Corbie shows it. A
+// call more than Climb runs below it is refused, with a sentence.
 func (w *Work) above(ctx context.Context, r *client.Run) ([]string, string, string, error) {
 	var machines []string
 	at := r.Parent
 	for range Climb {
-		p, err := w.corbie.Show(ctx, at)
-		switch {
-		case errors.Is(err, client.ErrNoRun):
-			return nil, "", "The run this call comes from is gone, so it was not done.", nil
-		case err != nil:
-			return nil, "", "", fmt.Errorf("the run %s above it cannot be read: %w", at, err)
+		b, told := w.tree[at]
+		if !told {
+			p, err := w.corbie.Show(ctx, at)
+			switch {
+			case errors.Is(err, client.ErrNoRun):
+				return nil, "", "The run this call comes from is gone, so it was not done.", nil
+			case err != nil:
+				return nil, "", "", fmt.Errorf("the run %s above it cannot be read: %w", at, err)
+			}
+			b = branch{parent: p.Parent, machine: p.Machine}
 		}
-		machines = append(machines, p.Machine)
-		if p.Parent == "" {
-			return machines, p.ID, "", nil
+		machines = append(machines, b.machine)
+		if b.parent == "" {
+			return machines, at, "", nil
 		}
-		at = p.Parent
+		at = b.parent
 	}
 	return nil, "", fmt.Sprintf("Bulldog looks at most %d runs up from a call for the worker that made it, and this one is further down, so it was not done.", Climb), nil
 }

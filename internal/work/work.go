@@ -163,6 +163,9 @@ type Work struct {
 	listed  bool
 	settled bool
 	roots   map[string]bool
+	// tree is where each run the watch has told of, and has not seen
+	// end, sits: the run it is below, and its machine.
+	tree    map[string]branch
 	calls   map[string]call
 	unknown map[string]bool
 	// cancelled are the runs whose cancel went to Corbie and could not be
@@ -225,6 +228,12 @@ type Work struct {
 	followers sync.WaitGroup
 }
 
+// A branch is where a run sits in the tree of runs Bulldog started: the
+// run it is below, "" at the top, and its machine.
+type branch struct {
+	parent, machine string
+}
+
 // A call is a run below a run on a request that waits on its ticket: a
 // shipped tool's, or the ask's, with the request of the run Bulldog noted
 // at its top. Waits says it waits on a person, another team or a
@@ -250,7 +259,7 @@ func New(db *sql.DB, c Corbie, clock Clock, identity string, a Areas) (*Work, er
 	w := &Work{Log: log.Printf, Interval: client.LocalInterval,
 		db: db, corbie: c, clock: clock, identity: identity, keeper: a.Keeper, requests: a.Requests, decide: a.Decisions,
 		changes: a.Changes, bridges: a.Bridges, read: map[string]*office.Office{},
-		roots: map[string]bool{}, calls: map[string]call{}, unknown: map[string]bool{}, cancelled: map[string]bool{},
+		roots: map[string]bool{}, tree: map[string]branch{}, calls: map[string]call{}, unknown: map[string]bool{}, cancelled: map[string]bool{},
 		queued: map[int64]bool{}, troubled: map[int64]string{}, later: map[string]time.Time{}, came: map[string]bool{},
 		dirty: map[int64]bool{}, wake: make(chan struct{}, 1), hearing: map[string]chan *bridges.Answer{}, signing: map[string]signingRun{}, sending: map[string]bool{},
 		following: map[string]bool{}}
