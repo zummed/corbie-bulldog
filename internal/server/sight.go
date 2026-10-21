@@ -44,7 +44,7 @@ type (
 		// Runs are how many runs it lets work at once, how many are at
 		// work and how many requests wait their turn.
 		Runs runsOut `json:"runs"`
-		// OfficePut is who decides an put_draft of the top team's own
+		// OfficePut is who decides a put_draft of the top team's own
 		// files, in the order the walk asks them.
 		OfficePut []deciderOut `json:"put_draft"`
 		Bridges   []bridgeOut  `json:"bridges"`

@@ -27,11 +27,11 @@ type (
 	}
 	// thingOut is one thing Bulldog ships: a bridge, a folder of tools
 	// files or a rule, by its folder in .bulldog/, with its page, the lines
-	// that use it, one for each tools file, what it reaches as shipped, its settings, what changed in it in
-	// each version, whether the office uses it and where. The people who
-	// decide a change also see whether the office holds a copy of it, what
-	// changed in it since the version that ran before, and the drafts that
-	// use and copy it.
+	// that use it, one for each tools file, what it reaches as shipped, its
+	// settings, what changed in it in each version, whether the office uses
+	// it and where. The people who decide a change also see whether the
+	// office holds a copy of it, what changed in it since the version that
+	// ran before, and the drafts that use and copy it.
 	thingOut struct {
 		Path     string            `json:"path"`
 		Kind     string            `json:"kind"`
@@ -148,8 +148,8 @@ func (s *site) shipped(person string, w http.ResponseWriter, r *http.Request) (a
 // line that names it as written: each bridge whose entry runs its folder,
 // by its from; for each tools file in its folder, each worker that holds a
 // tool of it, by the tools Bulldog answers for it, with its tools_file
-// entry that names the file; each team whose heed, disclosure or list of deciders names a rule
-// in its folder, by the entry that names it.
+// entry that names the file; each team whose heed, disclosure or list of
+// deciders names a rule in its folder, by the entry that names it.
 func usesOf(o *office.Office, thing string) []use {
 	if o == nil {
 		return nil
