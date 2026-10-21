@@ -237,7 +237,7 @@ func TestChangesAWorkerGoesWithWhatItAloneUses(t *testing.T) {
 
 func TestChangesAPersonPutsTheirOwn(t *testing.T) {
 	t.Parallel()
-	// Sam's own change is handed on to be decided as an put_draft of his
+	// Sam's own change is handed on to be decided as a put_draft of his
 	// would be, of the team whose folder holds it; whom it is asked of is
 	// Decisions'. His yes writes it, by him.
 	h := newOffice(t, house(t))

@@ -239,7 +239,7 @@ func docName(name string) string {
 // exactly what they were shown: the mark of their check must be that of
 // the change as it is now, or nothing is put and they are told to look
 // again; a change put with no mark was shown to nobody, and is not put.
-// It is decided as an put_draft of theirs would be, and one asked of
+// It is decided as a put_draft of theirs would be, and one asked of
 // nobody before them is written as it is put, with their yes. It gives
 // the change put, or why it was not; an error beside a change put is what
 // went wrong in deciding or writing it.

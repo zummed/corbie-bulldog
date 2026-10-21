@@ -8,7 +8,7 @@ import (
 )
 
 // Change takes a person's own change, as Changes hands it on: it is
-// decided as an put_draft of theirs would be, a held action of the team
+// decided as a put_draft of theirs would be, a held action of the team
 // whose decision Changes says it is, walked over its put_draft list or
 // else its everything. Once every rule and worker before the first people
 // has referred it or recommended yes, it is approved with the person's own
