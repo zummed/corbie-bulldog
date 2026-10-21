@@ -415,7 +415,8 @@ func (w *Work) noteStart(rd ready) *toStart {
 
 // startSent takes how a lead's start went, and says whether it went. One
 // that could not be sent is kept as not sent, and said to the team's
-// people.
+// people. One that went has the bridges told the team is working on what
+// is new to it.
 func (w *Work) startSent(s toStart, err error) bool {
 	r := s.rd.r
 	if err != nil {
@@ -427,6 +428,14 @@ func (w *Work) startSent(s toStart, err error) bool {
 		w.trouble(r.Number, r.Team, fmt.Sprintf("Bulldog started %s on request %d, and could not keep that it did: %v", s.rd.worker.Name, r.Number, err))
 	}
 	delete(w.troubled, r.Number)
+	var fresh []int64
+	for _, e := range s.rd.fresh {
+		fresh = append(fresh, e.ID)
+	}
+	if err := w.bridges.Working(r.Number, fresh); err != nil {
+		w.Log("request %d: the bridges could not be told that %s is working on it: %v", r.Number, s.rd.worker.Name, err)
+	}
+	w.carryNow = true
 	return true
 }
 
