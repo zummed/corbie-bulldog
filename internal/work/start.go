@@ -413,12 +413,19 @@ func (w *Work) start(ctx context.Context, rd ready) bool {
 	return true
 }
 
-// send sends the start of a run kept as going, good for Life.
+// send sends the start of a run kept as going, good for Life, and has
+// the driving goroutine look at it once Again has passed.
 func (w *Work) send(ctx context.Context, draft *machine.Draft, s client.Start) error {
 	defer w.sendingDone(s.Run)
 	s.Life = Life
-	_, err := w.corbie.Start(ctx, draft, s)
-	return err
+	if _, err := w.corbie.Start(ctx, draft, s); err != nil {
+		return err
+	}
+	w.mu.Lock()
+	w.gone = append(w.gone, s.Run)
+	w.mu.Unlock()
+	w.poke()
+	return nil
 }
 
 // sendingDone says a run's start has gone, or will not.

@@ -254,6 +254,9 @@ func (w *Work) ended(ctx context.Context, name string) {
 		return
 	}
 	e := endingOf(run)
+	// A start Corbie refused never ran: it is kept as starting when it
+	// was noted, and ending when that was seen.
+	e.started, e.ended = cmp.Or(e.started, n.Noted), cmp.Or(e.ended, w.clock.Now())
 	if n.Status == unsent {
 		e.how = "its start was taken as not sent, and Corbie ran it all the same: it ended " + cmp.Or(e.how, e.status)
 		if err := w.endStray(name, e); err != nil {

@@ -221,8 +221,10 @@ type Work struct {
 	// waiting for how it ended, by the run.
 	signing map[string]signingRun
 	// sending are the runs noted whose starts are being sent, which
-	// Corbie may not hold yet.
+	// Corbie may not hold yet; gone those whose starts have gone since
+	// the last step, each to be looked at once Again has passed.
 	sending map[string]bool
+	gone    []string
 	// deciders are the runs of rules and workers asked to decide that a
 	// decider waits on, each with where it is told how the run ended, by
 	// the run.
@@ -483,7 +485,14 @@ func (w *Work) step(ctx context.Context) bool {
 	w.owing = w.owing || w.owes
 	w.carryNow = w.carryNow || w.carry
 	w.stops, w.owes, w.carry = false, false, false
+	gone := w.gone
+	w.gone = nil
 	w.mu.Unlock()
+	// A start Corbie refused, or never takes up, has no head, so the
+	// watch never tells of it: each is looked at once.
+	for _, name := range gone {
+		w.showAgain(name)
+	}
 	for _, u := range updates {
 		w.update(ctx, u)
 		did = true

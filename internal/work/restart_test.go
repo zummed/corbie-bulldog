@@ -15,6 +15,8 @@ import (
 
 	"github.com/zummed/corbie-bulldog/internal/bridges"
 	"github.com/zummed/corbie-bulldog/internal/bridges/standin"
+	"github.com/zummed/corbie-bulldog/internal/decisions"
+	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/requests"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 	"github.com/zummed/corbie-bulldog/shipped"
@@ -161,6 +163,90 @@ func TestWorkNotedRunWithoutRecordEndedAsLost(t *testing.T) {
 	if th := b.thread(n); !slices.ContainsFunc(th, func(l string) bool { return strings.Contains(l, "The house could not answer.") }) {
 		t.Errorf("the thread is %v", th)
 	}
+}
+
+func TestWorkARefusedStartIsLookedAt(t *testing.T) {
+	t.Parallel()
+	// A job marked for a yes, its ask taken out after it was checked:
+	// Corbie's controller refuses it.
+	held, err := machine.Parse([]byte("flow: refused\nask: { machine: { statechart: asker, initial: a, states: { a: { end: done } } } }\n"+
+		"stages:\n  a:\n    job: { machine: { statechart: held, initial: a, states: { a: { end: done } } }, approve: true }\n"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unasked := *held.Definition
+	unasked.Ask = nil
+	refused := &machine.Draft{Definition: &unasked, Files: held.Files, Children: held.Children}
+	b := newBench(t, house(t))
+	listening := b.listening("telegram")
+	refusing := map[string]bool{KindWork: true, decisions.Deciding: true, bridges.KindIn: true}
+	b.reach.set(func(f *flaky) {
+		f.drafting = func(s client.Start) *machine.Draft {
+			if refusing[s.Labels[LabelKind]] {
+				return refused
+			}
+			return nil
+		}
+	})
+	// sent stays until the start of the runs noted of a kind, so many of
+	// them, has gone, and Corbie has refused it.
+	sent := func(kind string, many int) {
+		b.until("the start is refused", func() bool {
+			notes := b.w.runsOfKind(t, kind)
+			if len(notes) != many || b.w.isSending(notes[len(notes)-1].Name) {
+				return false
+			}
+			r, err := b.corbie.Show(ctx, notes[len(notes)-1].Name)
+			return err == nil && r.Status == "failed"
+		})
+		b.still()
+	}
+
+	// A lead's: its request is answered, its team told what Corbie said.
+	n := b.chat("kit", "", "the kitchen socket sparked")
+	sent(KindWork, 1)
+	if r := must(b.reqs.Get(n)); r.Answered {
+		t.Fatalf("the request was answered before its start was looked at: %v", b.thread(n))
+	}
+	b.later(Again)
+	b.settled(n, requests.Answered)
+	if th := b.thread(n); !slices.ContainsFunc(th, func(l string) bool { return strings.Contains(l, "did not pass its check") }) ||
+		!slices.ContainsFunc(th, func(l string) bool { return strings.Contains(l, "The house could not answer.") }) {
+		t.Errorf("the thread is %v", th)
+	}
+	if runs := b.runs(n); len(runs) != 1 || runs[0].Status != failed || runs[0].Started.IsZero() || runs[0].Ended.IsZero() {
+		t.Errorf("the refused run is kept as %+v", runs)
+	}
+
+	// A decider's: it ends with what Corbie said.
+	got := make(chan error, 1)
+	go func() {
+		_, err := b.w.decider(ctx, deciding(office.IsRule, "small-orders.js", "office", n, 1))
+		got <- err
+	}()
+	sent(decisions.Deciding, 1)
+	b.later(Again)
+	if err := <-got; err == nil || !strings.Contains(err.Error(), "did not pass its check") {
+		t.Errorf("the decider ended with %v", err)
+	}
+
+	// A bridge's listening run's: its failure is shown with what Corbie
+	// said, and the bridge is listened to again after its pause.
+	b.answerTicket(listening, standin.Heard, map[string]any{"fail": "Telegram said 502"})
+	b.until("the failure is shown", func() bool {
+		ts := must(b.b.Troubles())
+		return len(ts) == 1 && ts[0].Failures == 1
+	})
+	b.later(time.Second)
+	sent(bridges.KindIn, 2)
+	b.later(Again)
+	b.until("the refusal is shown", func() bool {
+		ts := must(b.b.Troubles())
+		return len(ts) == 1 && ts[0].Failures == 2 && strings.Contains(ts[0].Error, "did not pass its check")
+	})
+	b.reach.set(func(f *flaky) { f.drafting = nil })
+	b.later(time.Minute)
+	b.listening("telegram", listening)
 }
 
 func TestWorkAStartIsGoodForAnHour(t *testing.T) {
@@ -339,6 +425,9 @@ func TestWorkLooksOnEventsOnly(t *testing.T) {
 		going, err := b.w.goingNotes()
 		return err == nil && !slices.ContainsFunc(going, func(n *note) bool { return n.Kind != bridges.KindIn && n.Kind != KindClock })
 	})
+	b.still()
+	// Each start sent is looked at once, Again after it went.
+	b.later(Again)
 	b.still()
 	shows, lists := b.reach.count("show"), b.reach.count("list")
 	// With nothing happening, the clock moving reads nothing: not Corbie,
@@ -750,14 +839,15 @@ func TestWorkDeciderToldByTheWatch(t *testing.T) {
 		b.later(time.Minute)
 		b.still()
 	}
-	if shown := b.reach.count("show clerk") + b.reach.count("wait"); shown != 0 {
+	// It is looked at once, as every start is, and never waited on.
+	if shown := b.reach.count("show clerk") + b.reach.count("wait"); shown != 1 {
 		t.Errorf("the clerk's run was read or waited on %d times while it went", shown)
 	}
 	let()
 	if out := <-got; out != `"{\"says\": \"yes\", \"note\": \"fine\"}" <nil>` {
 		t.Errorf("the decider gave %s", out)
 	}
-	if shown, waited := b.reach.count("show clerk"), b.reach.count("wait"); shown != 1 || waited != 0 {
+	if shown, waited := b.reach.count("show clerk"), b.reach.count("wait"); shown != 2 || waited != 0 {
 		t.Errorf("the clerk's run, once ended, was read %d times and waited on %d", shown, waited)
 	}
 }

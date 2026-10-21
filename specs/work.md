@@ -186,7 +186,7 @@ Bulldog watches every run with its office's label, and begins again a second lat
 
 A run is never taken to have ended from a record that could not be read. A run with the office's label that Bulldog has no note of is left over from an office that no longer has it, and is cancelled. A noted run Corbie never took up, or has no record of, is ended as lost, unless its start is still being sent; one Corbie says it never took up, only once the hour its start was good for has passed. Every start and every answer to a ticket Bulldog sends is good for an hour, so a controller behind on a burst takes it up late rather than refusing it.
 
-Bulldog looks for runs to start when a request is opened, something is said, a run ends, a call is answered, or the office is read again. The one timer of this area's own looks again at what it could not read or reach. What people do on the screens never waits on Corbie.
+Bulldog looks for runs to start when a request is opened, something is said, a run ends, a call is answered, or the office is read again. The one timer of this area's own looks again at what it could not read or reach, and once at each start Bulldog sent: a start Corbie refused has no head, so the watch never tells of it, and it is ended as failed with what Corbie said; one waiting to start is looked at again; and one going is left to the watch. What people do on the screens never waits on Corbie.
 
 A run goes on as it was started when the files change, and the worker's next run reads them again. A run of a worker or a team that is no longer in the office is stopped.
 
@@ -206,7 +206,7 @@ A run goes on as it was started when the files change, and the worker's next run
 | how long a shipped tool waits | 7 days |
 | how long a start, or an answer to a ticket, that Bulldog sends is good for | an hour |
 | how far up Bulldog looks for the worker that called | 16 runs |
-| when Bulldog looks again at what it could not read or reach | 30 seconds |
+| when Bulldog looks again at what it could not read or reach, and once at each start it sent | 30 seconds |
 
 Text is never cut inside a character.
 

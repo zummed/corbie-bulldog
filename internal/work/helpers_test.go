@@ -533,6 +533,8 @@ type flaky struct {
 	// starting is told of each start before it is sent, and fails it
 	// with what it gives; lie sends it and says it failed.
 	starting func(client.Start) error
+	// drafting may stand in for the definition a start sends.
+	drafting func(client.Start) *machine.Draft
 	lie      bool
 	// cancelled is told of each cancel once it is sent; showing may stand
 	// in for what a run is shown as; replying is told of each reply before
@@ -573,9 +575,14 @@ func (f *flaky) Start(ctx context.Context, d *machine.Draft, s client.Start) (st
 		return "", err
 	}
 	f.mu.Lock()
-	starting, lie := f.starting, f.lie
+	starting, lie, drafting := f.starting, f.lie, f.drafting
 	f.lives = append(f.lives, s.Life)
 	f.mu.Unlock()
+	if drafting != nil {
+		if instead := drafting(s); instead != nil {
+			d = instead
+		}
+	}
 	if lie {
 		if _, err := f.Client.Start(ctx, d, s); err != nil {
 			return "", err
