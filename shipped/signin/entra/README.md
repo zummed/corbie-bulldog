@@ -36,7 +36,7 @@ The sign-in page shows "Sign in with Microsoft". Bulldog sends the browser to th
 signin:
   entra:
     from: ./.bulldog/signin/entra
-    tenant: 72f988bf-86f1-41af-91ab-2d7cd011db47
+    tenant: 11111111-2222-3333-4444-555555555555
     client_id: 5f3c1a2e-0b7d-4e8a-9c61-2a4b8d0e7f19
 everyone:
   al: { name: Al, entra: al@corp.example }

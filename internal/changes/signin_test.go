@@ -23,7 +23,7 @@ func TestChangesAWorkerCannotChangeHowAnyoneSignsIn(t *testing.T) {
 		1: {"office.yaml", strings.Replace(files["office.yaml"], "google: sam@example.com", "google: thief@example.com", 1)},
 		2: {"office.yaml", strings.Replace(files["office.yaml"], `telegram: "4472" }`, `telegram: "4472", password: true }`, 1)},
 		3: {"office.yaml", strings.Replace(files["office.yaml"], "client_id: house-client", "client_id: another-client", 1)},
-		4: {"office.yaml", strings.Replace(files["office.yaml"], "signin:\n", "signin:\n  entra:\n    from: ./.bulldog/signin/entra\n    tenant: 72f988bf-86f1-41af-91ab-2d7cd011db47\n    client_id: c\n", 1)},
+		4: {"office.yaml", strings.Replace(files["office.yaml"], "signin:\n", "signin:\n  entra:\n    from: ./.bulldog/signin/entra\n    tenant: 11111111-2222-3333-4444-555555555555\n    client_id: c\n", 1)},
 		5: {"signin/okta/signin.yaml", "flow: okta\n"},
 	} {
 		f.write(request, change[0], change[1])
@@ -57,7 +57,7 @@ func TestChangesSayWhatChangesInHowPeopleSignIn(t *testing.T) {
 	has(t, check.Says, "sam no longer signs in by google, where they were sam@example.com")
 	has(t, check.Says, "sam may no longer sign in with a password")
 	// A method new, or its settings changed, lets more by.
-	check = saysOf(t, f, map[string]string{"office.yaml": strings.Replace(files["office.yaml"], "signin:\n", "signin:\n  entra:\n    from: ./.bulldog/signin/entra\n    tenant: 72f988bf-86f1-41af-91ab-2d7cd011db47\n    client_id: c\n", 1)})
+	check = saysOf(t, f, map[string]string{"office.yaml": strings.Replace(files["office.yaml"], "signin:\n", "signin:\n  entra:\n    from: ./.bulldog/signin/entra\n    tenant: 11111111-2222-3333-4444-555555555555\n    client_id: c\n", 1)})
 	has(t, check.LetsMoreBy, "the sign-in method entra is new")
 	has(t, check.LetsMoreBy, "entra's machine may connect to login.microsoftonline.com")
 	check = saysOf(t, f, map[string]string{"office.yaml": replaced(t, files, "office.yaml", "client_id: house-client", "client_id: another-client")})

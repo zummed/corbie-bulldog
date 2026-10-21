@@ -202,7 +202,7 @@ bridges:
 signin:
   entra:
     from: ./.bulldog/signin/entra
-    tenant: 72f988bf-86f1-41af-91ab-2d7cd011db47       # the directory's ID; Corbie keeps ENTRA_CLIENT_SECRET
+    tenant: 11111111-2222-3333-4444-555555555555       # the directory's ID; Corbie keeps ENTRA_CLIENT_SECRET
     client_id: 5f3c1a2e-0b7d-4e8a-9c61-2a4b8d0e7f19
 models:
   usual: { name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }

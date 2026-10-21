@@ -25,7 +25,7 @@ func TestMain(m *testing.M) { testkit.Main(m) }
 const (
 	clientID = "1234-abc.apps.example"
 	secret   = "the-clients-own-secret"
-	tenant   = "72f988bf-86f1-41af-91ab-2d7cd011db47"
+	tenant   = "11111111-2222-3333-4444-555555555555"
 )
 
 // A provider stands in for a provider's token endpoint: it takes a code it
