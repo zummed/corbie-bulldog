@@ -177,6 +177,16 @@ func TestServerSigningStateBoundUsedOnceAndShort(t *testing.T) {
 	to, bound = s.begin("google")
 	s.back("google", "sam@example.com", to.Query().Get("state"), bound).is(http.StatusOK)
 	refused("a used state", s.back("google", "sam@example.com", to.Query().Get("state"), bound))
+	// A sign-in begun again in the same browser, by a second tab or a
+	// second press, keeps its cookie, and leaves the first to come back.
+	first, bound := s.begin("google")
+	again := s.nobody()
+	again.header.Set("Cookie", SigningCookie+"="+bound.Value)
+	r := again.get("/signin/google").is(http.StatusSeeOther)
+	if c := (&http.Response{Header: r.header}).Cookies(); len(c) != 1 || c[0].Value != bound.Value {
+		t.Errorf("a sign-in begun again in the same browser gave it %v", c)
+	}
+	s.back("google", "sam@example.com", first.Query().Get("state"), bound).is(http.StatusOK)
 	// One more than ten minutes old.
 	to, bound = s.begin("google")
 	b.clock.Move(Signing + time.Second)

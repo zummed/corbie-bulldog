@@ -82,13 +82,18 @@ func methodCalled(m *office.SignIn) string {
 // toProvider sends the browser to a method's provider, with a state, a
 // nonce and a challenge made for this sign-in alone, kept with the hash of
 // what the browser's cookie is given, so that only this browser, within
-// Signing, comes back with it once.
+// Signing, comes back with it once. A browser that holds such a cookie
+// already keeps it, so a sign-in begun twice in it, by a second tab or a
+// second press, leaves the first to come back.
 func (s *site) toProvider(w http.ResponseWriter, r *http.Request, o *office.Office, m *office.SignIn) {
 	if !s.runs(m) {
 		s.signInPage(w, http.StatusServiceUnavailable, s.stoppedSaid(m))
 		return
 	}
 	sg := signing{state: random(32), method: m.Name, browser: random(32), nonce: random(32), verifier: random(32), made: s.clock.Now()}
+	if c, err := r.Cookie(SigningCookie); err == nil && browserForm.MatchString(c.Value) {
+		sg.browser = c.Value
+	}
 	to, err := authorizeOf(m, backOf(s.urlGiven, m.Name), sg)
 	if err != nil {
 		s.say("signing in with %s: %v", m.Name, err)
@@ -104,6 +109,10 @@ func (s *site) toProvider(w http.ResponseWriter, r *http.Request, o *office.Offi
 	w.Header().Set("Cache-Control", "no-store")
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
+
+// browserForm is what a browser's signing cookie holds, as random makes
+// it.
+var browserForm = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 // setting is a {name} in a method's authorize, filled from its setting of
 // that name.
