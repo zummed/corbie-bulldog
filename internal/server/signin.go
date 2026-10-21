@@ -213,16 +213,21 @@ func (s *site) pressLink(w http.ResponseWriter, r *http.Request) {
 }
 
 // replaceKey gives the one looking a new key, which signs out every
-// browser that held the old one, and gives this browser the new one.
+// browser that held the old one, and destroys their password, so that
+// whoever held either is let in by neither; and gives this browser the
+// new key.
 func (s *site) replaceKey(person string, w http.ResponseWriter, r *http.Request) (any, error) {
 	if err := readNothing(w, r); err != nil {
 		return nil, err
 	}
-	key, err := newKey(s.db, person, s.clock.Now())
+	key, unset, err := newKey(s.db, person, s.clock.Now())
 	if err != nil {
 		return nil, err
 	}
 	keep(w, r, key)
+	if unset {
+		return map[string]string{"said": "Your key is replaced, and your password is gone: every other browser that held your key is signed out, and you may set a new password."}, nil
+	}
 	return map[string]string{"said": "Your key is replaced: every other browser that held it is signed out."}, nil
 }
 

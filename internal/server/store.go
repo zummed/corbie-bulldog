@@ -294,17 +294,35 @@ func whoseKey(db *sql.DB, shown string) (string, error) {
 	return whose, nil
 }
 
-// newKey gives a person a key in place of the one they had, and gives it.
-func newKey(db *sql.DB, person string, now time.Time) (string, error) {
-	key := random(32)
-	res, err := db.Exec(`UPDATE server_keys SET key = ?, made = ? WHERE person = ?`, key, stamp(now), person)
+// newKey gives a person a key in place of the one they had, and gives it,
+// and destroys their password, which is a way in as the key is. It says
+// whether they had a password.
+func newKey(db *sql.DB, person string, now time.Time) (key string, unset bool, err error) {
+	tx, err := db.Begin()
 	if err != nil {
-		return "", fmt.Errorf("a new key cannot be made for %s: %w", person, err)
+		return "", false, fmt.Errorf("a new key cannot be made for %s: %w", person, err)
+	}
+	defer tx.Rollback()
+	key = random(32)
+	res, err := tx.Exec(`UPDATE server_keys SET key = ?, made = ? WHERE person = ?`, key, stamp(now), person)
+	if err != nil {
+		return "", false, fmt.Errorf("a new key cannot be made for %s: %w", person, err)
 	}
 	if n, err := res.RowsAffected(); err != nil || n != 1 {
-		return "", fmt.Errorf("a new key cannot be made for %s, who has none", person)
+		return "", false, fmt.Errorf("a new key cannot be made for %s, who has none", person)
 	}
-	return key, nil
+	res, err = tx.Exec(`DELETE FROM server_passwords WHERE person = ?`, person)
+	if err != nil {
+		return "", false, fmt.Errorf("the password of %s cannot be destroyed with their key: %w", person, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return "", false, fmt.Errorf("the password of %s cannot be destroyed with their key: %w", person, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return "", false, fmt.Errorf("a new key cannot be made for %s: %w", person, err)
+	}
+	return key, n > 0, nil
 }
 
 // hashed gives what a one-time link is known by in the store.

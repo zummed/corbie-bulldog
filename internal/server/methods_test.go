@@ -416,6 +416,25 @@ func TestServerPasswordDestroyedWithEntry(t *testing.T) {
 		t.Errorf("Sam's password is %v", pw)
 	}
 	s.nobody().post("/signin/password", map[string]string{"name": "sam", "password": "correct horse battery"}).is(http.StatusForbidden)
+
+	// One who leaves the office loses theirs.
+	withKit := strings.Replace(string(text), `telegram: "4472" }`, `telegram: "4472", password: true }`, 1)
+	b.write(map[string]string{office.OfficeFile: withKit})
+	b.until("Kit may set a password", func() bool {
+		b.clock.Move(0)
+		o := s.areasOf().Work.Read()
+		return o != nil && o.People["kit"].Password
+	})
+	s.as("kit").post("/api/me/password", map[string]string{"password": "kit's own long one"}).is(http.StatusOK)
+	without := strings.Replace(strings.Replace(withKit, "people: [sam, kit]", "people: [sam]", 1), `  kit: { name: Kit, title: Lives here., telegram: "4472", password: true }`+"\n", "", 1)
+	b.write(map[string]string{office.OfficeFile: without})
+	b.until("Kit has left", func() bool {
+		b.clock.Move(0)
+		return s.logged("kit is no longer in the office")
+	})
+	if hash, err := passwordOf(b.store(), "kit"); err != nil || hash != nil {
+		t.Errorf("Kit's password outlived her: %v", err)
+	}
 }
 
 func TestServerBuiltInListsSignInMethods(t *testing.T) {
