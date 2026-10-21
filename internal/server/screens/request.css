@@ -98,6 +98,7 @@
 form.reply { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
 .rq-flow form.reply { max-width: 640px; }
 form.reply .field { flex: 1 1 240px; }
+.rq-choices { flex: 1 0 100%; flex-wrap: wrap; gap: 6px; }
 .rq-reply { min-height: 56px; }
 
 /* Saying more */

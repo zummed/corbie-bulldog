@@ -210,6 +210,7 @@ type (
 		Sub      int64          `json:"sub,omitempty"`
 		Decision int64          `json:"decision,omitempty"`
 		Noted    bool           `json:"noted,omitempty"`
+		Choices  []string       `json:"choices,omitempty"`
 		Carried  []carriedOut   `json:"carried,omitempty"`
 	}
 	fileOut struct {
@@ -262,11 +263,13 @@ type (
 		Lines []string `json:"lines"`
 	}
 	// leavingOut is what a disclosure would let out: what it is, its
-	// text, whom it is to, where it may in the end be read, and the
-	// requests it goes through from the top.
+	// text, with the choices a question offers, whom it is to, where it
+	// may in the end be read, and the requests it goes through from the
+	// top.
 	leavingOut struct {
 		What    string       `json:"what"`
 		Text    string       `json:"text"`
+		Choices []string     `json:"choices,omitempty"`
 		To      partyOut     `json:"to"`
 		ReadAt  *originOut   `json:"read_at"`
 		Through []throughOut `json:"through"`
@@ -353,7 +356,7 @@ func (s *site) decisionOf(o *office.Office, d *decisions.Decision, person string
 	if err != nil || l == nil {
 		return out, err
 	}
-	out.Leaving = &leavingOut{What: l.What, Text: l.Text, To: partyOf(l.To), ReadAt: originOf(&l.ReadAt, s.Requests.Party), Through: []throughOut{}}
+	out.Leaving = &leavingOut{What: l.What, Text: l.Text, Choices: l.Choices, To: partyOf(l.To), ReadAt: originOf(&l.ReadAt, s.Requests.Party), Through: []throughOut{}}
 	for _, t := range l.Through {
 		out.Leaving.Through = append(out.Leaving.Through, throughOut{Number: t.Number, Team: t.Team})
 	}
@@ -874,14 +877,14 @@ func page(entries []requests.Entry, before int64, size int, open map[int64]bool)
 }
 
 // entryOf gives an entry, with who it is by and to as party gives them,
-// and where it was carried.
+// what it offers, and where it was carried.
 func entryOf(e requests.Entry, carried []bridges.Carried, party func(requests.Who) requests.Party) entryOut {
 	to := []partyOut{}
 	for _, w := range e.To {
 		to = append(to, partyOf(party(w)))
 	}
 	out := entryOut{ID: e.ID, Kind: e.Kind, By: partyOf(party(e.By)), To: to, At: e.At, Text: e.Text, Files: []fileOut{}, In: e.In, Read: e.Read,
-		Answers: e.Answers, Sub: e.Sub, Decision: e.Decision, Noted: e.Noted}
+		Answers: e.Answers, Sub: e.Sub, Decision: e.Decision, Noted: e.Noted, Choices: e.Choices}
 	for i, f := range e.Files {
 		out.Files = append(out.Files, fileOut{Name: f.Name, Size: f.Size, URL: fmt.Sprintf("/files/%d-%d", e.ID, i)})
 	}

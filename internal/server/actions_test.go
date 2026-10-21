@@ -104,6 +104,41 @@ func TestServerSayMore(t *testing.T) {
 	d.s.as("lee").post("/api/requests/"+itoa(d.n)+"/entries", map[string]string{"text": "Lee tries"}).is(http.StatusNotFound)
 }
 
+func TestServerQuestionGivesItsChoices(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		if strings.Contains(turn.System, "You look after the house") && turn.Number == 1 {
+			return testkit.Use("ask_person", map[string]any{"question": "Which socket?", "choices": []any{"By the kettle", "By the door"}})
+		}
+		return testkit.Say("It is seen to: " + turn.Last())
+	})
+	s := b.serve()
+	kit := s.as("kit")
+	n := numbered(kit.post("/api/requests", map[string]string{"text": "the kitchen socket sparked"}))
+	question := s.waitsOn(n, "kit")
+	v := kit.view(n)
+	ask := v.Entries[slices.IndexFunc(v.Entries, func(e entryOut) bool { return e.ID == question.Entry })]
+	if !slices.Equal(ask.Choices, []string{"By the kettle", "By the door"}) {
+		t.Errorf("Kit is given the question %+v", ask)
+	}
+	// Her press posts the choice's words, as she would type them.
+	kit.post("/api/requests/"+itoa(n)+"/entries", map[string]any{"text": ask.Choices[1], "re": ask.ID}).is(http.StatusOK)
+	s.answered(n)
+	thread, err := s.areasOf().Requests.Thread(n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if last := thread[len(thread)-1]; last.Text != "It is seen to: Kit answered: By the door" {
+		t.Errorf("the steward answers %q", last.Text)
+	}
+	for _, e := range kit.view(n).Entries {
+		if e.Kind != requests.KindQuestion && e.Choices != nil {
+			t.Errorf("the %s entry is given choices %q", e.Kind, e.Choices)
+		}
+	}
+}
+
 func TestServerDecide(t *testing.T) {
 	t.Parallel()
 	d := refundDay(t, refundOffice(t))

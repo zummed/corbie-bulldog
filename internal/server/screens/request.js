@@ -178,6 +178,7 @@
       B.el("span", {class: "rq-pill"}, B.teamCalled(t.team), t.number ? B.el("span", {class: "mono faint"}, "#" + t.number) : B.el("span", {class: "tag"}, "New"))]));
     return [
       B.el("div", {class: "rq-leaving"}, l.text),
+      offered(l.choices),
       B.kv([
         [WHAT[l.what] || l.what, through],
         ["To", B.party(l.to)],
@@ -186,16 +187,27 @@
     ];
   }
 
-  // replyForm answers a question put to the one looking.
+  // offered gives the choices a question offers, as they are shown to
+  // anyone but the one it waits on.
+  function offered(choices) {
+    if (!choices || !choices.length) return null;
+    return B.el("div", {class: "line rq-choices"}, choices.map((c) => B.el("span", {class: "rq-pill"}, c)));
+  }
+
+  // replyForm answers a question put to the one looking: by a choice it
+  // offers, whose words are the answer, or by what they type.
   B.replyForm = function (request, entry) {
     const key = request.number + ":reply:" + entry.id;
     const text = field(key, () => B.el("textarea", {class: "in rq-reply", name: "text", rows: 2, required: true}));
     const button = B.el("button", {class: "btn go", type: "submit"}, "Answer");
+    const choices = (entry.choices || []).map((c) => B.el("button", {class: "btn", type: "button"}, c));
+    const answer = (words) => act(() => B.post("/api/requests/" + request.number + "/entries", {text: words, re: entry.id}), [button, ...choices], [key]);
+    choices.forEach((b, i) => b.addEventListener("click", () => answer(entry.choices[i])));
     return B.el("form", {class: "reply", onsubmit: (ev) => {
       ev.preventDefault();
       if (!text.value.trim()) return;
-      act(() => B.post("/api/requests/" + request.number + "/entries", {text: text.value, re: entry.id}), [button], [key]);
-    }}, B.field("Answer", text), button);
+      answer(text.value);
+    }}, choices.length ? B.el("div", {class: "line rq-choices"}, choices) : null, B.field("Answer", text), button);
   };
 
   // The thread
@@ -509,7 +521,7 @@
         more: [
           e.files && e.files.length ? B.el("div", {class: "files"}, e.files.map((f) =>
             B.el("a", {class: "who rq-file", href: f.url}, B.icon("file"), f.name, B.el("span", {class: "faint"}, B.size(f.size))))) : null,
-          e.kind === "question" && mine ? B.replyForm(v, e) : null]});
+          e.kind === "question" ? (mine ? B.replyForm(v, e) : offered(e.choices)) : null]});
       if (e.kind === "sub" && e.sub) {
         out.push(subStep(s, e, v, views, prefix));
         continue;
