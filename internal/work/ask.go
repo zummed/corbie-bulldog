@@ -3,7 +3,6 @@ package work
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"maps"
 	"slices"
 
@@ -30,23 +29,27 @@ func (w *Work) ask(ctx context.Context, r *client.Run) (int64, error) {
 	}
 	asking, jobs, err := decisions.JobsOf(raw)
 	if err != nil {
-		return 0, w.approveNothing(ctx, r.ID, "Bulldog could not read what was held, so nothing was approved: "+err.Error())
+		w.approveNothing(ctx, r.ID, "Bulldog could not read what was held, so nothing was approved: "+err.Error())
+		return 0, nil
 	}
 	machines, top, refusal, err := w.above(ctx, r)
 	if err != nil {
 		return 0, err
 	}
 	if refusal != "" {
-		return 0, w.approveNothing(ctx, r.ID, refusal)
+		w.approveNothing(ctx, r.ID, refusal)
+		return 0, nil
 	}
 	n, err := w.noted(top)
 	switch {
 	case err != nil:
 		return 0, err
 	case n == nil:
-		return 0, w.approveNothing(ctx, r.ID, "This ask comes from a run Bulldog did not start for this office, so nothing was approved.")
+		w.approveNothing(ctx, r.ID, "This ask comes from a run Bulldog did not start for this office, so nothing was approved.")
+		return 0, nil
 	case n.Kind != KindWork && n.Kind != decisions.Deciding || n.ended():
-		return 0, w.approveNothing(ctx, r.ID, "This ask comes from no run of a worker Bulldog is running, so nothing was approved.")
+		w.approveNothing(ctx, r.ID, "This ask comes from no run of a worker Bulldog is running, so nothing was approved.")
+		return 0, nil
 	}
 	if err := w.keepCall(&callRow{Run: r.ID, Request: n.Request, Tool: askTool, State: waiting}); err != nil {
 		return 0, err
@@ -58,15 +61,20 @@ func (w *Work) ask(ctx context.Context, r *client.Run) (int64, error) {
 }
 
 // approveNothing answers an ask that Bulldog will not hand on, with why.
-func (w *Work) approveNothing(ctx context.Context, run, why string) error {
+// One whose answer could not go is looked at again. Like every verdict,
+// it goes to an ask of a run being stopped too: approving nothing lets
+// the hold go.
+func (w *Work) approveNothing(ctx context.Context, run, why string) {
 	if w.office != nil {
 		w.Log("the ask %s: %s", run, why)
 	}
-	err := w.give(ctx, run, shipped.AskTicket, decisions.Verdict{Approve: []string{}, Note: why})
-	if errors.Is(err, errGone) {
-		return nil
-	}
-	return err
+	w.give(ctx, run, shipped.AskTicket, decisions.Verdict{Approve: []string{}, Note: why}, 0, func(err error) {
+		if err != nil {
+			w.Log("the ask %s could not be answered, so it is looked at again in %v: %v", run, Again, err)
+			delete(w.calls, run)
+			w.again("call:" + run)
+		}
+	})
 }
 
 // answerAsk keeps what was decided of every job an ask holds, for the
@@ -86,7 +94,9 @@ func (w *Work) answerAsk(_ context.Context, run string, v decisions.Verdict) err
 
 // verdicts answers each ask's ticket with the verdict kept for it. An ask
 // that has ended has nothing to answer; one Corbie cannot be reached for
-// is answered again once Again has passed.
+// is answered again once Again has passed. A verdict goes to an ask of a
+// run being stopped too: the stop withdrew what it held, and a verdict
+// that approves nothing lets the hold go.
 func (w *Work) verdicts(ctx context.Context) bool {
 	owed, err := w.verdictsOwed()
 	if err != nil {
@@ -101,16 +111,17 @@ func (w *Work) verdicts(ctx context.Context) bool {
 			continue
 		}
 		did = true
-		err := w.give(ctx, run, shipped.AskTicket, owed[run])
-		if errors.Is(err, errGone) {
-			err = nil
+		given := func(err error) {
+			if err == nil {
+				err = w.verdictGiven(run)
+			}
+			if err != nil {
+				w.Log("the ask %s is decided, but Corbie could not be answered, so it is answered again in %v: %v", run, Again, err)
+				w.again(key)
+			}
 		}
-		if err == nil {
-			err = w.verdictGiven(run)
-		}
-		if err != nil {
-			w.Log("the ask %s is decided, but Corbie could not be answered, so it is answered again in %v: %v", run, Again, err)
-			w.again(key)
+		if w.give(ctx, run, shipped.AskTicket, owed[run], 0, given) {
+			given(nil)
 		}
 	}
 	return did

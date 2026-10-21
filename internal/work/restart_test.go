@@ -759,6 +759,155 @@ func TestWorkStepsUntilStill(t *testing.T) {
 	}
 }
 
+func TestWorkTripsGoSideBySide(t *testing.T) {
+	t.Parallel()
+	files := house(t)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "people: [sam, kit]", "people: [sam, kit]\nruns: 10", 1)
+	b := newBench(t, files)
+	var mu sync.Mutex
+	held, leads := 0, make(chan struct{})
+	letLeads := sync.OnceFunc(func() { close(leads) })
+	defer letLeads()
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		switch {
+		case turn.Number > 1:
+			return testkit.Say("done")
+		case strings.Contains(turn.Prompt(), "zebra"):
+			return testkit.Use("ask_person", map[string]any{"question": "which one?", "who": ""})
+		}
+		mu.Lock()
+		held++
+		mu.Unlock()
+		b.poke()
+		<-leads
+		return testkit.Use("tell", map[string]any{"text": "on it", "who": ""})
+	})
+	jobs := []int64{b.chat("kit", "", "job 0"), b.chat("kit", "", "job 1")}
+	stoppedJob := b.chat("kit", "", "job 2")
+	stopping := b.chat("kit", "", "the zebra crossing")
+	q := b.waitsOn(stopping, requests.KindQuestion)
+	b.until("the three leads are held", func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return held == 3
+	})
+	b.halt()
+	// While nothing drives the office, each lead tells Kit something, Kit
+	// answers a question of a request, Sam stops that request and the
+	// third job's, and three more requests are asked.
+	letLeads()
+	waiting := func(n int64) string {
+		for _, c := range b.calls(n) {
+			if slices.Contains(c.Tickets, shipped.CallTicket) {
+				return c.ID
+			}
+		}
+		return ""
+	}
+	b.until("the three tells wait on their tickets", func() bool {
+		return waiting(jobs[0]) != "" && waiting(jobs[1]) != "" && waiting(stoppedJob) != ""
+	})
+	waits := map[string]bool{waiting(jobs[0]): true, waiting(jobs[1]): true}
+	if _, err := b.reqs.Reply(q.ID, b.reqs.Person("kit"), "the left one", nil, requests.Screens); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []int64{stopping, stoppedJob} {
+		if err := b.w.Stop(ctx, n, b.reqs.Person("sam")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	unanswered := map[string]bool{waiting(stopping): true, waiting(stoppedJob): true}
+	var asked []int64
+	for _, text := range []string{"alpha", "beta", "gamma"} {
+		asked = append(asked, b.chat("sam", "", text))
+	}
+	// Each start, and each answer, waits until all are on their way.
+	starting, replying, most := 0, 0, map[string]int{}
+	var unkept []string
+	toStopping := false
+	starts, replies := make(chan struct{}), make(chan struct{})
+	letStarts, letReplies := sync.OnceFunc(func() { close(starts) }), sync.OnceFunc(func() { close(replies) })
+	// Trips made one after another would wait here for ever.
+	defer letStarts()
+	defer letReplies()
+	b.reach.set(func(f *flaky) {
+		f.starting = func(s client.Start) error {
+			if in, _ := s.Input.(map[string]any); !slices.Contains([]any{"alpha", "beta", "gamma"}, in["said"]) {
+				return nil
+			}
+			mu.Lock()
+			starting++
+			most["starts"] = max(most["starts"], starting)
+			if starting == 3 {
+				letStarts()
+			}
+			mu.Unlock()
+			<-starts
+			return nil
+		}
+		f.replying = func(run string) error {
+			if unanswered[run] {
+				mu.Lock()
+				toStopping = true
+				mu.Unlock()
+			}
+			if !waits[run] {
+				return nil
+			}
+			row, err := b.w.callOf(run)
+			mu.Lock()
+			if err != nil || row == nil || row.State != answered {
+				unkept = append(unkept, run)
+			}
+			replying++
+			most["replies"] = max(most["replies"], replying)
+			if replying == 2 {
+				letReplies()
+			}
+			mu.Unlock()
+			<-replies
+			return nil
+		}
+	})
+	b.w.updates = append(b.w.updates, client.Update{})
+	for _, r := range b.listedAll() {
+		b.w.updates = append(b.w.updates, client.Update{Run: r})
+	}
+	b.w.updates = append(b.w.updates, client.Update{Listed: true})
+	passed := make(chan struct{})
+	go func() {
+		defer close(passed)
+		b.w.pass(ctx, false)
+	}()
+	b.until("the three starts are on their way at once", func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return most["starts"] == 3
+	})
+	b.until("the two answers are on their way at once", func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return most["replies"] == 2
+	})
+	<-passed
+	if len(unkept) > 0 {
+		t.Errorf("the answers to %v were sent before they were kept", unkept)
+	}
+	if toStopping {
+		t.Error("a tool of a run being stopped was given an answer")
+	}
+	for _, n := range asked {
+		if runs := b.runs(n); len(runs) != 1 || runs[0].Status != going {
+			t.Errorf("when the pass returned, request %d had the runs %+v", n, runs)
+		}
+	}
+	for _, n := range jobs {
+		if told := b.entries(n, requests.KindTold); len(told) != 1 {
+			t.Errorf("when the pass returned, request %d had told %v", n, b.thread(n))
+		}
+	}
+}
+
 func TestWorkEndingAppliedOnceToItsOwnRun(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, house(t))

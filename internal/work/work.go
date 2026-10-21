@@ -192,6 +192,9 @@ type Work struct {
 	// runs now, and listenAt and carryAt when they said to ask again.
 	listenNow, carryNow bool
 	listenAt, carryAt   time.Time
+	// trips are the trips to Corbie of the step under way: none between
+	// steps.
+	trips trips
 
 	// passed is told each time a pass has done all there was to do.
 	passed func()
@@ -472,8 +475,13 @@ func (w *Work) pass(ctx context.Context, moved bool) {
 // step does one round of what there is to do, and says whether it did
 // anything. Each part of it does something only when something told it
 // to: a change seen in Corbie, a request written to, another area, or the
-// time something waited for having come.
+// time something waited for having come. What the changes seen need of
+// Corbie is read side by side first, and the answers to tickets decided
+// are sent side by side last: the step ends once each has gone, or could
+// not go.
 func (w *Work) step(ctx context.Context) bool {
+	w.trips = trips{shown: map[string]shown{}, tickets: map[string]ticketsRead{}}
+	defer func() { w.trips = trips{} }()
 	did := w.reread(ctx)
 	if w.office == nil {
 		return false
@@ -493,6 +501,7 @@ func (w *Work) step(ctx context.Context) bool {
 	for _, name := range gone {
 		w.showAgain(name)
 	}
+	w.readAhead(ctx, updates)
 	for _, u := range updates {
 		w.update(ctx, u)
 		did = true
@@ -519,7 +528,7 @@ func (w *Work) step(ctx context.Context) bool {
 	did = w.clocks(ctx) || did
 	did = w.comings(ctx) || did
 	did = w.bridging(ctx, len(touched) > 0) || did
-	return did
+	return w.sendReplies(ctx) || did
 }
 
 // again has something looked at again once Again has passed, and held
@@ -539,13 +548,29 @@ func (w *Work) held(key string) bool {
 // clock's coming round, are held until their time by whatever does them.
 func (w *Work) lookAgain(ctx context.Context) bool {
 	now := w.clock.Now()
-	did := false
+	var due []string
 	for _, key := range slices.Sorted(maps.Keys(w.later)) {
-		if now.Before(w.later[key]) {
-			continue
+		if !now.Before(w.later[key]) {
+			delete(w.later, key)
+			due = append(due, key)
 		}
-		delete(w.later, key)
-		did = true
+	}
+	// What each reads of Corbie is read side by side first.
+	var show, tickets []string
+	for _, key := range due {
+		switch kind, what, _ := strings.Cut(key, ":"); kind {
+		case "show":
+			if w.toTake(what) {
+				show = append(show, what)
+			}
+		case "call":
+			show = append(show, what)
+		case "give":
+			tickets = append(tickets, what)
+		}
+	}
+	w.readRuns(ctx, show, tickets)
+	for _, key := range due {
 		kind, what, _ := strings.Cut(key, ":")
 		switch kind {
 		case "show":
@@ -571,12 +596,12 @@ func (w *Work) lookAgain(ctx context.Context) bool {
 			w.sweep(w.office)
 		}
 	}
-	return did
+	return len(due) > 0
 }
 
 // callAgain reads a call that could not be read or done, and does it.
 func (w *Work) callAgain(ctx context.Context, run string) {
-	r, err := w.corbie.Show(ctx, run)
+	r, err := w.show(ctx, run)
 	if err != nil {
 		w.Log("the call %s could not be read, so it is looked at again in %v: %v", run, Again, err)
 		w.again("call:" + run)
@@ -592,6 +617,6 @@ func (w *Work) giveAgain(ctx context.Context, run string) {
 		w.Log("the answer kept for %s could not be read, and is given again in %v: %v", run, Again, err)
 		w.again("give:" + run)
 	case row != nil && row.State == answered:
-		w.giveSoon(ctx, row)
+		w.giveKept(ctx, row)
 	}
 }

@@ -33,9 +33,11 @@ type ready struct {
 // starts looks at each request that may have a run to start: one
 // touched, written to or whose run ended, those waiting their turn once a
 // run began to wait or ended, and, after the office is read or Bulldog is
-// back, every open one. Those ready start oldest first, while the office
-// has room for them; the rest wait their turn. How many are at work, and
-// how many wait, is kept for Load once the runs going could be counted.
+// back, every open one. Those ready are noted oldest first, while the
+// office has room for them, and their starts sent side by side; the rest
+// wait their turn, and a start that could not go frees its room for
+// them. How many are at work, and how many wait, is kept for Load once
+// the runs going could be counted.
 func (w *Work) starts(ctx context.Context, touched map[int64]bool) bool {
 	scan := w.scan && !w.held("scan")
 	if len(touched) == 0 && !w.freed && !scan {
@@ -67,14 +69,23 @@ func (w *Work) starts(ctx context.Context, touched map[int64]bool) bool {
 		}
 	}
 	did := len(candidates) > 0
+	var noted []toStart
 	for _, r := range all {
 		if room <= 0 {
 			w.queued[r.r.Number] = true
 			continue
 		}
-		if w.start(ctx, r) {
+		if s := w.noteStart(r); s != nil {
+			noted = append(noted, *s)
 			room--
+		}
+	}
+	errs := sideBySide(ctx, len(noted), func(i int) error { return w.send(ctx, noted[i].rd.worker.Draft, noted[i].start) })
+	for i, s := range noted {
+		if w.startSent(s, errs[i]) {
 			working++
+		} else {
+			w.freed = true
 		}
 	}
 	if counted {
@@ -368,49 +379,71 @@ func byPerson(e requests.Entry) bool {
 	return false
 }
 
-// start starts a request's lead on it. The run is noted, with its team
-// and request, before its start is sent; a start that cannot be sent is
-// said to the team's people and tried again later, as what it was, and
-// holds up no other.
-func (w *Work) start(ctx context.Context, rd ready) bool {
+// A toStart is a lead's run on a request noted to start, with the start
+// that is sent.
+type toStart struct {
+	rd    ready
+	n     *note
+	start client.Start
+}
+
+// noteStart notes a request's lead's run, with its team and request,
+// before its start is sent. What cannot be put together or noted is said
+// as a start that could not be sent.
+func (w *Work) noteStart(rd ready) *toStart {
 	r := rd.r
-	fail := func(what string, err error) bool {
-		w.trouble(r.Number, r.Team, fmt.Sprintf("Bulldog could not start %s on request %d (%s), and tries again in %v: %v",
-			rd.worker.Name, r.Number, what, Again, err))
-		w.again(fmt.Sprintf("start:%d", r.Number))
-		keep := w.pend
-		if rd.again {
-			keep = w.refused
-		}
-		if err := keep(r.Number); err != nil {
-			w.Log("request %d: %v", r.Number, err)
-		}
-		return false
-	}
 	input, err := w.given(w.office, rd)
 	if err != nil {
-		return fail("what it is given could not be put together", err)
+		w.unstarted(rd, "what it is given could not be put together", err)
+		return nil
 	}
 	name, err := w.corbie.NewRun()
 	if err != nil {
-		return fail("no name could be chosen for its run", err)
+		w.unstarted(rd, "no name could be chosen for its run", err)
+		return nil
 	}
 	labels := w.labels(requests.Labels(r))
 	labels[LabelKind] = KindWork
 	n := &note{Name: name, Kind: KindWork, Team: r.Team, Request: r.Number, Worker: rd.worker.Name, Labels: labels,
 		Seen: rd.thread[len(rd.thread)-1].ID, Since: rd.mark, Noted: w.clock.Now(), Again: rd.again}
 	if err := w.keep(n); err != nil {
-		return fail("its run could not be noted", err)
+		w.unstarted(rd, "its run could not be noted", err)
+		return nil
 	}
-	if err := w.send(ctx, rd.worker.Draft, client.Start{Run: name, Input: input, Labels: labels}); err != nil {
-		w.endUnsent(name, err)
-		return fail("Corbie was not reached", err)
+	return &toStart{rd: rd, n: n, start: client.Start{Run: name, Input: input, Labels: labels}}
+}
+
+// startSent takes how a lead's start went, and says whether it went. One
+// that could not be sent is kept as not sent, and said to the team's
+// people.
+func (w *Work) startSent(s toStart, err error) bool {
+	r := s.rd.r
+	if err != nil {
+		w.endUnsent(s.n.Name, err)
+		w.unstarted(s.rd, "Corbie was not reached", err)
+		return false
 	}
-	if err := w.sent(n); err != nil {
-		w.trouble(r.Number, r.Team, fmt.Sprintf("Bulldog started %s on request %d, and could not keep that it did: %v", rd.worker.Name, r.Number, err))
+	if err := w.sent(s.n); err != nil {
+		w.trouble(r.Number, r.Team, fmt.Sprintf("Bulldog started %s on request %d, and could not keep that it did: %v", s.rd.worker.Name, r.Number, err))
 	}
 	delete(w.troubled, r.Number)
 	return true
+}
+
+// unstarted says a lead's start could not be sent to the team's people,
+// and has it tried again later, as what it was, holding up no other.
+func (w *Work) unstarted(rd ready, what string, err error) {
+	r := rd.r
+	w.trouble(r.Number, r.Team, fmt.Sprintf("Bulldog could not start %s on request %d (%s), and tries again in %v: %v",
+		rd.worker.Name, r.Number, what, Again, err))
+	w.again(fmt.Sprintf("start:%d", r.Number))
+	keep := w.pend
+	if rd.again {
+		keep = w.refused
+	}
+	if err := keep(r.Number); err != nil {
+		w.Log("request %d: %v", r.Number, err)
+	}
 }
 
 // send sends the start of a run kept as going, good for Life, and has

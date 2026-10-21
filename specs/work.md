@@ -188,6 +188,8 @@ A run is never taken to have ended from a record that could not be read. A run w
 
 Bulldog looks for runs to start when a request is opened, something is said, a run ends, a call is answered, or the office is read again. The one timer of this area's own looks again at what it could not read or reach, and once at each start Bulldog sent: a start Corbie refused has no head, so the watch never tells of it, and it is ended as failed with what Corbie said; one waiting to start is looked at again; and one going is left to the watch. What people do on the screens never waits on Corbie.
 
+Bulldog does the office's work in rounds, on its one goroutine. Each round first reads from Corbie, side by side, what the changes it takes need and the watch does not tell, as what Bulldog keeps says each needs: each call's input and the ticket it waits on, and each run's ending. It then decides and writes each thing in turn, sending the starts of the leads it decided on side by side, each once its run is noted; and last it sends side by side the answers to tickets it decided on, each once it is kept, and none to a tool of a run being stopped, nor any while it cannot tell which runs are being stopped. An ask's verdict goes all the same, since a stop withdraws what the ask held. A round ends once each has gone, or could not; what could not is tried again as before.
+
 A run goes on as it was started when the files change, and the worker's next run reads them again. A run of a worker or a team that is no longer in the office is stopped.
 
 ## Limits
@@ -206,6 +208,7 @@ A run goes on as it was started when the files change, and the worker's next run
 | how long a shipped tool waits | 7 days |
 | how long a start, or an answer to a ticket, that Bulldog sends is good for | an hour |
 | how far up Bulldog looks for the worker that called | 16 runs |
+| the trips to Corbie a round makes side by side | 16 at once |
 | when Bulldog looks again at what it could not read or reach, and once at each start it sent | 30 seconds |
 
 Text is never cut inside a character.

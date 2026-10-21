@@ -26,6 +26,39 @@ const (
 	askMachine  = "ask"
 )
 
+// readAhead reads side by side what taking the changes the watch saw
+// needs of Corbie that the watch does not tell, as taking each would: the
+// input of each call or ask to be done, with the tickets of a call, which
+// it is answered on; what a call given its kept answer ended with; and
+// how a run noted at the top ended. Once the watch begins a listing, what
+// was kept of the calls is forgotten, as taking it forgets it.
+func (w *Work) readAhead(ctx context.Context, updates []client.Update) {
+	var show, tickets []string
+	relisted := false
+	for _, u := range updates {
+		switch r := u.Run; {
+		case r == nil:
+			relisted = relisted || !u.Listed
+		case isLive(r):
+		case r.Parent == "" && r.HasEnded():
+			if w.toTake(r.ID) {
+				show = append(show, r.ID)
+			}
+		case r.Parent == "":
+		case r.HasEnded():
+			if row, err := w.callOf(r.ID); err == nil && row != nil && answeredDone(row, r) {
+				show = append(show, r.ID)
+			}
+		case w.toDo(r, relisted):
+			show = append(show, r.ID)
+			if r.Machine == callMachine {
+				tickets = append(tickets, r.ID)
+			}
+		}
+	}
+	w.readRuns(ctx, show, tickets)
+}
+
 // update takes one change the watch saw.
 func (w *Work) update(ctx context.Context, u client.Update) {
 	switch {
@@ -82,20 +115,17 @@ func (w *Work) child(ctx context.Context, r *client.Run) {
 		}
 		return
 	}
-	if _, kept := w.calls[r.ID]; kept || w.isLater("call:"+r.ID) {
+	if !w.toDo(r, false) {
 		return
 	}
 	var request int64
 	var waits bool
 	var err error
-	switch {
-	case r.Machine == askMachine && slices.Contains(r.Tickets, shipped.AskTicket):
+	if r.Machine == askMachine {
 		waits = true
 		request, err = w.ask(ctx, r)
-	case r.Machine == callMachine && slices.Contains(r.Tickets, shipped.CallTicket):
+	} else {
 		request, waits, err = w.call(ctx, r)
-	default:
-		return
 	}
 	if err != nil {
 		w.Log("the call %s could not be done yet, so it is looked at again in %v: %v", r.ID, Again, err)
@@ -104,6 +134,17 @@ func (w *Work) child(ctx context.Context, r *client.Run) {
 	}
 	w.calls[r.ID] = call{request: request, waits: waits}
 	w.freed = w.freed || waits
+}
+
+// toDo says whether a run below a run Bulldog started is a shipped tool's
+// call or an ask, waiting on its ticket, that is to be done: it is not
+// kept as done, unless what was kept is forgotten, nor to be looked at
+// again later.
+func (w *Work) toDo(r *client.Run, forgotten bool) bool {
+	_, kept := w.calls[r.ID]
+	waits := r.Machine == askMachine && slices.Contains(r.Tickets, shipped.AskTicket) ||
+		r.Machine == callMachine && slices.Contains(r.Tickets, shipped.CallTicket)
+	return waits && (forgotten || !kept) && !w.isLater("call:"+r.ID)
 }
 
 // isLater says whether something is to be looked at again, at any time.
@@ -137,10 +178,15 @@ func (w *Work) settle(ctx context.Context) {
 	}
 	w.settled = true
 	w.scan, w.cancelling, w.owing = true, true, true
+	var away []string
 	for _, n := range notes {
 		if !w.roots[n.Name] {
-			w.ended(ctx, n.Name)
+			away = append(away, n.Name)
 		}
+	}
+	w.readRuns(ctx, away, nil)
+	for _, name := range away {
+		w.ended(ctx, name)
 	}
 	for _, id := range slices.Sorted(maps.Keys(w.roots)) {
 		w.known(ctx, id)
@@ -167,20 +213,24 @@ func (w *Work) callsAway(ctx context.Context) {
 		w.again("away")
 		return
 	}
+	var unseen []string
 	for _, c := range calls {
 		if c.Request != 0 {
 			w.touch(c.Request)
 		}
-		if _, seen := w.calls[c.Run]; seen || w.isLater("call:"+c.Run) {
-			continue
+		if _, seen := w.calls[c.Run]; !seen && !w.isLater("call:"+c.Run) {
+			unseen = append(unseen, c.Run)
 		}
-		r, err := w.corbie.Show(ctx, c.Run)
+	}
+	w.readRuns(ctx, unseen, nil)
+	for _, run := range unseen {
+		r, err := w.show(ctx, run)
 		switch {
 		case errors.Is(err, client.ErrNoRun):
-			r = &client.Run{ID: c.Run, Status: "cancelled"}
+			r = &client.Run{ID: run, Status: "cancelled"}
 		case err != nil:
-			w.Log("the call %s could not be read, so it is looked at again in %v: %v", c.Run, Again, err)
-			w.again("call:" + c.Run)
+			w.Log("the call %s could not be read, so it is looked at again in %v: %v", run, Again, err)
+			w.again("call:" + run)
 			continue
 		}
 		if r.HasEnded() {
@@ -223,10 +273,10 @@ func (w *Work) ended(ctx context.Context, name string) {
 		w.Log("the run %s could not be looked up, so it is looked at again in %v: %v", name, Again, err)
 		w.showAgain(name)
 		return
-	case n == nil || n.ended() && n.Status != unsent:
+	case n == nil || !n.toTake():
 		return
 	}
-	run, err := w.corbie.Show(ctx, name)
+	run, err := w.show(ctx, name)
 	switch {
 	case errors.Is(err, client.ErrNoRun) && (n.Status == unsent || w.isSending(name)):
 		// Not sent, or not yet: the watch sees it once Corbie holds it.
@@ -268,6 +318,16 @@ func (w *Work) ended(ctx context.Context, name string) {
 }
 
 func (w *Work) showAgain(name string) { w.again("show:" + name) }
+
+// toTake says whether how a run ended is still to be taken, as ended
+// takes it: it is noted, and has not ended as noted, or its start was
+// taken as not sent; or it cannot be looked up, which ended says.
+func (w *Work) toTake(name string) bool {
+	n, err := w.noted(name)
+	return err != nil || n != nil && n.toTake()
+}
+
+func (n *note) toTake() bool { return !n.ended() || n.Status == unsent }
 
 // lost ends a noted run that Corbie never took up, or keeps no record of.
 func (w *Work) lost(ctx context.Context, n *note) {

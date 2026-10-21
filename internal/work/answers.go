@@ -13,7 +13,6 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/changes"
 	"github.com/zummed/corbie-bulldog/internal/decisions"
 	"github.com/zummed/corbie-bulldog/internal/requests"
-	"github.com/zummed/corbie-bulldog/shipped"
 )
 
 // What a waiting tool waits for comes from elsewhere: a person's answer
@@ -45,13 +44,7 @@ func (w *Work) settleCall(ctx context.Context, row *callRow, answer string, give
 	if err := w.answerCall(row, answer, given); err != nil {
 		return false, err
 	}
-	switch err := w.give(ctx, row.Run, shipped.CallTicket, answer); {
-	case errors.Is(err, errGone):
-		return true, nil
-	case err != nil:
-		w.giveLater(row.Run, err)
-	}
-	return false, nil
+	return w.giveKept(ctx, row), nil
 }
 
 // replies gives a person's answer to each question in a request whose
@@ -300,7 +293,7 @@ func (w *Work) letGo(ctx context.Context, l decisions.Let) error {
 	if err := w.answerCall(row, answer, nil); err != nil {
 		return err
 	}
-	w.giveSoon(ctx, row)
+	w.giveKept(ctx, row)
 	return nil
 }
 
@@ -395,13 +388,13 @@ func (w *Work) callEnded(ctx context.Context, r *client.Run) error {
 		return w.dropCall(r.ID, 0)
 	}
 	untaken := int64(0)
-	if row.State == answered && r.Status == "done" {
+	if answeredDone(row, r) {
 		// What a run ended with is read from its record.
-		if r, err = w.corbie.Show(ctx, r.ID); err != nil {
+		if r, err = w.show(ctx, r.ID); err != nil {
 			return err
 		}
 	}
-	if row.State == answered && r.Status == "done" && str(r.Output) != row.Answer {
+	if answeredDone(row, r) && str(r.Output) != row.Answer {
 		switch row.Tool {
 		case toolAskPerson:
 			given, err := w.givenTo(row.Request)
@@ -433,4 +426,10 @@ func (w *Work) callEnded(ctx context.Context, r *client.Run) error {
 		}
 	}
 	return w.dropCall(r.ID, untaken)
+}
+
+// answeredDone says whether a call kept as answered ended done, so what
+// it ended with says whether it took its kept answer.
+func answeredDone(row *callRow, r *client.Run) bool {
+	return row.Tool != askTool && row.State == answered && r.Status == "done"
 }

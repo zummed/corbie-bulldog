@@ -58,9 +58,6 @@ func WritesDocs(w *office.Worker) bool {
 	return slices.ContainsFunc(w.Held, func(t office.Tool) bool { return t.Kind == office.ToolBulldog && t.Name == toolWriteDoc })
 }
 
-// errGone says a call no longer waits on its ticket: its run has ended.
-var errGone = errors.New("it no longer waits on its ticket")
-
 // does says whether Bulldog does a tool: every tool in a tools file it
 // ships, and no other.
 func does(tool string) bool {
@@ -131,7 +128,8 @@ func (w *Work) call(ctx context.Context, r *client.Run) (int64, bool, error) {
 	if err := w.answerCall(row, answer, nil); err != nil {
 		return 0, false, err
 	}
-	return row.Request, false, w.giveKept(ctx, row)
+	w.giveKept(ctx, row)
+	return row.Request, false, nil
 }
 
 // begin keeps a call before it is done, with the last entry of its
@@ -153,7 +151,8 @@ func (w *Work) begin(c *calling) error {
 func (w *Work) seenAgain(ctx context.Context, row *callRow) (bool, error) {
 	switch row.State {
 	case answered:
-		return false, w.giveKept(ctx, row)
+		w.giveKept(ctx, row)
+		return false, nil
 	case waiting:
 		w.touch(row.Request)
 		if row.Sub != 0 {
@@ -163,21 +162,16 @@ func (w *Work) seenAgain(ctx context.Context, row *callRow) (bool, error) {
 	return true, nil
 }
 
-// giveKept answers a call's ticket with its kept answer. A call that no
-// longer waits is let go when its ending is seen.
-func (w *Work) giveKept(ctx context.Context, row *callRow) error {
-	if err := w.give(ctx, row.Run, shipped.CallTicket, row.Answer); err != nil && !errors.Is(err, errGone) {
-		return fmt.Errorf("the answer kept for %s could not be given: %w", row.Run, err)
-	}
-	return nil
-}
-
-// giveSoon gives a call its kept answer, or, when Corbie cannot be
-// reached, again once Again has passed.
-func (w *Work) giveSoon(ctx context.Context, row *callRow) {
-	if err := w.giveKept(ctx, row); err != nil {
-		w.giveLater(row.Run, err)
-	}
+// giveKept answers a call's ticket with its kept answer, and says whether
+// the call no longer waits on it, so the answer is for somewhere else; a
+// call that no longer waits is let go when its ending is seen. An answer
+// that cannot be given now is given again once Again has passed.
+func (w *Work) giveKept(ctx context.Context, row *callRow) bool {
+	return w.give(ctx, row.Run, shipped.CallTicket, row.Answer, row.Request, func(err error) {
+		if err != nil {
+			w.giveLater(row.Run, err)
+		}
+	})
 }
 
 // giveLater has a call given its kept answer once Again has passed.
@@ -186,24 +180,28 @@ func (w *Work) giveLater(run string, err error) {
 	w.again("give:" + run)
 }
 
-// give answers the ticket a run waits on, with an answer good for Life.
-func (w *Work) give(ctx context.Context, run, ticket string, value any) error {
-	tickets, err := w.corbie.Tickets(ctx, run)
-	switch {
-	case errors.Is(err, client.ErrNoRun):
-		return errGone
-	case err != nil:
-		return err
-	case tickets[ticket] == "":
-		return errGone
+// give answers the ticket a run waits on, with an answer good for Life,
+// and says whether the run no longer waits on it. The answer is sent with
+// the round's others once it has decided everything, and then is told how
+// that went, or why it could not go: as when the run's tickets could not
+// be read, and at once when no round is under way to send it. One dropped,
+// to a tool of a run being stopped, is told nothing.
+func (w *Work) give(ctx context.Context, run, ticket string, value any, request int64, then func(error)) bool {
+	if w.trips.shown == nil {
+		then(errors.New("no round is under way to send it"))
+		return false
 	}
-	_, err = w.corbie.Reply(ctx, run, tickets[ticket], value, Life)
-	return err
+	tickets, err := w.ticketsOf(ctx, run)
+	if errors.Is(err, client.ErrNoRun) || err == nil && tickets[ticket] == "" {
+		return true
+	}
+	w.trips.replies = append(w.trips.replies, reply{run: run, ticket: tickets[ticket], value: value, request: request, then: then, err: err})
+	return false
 }
 
 // inputOf gives what a run was started with.
 func (w *Work) inputOf(ctx context.Context, run string) (map[string]any, error) {
-	r, err := w.corbie.Show(ctx, run)
+	r, err := w.show(ctx, run)
 	if err != nil {
 		return nil, fmt.Errorf("its input cannot be read yet: %w", err)
 	}
@@ -224,7 +222,7 @@ func (w *Work) above(ctx context.Context, r *client.Run) ([]string, string, stri
 	for range Climb {
 		b, told := w.tree[at]
 		if !told {
-			p, err := w.corbie.Show(ctx, at)
+			p, err := w.show(ctx, at)
 			switch {
 			case errors.Is(err, client.ErrNoRun):
 				return nil, "", "The run this call comes from is gone, so it was not done.", nil
@@ -260,6 +258,8 @@ func (w *Work) calling(ctx context.Context, r *client.Run, row *callRow) (*calli
 	case n.Kind != KindWork:
 		return nil, "Bulldog does its tools only for a worker's run on a request, so this call was not done.", nil
 	case n.ended() || n.Stop != "":
+		// Of its request, so a run being stopped is given nothing.
+		row.Request = n.Request
 		return nil, "The run this call comes from has ended or is being stopped, so it was not done.", nil
 	}
 	o := w.office
