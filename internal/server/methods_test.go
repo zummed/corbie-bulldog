@@ -215,6 +215,14 @@ func TestServerStoppedSignInMethodBeginsNothing(t *testing.T) {
 		t.Errorf("the office's methods are %v", methods)
 	}
 
+	// A method whose authorize is not an https address begins nothing.
+	files = signingIn(t)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], `"https://accounts.example/auth"`, `"http://accounts.example/auth"`, 1)
+	r = newBench(t, files).serve(atURL).nobody().get("/signin/google").is(http.StatusServiceUnavailable)
+	if !strings.Contains(string(r.body), "is not an https address") || r.header.Get("Location") != "" {
+		t.Errorf("a method whose authorize is http is answered %s", r.body)
+	}
+
 	// On a server started with no --url, a method with no problem is
 	// stopped as well, and says why.
 	s = newBench(t, signingIn(t)).serve()

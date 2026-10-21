@@ -113,14 +113,15 @@ var setting = regexp.MustCompile(`\{([a-z_]+)\}`)
 // from the method's authorize, client_id and scope, as written or as its
 // machine's input gives them, each {name} in authorize filled from the
 // setting of that name: a request for a code, sent back to back, with the
-// state, the nonce and the challenge of the verifier.
+// state, the nonce and the challenge of the verifier, which only https
+// carries unread.
 func authorizeOf(m *office.SignIn, back string, sg signing) (string, error) {
 	filled := setting.ReplaceAllStringFunc(m.Setting("authorize"), func(name string) string {
 		return url.PathEscape(m.Setting(name[1 : len(name)-1]))
 	})
 	u, err := url.Parse(filled)
-	if err != nil || u.Host == "" || u.Scheme != "https" && u.Scheme != "http" {
-		return "", fmt.Errorf("its authorize, %q, is not an address", filled)
+	if err != nil || u.Host == "" || u.Scheme != "https" {
+		return "", fmt.Errorf("its authorize, %q, is not an https address", filled)
 	}
 	client := m.Setting("client_id")
 	if client == "" {
