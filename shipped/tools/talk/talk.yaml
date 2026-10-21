@@ -13,8 +13,8 @@ ask_team:
       args: "${args}"
       unanswered: &unanswered No answer came within 7 days. The question is still open, and an answer that comes later is said to your team, which starts again with it.
 ask_person:
-  does: Ask a person of your team a question, and wait for the answer. Leave who empty for whoever asked what you are working on. Only for what a person alone can answer or choose
-  args: { question: string, who: "string?" }
+  does: Ask a person of your team a question, and wait for the answer. Leave who empty for whoever asked what you are working on. Only for what a person alone can answer or choose. Where the likely answers are few and short, give them as choices, up to 8 of up to 75 characters each, which the person picks with a press; they may still answer anything else, and what they pick is their answer, word for word
+  args: { question: string, who: "string?", choices: "list?" }
   job: { machine: ../../call.yaml, input: { tool: ask_person, args: "${args}", unanswered: *unanswered } }
 tell:
   does: Tell whoever asked what you are working on, or a person of your team by name, something that needs no answer, and go on

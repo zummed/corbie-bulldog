@@ -338,7 +338,7 @@ func (w *Work) tell(ctx context.Context, c *calling) (string, bool, error) {
 	if leaves {
 		return w.disclose(ctx, c, decisions.Said{What: decisions.SaysTell, To: to, Text: text})
 	}
-	if _, err := w.putOnce(c.row, requests.KindTold, to, text); err != nil {
+	if _, err := w.putOnce(c.row, requests.KindTold, to, text, nil); err != nil {
 		return "", false, err
 	}
 	return toldText(name), false, nil
@@ -348,12 +348,24 @@ func toldText(name string) string {
 	return fmt.Sprintf("Told %s. It asks nothing of them, so wait for no reply.", name)
 }
 
-// askPerson asks a person of the worker's team, or the asker, and waits
-// for the answer.
+// The most choices a question offers, and the most characters in one: as
+// many as every bridge Bulldog ships draws as buttons, Slack's 75
+// characters a button the shortest.
+const (
+	maxChoices   = 8
+	choiceLength = 75
+)
+
+// askPerson asks a person of the worker's team, or the asker, offering
+// the choices it gives, and waits for the answer.
 func (w *Work) askPerson(ctx context.Context, c *calling) (string, bool, error) {
 	question := str(c.args["question"])
 	if strings.TrimSpace(question) == "" {
 		return "A question needs words, and this one had none, so nobody was asked.", false, nil
+	}
+	choices, refusal := choicesOf(c.args["choices"])
+	if refusal != "" {
+		return refusal, false, nil
 	}
 	to, _, refusal, err := w.whom(c, str(c.args["who"]), "ask", "asked")
 	if err != nil || refusal != "" {
@@ -364,14 +376,47 @@ func (w *Work) askPerson(ctx context.Context, c *calling) (string, bool, error) 
 		return "", false, err
 	}
 	if leaves {
-		return w.disclose(ctx, c, decisions.Said{What: decisions.SaysQuestion, To: to, Text: question})
+		return w.disclose(ctx, c, decisions.Said{What: decisions.SaysQuestion, To: to, Text: question, Choices: choices})
 	}
-	e, err := w.putOnce(c.row, requests.KindQuestion, to, question)
+	e, err := w.putOnce(c.row, requests.KindQuestion, to, question, choices)
 	if err != nil {
 		return "", false, err
 	}
 	c.row.State, c.row.Entry = waiting, e.ID
 	return "", true, w.keepCall(c.row)
+}
+
+// choicesOf reads the choices a question offers, each trimmed, or refuses
+// them with a sentence: each is short words, offered once, and there are
+// few of them.
+func choicesOf(v any) ([]string, string) {
+	if v == nil {
+		return nil, ""
+	}
+	list, ok := v.([]any)
+	if !ok {
+		return nil, "Choices are a list of short answers, and these were not, so nobody was asked."
+	}
+	if len(list) > maxChoices {
+		return nil, fmt.Sprintf("A question offers at most %d choices, and this one offered %d, so nobody was asked: offer the likeliest few, since any other answer may still be typed.",
+			maxChoices, len(list))
+	}
+	var choices []string
+	for i, item := range list {
+		choice, ok := item.(string)
+		choice = strings.TrimSpace(choice)
+		switch {
+		case !ok || choice == "":
+			return nil, fmt.Sprintf("Choice %d has no words, so nobody was asked: each choice is a short answer they may pick.", i+1)
+		case utf8.RuneCountInString(choice) > choiceLength:
+			return nil, fmt.Sprintf("The choice %q is %d characters, more than the %d a choice may be, so nobody was asked: keep each choice short, and the rest in the question.",
+				choice, utf8.RuneCountInString(choice), choiceLength)
+		case slices.ContainsFunc(choices, func(c string) bool { return strings.EqualFold(c, choice) }):
+			return nil, fmt.Sprintf("%q is offered twice, so nobody was asked: offer each choice once.", choice)
+		}
+		choices = append(choices, choice)
+	}
+	return choices, ""
 }
 
 // askTeam asks another team of the office, as a sub-request, and waits
@@ -581,10 +626,10 @@ func (w *Work) disclose(ctx context.Context, c *calling, said decisions.Said) (s
 	return "", true, w.keepCall(c.row)
 }
 
-// putOnce puts a question or a tell for a call, once: one put before
-// Bulldog stopped, found in the thread after the call's mark and not kept
-// for any other call, is taken as it.
-func (w *Work) putOnce(row *callRow, kind string, to requests.Who, text string) (*requests.Entry, error) {
+// putOnce puts a question, with its choices, or a tell for a call, once:
+// one put before Bulldog stopped, found in the thread after the call's
+// mark and not kept for any other call, is taken as it.
+func (w *Work) putOnce(row *callRow, kind string, to requests.Who, text string, choices []string) (*requests.Entry, error) {
 	thread, err := w.requests.Thread(row.Request)
 	if err != nil {
 		return nil, err
@@ -601,11 +646,11 @@ func (w *Work) putOnce(row *callRow, kind string, to requests.Who, text string) 
 	}
 	for _, e := range thread {
 		if row.Mark != 0 && e.ID > row.Mark && !claimed[e.ID] && e.Kind == kind && e.By.Kind == requests.IsWorker && e.By.Name == row.Worker &&
-			e.Text == text && len(e.To) == 1 && sameWho(e.To[0], to) {
+			e.Text == text && slices.Equal(e.Choices, choices) && len(e.To) == 1 && sameWho(e.To[0], to) {
 			return &e, nil
 		}
 	}
-	return w.requests.Put(row.Request, w.requests.Worker(row.Worker), kind, to, text, nil)
+	return w.requests.Put(row.Request, w.requests.Worker(row.Worker), kind, to, text, choices)
 }
 
 // sameWho says whether two parties are the same one.

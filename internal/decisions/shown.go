@@ -239,12 +239,15 @@ func (d *Decisions) served(o *office.Office, dec *Decision) (map[string]any, err
 }
 
 // disclosure gives what a disclosure decider is shown: what would leave, and
-// whether it is an answer, a question, a tell or a sub-request; whom it is
-// to, a team asked by its folder name too, and where it will be read; and
-// the team's notes, read now.
+// whether it is an answer, a question, with the choices it offers, a tell
+// or a sub-request; whom it is to, a team asked by its folder name too,
+// and where it will be read; and the team's notes, read now.
 func (d *Decisions) disclosure(o *office.Office, dec *Decision) (map[string]any, error) {
 	s := dec.Said
 	out := map[string]any{"what": s.What, "text": s.Text, "said_in": s.Request}
+	if len(s.Choices) > 0 {
+		out["choices"] = s.Choices
+	}
 	switch s.What {
 	case SaysAnswer:
 		asks, err := d.requests.Asks(s.Request)
@@ -276,13 +279,14 @@ func (d *Decisions) disclosure(o *office.Office, dec *Decision) (map[string]any,
 
 // A Leaving is what a disclosure would let out, as the people asked to
 // decide it are shown it: what it is, an answer, a question, a tell or a
-// sub-request, and its text; whom it is to; the origin at the top of its
-// tree, where it may in the end be read; and the requests it goes through
-// from that top, ending with the team a sub-request asks, numbered once it
-// is made.
+// sub-request, and its text, with the choices a question offers; whom it
+// is to; the origin at the top of its tree, where it may in the end be
+// read; and the requests it goes through from that top, ending with the
+// team a sub-request asks, numbered once it is made.
 type Leaving struct {
 	What    string
 	Text    string
+	Choices []string
 	To      requests.Party
 	ReadAt  requests.Origin
 	Through []Through
@@ -302,7 +306,7 @@ func (d *Decisions) Leaving(dec *Decision) (*Leaving, error) {
 		return nil, nil
 	}
 	s := dec.Said
-	out := &Leaving{What: s.What, Text: s.Text}
+	out := &Leaving{What: s.What, Text: s.Text, Choices: s.Choices}
 	switch s.What {
 	case SaysAnswer:
 		asks, err := d.requests.Asks(s.Request)
@@ -400,6 +404,9 @@ func (d *Decisions) shown(o *office.Office, dec *Decision, people []string) (str
 		}
 	case dec.Kind == OfDisclosure:
 		fmt.Fprintf(&b, "%s checks what it says to anyone outside it, and this waits on you:\n\n%s\n\n", capital(inSentence(called(o, dec.Team))), dec.Said.Text)
+		if len(dec.Said.Choices) > 0 {
+			fmt.Fprintf(&b, "Its choices: %s\n\n", strings.Join(dec.Said.Choices, " / "))
+		}
 	}
 	if asked, err := d.served(o, dec); err != nil {
 		return "", err

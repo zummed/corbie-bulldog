@@ -229,6 +229,92 @@ func TestWorkQuestionToUnreachablePersonRefused(t *testing.T) {
 	}
 }
 
+func TestAskPersonOffersChoices(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, work(t))
+	var k told
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		if !strings.Contains(turn.System, "You keep the ledger") {
+			return testkit.Say("done")
+		}
+		k.keep("ledger", turn)
+		if turn.Number == 1 {
+			return testkit.Use("ask_person", map[string]any{"question": "Which charge is the duplicate?", "who": "Priya", "choices": []any{"ch_1", " ch_2 "}})
+		}
+		return testkit.Say("Refunding the duplicate.")
+	})
+	n := b.chat("lee", "payments", "customer 4411 was charged twice")
+	q := b.waitsOn(n, requests.KindQuestion)
+	if q.To[0].Name != "priya" || !slices.Equal(q.Choices, []string{"ch_1", "ch_2"}) {
+		t.Fatalf("the question is %+v", q)
+	}
+	// It is carried to Priya on Slack with its choices, and her press of
+	// one is her answer, as if she had typed it.
+	toPriya := b.deliver("slack", "U0PRI000", "Which charge is the duplicate?")
+	if !slices.Equal(toPriya["choices"].([]any), []any{"ch_1", "ch_2"}) || toPriya["ref"] == nil || toPriya["direct"] != true {
+		t.Fatalf("the question is carried to Priya as %v", toPriya)
+	}
+	b.delivered("slack", thing("choice", "U0PRI000", "direct", "U0PRI000", "answers", toPriya["ref"], "choice", "ch_2"))
+	b.deliver("slack", "U0PRI000", "Taken: you answered ch_2.")
+	b.answered(n)
+	holds(t, "what the ledger was told", k.get("ledger", 2), "Priya answered: ch_2")
+	replies := b.entries(n, requests.KindReplied)
+	if len(replies) != 1 || replies[0].Text != "ch_2" || replies[0].Answers != q.ID || replies[0].By != requests.Identity("slack", "U0PRI000") {
+		t.Errorf("Priya's answer is kept as %+v", replies)
+	}
+}
+
+func TestWorkUnusableChoicesRefused(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	long := strings.Repeat("a long choice ", 6)
+	tries := []any{
+		[]any{"Monday", "  "},
+		[]any{"Monday", 2},
+		[]any{"Monday", "monday"},
+		[]any{"1", "2", "3", "4", "5", "6", "7", "8", "9"},
+		[]any{"Monday", long},
+	}
+	results := make(chan string, len(tries))
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		switch {
+		case strings.Contains(turn.Prompt(), "socket sparked") && turn.Number == 1:
+			return testkit.Use("fixer", map[string]any{"job": "mend the kitchen socket"})
+		case turn.Prompt() == "mend the kitchen socket":
+			if turn.Number > 1 {
+				results <- turn.Last()
+			}
+			if turn.Number <= len(tries) {
+				return testkit.Use("ask_person", map[string]any{"question": "when may I come?", "choices": tries[turn.Number-1]})
+			}
+			return testkit.Use("ask_person", map[string]any{"question": "when may I come?", "choices": []any{"1", "2", "3", "4", "5", "6", "7", "8"}})
+		}
+		return testkit.Say("done")
+	})
+	n := b.chat("kit", "", "the kitchen socket sparked")
+	q := b.waitsOn(n, requests.KindQuestion)
+	if len(q.Choices) != 8 {
+		t.Errorf("eight choices are put as %q", q.Choices)
+	}
+	var refusals []string
+	for range tries {
+		refusals = append(refusals, <-results)
+	}
+	holds(t, "empty words", refusals[0], "Choice 2 has no words", "nobody was asked")
+	holds(t, "a number", refusals[1], "Choice 2 has no words")
+	holds(t, "the same choice twice", refusals[2], `"monday" is offered twice`, "nobody was asked")
+	holds(t, "nine choices", refusals[3], "at most 8 choices", "offered 9", "nobody was asked")
+	holds(t, "a long choice", refusals[4], "more than the 75 a choice may be", "nobody was asked")
+	for _, r := range refusals {
+		if strings.Count(r, ". ") > 0 || !strings.HasSuffix(r, ".") {
+			t.Errorf("the refusal %q is not one sentence", r)
+		}
+	}
+	if qs := b.entries(n, requests.KindQuestion); len(qs) != 1 {
+		t.Errorf("a question with unusable choices was put: %v", b.thread(n))
+	}
+}
+
 func TestTellSaysAndGoesOn(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, house(t))

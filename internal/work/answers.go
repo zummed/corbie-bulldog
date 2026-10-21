@@ -263,11 +263,11 @@ func (w *Work) letGo(ctx context.Context, l decisions.Let) error {
 	answer := ""
 	switch l.Said.What {
 	case decisions.SaysTell:
-		_, err = w.putOnce(row, requests.KindTold, l.Said.To, l.Said.Text)
+		_, err = w.putOnce(row, requests.KindTold, l.Said.To, l.Said.Text, nil)
 		answer = toldText(called(w.office, l.Said.To))
 	case decisions.SaysQuestion:
 		var e *requests.Entry
-		if e, err = w.putOnce(row, requests.KindQuestion, l.Said.To, l.Said.Text); err == nil && row.State == held {
+		if e, err = w.putOnce(row, requests.KindQuestion, l.Said.To, l.Said.Text, l.Said.Choices); err == nil && row.State == held {
 			row.State, row.Entry = waiting, e.ID
 			err = w.keepCall(row)
 			w.touch(n)

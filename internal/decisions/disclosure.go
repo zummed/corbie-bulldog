@@ -32,6 +32,8 @@ type Said struct {
 	To   requests.Who `json:"to,omitzero"`
 	Team string       `json:"team,omitzero"`
 	Text string       `json:"text"`
+	// Choices are what a question offers whom it is to.
+	Choices []string `json:"choices,omitzero"`
 	// Files are an answer's files.
 	Files []requests.File `json:"files,omitzero"`
 	// Held is the entry the answer of a lead who is a person is held as.

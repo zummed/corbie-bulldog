@@ -429,3 +429,51 @@ func TestALeadWhoIsAPersonAnsweringOnABridgeReachesItsDisclosureCheck(t *testing
 		t.Errorf("the request's thread is %v", b.thread(n))
 	}
 }
+
+func TestADisclosedQuestionKeepsItsChoices(t *testing.T) {
+	t.Parallel()
+	files := payments(t)
+	files["payments/no-cards.js"] = `if (String(input.text).includes("4111")) return { says: "refer", note: "It names a card, offering " + input.disclosure.choices.join(" or ") + "." }
+return { says: "yes", note: "No card." }
+`
+	b := newBench(t, files)
+	var k told
+	b.says(func(turn testkit.Turn) testkit.Reply {
+		if !strings.Contains(turn.System, "You keep the ledger") {
+			return testkit.Say("done")
+		}
+		k.keep("ledger", turn)
+		if turn.Number == 1 {
+			return testkit.Use("ask_person", map[string]any{"question": "Is card 4111 yours?", "choices": []any{"Yes", "No"}})
+		}
+		return testkit.Say("Noted.")
+	})
+	// Dana, outside payments, asks it: its question to her leaves payments,
+	// and its check refers it on to Lee and Priya, who are shown its
+	// choices.
+	n := b.chat("dana", "payments", "was I charged twice?")
+	dec := b.disclosing(n, decisions.SaysQuestion)
+	if !slices.Equal(dec.Said.Choices, []string{"Yes", "No"}) || len(dec.Referrals) != 1 || dec.Referrals[0].Note != "It names a card, offering Yes or No." {
+		t.Fatalf("the disclosure is %+v, referred %+v", dec.Said, dec.Referrals)
+	}
+	if l := must(b.d.Leaving(dec)); !slices.Equal(l.Choices, []string{"Yes", "No"}) {
+		t.Errorf("the deciders are shown it leaving as %+v", l)
+	}
+	shown := b.waitsOn(n, decisions.KindDecide).Text
+	holds(t, "what Lee and Priya are shown", shown, "Is card 4111 yours?", "Its choices: Yes / No")
+	if qs := b.entries(n, requests.KindQuestion); len(qs) != 0 {
+		t.Fatalf("Dana was asked before the disclosure: %v", b.thread(n))
+	}
+	if r, err := b.d.Decide(ctx, dec.ID, b.reqs.Person("lee"), "yes", ""); err != nil || !r.Taken {
+		t.Fatalf("Lee's yes: %v %v", r, err)
+	}
+	q := b.waitsOn(n, requests.KindQuestion)
+	if q.To[0].Name != "dana" || q.Text != "Is card 4111 yours?" || !slices.Equal(q.Choices, []string{"Yes", "No"}) {
+		t.Errorf("Dana is asked %+v", q)
+	}
+	if _, err := b.reqs.Reply(q.ID, b.reqs.Person("dana"), "No", nil, requests.Screens); err != nil {
+		t.Fatal(err)
+	}
+	b.settled(n, requests.Answered)
+	holds(t, "what the ledger was told", k.get("ledger", 2), "Dana answered: No")
+}

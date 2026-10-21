@@ -1,6 +1,6 @@
 The talk tools: ask another team, ask a person, tell someone, and read the thread, each a run that waits on Bulldog.
 
-`ask_team` asks another team of the office, as a sub-request, and gives its answer. `ask_person` asks a person of the worker's team, or whoever asked, and gives what they say. `tell` says something to whoever asked, or to a person of the team, and goes on. `read_thread` reads the request's thread from an entry on, each noted message marked, or, with `place`, what was said before it where it was asked, in the team's requests there that everyone who reads this one reads, newest first. A worker that asks or tells anyone outside its own colleagues names this file.
+`ask_team` asks another team of the office, as a sub-request, and gives its answer. `ask_person` asks a person of the worker's team, or whoever asked, and gives what they say; it may offer `choices`, up to 8 short answers of up to 75 characters, which the person may pick with a press of a button, on a bridge or on the screens, and still answer anything else. `tell` says something to whoever asked, or to a person of the team, and goes on. `read_thread` reads the request's thread from an entry on, each noted message marked, or, with `place`, what was said before it where it was asked, in the team's requests there that everyone who reads this one reads, newest first. A worker that asks or tells anyone outside its own colleagues names this file.
 
 ## Needs
 
@@ -39,3 +39,4 @@ tools:
 ## Changed
 
 - 0.2.0: moved here from `.bulldog/talk.yaml`; `read_thread`.
+- 0.5.0: `ask_person` takes `choices`.
