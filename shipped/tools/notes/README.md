@@ -21,4 +21,4 @@ From a team within, the paths begin `../.bulldog/`.
 ## Changed
 
 - 0.2.0: moved here from `.bulldog/notes.yaml`.
-- 0.3.0: a worker is given its team's notes only when it names this file. `write_note` is now `write_note`, and a team's `write_note` list is its `write_note` list.
+- 0.3.0: a worker is given its team's notes only when it names this file. `write_notes` is now `write_note`, and a team's `write_notes` list is its `write_note` list.
