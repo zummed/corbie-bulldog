@@ -286,9 +286,11 @@ func (b *Bridges) markAs(o *office.Office, request int64, state string) error {
 // its latest mark says, a mark of where the request stands, unless that
 // mark says so already. A mark given up by its run may have been made, or
 // not: it keeps the team marked at work, so done follows it, and it is
-// not what the thread shows, so the same mark is kept again. A done that
-// went, or is to go, leaves the team marked at work no longer, until a
-// run of its lead starts on the request again.
+// not what the thread shows, so the same mark is kept again, once. One
+// given up a second time is left until the request stands otherwise, so
+// a service that refuses it for good is not asked again at every look. A
+// done that went, or is to go, leaves the team marked at work no longer,
+// until a run of its lead starts on the request again.
 func (b *Bridges) follow(o *office.Office, n int64, last *thingRow, now string) error {
 	switch {
 	case last == nil:
@@ -297,6 +299,12 @@ func (b *Bridges) follow(o *office.Office, n int64, last *thingRow, now string) 
 		return nil
 	case last.text == now && last.state != GivenUp:
 		return nil
+	case last.text == now:
+		again, err := b.things(`WHERE request = ? AND kind = ? AND id < ? AND state != ? AND NOT (state = ? AND runs = 0) ORDER BY id DESC LIMIT 1`,
+			n, ofMark, last.id, Withdrawn, GivenUp)
+		if err != nil || len(again) > 0 && again[0].text == now && again[0].state == GivenUp {
+			return err
+		}
 	}
 	return b.markAs(o, n, now)
 }

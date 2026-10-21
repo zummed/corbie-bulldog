@@ -216,11 +216,18 @@ func TestBridgesMarkNeverHoldsUpAnAnswer(t *testing.T) {
 	if len(out) != 1 || out[0].Input["working"] != "done" {
 		t.Fatalf("once the request is looked at again, the out run is %v", marked(out))
 	}
-	// That one is refused, and given up: the bridge is failing with the
-	// service's words, and the answer is delivered.
+	// That one is refused, and given up: it is kept again no more, however
+	// often the request is looked at, or Bulldog started again. The
+	// bridge is failing with the service's words, and the answer is
+	// delivered.
 	d.ended(out[0], map[string]any{"refused": "Slack refused: missing_scope"})
+	d.requests.Tell(n)
 	if again := d.carry(); len(again) != 0 {
-		t.Errorf("a given up mark is carried again: %v", marked(again))
+		t.Errorf("a mark given up twice is carried again: %v", marked(again))
+	}
+	d.restart()
+	if again := d.carry(); len(again) != 0 {
+		t.Errorf("after a restart, a mark given up twice is carried again: %v", marked(again))
 	}
 	if got := d.carried(n); !slices.Equal(got, []string{"slack:C1/1.0 sent"}) {
 		t.Errorf("what is carried of the request is %v", got)
