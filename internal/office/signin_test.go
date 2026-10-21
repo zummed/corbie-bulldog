@@ -121,6 +121,15 @@ func TestOfficeSignInMethodNamedAsNoBridgeIs(t *testing.T) {
 	says(t, refused(t, replace(t, files, "office.yaml", "signin:\n  google:", "signin:\n  signin:")), "office.yaml", `"signin" is a name Bulldog keeps`)
 	says(t, refused(t, replace(t, files, "office.yaml", "  telegram:\n    from:", "  password:\n    from:")), "office.yaml", `"password" is a key of a person`)
 	says(t, refused(t, replace(t, files, "office.yaml", "signin:\n  google:\n    from: ./.bulldog/signin/google\n    client_id: 1234-house.apps.googleusercontent.com\n", "signin: google\n")), "office.yaml", "signin names each sign-in method")
+	// A folder under signin/ with a bridge's name, which signin does not
+	// name, leaves a person's key of that name their identity on the
+	// bridge, and says so.
+	folder := with(files, map[string]string{"signin/telegram/signin.yaml": "flow: x\n"})
+	says(t, stopped(t, folder, "telegram"), "signin/telegram", "telegram is the name of a bridge too")
+	o, _ := read(t, folder)
+	if sam := o.People["sam"]; !slices.Contains(sam.Reached, office.Identity{Bridge: "telegram", ID: "4471"}) || slices.ContainsFunc(sam.Accounts, func(a office.Account) bool { return a.Method == "telegram" }) {
+		t.Errorf("with a folder signin/telegram, Sam is reached at %v and has the accounts %v", sam.Reached, sam.Accounts)
+	}
 }
 
 func TestAPersonsAccountsAndPassword(t *testing.T) {

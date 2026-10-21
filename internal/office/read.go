@@ -429,7 +429,7 @@ func (r *reading) readOffice(t *Team, root *yaml.Node) {
 				if value.Tag != "!!bool" || value.Decode(&p.Password) != nil {
 					r.teamFile(t, value, "everyone: %s's password is true, when %s may set a password of their own to sign in with, or false, and this is %s", name, name, describe(value))
 				}
-			case r.o.SignIns[key.Value] != nil || methods[key.Value]:
+			case r.o.SignIns[key.Value] != nil || methods[key.Value] && r.o.Bridges[key.Value] == nil && !folders[key.Value]:
 				a := Account{key.Value, strings.ToLower(s)}
 				if s == "" {
 					r.teamFile(t, value, "everyone: %s's %s is who they are by that sign-in method, as its page says, and this is empty", name, key.Value)
@@ -1031,10 +1031,14 @@ func (r *reading) readSignIns() {
 			}
 		}
 	}
+	bridges := r.bridgeFolders()
 	for _, folder := range slices.Sorted(maps.Keys(folders)) {
 		if r.o.SignIns[folder] == nil {
 			m := &SignIn{Name: folder}
 			stop(m, 0, SignInDir+"/"+folder, "%s/%s is a sign-in method's folder that signin in office.yaml does not name, so it signs nobody in", SignInDir, folder)
+			if r.o.Bridges[folder] != nil || bridges[folder] {
+				stop(m, 0, SignInDir+"/"+folder, "%s is the name of a bridge too, so a person's %s is read as who they are on the bridge: a sign-in method is called by a name no bridge has", folder, folder)
+			}
 			r.o.SignIns[folder] = m
 			r.o.SignInOrder = append(r.o.SignInOrder, folder)
 		}
