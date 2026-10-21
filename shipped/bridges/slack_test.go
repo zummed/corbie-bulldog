@@ -27,9 +27,9 @@ const (
 )
 
 // A slack stands in for Slack's Web API and its Socket Mode: it knows a
-// few channels and who is in them, keeps what the app posted, answers as
-// Slack does, and sends a connection the envelopes a test gives it,
-// telling the test each one acknowledged.
+// few channels and who is in them, keeps what the app posted and the
+// reactions it made, answers as Slack does, and sends a connection the
+// envelopes a test gives it, telling the test each one acknowledged.
 type slack struct {
 	*httptest.Server
 	t      *testing.T
@@ -37,6 +37,8 @@ type slack struct {
 	mu     sync.Mutex
 	posted []map[string]any
 	ts     int
+	// reactions are the app's on each message, as channel/ts: name.
+	reactions map[string]bool
 	// asked counts the calls of each method.
 	asked map[string]int
 	// gone are threads whose first message was deleted.
@@ -50,7 +52,8 @@ type slack struct {
 }
 
 func newSlack(t *testing.T) *slack {
-	sl := &slack{t: t, ts: 1700000000, gone: map[string]bool{}, asked: map[string]int{}, envelopes: make(chan map[string]any), acks: make(chan string, 16)}
+	sl := &slack{t: t, ts: 1700000000, reactions: map[string]bool{}, gone: map[string]bool{}, asked: map[string]int{},
+		envelopes: make(chan map[string]any), acks: make(chan string, 16)}
 	sl.Server = httptest.NewServer(http.HandlerFunc(sl.serve))
 	t.Cleanup(sl.Close)
 	return sl
@@ -153,6 +156,17 @@ func (sl *slack) serve(w http.ResponseWriter, r *http.Request) {
 		body["ts"] = fmt.Sprintf("%d.000100", sl.ts)
 		sl.posted = append(sl.posted, body)
 		answer(map[string]any{"ok": true, "channel": body["channel"], "ts": body["ts"]})
+	case "reactions.add", "reactions.remove":
+		on := fmt.Sprintf("%v/%v: %v", body["channel"], body["timestamp"], body["name"])
+		switch {
+		case method == "reactions.add" && sl.reactions[on]:
+			answer(map[string]any{"ok": false, "error": "already_reacted"})
+		case method == "reactions.remove" && !sl.reactions[on]:
+			answer(map[string]any{"ok": false, "error": "no_reaction"})
+		default:
+			sl.reactions[on] = method == "reactions.add"
+			answer(map[string]any{"ok": true})
+		}
 	case "conversations.history":
 		// What the app posted in a conversation, newest first, before the
 		// latest asked for.
@@ -352,7 +366,7 @@ func TestBridgesSlackPlaceIsTheThread(t *testing.T) {
 	if len(a) != 1 || len(b) != 1 || a[0]["place"] != "C0HELP00/1700000001.000100" || b[0]["place"] != a[0]["place"] || a[0]["heard_in"] != "#help" || b[0]["heard_in"] != "#help" {
 		t.Errorf("the top is heard as %v, and the reply as %v", a, b)
 	}
-	if readers, _ := json.Marshal(a[0]["readers"]); string(readers) != `["U0DANA00","U0AL0000","U0GUEST0"]` || a[0]["id"] != "Ev1" {
+	if readers, _ := json.Marshal(a[0]["readers"]); string(readers) != `["U0DANA00","U0AL0000","U0GUEST0"]` || a[0]["id"] != "C0HELP00/1700000001.000100" {
 		t.Errorf("the top is heard as %v", a[0])
 	}
 	// What is said to the app directly is heard in direct, and is said at
@@ -558,7 +572,7 @@ func testSlackEveryMessageHandedOver(t *testing.T) {
 			"files": []any{map[string]any{"name": "receipt.png", "url_private": sl.URL + "/files/T01/receipt.png"}}},
 		"Ev9": {"type": "message", "subtype": "me_message", "user": "U0DANA00", "text": "is looking", "ts": "1700000009.000100"},
 	} {
-		if things, logged, _ := sl.hearsLogged(at(id, e)); len(things) != 1 || things[0]["id"] != id || len(logged) != 0 {
+		if things, logged, _ := sl.hearsLogged(at(id, e)); len(things) != 1 || things[0]["id"] != "C0HELP00/"+e["ts"].(string) || len(logged) != 0 {
 			t.Errorf("Slack: %s is heard as %v, and logged %q", id, things, logged)
 		}
 	}
@@ -725,5 +739,50 @@ func TestBridgesSlackChartsAndImagesShown(t *testing.T) {
 	sent(t, s.carry(map[string]any{"to": "U0LEE000", "direct": true, "text": strings.Repeat(image, 60), "choices": []any{"yes"}, "ref": "r10"}))
 	if len(sl.posted) != 2 || len(sl.posted[0]["blocks"].([]any)) != 49 || len(sl.posted[1]["blocks"].([]any)) != 12 {
 		t.Errorf("60 images are posted as %d messages", len(sl.posted))
+	}
+}
+
+func TestBridgesSlackMarksWithEyes(t *testing.T) {
+	t.Parallel()
+	sl, s := newSlackBridge(t)
+	// A message is heard as its channel and its ts, which is what a mark
+	// on it answers.
+	reply := event("Ev1", map[string]any{"type": "message", "channel": "C0HELP00", "channel_type": "channel", "user": "U0DANA00", "text": "@gromit refunded?",
+		"ts": "1700000009.000100", "thread_ts": "1700000001.000100"})
+	things := sl.hears(reply)
+	if len(things) != 1 || things[0]["id"] != "C0HELP00/1700000009.000100" {
+		t.Fatalf("the reply is heard as %v", things)
+	}
+	mark := func(working bool) *client.Run {
+		return s.carry(map[string]any{"to": "C0HELP00/1700000001.000100", "answers": things[0]["id"], "working": working})
+	}
+	on := "C0HELP00/1700000009.000100: eyes"
+	if got := sent(t, mark(true)); got != "C0HELP00/1700000009.000100" || !sl.reactions[on] || len(sl.posted) != 0 {
+		t.Errorf("the mark went as %q, Slack holding %v and posted %v", got, sl.reactions, sl.posted)
+	}
+	// Marked already, it is done all the same, and so is a mark taken off
+	// that is gone.
+	sent(t, mark(true))
+	sent(t, mark(false))
+	if sl.reactions[on] {
+		t.Errorf("the mark is still on: %v", sl.reactions)
+	}
+	sent(t, mark(false))
+	// A message said to the app directly is marked in that conversation.
+	dm := event("Ev2", map[string]any{"type": "message", "channel": "D0DANA00", "channel_type": "im", "user": "U0DANA00", "text": "refunded?", "ts": "1700000010.000100"})
+	direct := sl.hears(dm)
+	sent(t, s.carry(map[string]any{"to": "U0DANA00", "direct": true, "answers": direct[0]["id"], "working": true}))
+	if !sl.reactions["D0DANA00/1700000010.000100: eyes"] {
+		t.Errorf("Slack holds %v", sl.reactions)
+	}
+	// An app with no reactions:write scope is refused for good, in words a
+	// person reads; any other error is tried again.
+	sl.fail = func(method string) (string, bool) { return "missing_scope", strings.HasPrefix(method, "reactions.") }
+	if r := mark(true); r.Status != "done" || !strings.Contains(fmt.Sprint(r.Output.(map[string]any)["refused"]), "missing_scope") {
+		t.Errorf("missing_scope ends %s with %#v", r.Status, r.Output)
+	}
+	sl.fail = func(method string) (string, bool) { return "ratelimited", true }
+	if r := mark(false); r.Status != "failed" {
+		t.Errorf("ratelimited ends %s with %#v", r.Status, r.Output)
 	}
 }
