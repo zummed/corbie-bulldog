@@ -615,6 +615,13 @@ func (f *flaky) Show(ctx context.Context, id string) (*client.Run, error) {
 	return r, err
 }
 
+func (f *flaky) Wait(ctx context.Context, id string, interval time.Duration) (*client.Run, error) {
+	if err := f.failing("wait"); err != nil {
+		return nil, err
+	}
+	return f.Client.Wait(ctx, id, interval)
+}
+
 func (f *flaky) Cancel(ctx context.Context, run string, life time.Duration) (string, error) {
 	if err := f.failing("cancel"); err != nil {
 		return "", err

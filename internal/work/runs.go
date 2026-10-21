@@ -275,7 +275,7 @@ func (w *Work) lost(ctx context.Context, n *note) {
 		return
 	case KindWork:
 	default:
-		w.endOther(n, e)
+		w.endOther(n, nil, e)
 		return
 	}
 	first, err := w.endWork(n, e, false)
@@ -295,15 +295,20 @@ func (w *Work) lost(ctx context.Context, n *note) {
 }
 
 // endOther keeps how a run ended that is no lead's or heed's on a
-// request: a decider's, a bridge's, a sign-in method's or a clock's. A
-// decider's that ended is told to whoever watches its request; a clock
-// that ended has the clocks looked for, so its routine gets another.
-func (w *Work) endOther(n *note, e ending) {
+// request: a decider's, a bridge's, a sign-in method's or a clock's, with
+// the run as Corbie showed it, nil for one it never took up. A decider's
+// that ended is told to the decider waiting on it, and to whoever watches
+// its request; a clock that ended has the clocks looked for, so its
+// routine gets another.
+func (w *Work) endOther(n *note, run *client.Run, e ending) {
 	first, err := w.end(n.Name, e)
 	if err != nil {
 		w.Log("how the run %s ended could not be kept, so it is read again in %v: %v", n.Name, Again, err)
 		w.showAgain(n.Name)
 		return
+	}
+	if n.Kind == decisions.Deciding {
+		w.decided(n.Name, run)
 	}
 	if first && n.Request != 0 {
 		w.requests.Tell(n.Request)
@@ -344,7 +349,7 @@ func (w *Work) take(ctx context.Context, n *note, run *client.Run, e ending) {
 		return
 	case KindWork:
 	default:
-		w.endOther(n, e)
+		w.endOther(n, run, e)
 		return
 	}
 	first, err := w.endWork(n, e, false)

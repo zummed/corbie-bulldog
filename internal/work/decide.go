@@ -20,8 +20,10 @@ import (
 // gives what it ended with. Its run is of the team it decides for, and
 // carries the labels it is given; a run already started with the same
 // labels, before Bulldog stopped, is waited on rather than started again.
-// Cancelling the context stops the run, but while Bulldog itself stops,
-// when the run goes on in Corbie and is waited on again once it is back.
+// It is told the run ended by the driving goroutine, once the watch sees
+// it end. Cancelling the context stops the run, but while Bulldog itself
+// stops, when the run goes on in Corbie and is waited on again once it is
+// back.
 func (w *Work) decider(ctx context.Context, s decisions.Start) (json.RawMessage, error) {
 	labels := w.labels(s.Labels)
 	n, err := w.notedAs(labels)
@@ -34,7 +36,7 @@ func (w *Work) decider(ctx context.Context, s decisions.Start) (json.RawMessage,
 	} else if name, err = w.startDecider(ctx, s, labels); err != nil {
 		return nil, fmt.Errorf("%w: %v", decisions.ErrNotStarted, err)
 	}
-	run, err := w.corbie.Wait(ctx, name, w.Interval)
+	run, err := w.waitOn(ctx, name)
 	if ctx.Err() != nil {
 		// While Bulldog stops, the run goes on in Corbie, and is waited on
 		// again when it is back; otherwise it is no longer wanted.
@@ -56,6 +58,51 @@ func (w *Work) decider(ctx context.Context, s decisions.Start) (json.RawMessage,
 		return nil, errors.New(how)
 	}
 	return json.Marshal(output(run))
+}
+
+// waitOn stays until a decider's run has ended, and gives it as Corbie
+// shows it: as the driving goroutine read it, which tells a decider once
+// it has kept how the run ended, or, for a run whose ending was kept
+// already, as when it ended while Bulldog was away, read from Corbie. A
+// run Corbie never took up is no run.
+func (w *Work) waitOn(ctx context.Context, name string) (*client.Run, error) {
+	told := make(chan *client.Run, 1)
+	w.mu.Lock()
+	w.deciders[name] = told
+	w.mu.Unlock()
+	defer func() {
+		w.mu.Lock()
+		if w.deciders[name] == told {
+			delete(w.deciders, name)
+		}
+		w.mu.Unlock()
+	}()
+	switch n, err := w.noted(name); {
+	case err != nil:
+		return nil, err
+	case n == nil || n.ended():
+		return w.corbie.Wait(ctx, name, w.Interval)
+	}
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case run := <-told:
+		if run == nil {
+			return nil, client.ErrNoRun
+		}
+		return run, nil
+	}
+}
+
+// decided tells the decider waiting on a run, if one does, how it ended,
+// as Corbie showed it: nil for a run Corbie never took up.
+func (w *Work) decided(name string, run *client.Run) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	select {
+	case w.deciders[name] <- run:
+	default:
+	}
 }
 
 // startDecider starts a rule or a worker asked to decide, noted first.

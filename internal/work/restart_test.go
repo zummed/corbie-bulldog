@@ -690,6 +690,34 @@ func TestADeciderIsWaitedOnAgainAfterARestart(t *testing.T) {
 	}
 }
 
+func TestWorkDeciderToldByTheWatch(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, house(t))
+	n := b.chat("sam", "garden", "may the gate be opened?")
+	b.settled(n, requests.Answered)
+	held, let := b.hold("Order a socket", testkit.Say(`{"says": "yes", "note": "fine"}`))
+	got := make(chan string, 1)
+	go func() {
+		out, err := b.w.decider(ctx, deciding("worker", "clerk", "garden", n, 7))
+		got <- fmt.Sprintf("%s %v", out, err)
+	}()
+	b.until("the clerk is held", func() bool { return held() == 1 })
+	for range 3 {
+		b.later(time.Minute)
+		b.still()
+	}
+	if shown := b.reach.count("show clerk") + b.reach.count("wait"); shown != 0 {
+		t.Errorf("the clerk's run was read or waited on %d times while it went", shown)
+	}
+	let()
+	if out := <-got; out != `"{\"says\": \"yes\", \"note\": \"fine\"}" <nil>` {
+		t.Errorf("the decider gave %s", out)
+	}
+	if shown, waited := b.reach.count("show clerk"), b.reach.count("wait"); shown != 1 || waited != 0 {
+		t.Errorf("the clerk's run, once ended, was read %d times and waited on %d", shown, waited)
+	}
+}
+
 func TestWorkSubRequestsAtMostEightDeep(t *testing.T) {
 	t.Parallel()
 	files := house(t)
