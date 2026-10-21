@@ -51,11 +51,11 @@ routines:
 | `disclosure` | a list of deciders for everything the team says outside itself |
 | `routines` | what is said to one of its workers at a time of day, `"18:00"`, or with a weekday, `"mon 09:00"`, in the office's zone |
 | `models` | models by a name of the team's, each written as Corbie writes one, naming the secret that holds its key and never a key |
-| `zone`, `everyone`, `bridges`, `runs` | the top team's only |
+| `zone`, `everyone`, `bridges`, `signin`, `runs` | the top team's only |
 
 A decider is a person, a worker of any team by its name, or a rule by its path, in the team's own folder, as `./small-orders.js`, or among those Bulldog ships, in `.bulldog/rules/` at the top of the office. In a list every rule and worker comes before every person. A rule or a worker may be marked to advise, as `clerk: advise`: it may refuse, which ends the decision, or refer, but its yes never approves; it goes on to the next decider as a recommendation, as a referral would, and is shown as "clerk recommends yes" with its note. A person is never marked to advise. The same worker may advise on one list and decide plainly on another.
 
-The people of the office, how each is reached, the top team's `office_put` list and its `everything`, a bridge's in machine, and a bridge's entry with its `from` and every setting but its places are a person's to write: a builder's draft that changes any of them is refused, and from outside you say what you would write there and let the person write it.
+The people of the office, how each is reached and signs in, the sign-in methods, the top team's `office_put` list and its `everything`, a bridge's in machine, and a bridge's entry with its `from` and every setting but its places are a person's to write: a builder's draft that changes any of them is refused, and from outside you say what you would write there and let the person write it.
 
 ## A worker
 
@@ -262,6 +262,32 @@ output: ${stages.say.output}
 An in machine listens or hears, and the input it takes says which. One that takes `cursor` listens: Bulldog keeps one run of it going, which asks the service what is new since the cursor and ends with what it heard and the cursor to go on from, so nothing said between its runs is missed. One that takes `delivery` hears: the service calls the office at `<office url>/bridges/<name>` with each thing said or pressed, and the in machine checks with the secret it holds that it is the service's. A service that only pushes, keeping nothing to read back from, must be heard, and must be able to reach that address. A Slack app that is heard names the address in both of its settings that call it, Event Subscriptions and Interactivity, or a choice pressed on a decision never arrives. The bridges Bulldog ships all listen.
 
 The in machine says who a person is, and so is a person's to write. So is a bridge's entry, its `from` and every setting but its places, since they say what it runs, where it listens and whom it signs in as; a builder may draft a change to its places.
+
+## Signing in
+
+A person signs in to the screens by any way their entry in `everyone` writes. Everyone may sign in with a one-time link sent over their bridges. An entry that writes their account by a sign-in method of the office, under the method's name, lets them sign in by it; `password: true` lets them set a password of their own on their Me page, which is never in the files. Each sign-in method is named, with its settings, under `signin` in `office.yaml`, and runs one machine: one Bulldog ships, which its `from` names, as `./.bulldog/signin/google` or `./.bulldog/signin/entra`, or, with no `from`, the office's own `signin/<name>/signin.yaml`. Its machine is given the code the provider sent the browser back with, takes it to the provider with the client's secret, which only it holds, and answers the account; Bulldog signs in the one person whose entry writes that account by the method, and nobody else. A method's name is never a bridge's, nor `name`, `title` or `password`. Each shipped method's page, as `signin/google`, gives its settings and what to set up at the provider: the address it sends the browser back to, `<office url>/signin/<name>/back`, and the secret Corbie keeps.
+
+```yaml
+# office.yaml
+name: Platform support
+everyone:
+  al:  { name: Al, slack: U0AL0000, entra: al@platform.example, password: true }
+  raj: { name: Raj, slack: U0RAJ000, entra: raj@platform.example }
+  sam: { name: Sam, slack: U0SAM000, google: sam@example.com }
+signin:
+  entra:
+    from: ./.bulldog/signin/entra
+    tenant: 72f988bf-86f1-41af-91ab-2d7cd011db47   # the Directory (tenant) ID
+    client_id: 5f3c1a2e-0b7d-4e8a-9c61-2a4b8d0e7f19
+  google:
+    from: ./.bulldog/signin/google
+    client_id: 1234567890-abc.apps.googleusercontent.com
+bridges:
+  slack: { from: ./.bulldog/bridges/slack, places: { "#help": {} } }
+# Corbie keeps ENTRA_CLIENT_SECRET and GOOGLE_CLIENT_SECRET; no secret is written here.
+```
+
+How a person signs in is a person's to write, as how they are reached is: their accounts, `password`, and each sign-in method, its entry and its folder. A builder's draft that changes any of them is refused; from outside, say what you would write and let the person write it.
 
 ## Notes
 

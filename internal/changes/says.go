@@ -12,6 +12,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/zummed/corbie-bulldog/internal/office"
+	"github.com/zummed/corbie-bulldog/shipped"
 	"github.com/zummed/corbie/agent"
 	"github.com/zummed/corbie/machine"
 	"github.com/zummed/corbie/permission"
@@ -76,6 +77,7 @@ func describe(was, now reading, change []File) (says, more []string, err error) 
 	tellWorkers(t, was, now, touched)
 	tellRules(t, was, now, touched)
 	tellBridges(t, was, now, touched)
+	tellSignIns(t, was, now, touched)
 	for _, f := range change {
 		if !t.of[f.Path] {
 			t.say(false, nil, "%s is %s.", f.Path, f.Does())
@@ -402,6 +404,38 @@ func tellPeople(t *telling, was, now *office.Office) {
 			case ia != ib:
 				t.say(true, files, "%s is now %s on %s, where they were %s.", name, ib, bridge, ia)
 			}
+		}
+		account := func(p *office.Person, method string) (string, bool) {
+			for _, ac := range p.Accounts {
+				if ac.Method == method {
+					return ac.ID, true
+				}
+			}
+			return "", false
+		}
+		var methods []string
+		for _, ac := range append(slices.Clone(a.Accounts), b.Accounts...) {
+			if !slices.Contains(methods, ac.Method) {
+				methods = append(methods, ac.Method)
+			}
+		}
+		for _, method := range methods {
+			ia, hadA := account(a, method)
+			ib, hasB := account(b, method)
+			switch {
+			case !hadA:
+				t.say(true, files, "%s signs in as %s by %s.", name, ib, method)
+			case !hasB:
+				t.say(false, files, "%s no longer signs in by %s, where they were %s.", name, method, ia)
+			case !strings.EqualFold(ia, ib):
+				t.say(true, files, "%s now signs in as %s by %s, where they were %s.", name, ib, method, ia)
+			}
+		}
+		switch {
+		case b.Password && !a.Password:
+			t.say(true, files, "%s may set a password to sign in with.", name)
+		case a.Password && !b.Password:
+			t.say(false, files, "%s may no longer sign in with a password, and the one they set is destroyed.", name)
 		}
 	}
 }
@@ -767,6 +801,40 @@ func tellBridges(t *telling, was, now reading, touched map[string]bool) {
 			if !slices.ContainsFunc(b.Places, func(x office.Place) bool { return x.Name == p.Name }) {
 				t.say(false, []string{office.OfficeFile}, "%s no longer listens in %s.", name, p.Name)
 			}
+		}
+	}
+}
+
+// tellSignIns says what a change does to the office's sign-in methods: a
+// new one, and a change to its machine, what it reaches or its settings,
+// lets more by, since who it signs in is its machine's to say.
+func tellSignIns(t *telling, was, now reading, touched map[string]bool) {
+	for _, name := range union(was.o.SignInOrder, now.o.SignInOrder) {
+		a, b := was.o.SignIns[name], now.o.SignIns[name]
+		dir := office.SignInDir + "/" + name + "/"
+		var files []string
+		for f := range touched {
+			if strings.HasPrefix(f, dir) {
+				files = append(files, f)
+			}
+		}
+		slices.Sort(files)
+		settingsFiles := append(slices.Clone(files), office.OfficeFile)
+		switch {
+		case b == nil:
+			t.say(false, settingsFiles, "the sign-in method %s is gone.", name)
+			continue
+		case a == nil:
+			t.say(true, settingsFiles, "the sign-in method %s is new: whom it says signed in is its machine's, which Bulldog does not read, and it signs in only those whose entry writes their account by it.", name)
+			a = &office.SignIn{Name: name}
+		}
+		fileA, fileB := a.Dir()+"/"+shipped.SignIn, b.Dir()+"/"+shipped.SignIn
+		if was.o.SignIns[name] != nil && changedIn(was, now, union(uses(fileA, a.Machine), uses(fileB, b.Machine))) {
+			t.say(true, files, "%s machine is changed.", of(name))
+		}
+		tellReach(t, files, of(name)+" machine", reachOf(was.o, fileA, a.Machine), reachOf(now.o, fileB, b.Machine))
+		if was.o.SignIns[name] != nil && !reflect.DeepEqual(a.Settings, b.Settings) {
+			t.say(true, []string{office.OfficeFile}, "%s settings are changed: Bulldog reads only the folder they name and the provider's address it sends the browser to.", of(name))
 		}
 	}
 }

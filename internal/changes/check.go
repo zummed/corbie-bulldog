@@ -260,7 +260,8 @@ func paths(files []File) []string {
 }
 
 // guard says what in a worker's draft is a person's to write: the people
-// of the office and how each is reached; who decides the draft, on the
+// of the office, how each is reached and how each signs in; the sign-in
+// methods, their entries and folders; who decides the draft, on the
 // office_put and everything lists of the team whose decision it is and of
 // each team around it, the files of the rules and workers on them and the
 // models those workers take; a bridge's in
@@ -281,6 +282,8 @@ func guard(was, now *office.Office, folder, laid map[string][]byte, files []File
 			out = append(out, fmt.Sprintf("it takes %s from the office: the people of the office are a person's to write", name))
 		case !slices.Equal(sortedIDs(a), sortedIDs(b)):
 			out = append(out, fmt.Sprintf("it changes how %s is reached: who a person is on each bridge is a person's to write, since a yes is taken from it", name))
+		case !slices.Equal(sortedAccounts(a), sortedAccounts(b)) || a.Password != b.Password:
+			out = append(out, fmt.Sprintf("it changes how %s signs in: a person's accounts and whether they may set a password are a person's to write, since whoever holds them signs in as that person", name))
 		}
 	}
 	// The teams whose lists decide the draft: the team whose decision it
@@ -409,6 +412,24 @@ func guard(was, now *office.Office, folder, laid map[string][]byte, files []File
 			}
 		}
 	}
+	for _, name := range union(was.SignInOrder, now.SignInOrder) {
+		const why = "a sign-in method, its entry and its folder, are a person's to write, since its machine says who signs in"
+		a, b := signInEntry(was, name), signInEntry(now, name)
+		switch {
+		case a == nil && b == nil:
+		case a == nil:
+			out = append(out, fmt.Sprintf("it adds the sign-in method %s: %s", name, why))
+		case b == nil:
+			out = append(out, fmt.Sprintf("it takes the sign-in method %s away: %s", name, why))
+		case !reflect.DeepEqual(a, b):
+			out = append(out, fmt.Sprintf("it changes %s entry: %s", of(name), why))
+		}
+	}
+	for _, f := range files {
+		if strings.HasPrefix(f.Path, office.SignInDir+"/") {
+			out = append(out, fmt.Sprintf("it changes %s, in a sign-in method's folder: a sign-in method's machine says who signs in, and so is a person's to write", f.Path))
+		}
+	}
 	// A file newly under bridges/ whose bridge is not read as one still may
 	// be an in machine.
 	for _, f := range files {
@@ -428,6 +449,31 @@ func bridgeEntry(o *office.Office, name string) map[string]any {
 	}
 	settings, _ := b.Settings.(map[string]any)
 	return settings
+}
+
+// signInEntry gives a sign-in method's settings as office.yaml writes them,
+// or nil where office.yaml names no such method.
+func signInEntry(o *office.Office, name string) map[string]any {
+	m := o.SignIns[name]
+	if m == nil || m.Line == 0 {
+		return nil
+	}
+	settings, _ := m.Settings.(map[string]any)
+	if settings == nil {
+		settings = map[string]any{}
+	}
+	return settings
+}
+
+// sortedAccounts gives a person's accounts, and whether they may set a
+// password, sorted, so that only what they are is compared.
+func sortedAccounts(p *office.Person) []string {
+	var out []string
+	for _, a := range p.Accounts {
+		out = append(out, a.Method+"\x00"+strings.ToLower(a.ID))
+	}
+	slices.Sort(out)
+	return out
 }
 
 func sortedIDs(p *office.Person) []string {
