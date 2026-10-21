@@ -184,7 +184,11 @@ func (s *site) back(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	signed, err := s.Work.SignIn(m, map[string]any{"code": q.Get("code"), "verifier": sg.verifier, "redirect": backOf(s.urlGiven, m.Name), "nonce": sg.nonce})
-	if err != nil {
+	switch {
+	case errors.Is(err, work.ErrSigningBusy):
+		s.signInPage(w, http.StatusServiceUnavailable, fmt.Sprintf("So many are signing in with %s just now that this sign-in is not taken further: begin it again in a moment.", methodCalled(m)))
+		return
+	case err != nil:
 		s.say("signing in with %s: %v", m.Name, err)
 		s.signInPage(w, http.StatusServiceUnavailable, fmt.Sprintf("Signing in with %s failed, and the failure is in the server's log.", methodCalled(m)))
 		return
