@@ -80,7 +80,7 @@
           B.me.problems.length ? B.sect("Problems", B.el("div", {class: "rows"}, B.me.problems.map((p) =>
             B.el("div", {class: "row"}, B.teamEl(p.team), B.el("span", {class: "grow"}, p.said))))) : null),
         B.el("div", {class: "side"},
-          B.sect(B.label("Key", ...B.info("About the key", "Replacing it signs out every browser that holds it, and ends your password.")),
+          B.sect(B.label("Key", ...B.info("About the key", "Replacing it signs out every browser that holds it, and ends any password you set.")),
             B.el("button", {class: "btn ghost", onclick: () => B.act(B.post("/api/me/key"))}, "Replace key")),
           passwordEl(me))));
   }
