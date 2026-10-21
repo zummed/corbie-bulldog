@@ -401,3 +401,62 @@ func TestBridgesRefusedAskingIsTrouble(t *testing.T) {
 		t.Errorf("Dana is told %v", back)
 	}
 }
+
+func TestBridgesChoiceOnAQuestionAnswersIt(t *testing.T) {
+	t.Parallel()
+	d := open(t, work(t))
+	n := d.ask("C1/1.0", "refund one")
+	q, err := d.requests.Put(n, d.requests.Worker("bot"), requests.KindQuestion, requests.Identity("slack", "U0DANA00"), "which card?", []string{"the visa", "the amex"})
+	must(t, err)
+	out := to(d.carry(), "slack", "C1/1.0")
+	if len(out) != 1 || !slices.Equal(out[0].Input["choices"].([]string), []string{"the visa", "the amex"}) || out[0].Input["ref"] == nil {
+		t.Fatalf("the question is carried as %v", out)
+	}
+	d.ended(out[0], map[string]any{"sent": "C1/2.0"})
+	ref := out[0].Input["ref"].(string)
+	press := func(from, choice string) {
+		d.delivered("slack", map[string]any{"id": "press-" + itoa(ids.Add(1)), "kind": "choice", "from": from, "heard_in": "#help", "place": "C1/1.0",
+			"answers": ref, "choice": choice})
+	}
+	// Al reads #help, and it does not wait on him; Dana's pick of what it
+	// does not offer is not taken; her pick is her answer; and her second
+	// finds it waiting no longer.
+	press("U0AL0000", "the visa")
+	press("U0DANA00", "the diners")
+	press("U0DANA00", "the amex")
+	press("U0DANA00", "the visa")
+	if len(d.chosen) != 0 {
+		t.Errorf("a pick on a question is given to a decision: %v", d.chosen)
+	}
+	thread, err := d.requests.Thread(n)
+	must(t, err)
+	var replies []requests.Entry
+	for _, e := range thread {
+		if e.Answers == q.ID {
+			replies = append(replies, e)
+		}
+	}
+	if len(replies) != 1 || replies[0].Kind != requests.KindReplied || replies[0].Text != "the amex" || replies[0].By != requests.Identity("slack", "U0DANA00") {
+		t.Errorf("the question is answered %+v", replies)
+	}
+	var back []string
+	for _, s := range d.drain() {
+		back = append(back, textIn(s))
+	}
+	want := []string{
+		"That was sent to someone else, so nothing you said was taken.",
+		"That is not one of the choices the question offers, so it was not taken.",
+		"Taken: you answered the amex.",
+		"That is no longer waiting on you, so nothing you said was taken.",
+	}
+	if !slices.Equal(back, want) {
+		t.Errorf("the sentences carried back are %q", back)
+	}
+	// A question that offers nothing is carried with no choices, for a
+	// reply.
+	_, err = d.requests.Put(n, d.requests.Worker("bot"), requests.KindQuestion, requests.Identity("slack", "U0DANA00"), "anything else?", nil)
+	must(t, err)
+	if out := to(d.carry(), "slack", "C1/1.0"); len(out) != 1 || len(out[0].Input["choices"].([]string)) != 0 || out[0].Input["ref"] == nil {
+		t.Errorf("a question with no choices is carried as %v", out)
+	}
+}

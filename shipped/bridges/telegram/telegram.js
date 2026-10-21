@@ -174,16 +174,20 @@ function split(text, most) {
 
 // say: the text in as many messages as it takes, the first in reply to
 // what it answers, even when Telegram no longer has that, and the last
-// with a button for each choice, or asking for a reply to a question;
-// then each file. What it sent is named by every message it sent, so a
-// reply to any of them answers it.
+// with a button for each choice, or asking for a reply to a question
+// that offers none; then each file. A few short choices share one row,
+// and any others are each on a row of their own, since Telegram cuts a
+// button's text short to fit its row. What it sent is named by every
+// message it sent, so a reply to any of them answers it.
 const [chat, topic] = String(input.to).split("/")
 const parts = split(blobs.read(input.text), longest)
 const files = input.files || []
 if (!parts.length && !files.length) return { refused: "there is nothing to say" }
 let markup
 if (input.ref && input.choices && input.choices.length) {
-  markup = { inline_keyboard: [input.choices.map((c, n) => ({ text: c, callback_data: input.ref + ":" + n }))] }
+  const buttons = input.choices.map((c, n) => ({ text: c, callback_data: input.ref + ":" + n }))
+  const oneRow = buttons.length <= 3 && input.choices.join("").length <= 30
+  markup = { inline_keyboard: oneRow ? [buttons] : buttons.map(b => [b]) }
 } else if (input.ref) {
   markup = { force_reply: true }
 }

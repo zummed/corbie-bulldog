@@ -602,8 +602,9 @@ func (b *Bridges) take(o *office.Office, bridge string, t thing) ([]int64, strin
 	return h.stopped, h.problem, nil
 }
 
-// The sentences carried back to someone whose thing is not taken. Each is
-// written for a person, and holds nothing from inside the office.
+// The sentences carried back to someone whose thing is not taken, and to
+// someone whose choice on a question is. Each is written for a person,
+// and holds nothing from inside the office.
 const (
 	notYours      = "That was sent to someone else, so nothing you said was taken."
 	notWaiting    = "That is no longer waiting on you, so nothing you said was taken."
@@ -612,6 +613,8 @@ const (
 	noSuchThing   = "That choice is on nothing that waits, so it was not taken."
 	notHere       = "Nothing is taken from there, so your choice was not taken."
 	notFromGuests = "Choices are taken there only from people of the office, so yours was not taken."
+	notOffered    = "That is not one of the choices the question offers, so it was not taken."
+	answered      = "Taken: you answered %s."
 )
 
 // said takes something said, as an entry in the request whose sent thing
@@ -840,11 +843,12 @@ func (b *Bridges) latestQuestion(where string, args ...any) (*thingRow, error) {
 	return nil, nil
 }
 
-// chose gives a choice to the decision whose carried thing it names, with
-// the identity of whoever made it, and carries back the sentence the
-// decision gives. A choice is taken from a listed place, or on what was
-// sent to its maker directly; one made anywhere else is not given to the
-// decision. A guest's is taken only from a listed place that lets guests
+// chose takes a choice on the question or the decision whose carried
+// thing it names, from the identity of whoever made it: one on a question
+// answers it, and one on a decision is given to the decision, which gives
+// the sentence carried back. A choice is taken from a listed place, or on
+// what was sent to its maker directly; one made anywhere else is not
+// taken. A guest's is taken only from a listed place that lets guests
 // ask, whatever it is on, and from anywhere else nothing is written, the
 // readers it gives included. Every choice heard is answered.
 func (b *Bridges) chose(o *office.Office, bridge string, t thing) (handing, error) {
@@ -876,8 +880,44 @@ func (b *Bridges) chose(o *office.Office, bridge string, t thing) (handing, erro
 		}
 	}
 	who := requests.Identity(bridge, t.From)
-	return b.choose(t, Choice{Bridge: bridge, Who: who, Person: nameOf(person), Request: sent.request, Entry: sent.entry, Choice: t.Choice,
-		In: requests.Where{Bridge: bridge, Place: t.Place}})
+	in := requests.Where{Bridge: bridge, Place: t.Place}
+	e, err := b.requests.Entry(sent.entry)
+	if err != nil {
+		return handing{}, err
+	}
+	if e.Kind == requests.KindQuestion {
+		return b.picked(o, sent, e, who, t, in)
+	}
+	return b.choose(t, Choice{Bridge: bridge, Who: who, Person: nameOf(person), Request: sent.request, Entry: sent.entry, Choice: t.Choice, In: in})
+}
+
+// picked answers a question with the words of the choice someone picked,
+// as if they had typed them, under the rules a typed answer is: only from
+// whom it waits on, and only while it waits. A choice the question does
+// not offer is not taken.
+func (b *Bridges) picked(o *office.Office, sent *thingRow, e requests.Entry, who requests.Who, t thing, in requests.Where) (handing, error) {
+	if !slices.Contains(e.Choices, t.Choice) {
+		return handing{}, b.sentence(in.Bridge, t, notOffered)
+	}
+	if sent.person != "" {
+		still, err := b.stillFor(o, sent)
+		if err != nil {
+			return handing{}, err
+		}
+		if !still {
+			return handing{}, b.sentence(in.Bridge, t, notWaiting)
+		}
+	}
+	reply, err := b.requests.Reply(sent.entry, who, t.Choice, nil, in)
+	switch {
+	case errors.Is(err, requests.ErrNotThere):
+		return handing{}, b.sentence(in.Bridge, t, notYours)
+	case isRefusal(err):
+		return handing{}, b.sentence(in.Bridge, t, notWaiting)
+	case err != nil:
+		return handing{}, errors.Join(b.sentence(in.Bridge, t, cannotTake), err)
+	}
+	return handing{request: sent.request, entry: reply.ID}, b.sentence(in.Bridge, t, fmt.Sprintf(answered, t.Choice))
 }
 
 // choose hands a choice, or words on a decision, to Decisions and carries

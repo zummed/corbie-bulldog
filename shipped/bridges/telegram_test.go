@@ -197,9 +197,11 @@ func TestBridgesTelegramChoicesAreButtons(t *testing.T) {
 	wordy := "Refund the second charge of the twelfth and tell the customer by email"
 	sent(t, s.carry(map[string]any{"to": "4471", "direct": true, "text": "Which?", "choices": []any{"Refund the first", wordy}, "ref": "r123456789"}))
 	markup := tg.sent[len(tg.sent)-1]["reply_markup"].(map[string]any)
-	for _, b := range markup["inline_keyboard"].([]any)[0].([]any) {
-		if data := b.(map[string]any)["callback_data"].(string); len(data) > 64 {
-			t.Errorf("a button's data is %d bytes", len(data))
+	for _, row := range markup["inline_keyboard"].([]any) {
+		for _, b := range row.([]any) {
+			if data := b.(map[string]any)["callback_data"].(string); len(data) > 64 {
+				t.Errorf("a button's data is %d bytes", len(data))
+			}
 		}
 	}
 	_, cursor = s.heard(listen(cursor))
@@ -219,6 +221,36 @@ func TestBridgesTelegramChoicesAreButtons(t *testing.T) {
 		"reply_to_message": map[string]any{"message_id": atoi(id)}})
 	if things, _ := s.heard(listen(cursor)); len(things) != 1 || things[0]["answers"] != ref {
 		t.Errorf("the reply is heard as %v", things)
+	}
+}
+
+func TestBridgesTelegramLongChoicesOneToARow(t *testing.T) {
+	t.Parallel()
+	tg, s := newTelegramBridge(t)
+	_, cursor := s.heard(listen(nil))
+	keyboard := func() string {
+		b, _ := json.Marshal(tg.sent[len(tg.sent)-1]["reply_markup"])
+		return string(b)
+	}
+	sent(t, s.carry(map[string]any{"to": "4471", "direct": true, "text": "When may I come?", "choices": []any{"Mon", "Tue", "Wed"}, "ref": "r20"}))
+	if got := keyboard(); got != `{"inline_keyboard":[[{"callback_data":"r20:0","text":"Mon"},{"callback_data":"r20:1","text":"Tue"},{"callback_data":"r20:2","text":"Wed"}]]}` {
+		t.Errorf("three short choices are sent as %s", got)
+	}
+	sent(t, s.carry(map[string]any{"to": "4471", "direct": true, "text": "When may I come?", "choices": []any{"Mon", "Tue", "Wed", "Thu"}, "ref": "r21"}))
+	if got := keyboard(); got != `{"inline_keyboard":[[{"callback_data":"r21:0","text":"Mon"}],[{"callback_data":"r21:1","text":"Tue"}],[{"callback_data":"r21:2","text":"Wed"}],[{"callback_data":"r21:3","text":"Thu"}]]}` {
+		t.Errorf("four choices are sent as %s", got)
+	}
+	long := []any{"Monday morning, before the shop opens", "Tuesday after lunch"}
+	sent(t, s.carry(map[string]any{"to": "4471", "direct": true, "text": "When may I come?", "choices": long, "ref": "r22"}))
+	markup := tg.sent[len(tg.sent)-1]["reply_markup"].(map[string]any)
+	if rows := markup["inline_keyboard"].([]any); len(rows) != 2 {
+		t.Errorf("two long choices are sent as %s", keyboard())
+	}
+	// A press of the second row is heard as its choice whole.
+	tg.hear("callback_query", map[string]any{"id": "q3", "from": map[string]any{"id": 4471}, "data": "r22:1",
+		"message": map[string]any{"message_id": 1, "chat": map[string]any{"id": 4471, "type": "private"}, "reply_markup": markup}})
+	if things, _ := s.heard(listen(cursor)); len(things) != 1 || things[0]["choice"] != "Tuesday after lunch" || things[0]["answers"] != "r22" {
+		t.Errorf("the press is heard as %v", things)
 	}
 }
 

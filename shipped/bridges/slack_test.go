@@ -405,6 +405,34 @@ func TestBridgesSlackChoicesAreButtons(t *testing.T) {
 	}
 }
 
+func TestBridgesSlackQuestionChoicesAreButtons(t *testing.T) {
+	t.Parallel()
+	sl, s := newSlackBridge(t)
+	// As many choices as a question offers, each as long as one may be,
+	// are each a button, its words whole.
+	var choices []any
+	for i := range 8 {
+		choices = append(choices, fmt.Sprintf("%d", i)+strings.Repeat("x", 74))
+	}
+	sent(t, s.carry(map[string]any{"to": "C0HELP00/1700000001.000100", "text": "Which one?", "choices": choices, "ref": "r30"}))
+	buttons := sl.posted[0]["blocks"].([]any)[1].(map[string]any)["elements"].([]any)
+	if len(buttons) != 8 {
+		t.Fatalf("the question is posted with %d buttons", len(buttons))
+	}
+	last := buttons[7].(map[string]any)
+	if last["text"].(map[string]any)["text"] != choices[7] || last["value"] != "r30:"+choices[7].(string) {
+		t.Errorf("the last button is %v", last)
+	}
+	press := envelope("interactive", map[string]any{"type": "block_actions", "user": map[string]any{"id": "U0DANA00"},
+		"channel":   map[string]any{"id": "C0HELP00"},
+		"container": map[string]any{"message_ts": "1700000002.000100", "thread_ts": "1700000001.000100", "channel_id": "C0HELP00"},
+		"actions":   []any{map[string]any{"action_id": "choice-7", "value": last["value"], "action_ts": "1700000003.1"}}})
+	things := sl.hears(press)
+	if len(things) != 1 || things[0]["choice"] != choices[7] || things[0]["answers"] != "r30" || things[0]["place"] != "C0HELP00/1700000001.000100" {
+		t.Errorf("Dana's press is heard as %v", things)
+	}
+}
+
 func TestBridgesSlackDirectReplyAnswersWhatWasSent(t *testing.T) {
 	t.Parallel()
 	sl, s := newSlackBridge(t)

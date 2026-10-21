@@ -30,3 +30,4 @@ bridges:
 
 - 0.1.0: first shipped.
 - 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; logs what it leaves out; takes no setting but those above, each checked when the office is read.
+- 0.5.0: a question that offers choices is sent with a button for each, as a decision is, in place of asking for a reply, and a press answers it; more than three choices, or long ones, are each on a row of their own.

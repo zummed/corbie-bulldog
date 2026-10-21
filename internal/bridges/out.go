@@ -457,7 +457,10 @@ func (b *Bridges) prepare(o *office.Office, th thingRow) (Start, string, string,
 			input["answers"] = answers
 		}
 		var choices []string
-		if b.Choices != nil {
+		switch {
+		case e.Kind == requests.KindQuestion:
+			choices = e.Choices
+		case b.Choices != nil:
 			choices = b.Choices(e)
 		}
 		if choices != nil || e.Kind == requests.KindQuestion {
