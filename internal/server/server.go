@@ -123,6 +123,7 @@ func Serve(ctx context.Context, opt Options) error {
 		return fmt.Errorf("the server cannot listen on %s, so nothing is started: %w", opt.Listen, err)
 	}
 	r.url = strings.TrimRight(cmp.Or(opt.URL, "http://"+listener.Addr().String()), "/")
+	r.urlGiven = strings.TrimRight(opt.URL, "/")
 	say("listening on %s", listener.Addr())
 	// The version is kept only by a start that listens, so one that
 	// cannot still says what changed when it next starts.
@@ -137,7 +138,7 @@ func Serve(ctx context.Context, opt Options) error {
 			say("%s", line)
 		}
 	}
-	s := &site{Areas: areas, db: db, clock: opt.Clock, url: r.url, say: say, screens: &screens{}, asked: make(chan string, Asked),
+	s := &site{Areas: areas, db: db, clock: opt.Clock, url: r.url, urlGiven: r.urlGiven, say: say, screens: &screens{}, asked: make(chan string, Asked),
 		version: version, before: before}
 	areas.Bridges.SignedIn = s.signedIn
 	r.changed = func() { s.screens.tell(Office) }

@@ -27,9 +27,12 @@ type site struct {
 	Areas
 	db    *sql.DB
 	clock work.Clock
-	// url is how a person reaches the server, with no / at its end.
-	url string
-	say func(format string, args ...any)
+	// url is how a person reaches the server, with no / at its end, and
+	// urlGiven the same when it was given with --url, from which alone the
+	// address a sign-in method's provider sends the browser back to is
+	// made: "" when it was not.
+	url, urlGiven string
+	say           func(format string, args ...any)
 	// screens are the screens following the stream of changes.
 	screens *screens
 	// asked are the names a one-time link was asked for, which are
@@ -82,12 +85,15 @@ func routes(s *site) http.Handler {
 	mux.HandleFunc("GET /{$}", s.home)
 	mux.HandleFunc("GET /static/{name}", static)
 	mux.HandleFunc("POST /signin", s.askLink)
-	mux.HandleFunc("GET /signin/{link}", s.linkPage)
+	mux.HandleFunc("POST /signin/password", s.byPassword)
+	mux.HandleFunc("GET /signin/{link}", s.linkOrMethod)
 	mux.HandleFunc("POST /signin/{link}", s.pressLink)
+	mux.HandleFunc("GET /signin/{method}/back", s.back)
 	mux.Handle("POST /bridges/{name}", &bridges.Address{Bridges: s.Bridges, Hear: s.Work.Hear, After: after(s.clock)})
 
 	mux.HandleFunc("GET /api/me", s.api(s.me))
 	mux.HandleFunc("POST /api/me/key", s.api(s.replaceKey))
+	mux.HandleFunc("POST /api/me/password", s.api(s.setPassword))
 	mux.HandleFunc("GET /api/requests", s.api(s.list))
 	mux.HandleFunc("POST /api/requests", s.api(s.ask))
 	mux.HandleFunc("GET /api/requests/{n}", s.api(s.request))

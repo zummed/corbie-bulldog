@@ -1,6 +1,7 @@
 // People: a person of the office as everyone sees them, and the one
-// looking as themselves: who they are on each bridge, what they decide,
-// who decides a change, what they see that is wrong, and their key.
+// looking as themselves: who they are on each bridge, how they sign in,
+// what they decide, who decides a change, what they see that is wrong,
+// their key and their password.
 (function () {
   "use strict";
 
@@ -18,6 +19,33 @@
         B.el("td", {}, B.el("span", {class: "who"}, B.icon("bridge"), id.bridge)),
         B.el("td", {}, id.id),
         B.el("td", {}, id.direct ? "Yes" : B.el("span", {class: "faint"}, "No")))))));
+  }
+
+  // signInEl gives each way the one looking signs in by: their account by
+  // each sign-in method, as the office writes it, and whether they may set
+  // a password, and have.
+  function signInEl(me) {
+    const rows = [];
+    for (const a of me.accounts || []) rows.push([a.called, B.el("span", {class: "mono"}, a.id)]);
+    if (me.password) rows.push(["Password", me.password.set ? "Set" : B.el("span", {class: "faint"}, "Not set")]);
+    return rows.length ? B.kv(rows) : B.empty();
+  }
+
+  // passwordEl gives the form that sets the one looking's password, or
+  // changes it with the current one, when their entry lets them.
+  function passwordEl(me) {
+    if (!me.password) return null;
+    const current = me.password.set ? B.field("Current", B.el("input", {class: "in", type: "password", name: "current", autocomplete: "current-password", required: true})) : null;
+    const form = B.el("form", {class: "stack"},
+      current,
+      B.field("New", B.el("input", {class: "in", type: "password", name: "password", autocomplete: "new-password", minlength: "10", required: true})),
+      B.el("button", {class: "btn ghost"}, me.password.set ? "Change password" : "Set password"));
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const f = new FormData(form);
+      B.act(B.post("/api/me/password", {current: f.get("current") || "", password: f.get("password")}), form);
+    });
+    return B.sect("Password", form);
   }
 
   // decidesEl gives each list that names the one looking, with where on
@@ -43,6 +71,7 @@
             ["Teams", teamsLine(me.teams || [])],
           ])),
           B.sect(B.label("Reached", ...B.info("About reached", "A one-time link goes to the first of these, in order, that has a direct place and sends it.")), reachedEl(me)),
+          B.sect("Signs in", signInEl(me)),
           B.sect("Decides", decidesEl(me)),
           B.sect("put_draft · office", B.kv([
             ["Decided by", change.length ? B.chain(change, "office") : B.empty()],
@@ -51,8 +80,9 @@
           B.me.problems.length ? B.sect("Problems", B.el("div", {class: "rows"}, B.me.problems.map((p) =>
             B.el("div", {class: "row"}, B.teamEl(p.team), B.el("span", {class: "grow"}, p.said))))) : null),
         B.el("div", {class: "side"},
-          B.sect(B.label("Key", ...B.info("About the key", "Replacing it signs out every browser that holds it.")),
-            B.el("button", {class: "btn ghost", onclick: () => B.act(B.post("/api/me/key"))}, "Replace key")))));
+          B.sect(B.label("Key", ...B.info("About the key", "Replacing it signs out every browser that holds it, and ends any password you set.")),
+            B.el("button", {class: "btn ghost", onclick: () => B.act(B.post("/api/me/key"))}, "Replace key")),
+          passwordEl(me))));
   }
 
   B.route(/^#\/me$/, mine, "", (what) => what === "office");
@@ -70,6 +100,7 @@
         ["Title", p.title],
         ["Teams", teamsLine(teams)],
         ["Bridges", (p.bridges || []).length ? B.el("span", {class: "mono"}, p.bridges.join(", ")) : B.empty()],
+        ["Signs in", (p.signin || []).length ? B.el("span", {class: "mono"}, p.signin.join(", ")) : B.empty()],
       ])));
   }, "teams", (what) => what === "office");
 })();

@@ -25,16 +25,20 @@ const StoreFile = "bulldog.db"
 // its tables.
 const (
 	Area    = "server"
-	Version = 4
+	Version = 5
 )
 
 // tables makes the server's part: each person's key, and each one-time
 // link sent to sign in, known by a hash of what it carries and never by
 // what it carries, with the bridge and the thing it is carried as, and
 // the bridges still to be tried, with whom each reached, when it was asked
-// for. A link is kept only once a bridge has taken it to carry. One row
-// keeps the version of Bulldog that serves the office, and the one that
-// ran before it.
+// for. A link is kept only once a bridge has taken it to carry. Each
+// sign-in by a method that is under way is kept by a hash of its state,
+// with the browser's, by a hash of what its cookie holds, and the nonce
+// and verifier sent with it. A person's password is kept as a slow hash
+// of it alone, and the wrong tries of each name given with a password,
+// with when it may be tried again. One row keeps the version of Bulldog
+// that serves the office, and the one that ran before it.
 const tables = `
 CREATE TABLE server_keys (
 	person TEXT PRIMARY KEY,
@@ -52,6 +56,25 @@ CREATE TABLE server_links (
 );
 CREATE INDEX server_links_person ON server_links (person, made);
 CREATE INDEX server_links_thing ON server_links (thing);
+CREATE TABLE server_signing (
+	state    TEXT PRIMARY KEY,
+	method   TEXT NOT NULL,
+	browser  TEXT NOT NULL,
+	nonce    TEXT NOT NULL,
+	verifier TEXT NOT NULL,
+	made     TEXT NOT NULL
+);
+CREATE TABLE server_passwords (
+	person TEXT PRIMARY KEY,
+	hash   TEXT NOT NULL,
+	made   TEXT NOT NULL
+);
+CREATE TABLE server_tries (
+	name   TEXT PRIMARY KEY,
+	wrong  INTEGER NOT NULL,
+	last   TEXT NOT NULL,
+	until  TEXT NOT NULL
+);
 CREATE TABLE server_versions (
 	one     INTEGER PRIMARY KEY CHECK (one = 1),
 	running TEXT NOT NULL,
@@ -142,41 +165,43 @@ func ran(db *sql.DB, version string) (before string, upgraded bool, err error) {
 
 // keyed gives every person of a good reading a key, making one for each
 // person new in it, and destroys the key of each person no longer in it,
-// so that someone written later under the same name is given a new one.
-// It gives the people newly given one, in the office's order, and those
-// whose key it destroyed.
-func keyed(db *sql.DB, o *office.Office, now time.Time) (made, gone []string, err error) {
+// so that someone written later under the same name is given a new one;
+// and destroys the password of each who left it or whose entry no longer
+// says password: true. It gives the people newly given a key, in the
+// office's order, those whose key it destroyed, and those whose password
+// it destroyed while they stay.
+func keyed(db *sql.DB, o *office.Office, now time.Time) (made, gone, unset []string, err error) {
 	tx, err := db.Begin()
 	if err != nil {
-		return nil, nil, fmt.Errorf("the people's keys cannot be read: %w", err)
+		return nil, nil, nil, fmt.Errorf("the people's keys cannot be read: %w", err)
 	}
 	defer tx.Rollback()
 	rows, err := tx.Query(`SELECT person FROM server_keys`)
 	if err != nil {
-		return nil, nil, fmt.Errorf("the people's keys cannot be read: %w", err)
+		return nil, nil, nil, fmt.Errorf("the people's keys cannot be read: %w", err)
 	}
 	var had []string
 	for rows.Next() {
 		var person string
 		if err := rows.Scan(&person); err != nil {
 			rows.Close()
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		had = append(had, person)
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	for _, person := range had {
 		if _, ok := o.People[person]; ok {
 			continue
 		}
 		if _, err := tx.Exec(`DELETE FROM server_keys WHERE person = ?`, person); err != nil {
-			return nil, nil, fmt.Errorf("the key of %s, who is no longer in the office, cannot be destroyed: %w", person, err)
+			return nil, nil, nil, fmt.Errorf("the key of %s, who is no longer in the office, cannot be destroyed: %w", person, err)
 		}
 		if _, err := tx.Exec(`DELETE FROM server_links WHERE person = ?`, person); err != nil {
-			return nil, nil, fmt.Errorf("the sign-in links of %s, who is no longer in the office, cannot be destroyed: %w", person, err)
+			return nil, nil, nil, fmt.Errorf("the sign-in links of %s, who is no longer in the office, cannot be destroyed: %w", person, err)
 		}
 		gone = append(gone, person)
 	}
@@ -185,14 +210,54 @@ func keyed(db *sql.DB, o *office.Office, now time.Time) (made, gone []string, er
 			continue
 		}
 		if _, err := tx.Exec(`INSERT INTO server_keys (person, key, made) VALUES (?, ?, ?)`, person, random(32), stamp(now)); err != nil {
-			return nil, nil, fmt.Errorf("a key cannot be made for %s: %w", person, err)
+			return nil, nil, nil, fmt.Errorf("a key cannot be made for %s: %w", person, err)
 		}
 		made = append(made, person)
 	}
-	if err := tx.Commit(); err != nil {
-		return nil, nil, fmt.Errorf("the people's keys cannot be kept: %w", err)
+	if unset, err = unsetPasswords(tx, o); err != nil {
+		return nil, nil, nil, err
 	}
-	return made, gone, nil
+	if err := tx.Commit(); err != nil {
+		return nil, nil, nil, fmt.Errorf("the people's keys cannot be kept: %w", err)
+	}
+	return made, gone, unset, nil
+}
+
+// unsetPasswords destroys the password of each person no longer in the
+// office, or whose entry no longer lets them set one, and gives those who
+// are still in it.
+func unsetPasswords(tx *sql.Tx, o *office.Office) ([]string, error) {
+	rows, err := tx.Query(`SELECT person FROM server_passwords ORDER BY person`)
+	if err != nil {
+		return nil, fmt.Errorf("the people's passwords cannot be read: %w", err)
+	}
+	var had []string
+	for rows.Next() {
+		var person string
+		if err := rows.Scan(&person); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		had = append(had, person)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var unset []string
+	for _, person := range had {
+		p := o.People[person]
+		if p != nil && p.Password {
+			continue
+		}
+		if _, err := tx.Exec(`DELETE FROM server_passwords WHERE person = ?`, person); err != nil {
+			return nil, fmt.Errorf("the password of %s cannot be destroyed: %w", person, err)
+		}
+		if p != nil {
+			unset = append(unset, person)
+		}
+	}
+	return unset, nil
 }
 
 // keyOf gives a person's key.
@@ -229,17 +294,35 @@ func whoseKey(db *sql.DB, shown string) (string, error) {
 	return whose, nil
 }
 
-// newKey gives a person a key in place of the one they had, and gives it.
-func newKey(db *sql.DB, person string, now time.Time) (string, error) {
-	key := random(32)
-	res, err := db.Exec(`UPDATE server_keys SET key = ?, made = ? WHERE person = ?`, key, stamp(now), person)
+// newKey gives a person a key in place of the one they had, and gives it,
+// and destroys their password, which is a way in as the key is. It says
+// whether they had a password.
+func newKey(db *sql.DB, person string, now time.Time) (key string, unset bool, err error) {
+	tx, err := db.Begin()
 	if err != nil {
-		return "", fmt.Errorf("a new key cannot be made for %s: %w", person, err)
+		return "", false, fmt.Errorf("a new key cannot be made for %s: %w", person, err)
+	}
+	defer tx.Rollback()
+	key = random(32)
+	res, err := tx.Exec(`UPDATE server_keys SET key = ?, made = ? WHERE person = ?`, key, stamp(now), person)
+	if err != nil {
+		return "", false, fmt.Errorf("a new key cannot be made for %s: %w", person, err)
 	}
 	if n, err := res.RowsAffected(); err != nil || n != 1 {
-		return "", fmt.Errorf("a new key cannot be made for %s, who has none", person)
+		return "", false, fmt.Errorf("a new key cannot be made for %s, who has none", person)
 	}
-	return key, nil
+	res, err = tx.Exec(`DELETE FROM server_passwords WHERE person = ?`, person)
+	if err != nil {
+		return "", false, fmt.Errorf("the password of %s cannot be destroyed with their key: %w", person, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return "", false, fmt.Errorf("the password of %s cannot be destroyed with their key: %w", person, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return "", false, fmt.Errorf("a new key cannot be made for %s: %w", person, err)
+	}
+	return key, n > 0, nil
 }
 
 // hashed gives what a one-time link is known by in the store.

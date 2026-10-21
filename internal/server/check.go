@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/zummed/corbie-bulldog/internal/decisions"
@@ -29,6 +30,9 @@ func Check(dir string, out io.Writer) error {
 	}
 	for _, name := range o.BridgeOrder {
 		listBridge(out, o, o.Bridges[name])
+	}
+	for _, name := range o.SignInOrder {
+		listSignIn(out, o, o.SignIns[name])
 	}
 	fmt.Fprintf(out, "%s at work at once\n", count(o.Runs, "run", "runs"))
 	if len(o.Problems) > 0 {
@@ -166,6 +170,22 @@ func listBridge(out io.Writer, o *office.Office, b *office.Bridge) {
 	line := fmt.Sprintf("%s, %s, in %s", b.Name, how, orNone(strings.Join(places, "; ")))
 	if !b.Runs() {
 		line += ": it carries nothing, for its problems below"
+	}
+	fmt.Fprintln(out, line)
+}
+
+// listSignIn says what a sign-in method is, the folder it runs, and who
+// may sign in by it.
+func listSignIn(out io.Writer, o *office.Office, m *office.SignIn) {
+	var who []string
+	for _, name := range o.Everyone {
+		if slices.ContainsFunc(o.People[name].Accounts, func(a office.Account) bool { return a.Method == m.Name }) {
+			who = append(who, name)
+		}
+	}
+	line := fmt.Sprintf("%s, a sign-in method running %s, for %s", m.Name, m.Dir(), orNone(strings.Join(who, ", ")))
+	if !m.Runs() {
+		line += ": it signs nobody in, for its problems below"
 	}
 	fmt.Fprintln(out, line)
 }

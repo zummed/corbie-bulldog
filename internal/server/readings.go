@@ -13,14 +13,15 @@ import (
 // each person new in a good one, whose key it makes, once every area has
 // taken it, as taken gives it and took tells.
 type readings struct {
-	say    func(format string, args ...any)
-	db     *sql.DB
-	keeper *office.Keeper
-	clock  work.Clock
-	dir    string
-	url    string
-	taken  func() *office.Office
-	took   chan struct{}
+	say      func(format string, args ...any)
+	db       *sql.DB
+	keeper   *office.Keeper
+	clock    work.Clock
+	dir      string
+	url      string
+	urlGiven string
+	taken    func() *office.Office
+	took     chan struct{}
 
 	// logged are the problems of the latest reading, as they were said;
 	// read is the good reading the people's keys were last made for.
@@ -65,16 +66,19 @@ func (r *readings) problems() bool {
 }
 
 // links makes a key for each person new in the latest reading every area
-// has taken, and destroys the key of each who has left it, and gives a
-// link to each person new in it: to every person, at the first. A link is
-// given only once every area has taken the reading, so that whoever opens
-// it finds the office as it read.
+// has taken, and destroys the key of each who has left it, and the
+// password of each who may no longer set one, and gives a link to each
+// person new in it: to every person, at the first. A link is given only
+// once every area has taken the reading, so that whoever opens it finds
+// the office as it read. Before them it says, of each sign-in method new
+// in the reading, the address its provider sends the browser back to, or
+// that it signs nobody in for want of one.
 func (r *readings) links() {
 	o := r.taken()
 	if o == nil || o == r.read {
 		return
 	}
-	made, gone, err := keyed(r.db, o, r.clock.Now())
+	made, gone, unset, err := keyed(r.db, o, r.clock.Now())
 	if err != nil {
 		r.say("%v", err)
 		return
@@ -82,8 +86,20 @@ func (r *readings) links() {
 	for _, person := range gone {
 		r.say("%s is no longer in the office, so their key is destroyed", person)
 	}
+	for _, person := range unset {
+		r.say("%s's entry no longer says password: true, so their password is destroyed", person)
+	}
 	if !r.named {
 		r.office()
+	}
+	for _, name := range o.SignInOrder {
+		switch {
+		case r.read != nil && r.read.SignIns[name] != nil:
+		case r.urlGiven == "":
+			r.say("%s signs nobody in: %s", name, noURL)
+		default:
+			r.say("%s signs people in by their provider sending them back to %s, which the provider must have as a redirect URI", name, backOf(r.urlGiven, name))
+		}
 	}
 	given := made
 	if r.read == nil {

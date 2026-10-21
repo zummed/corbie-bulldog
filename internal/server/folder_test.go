@@ -205,8 +205,8 @@ func TestServerSaysOnlyWhatItServesSecondTime(t *testing.T) {
 	}
 	s := b.serve()
 	lines := s.lines()
-	if len(lines) != 5 || index(lines, "on the Corbie") != 0 || index(lines, "The house:") != 1 || index(lines, "listening on") != 2 ||
-		index(lines, "sam, open") != 3 || index(lines, "kit, open") != 4 {
+	if len(lines) != 6 || index(lines, "on the Corbie") != 0 || index(lines, "The house:") != 1 || index(lines, "listening on") != 2 ||
+		index(lines, "google signs nobody in: the server was started with no --url") != 3 || index(lines, "sam, open") != 4 || index(lines, "kit, open") != 5 {
 		t.Errorf("served a second time, it said:\n%s", strings.Join(lines, "\n"))
 	}
 }

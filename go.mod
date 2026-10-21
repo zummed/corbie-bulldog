@@ -8,6 +8,7 @@ require (
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/zummed/corbie v0.8.0
 	go.yaml.in/yaml/v3 v3.0.5
+	golang.org/x/crypto v0.57.0
 	modernc.org/sqlite v1.60.1
 )
 
@@ -36,7 +37,6 @@ require (
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
-	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect

@@ -17,7 +17,7 @@ func TestEveryPersonIsWrittenOnce(t *testing.T) {
 	if al.Called != "Al" || al.Title != "Runs the office." || !slices.Equal(al.Reached, []office.Identity{{"slack", "U0AL0000"}, {"gitlab", "1041"}}) {
 		t.Errorf("al is %#v", al)
 	}
-	o = reads(t, replace(t, work(t), "office.yaml", `{ name: Al, title: Runs the office., slack: U0AL0000, gitlab: "1041" }`, `{ name: Al, gitlab: "1041", slack: U0AL0000 }`))
+	o = reads(t, replace(t, work(t), "office.yaml", `{ name: Al, title: Runs the office., slack: U0AL0000, gitlab: "1041",`, `{ name: Al, gitlab: "1041", slack: U0AL0000,`))
 	if got := o.People["al"].Reached; got[0].Bridge != "gitlab" {
 		t.Errorf("al's bridges are %v", got)
 	}
@@ -37,7 +37,7 @@ func TestAPersonsKeysNameTheOfficesBridges(t *testing.T) {
 	} {
 		says(t, refused(t, replace(t, house(t), "office.yaml", `kit: { name: Kit, title: Lives here., telegram: "4472" }`, entry)), "office.yaml", "kit", key, "no bridge")
 	}
-	says(t, refused(t, replace(t, house(t), "office.yaml", `sam: { name: Sam, title: Owner. Decides money and the building., telegram: "4471" }`, `sam: { name: Sam, email: sam@example.com }`)), "office.yaml", "sam", "email")
+	says(t, refused(t, replace(t, house(t), "office.yaml", `sam: { name: Sam, title: Owner. Decides money and the building., telegram: "4471", google: sam@example.com, password: true }`, `sam: { name: Sam, email: sam@example.com }`)), "office.yaml", "sam", "email")
 }
 
 func TestAPersonInNoTeamIsAPersonAllTheSame(t *testing.T) {

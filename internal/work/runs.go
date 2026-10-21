@@ -261,6 +261,9 @@ func (w *Work) lost(ctx context.Context, n *note) {
 	}
 	now := w.clock.Now()
 	e := ending{status: lost, how: how, started: n.Noted, ended: now}
+	if n.Kind == KindSignIn {
+		w.signedIn(n.Name, nil, e)
+	}
 	switch n.Kind {
 	case KindHeed:
 		w.heeded(n, nil, e)
@@ -287,9 +290,9 @@ func (w *Work) lost(ctx context.Context, n *note) {
 }
 
 // endOther keeps how a run ended that is no lead's or heed's on a
-// request: a decider's, a bridge's or a clock's. A decider's that ended is
-// told to whoever watches its request; a clock that ended has the clocks
-// looked for, so its routine gets another.
+// request: a decider's, a bridge's, a sign-in method's or a clock's. A
+// decider's that ended is told to whoever watches its request; a clock
+// that ended has the clocks looked for, so its routine gets another.
 func (w *Work) endOther(n *note, e ending) {
 	first, err := w.end(n.Name, e)
 	if err != nil {
@@ -326,6 +329,9 @@ func (w *Work) take(ctx context.Context, n *note, run *client.Run, e ending) {
 		if !w.handBack(ctx, n, end) {
 			return
 		}
+	}
+	if n.Kind == KindSignIn {
+		w.signedIn(n.Name, run, e)
 	}
 	switch n.Kind {
 	case KindHeed:

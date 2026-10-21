@@ -501,7 +501,7 @@ func TestRequestsNoFallbackRecipient(t *testing.T) {
 
 // noSam gives the house with Sam gone from the office.
 func noSam(t *testing.T, files map[string]string) map[string]string {
-	files = replace(t, files, "office.yaml", "  sam: { name: Sam, title: Owner. Decides money and the building., telegram: \"4471\" }\n", "")
+	files = replace(t, files, "office.yaml", "  sam: { name: Sam, title: Owner. Decides money and the building., telegram: \"4471\", google: sam@example.com, password: true }\n", "")
 	files = replace(t, files, "office.yaml", "people: [sam, kit]", "people: [kit]")
 	files = replace(t, files, "office.yaml", "everything: [sam]", "everything: [kit]")
 	files = replace(t, files, "office.yaml", "order_part: [./small-orders.js, clerk: advise, sam]", "order_part: [./small-orders.js, clerk: advise, kit]")

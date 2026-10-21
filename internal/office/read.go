@@ -48,7 +48,7 @@ func Parse(dir string, given map[string][]byte) (*Office, Problems) {
 	r := &reading{files: files, o: &Office{
 		Dir: dir, Zone: time.UTC, Runs: DefaultRuns,
 		Teams: map[string]*Team{}, People: map[string]*Person{}, Workers: map[string]*Worker{},
-		Rules: map[string]*Rule{}, Bridges: map[string]*Bridge{},
+		Rules: map[string]*Rule{}, Bridges: map[string]*Bridge{}, SignIns: map[string]*SignIn{},
 		Files: slices.Sorted(maps.Keys(files)),
 	}, names: map[string]string{}, filledOut: map[string]bool{}, unfilled: map[string]string{}}
 	if _, ok := files[OfficeFile]; !ok {
@@ -63,9 +63,11 @@ func Parse(dir string, given map[string][]byte) (*Office, Problems) {
 	r.readHeeds()
 	r.readRoutines()
 	r.readBridges()
+	r.readSignIns()
 	r.checkWorkers()
 	r.checkRules()
 	r.checkBridges()
+	r.checkSignIns()
 	r.checkKeys()
 	r.o.Problems = r.problems
 	return r.o, r.problems
@@ -112,7 +114,11 @@ var nameForm = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 // Reserved are the names no person, worker, team or bridge may have: they
 // are files and folders of the office, the built-in chat, or who Bulldog
 // itself speaks as.
-var Reserved = []string{Top, "team", NotesDir, DocsDir, "bridges", "chat", "routine", "bulldog", "guest"}
+var Reserved = []string{Top, "team", NotesDir, DocsDir, "bridges", SignInDir, "chat", "routine", "bulldog", "guest"}
+
+// PersonKeys are the keys of a person's entry that are no bridge's or
+// sign-in method's name.
+var PersonKeys = []string{"name", "title", "password"}
 
 // nameProblem says what is wrong with a name, or nothing.
 func nameProblem(name string) string {
@@ -223,7 +229,7 @@ func (r *reading) teamAt(dir string) *Team {
 // The keys a team file takes, and those only the top team's takes.
 var (
 	teamKeys = []string{"name", "about", "people", "lead", "heed", "decide", "disclosure", "routines", "models"}
-	topKeys  = []string{"zone", "everyone", "bridges", "runs"}
+	topKeys  = []string{"zone", "everyone", "bridges", "signin", "runs"}
 )
 
 // readTeamFiles reads each team's file: what it is called, what it looks
@@ -350,7 +356,7 @@ func (r *reading) readOffice(t *Team, root *yaml.Node) {
 		switch problem := nameProblem(name); {
 		case problem != "":
 			r.teamFile(t, k, "bridges: %s", problem)
-		case name == "name" || name == "title":
+		case slices.Contains(PersonKeys, name):
 			r.teamFile(t, k, "bridges: %q is a key of a person, and is no name for a bridge", name)
 		case r.o.Bridges[name] != nil:
 			// said with every key written twice
@@ -359,13 +365,38 @@ func (r *reading) readOffice(t *Team, root *yaml.Node) {
 			r.o.BridgeOrder = append(r.o.BridgeOrder, name)
 		}
 	}
+	// So are the sign-in methods' names, which no bridge has, so that a
+	// key of a person says which of the two it is.
+	signin := child(root, "signin")
+	if signin != nil && signin.Kind != yaml.MappingNode {
+		r.teamFile(t, signin, "signin names each sign-in method, with its settings, as { google: { from: ./.bulldog/signin/google, client_id: … } }, and this is %s", describe(signin))
+		signin = nil
+	}
+	folders := r.bridgeFolders()
+	for k := range pairs(signin) {
+		name := k.Value
+		switch problem := nameProblem(name); {
+		case problem != "":
+			r.teamFile(t, k, "signin: %s", problem)
+		case slices.Contains(PersonKeys, name):
+			r.teamFile(t, k, "signin: %q is a key of a person, and is no name for a sign-in method", name)
+		case r.o.Bridges[name] != nil || folders[name]:
+			r.teamFile(t, k, "signin: %s is the name of a bridge too, so a person's %s would not say which it is: a sign-in method is called by a name no bridge has", name, name)
+		case r.o.SignIns[name] != nil:
+			// said with every key written twice
+		default:
+			r.o.SignIns[name] = &SignIn{Name: name}
+			r.o.SignInOrder = append(r.o.SignInOrder, name)
+		}
+	}
 	everyone := child(root, "everyone")
 	if everyone != nil && everyone.Kind != yaml.MappingNode {
 		r.teamFile(t, everyone, "everyone writes each person by a name of their own, as { sam: { name: Sam } }, and this is %s", describe(everyone))
 		return
 	}
 	seen := map[Identity]string{}
-	folders := r.bridgeFolders()
+	accounts := map[Account]string{}
+	methods := r.signInFolders()
 	for k, v := range pairs(everyone) {
 		name := k.Value
 		if problem := nameProblem(name); problem != "" {
@@ -377,7 +408,7 @@ func (r *reading) readOffice(t *Team, root *yaml.Node) {
 		}
 		p := &Person{Name: name, Called: name}
 		if v.Kind != yaml.MappingNode && v.Tag != "!!null" {
-			r.teamFile(t, v, "everyone: %s is a mapping, with name:, title: and who they are on each bridge, and this is %s", name, describe(v))
+			r.teamFile(t, v, "everyone: %s is a mapping, with name:, title:, who they are on each bridge and by each sign-in method, and password:, and this is %s", name, describe(v))
 			continue
 		}
 		for key, value := range pairs(v) {
@@ -394,8 +425,24 @@ func (r *reading) readOffice(t *Team, root *yaml.Node) {
 				}
 			case key.Value == "title":
 				p.Title = s
+			case key.Value == "password":
+				if value.Tag != "!!bool" || value.Decode(&p.Password) != nil {
+					r.teamFile(t, value, "everyone: %s's password is true, when %s may set a password of their own to sign in with, or false, and this is %s", name, name, describe(value))
+				}
+			case r.o.SignIns[key.Value] != nil || methods[key.Value] && r.o.Bridges[key.Value] == nil && !folders[key.Value]:
+				a := Account{key.Value, strings.ToLower(s)}
+				if s == "" {
+					r.teamFile(t, value, "everyone: %s's %s is who they are by that sign-in method, as its page says, and this is empty", name, key.Value)
+					continue
+				}
+				if other, shared := accounts[a]; shared {
+					r.teamFile(t, value, "everyone: %s and %s are both %s by %s: two people never share an account, whatever its case", other, name, s, key.Value)
+					continue
+				}
+				accounts[a] = name
+				p.Accounts = append(p.Accounts, Account{key.Value, s})
 			case r.o.Bridges[key.Value] == nil && !folders[key.Value]:
-				r.teamFile(t, key, "everyone: %s gives %s, which is no bridge of the office: beside name and title, each key is a bridge's name, giving who %s is there", name, key.Value, name)
+				r.teamFile(t, key, "everyone: %s gives %s, which is no bridge or sign-in method of the office: beside name, title and password, each key is a bridge's name, giving who %s is there, or a sign-in method's, giving their account by it", name, key.Value, name)
 			default:
 				id := Identity{key.Value, s}
 				if other, shared := seen[id]; shared {
@@ -930,6 +977,83 @@ func (r *reading) readBridges() {
 			r.o.BridgeOrder = append(r.o.BridgeOrder, folder)
 		}
 	}
+}
+
+// readSignIns reads each sign-in method's settings and finds its folder.
+// Whatever is wrong with a method stops only it.
+func (r *reading) readSignIns() {
+	node := child(r.nodes[Top], "signin")
+	stop := func(m *SignIn, line int, file, format string, args ...any) {
+		m.Problems = append(m.Problems, Problem{File: file, Line: line, Team: Top, SignIn: m.Name, Text: fmt.Sprintf(format, args...)})
+	}
+	froms := map[string]bool{}
+	for k, v := range pairs(node) {
+		m := r.o.SignIns[k.Value]
+		if m == nil {
+			continue
+		}
+		m.Line = k.Line
+		if v.Kind != yaml.MappingNode {
+			stop(m, v.Line, OfficeFile, "signin: %s's settings are a mapping, as { from: ./.bulldog/signin/google, client_id: … }, and these are %s", m.Name, describe(v))
+		} else if err := v.Decode(&m.Settings); err != nil {
+			stop(m, v.Line, OfficeFile, "signin: %s's settings cannot be read: %v", m.Name, err)
+		}
+		from := child(v, "from")
+		if from == nil {
+			continue
+		}
+		s, _ := text(from)
+		dir := path.Clean(s)
+		froms[m.Name] = true
+		if name, ok := strings.CutPrefix(dir, shipped.Dir+"/"+SignInDir+"/"); ok && slices.Contains(shipped.SignIns(), name) {
+			m.From = dir
+			continue
+		}
+		var ships []string
+		for _, name := range shipped.SignIns() {
+			ships = append(ships, "./"+path.Join(shipped.Dir, SignInDir, name))
+		}
+		stop(m, from.Line, OfficeFile, "signin: %s's from is %s, and from names a sign-in method Bulldog ships, by its folder: %s", m.Name, describe(from), strings.Join(ships, ", "))
+	}
+	folders := r.signInFolders()
+	for _, name := range r.o.SignInOrder {
+		m := r.o.SignIns[name]
+		dir := SignInDir + "/" + name
+		switch {
+		case froms[name] && folders[name]:
+			stop(m, 0, dir, "%s is not run: %s has a from, and a sign-in method with a from runs no folder of the office's own", dir, name)
+		case froms[name]:
+		case !folders[name]:
+			stop(m, 0, OfficeFile, "there is no folder %s, which holds its %s", dir, shipped.SignIn)
+		default:
+			if _, ok := r.files[dir+"/"+shipped.SignIn]; !ok {
+				stop(m, 0, dir, "there is no %s in %s: a sign-in method's folder holds its machine", shipped.SignIn, dir)
+			}
+		}
+	}
+	bridges := r.bridgeFolders()
+	for _, folder := range slices.Sorted(maps.Keys(folders)) {
+		if r.o.SignIns[folder] == nil {
+			m := &SignIn{Name: folder}
+			stop(m, 0, SignInDir+"/"+folder, "%s/%s is a sign-in method's folder that signin in office.yaml does not name, so it signs nobody in", SignInDir, folder)
+			if r.o.Bridges[folder] != nil || bridges[folder] {
+				stop(m, 0, SignInDir+"/"+folder, "%s is the name of a bridge too, so a person's %s is read as who they are on the bridge: a sign-in method is called by a name no bridge has", folder, folder)
+			}
+			r.o.SignIns[folder] = m
+			r.o.SignInOrder = append(r.o.SignInOrder, folder)
+		}
+	}
+}
+
+// signInFolders gives the names of the folders under signin/.
+func (r *reading) signInFolders() map[string]bool {
+	folders := map[string]bool{}
+	for _, file := range r.o.Files {
+		if rest, ok := strings.CutPrefix(file, SignInDir+"/"); ok && strings.Contains(rest, "/") {
+			folders[strings.Split(rest, "/")[0]] = true
+		}
+	}
+	return folders
 }
 
 // bridgeFolders gives the names of the folders under bridges/. A person may

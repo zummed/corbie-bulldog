@@ -129,7 +129,12 @@ func TestServerReplacedKeySignsOutOtherBrowsers(t *testing.T) {
 	s := newBench(t, house(t)).serve()
 	one, two := s.as("sam"), s.as("sam")
 	printed := one.key
+	// A password set from a browser that held the key goes with it.
+	two.post("/api/me/password", map[string]string{"password": "set by whoever"}).is(http.StatusOK)
 	r := one.post("/api/me/key", "").is(http.StatusOK)
+	if said := r.json()["said"].(string); !strings.Contains(said, "your password is gone") {
+		t.Errorf("replacing the key said %q", said)
+	}
 	one = s.holding(r)
 	if one.key == printed || one.whoIs() != "sam" {
 		t.Fatalf("the new key is %q, Sam's %v", one.key, one.whoIs())
@@ -140,6 +145,10 @@ func TestServerReplacedKeySignsOutOtherBrowsers(t *testing.T) {
 	if got := s.nobody().get("/?key=" + printed); got.cookie() != nil {
 		t.Error("the printed link still signs Sam in")
 	}
+	s.nobody().post("/signin/password", map[string]string{"name": "sam", "password": "set by whoever"}).is(http.StatusForbidden)
+	// Sam sets another, needing no current one.
+	one.post("/api/me/password", map[string]string{"password": "Sam's own again"}).is(http.StatusOK)
+	s.nobody().post("/signin/password", map[string]string{"name": "sam", "password": "Sam's own again"}).is(http.StatusOK)
 }
 
 // pigeon and board are stand-in bridges of the test's: pigeon says things
@@ -149,7 +158,7 @@ func withMoreBridges(files map[string]string, sam string) map[string]string {
 	maps.Copy(files, standin.In("pigeon", standin.Folder(false, true)))
 	maps.Copy(files, standin.In("board", standin.Folder(false, false)))
 	files["office.yaml"] = strings.Replace(files["office.yaml"], "bridges:\n", "bridges:\n  pigeon: { places: { direct: {} } }\n  board: { places: {} }\n", 1)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], `sam: { name: Sam, title: Owner. Decides money and the building., telegram: "4471" }`, sam, 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], `sam: { name: Sam, title: Owner. Decides money and the building., telegram: "4471", google: sam@example.com, password: true }`, sam, 1)
 	return files
 }
 

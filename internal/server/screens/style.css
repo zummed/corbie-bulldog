@@ -342,6 +342,12 @@ main.narrow input { min-height: 40px; padding: 8px 10px; border: 1.5px solid var
 main.narrow button { min-height: 44px; border-radius: var(--radius); border: 1.5px solid var(--ink); background: var(--ink); color: var(--paper); font: 600 15px var(--sans); cursor: pointer; }
 main.narrow #said:empty { display: none; }
 main.narrow #said { color: var(--ink2); font-size: 14px; }
+main.narrow .signin-methods { display: flex; flex-direction: column; gap: 10px; }
+main.narrow .signin-with { display: flex; align-items: center; justify-content: center; min-height: 44px; border-radius: var(--radius); border: 1.5px solid var(--ink); background: var(--sheet); color: var(--ink); font: 600 15px var(--sans); text-decoration: none; }
+main.narrow .signin-with:hover { background: var(--field); }
+main.narrow .signin-said { color: var(--ink); font-size: 14px; border-left: 3px solid var(--ink); padding-left: 10px; margin: 0; }
+main.narrow .signin-said:empty { display: none; }
+main.narrow .signin-about { color: var(--ink2); font-size: 13px; margin: 0; }
 
 @media (max-width: 640px) {
   .top { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand me" "nav manual"; gap: 0 12px; padding: 0 12px; position: static; }

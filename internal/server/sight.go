@@ -48,6 +48,23 @@ type (
 		// files, in the order the walk asks them.
 		OfficePut []deciderOut `json:"put_draft"`
 		Bridges   []bridgeOut  `json:"bridges"`
+		// SignIn are its sign-in methods, and Password whether anyone may
+		// sign in with a password of their own, as the sign-in page shows.
+		SignIn   []signInOut `json:"signin"`
+		Password bool        `json:"password"`
+	}
+	// signInOut is a sign-in method: what the sign-in page calls it, the
+	// folder it runs, one Bulldog ships or its own, whether it runs or is
+	// stopped, and the address its provider sends the browser back to,
+	// or, on a server given no --url, why there is none.
+	signInOut struct {
+		Name     string `json:"name"`
+		Called   string `json:"called"`
+		Folder   string `json:"folder"`
+		Shipped  bool   `json:"shipped"`
+		Status   string `json:"status"`
+		Back     string `json:"back,omitempty"`
+		Unserved string `json:"unserved,omitempty"`
 	}
 	runsOut struct {
 		Limit   int `json:"limit"`
@@ -151,13 +168,19 @@ type (
 		Called  string   `json:"called"`
 		Title   string   `json:"title,omitempty"`
 		Bridges []string `json:"bridges"`
+		// SignIn are the sign-in methods they may sign in by, by name.
+		SignIn []string `json:"signin"`
 		// Teams and Decides are said only of the one looking: the teams
 		// they are in, and whether they decide a change; and so are who
-		// they are on each bridge, in the order a link is tried, each list
-		// that names them, and the teams whose walk ends at them.
+		// they are on each bridge, in the order a link is tried, their
+		// account by each sign-in method, whether they may set a password
+		// and have, each list that names them, and the teams whose walk
+		// ends at them.
 		Teams      []string      `json:"teams,omitempty"`
 		Decides    bool          `json:"decides_changes,omitempty"`
 		Identities []identityOut `json:"identities,omitempty"`
+		Accounts   []accountOut  `json:"accounts,omitempty"`
+		Password   *passwordOut  `json:"password,omitempty"`
 		Lists      []namedOut    `json:"lists,omitempty"`
 		Walks      []string      `json:"walks,omitempty"`
 	}
@@ -167,6 +190,16 @@ type (
 		Bridge string `json:"bridge"`
 		ID     string `json:"id"`
 		Direct bool   `json:"direct"`
+	}
+	// accountOut is who a person is by a sign-in method, as written.
+	accountOut struct {
+		Method string `json:"method"`
+		Called string `json:"called"`
+		ID     string `json:"id"`
+	}
+	// passwordOut says a person may set a password, and whether they have.
+	passwordOut struct {
+		Set bool `json:"set"`
 	}
 	// namedOut is a team's list that names a person, by its key, and
 	// where on it they are, from 1.
@@ -184,6 +217,7 @@ type (
 		Worker string `json:"worker,omitempty"`
 		Bridge string `json:"bridge,omitempty"`
 		Rule   string `json:"rule,omitempty"`
+		SignIn string `json:"signin,omitempty"`
 		Said   string `json:"said"`
 	}
 	failingOut struct {
@@ -225,6 +259,14 @@ func (s *site) me(person string, w http.ResponseWriter, r *http.Request) (any, e
 	me.Teams = o.TeamsOf(person)
 	me.Decides = slices.Contains(changes.Deciders(o), person)
 	me.Identities, me.Lists, me.Walks = identitiesOf(o, person), listsNaming(o, person), walksTo(o, person)
+	me.Accounts = accountsOf(o, person)
+	if o.People[person].Password {
+		set, err := hasPassword(s.db, person)
+		if err != nil {
+			return nil, err
+		}
+		me.Password = &passwordOut{Set: set}
+	}
 	load := s.Work.Load()
 	out := meOut{Me: me, Teams: []teamOut{}, People: []personOut{}, Waiting: len(waits), Problems: problems,
 		Office: officeOut{Name: o.Name(), About: o.TopTeam().About, Zone: o.Zone.String(),
@@ -266,7 +308,35 @@ func (s *site) me(person string, w http.ResponseWriter, r *http.Request) (any, e
 	for _, name := range o.BridgeOrder {
 		out.Office.Bridges = append(out.Office.Bridges, s.bridgeOf(o, o.Bridges[name], failing[name], me.Decides))
 	}
+	out.Office.SignIn = []signInOut{}
+	for _, name := range o.SignInOrder {
+		m := o.SignIns[name]
+		one := signInOut{Name: name, Called: methodCalled(m), Folder: m.Dir(), Shipped: m.From != "", Status: "running"}
+		if !s.runs(m) {
+			one.Status = "stopped"
+		}
+		if s.urlGiven == "" {
+			one.Unserved = noURL
+		} else {
+			one.Back = backOf(s.urlGiven, name)
+		}
+		out.Office.SignIn = append(out.Office.SignIn, one)
+	}
+	out.Office.Password = slices.ContainsFunc(o.Everyone, func(name string) bool { return o.People[name].Password })
 	return out, nil
+}
+
+// accountsOf gives who a person is by each sign-in method, as written.
+func accountsOf(o *office.Office, person string) []accountOut {
+	out := []accountOut{}
+	for _, a := range o.People[person].Accounts {
+		called := a.Method
+		if m := o.SignIns[a.Method]; m != nil {
+			called = methodCalled(m)
+		}
+		out = append(out, accountOut{Method: a.Method, Called: called, ID: a.ID})
+	}
+	return out
 }
 
 // bridgeOf gives a bridge as everyone sees it: stopped while it has a
@@ -466,12 +536,16 @@ func walksTo(o *office.Office, person string) []string {
 }
 
 // personOf gives a person as everyone sees them: the bridges that reach
-// them by name, and none of who they are there.
+// them and the sign-in methods they sign in by, by name, and none of who
+// they are there.
 func personOf(o *office.Office, name string) personOut {
 	p := o.People[name]
-	out := personOut{Name: p.Name, Called: p.Called, Title: p.Title, Bridges: []string{}}
+	out := personOut{Name: p.Name, Called: p.Called, Title: p.Title, Bridges: []string{}, SignIn: []string{}}
 	for _, id := range p.Reached {
 		out.Bridges = append(out.Bridges, id.Bridge)
+	}
+	for _, a := range p.Accounts {
+		out.SignIn = append(out.SignIn, a.Method)
 	}
 	return out
 }
@@ -511,7 +585,7 @@ func problemOf(p office.Problem) problemOut {
 	if of == "" {
 		of = office.Top
 	}
-	return problemOut{File: p.File, Line: p.Line, Place: p.Place, Text: p.Text, Team: of, Worker: p.Worker, Bridge: p.Bridge, Rule: p.Rule, Said: p.String()}
+	return problemOut{File: p.File, Line: p.Line, Place: p.Place, Text: p.Text, Team: of, Worker: p.Worker, Bridge: p.Bridge, Rule: p.Rule, SignIn: p.SignIn, Said: p.String()}
 }
 
 func problemsOf(ps office.Problems) []problemOut {

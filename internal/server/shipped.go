@@ -26,12 +26,13 @@ type (
 		Things  []thingOut `json:"things"`
 	}
 	// thingOut is one thing Bulldog ships: a bridge, a folder of tools
-	// files or a rule, by its folder in .bulldog/, with its page, the lines
-	// that use it, one for each tools file, what it reaches as shipped, its
-	// settings, what changed in it in each version, whether the office uses
-	// it and where. The people who decide a change also see whether the
-	// office holds a copy of it, what changed in it since the version that
-	// ran before, and the drafts that use and copy it.
+	// files, a rule or a sign-in method, by its folder in .bulldog/, with
+	// its page, the lines that use it, one for each tools file, what it
+	// reaches as shipped, its settings, what changed in it in each version,
+	// whether the office uses it and where. The people who decide a change
+	// also see whether the office holds a copy of it, what changed in it
+	// since the version that ran before, and the drafts that use and copy
+	// it.
 	thingOut struct {
 		Path     string            `json:"path"`
 		Kind     string            `json:"kind"`
@@ -52,11 +53,12 @@ type (
 	// useOut is where the office names a shipped thing, with the line
 	// there that names it, as written: a bridge's entry, with what it
 	// reaches as its settings fill it to the people who decide a change; a
-	// worker of a team that holds the tools of one of its tools files, with
-	// the entry that names that file; or a team's heed or list of deciders,
-	// as its key.
+	// sign-in method's entry; a worker of a team that holds the tools of
+	// one of its tools files, with the entry that names that file; or a
+	// team's heed or list of deciders, as its key.
 	useOut struct {
 		Bridge string    `json:"bridge,omitempty"`
+		SignIn string    `json:"signin,omitempty"`
 		Team   string    `json:"team,omitempty"`
 		Worker string    `json:"worker,omitempty"`
 		As     string    `json:"as,omitempty"`
@@ -77,6 +79,7 @@ type (
 // there that names it, as written.
 type use struct {
 	bridge *office.Bridge
+	signin *office.SignIn
 	team   *office.Team
 	worker string
 	as     string
@@ -123,6 +126,8 @@ func (s *site) shipped(person string, w http.ResponseWriter, r *http.Request) (a
 					seen.Reach = &reach
 				}
 				t.Uses = append(t.Uses, seen)
+			case u.signin != nil:
+				t.Uses = append(t.Uses, useOut{SignIn: u.signin.Name, Line: u.line})
 			case sees[u.team.Name]:
 				t.Uses = append(t.Uses, useOut{Team: u.team.Name, Worker: u.worker, As: u.as, Line: u.line})
 			}
@@ -145,11 +150,12 @@ func (s *site) shipped(person string, w http.ResponseWriter, r *http.Request) (a
 }
 
 // usesOf gives where the office names a shipped thing, each with the
-// line that names it as written: each bridge whose entry runs its folder,
-// by its from; for each tools file in its folder, each worker that holds a
-// tool of it, by the tools Bulldog answers for it, with its tools_file
-// entry that names the file; each team whose heed, disclosure or list of
-// deciders names a rule in its folder, by the entry that names it.
+// line that names it as written: each bridge or sign-in method whose entry
+// runs its folder, by its from; for each tools file in its folder, each
+// worker that holds a tool of it, by the tools Bulldog answers for it, with
+// its tools_file entry that names the file; each team whose heed,
+// disclosure or list of deciders names a rule in its folder, by the entry
+// that names it.
 func usesOf(o *office.Office, thing string) []use {
 	if o == nil {
 		return nil
@@ -163,6 +169,14 @@ func usesOf(o *office.Office, thing string) []use {
 				settings, _ := b.Settings.(map[string]any)
 				from, _ := settings["from"].(string)
 				out = append(out, use{bridge: b, line: "from: " + from})
+			}
+		}
+	case "sign-in":
+		for _, name := range o.SignInOrder {
+			if m := o.SignIns[name]; m.From == folder {
+				settings, _ := m.Settings.(map[string]any)
+				from, _ := settings["from"].(string)
+				out = append(out, use{signin: m, line: "from: " + from})
 			}
 		}
 	case "tools":
@@ -208,9 +222,9 @@ func usesOf(o *office.Office, thing string) []use {
 }
 
 // namedFiles gives the files of a shipped thing that the office names, by
-// their paths in .bulldog/: a bridge's folder, each tools file in a
-// folder of them, or a rule's definition, or its script when it is a bare
-// one.
+// their paths in .bulldog/: a bridge's or a sign-in method's folder, each
+// tools file in a folder of them, or a rule's definition, or its script
+// when it is a bare one.
 func namedFiles(thing string) []string {
 	switch shipped.Kind(thing) {
 	case "tools":
@@ -232,14 +246,15 @@ func namedFiles(thing string) []string {
 }
 
 // linesOf gives the lines that use a shipped thing, written at the top of
-// the office, each as a use of it is written: a bridge's from, a worker's
-// tools_file entry for each tools file, or a team's heed.
+// the office, each as a use of it is written: a bridge's or a sign-in
+// method's from, a worker's tools_file entry for each tools file, or a
+// team's heed.
 func linesOf(thing string) []string {
 	var lines []string
 	for _, file := range namedFiles(thing) {
 		at := "./" + path.Join(shipped.Dir, file)
 		switch shipped.Kind(thing) {
-		case "bridge":
+		case "bridge", "sign-in":
 			lines = append(lines, "from: "+at)
 		case "tools":
 			lines = append(lines, "tools_file: "+at)

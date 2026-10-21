@@ -1,0 +1,35 @@
+# Google's sign-in machine. Bulldog sends a person's browser to Google to
+# sign in, and Google sends it back to the office with a code; this takes
+# the code to Google's token endpoint with the client's secret, the Corbie
+# secret GOOGLE_CLIENT_SECRET, which only this job holds, and the verifier
+# of the challenge Bulldog sent. It ends with { identity }, the person's
+# address in small letters, once the ID token Google answered is for this
+# client, from Google, not expired, carries the nonce Bulldog gave, and
+# says Google verified the address; or with { refused }, saying why.
+flow: signin-google
+input:
+  type: object
+  required: [code, verifier, redirect, nonce, settings]
+  properties:
+    code: { type: string }
+    verifier: { type: string }
+    redirect: { type: string }
+    nonce: { type: string }
+    settings:
+      type: object
+      additionalProperties: false
+      required: [client_id]
+      properties:
+        from: { type: string }
+        client_id: { type: string, minLength: 1, description: "The OAuth client's ID, from the Google Cloud console's Credentials page." }
+        authorize: { type: string, default: "https://accounts.google.com/o/oauth2/v2/auth", description: "Google's authorization endpoint, where Bulldog sends the browser." }
+        scope: { type: string, default: "openid email", description: "What Google is asked for: the ID token and the address." }
+        label: { type: string, default: Google, description: "What the sign-in page calls it, as Sign in with Google." }
+stages:
+  exchange:
+    job:
+      script: ./google.js
+      input: { code: "${input.code}", verifier: "${input.verifier}", redirect: "${input.redirect}", nonce: "${input.nonce}", client_id: "${input.settings.client_id}" }
+      allow: [net:oauth2.googleapis.com, "secret:GOOGLE_CLIENT_SECRET@net:oauth2.googleapis.com"]
+      timeout: 30s
+output: ${stages.exchange.output}
