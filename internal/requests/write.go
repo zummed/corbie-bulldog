@@ -283,9 +283,10 @@ func (c *change) workerSaid(r *Request) error {
 
 // Put writes a question or a tell by a worker of a request's team, to its
 // asker or to a person of its team: a question waits on them until they
-// answer. One for anyone else is refused, and nobody is asked in their
-// place. What is put makes an answered request working again.
-func (s *Store) Put(n int64, by Who, kind string, to Who, text string, files []File) (*Entry, error) {
+// answer, and offers them its choices, if it has any. One for anyone else
+// is refused, and nobody is asked in their place. What is put makes an
+// answered request working again.
+func (s *Store) Put(n int64, by Who, kind string, to Who, text string, choices []string) (*Entry, error) {
 	var e *Entry
 	err := s.write(func(c *change) error {
 		r, err := c.req(n)
@@ -295,6 +296,8 @@ func (s *Store) Put(n int64, by Who, kind string, to Who, text string, files []F
 		switch {
 		case kind != KindQuestion && kind != KindTold:
 			return fmt.Errorf("%s is neither a question nor a tell", kind)
+		case kind == KindTold && len(choices) > 0:
+			return fmt.Errorf("a tell asks nothing, so it offers no choices")
 		case !c.workerOf(r, by):
 			return refuse("%s is not a worker of %s, so it puts nothing to anyone in request %d", c.calledOf(by), called(c.o, r.Team), n)
 		case kind == KindQuestion && r.Stopped:
@@ -313,7 +316,7 @@ func (s *Store) Put(n int64, by Who, kind string, to Who, text string, files []F
 		if kind == KindQuestion {
 			waits = []Who{to}
 		}
-		if e, err = c.add(r, Entry{Kind: kind, By: by, To: []Who{to}, Text: text, Read: read, ReadKnown: known}, files, waits); err != nil {
+		if e, err = c.add(r, Entry{Kind: kind, By: by, To: []Who{to}, Text: text, Read: read, ReadKnown: known, Choices: choices}, nil, waits); err != nil {
 			return err
 		}
 		return c.working(r)
@@ -921,9 +924,9 @@ func (c *change) add(r *Request, e Entry, files []File, waits []Who) (*Entry, er
 	if e.To == nil {
 		e.To = []Who{}
 	}
-	res, err := c.tx.Exec(`INSERT INTO requests_entries(request, kind, by_, to_, at, text, came_in, read_team, read_known, answers, sub, decision, mentioned)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, r.Number, e.Kind, jsonOf(e.By), jsonOf(e.To), stamp(c.at), e.Text, jsonOf(e.In),
-		e.Read, e.ReadKnown, e.Answers, e.Sub, e.Decision, e.Mentioned)
+	res, err := c.tx.Exec(`INSERT INTO requests_entries(request, kind, by_, to_, at, text, came_in, read_team, read_known, answers, sub, decision, mentioned, offers)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, r.Number, e.Kind, jsonOf(e.By), jsonOf(e.To), stamp(c.at), e.Text, jsonOf(e.In),
+		e.Read, e.ReadKnown, e.Answers, e.Sub, e.Decision, e.Mentioned, jsonOf(offers{Choices: e.Choices}))
 	if err != nil {
 		return nil, failed(err)
 	}

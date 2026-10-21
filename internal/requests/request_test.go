@@ -436,6 +436,27 @@ func TestRequestsEntryHoldsWhatItIs(t *testing.T) {
 	}
 }
 
+func TestRequestsQuestionKeepsItsChoices(t *testing.T) {
+	t.Parallel()
+	h := open(t, house(t))
+	kit := got[*requests.Request](t)(h.AskInChat("kit", "", "the socket", nil))
+	q := got[*requests.Entry](t)(h.Put(kit.Number, h.Worker("fixer"), requests.KindQuestion, h.Person("kit"), "when may I come?", []string{"Monday", "Tuesday"}))
+	if kept := h.last(kit.Number); kept.ID != q.ID || !slices.Equal(kept.Choices, []string{"Monday", "Tuesday"}) {
+		t.Errorf("the question is kept offering %q", kept.Choices)
+	}
+	reply := got[*requests.Entry](t)(h.Reply(q.ID, h.Person("kit"), "Tuesday", nil, requests.Screens))
+	if kept := h.last(kit.Number); kept.ID != reply.ID || kept.Text != "Tuesday" || kept.Answers != q.ID || kept.Choices != nil {
+		t.Errorf("Kit's pick is kept as %+v", kept)
+	}
+	told := got[*requests.Entry](t)(h.Put(kit.Number, h.Worker("fixer"), requests.KindTold, h.Person("kit"), "on my way", nil))
+	if told.Choices != nil {
+		t.Errorf("a tell offers %q", told.Choices)
+	}
+	if _, err := h.Put(kit.Number, h.Worker("fixer"), requests.KindTold, h.Person("kit"), "on my way", []string{"fine"}); err == nil {
+		t.Error("a tell is put offering choices")
+	}
+}
+
 func TestRequestsEntriesInOrderNeverChanged(t *testing.T) {
 	t.Parallel()
 	h := open(t, house(t))

@@ -23,7 +23,7 @@ import (
 // tables.
 const (
 	Area    = "requests"
-	Version = 4
+	Version = 5
 )
 
 // The most a request keeps of one text and of one file. What is larger is
@@ -206,6 +206,15 @@ type Entry struct {
 	// Mentioned says the bridge it was heard on marked it as naming the
 	// bridge's own bot.
 	Mentioned bool
+	// Choices are what a question offers the one it is put to, as short
+	// answers they may pick from; they may answer anything all the same.
+	Choices []string
+}
+
+// offers is what an entry offers whoever it is put to, as the store keeps
+// it.
+type offers struct {
+	Choices []string `json:"choices,omitempty"`
 }
 
 // A FileHead names a file kept on an entry.
@@ -306,7 +315,7 @@ CREATE TABLE requests_entries(
 	text TEXT NOT NULL, came_in TEXT NOT NULL,
 	read_team TEXT NOT NULL DEFAULT '', read_known INTEGER NOT NULL DEFAULT 0,
 	answers INTEGER NOT NULL DEFAULT 0, sub INTEGER NOT NULL DEFAULT 0, decision INTEGER NOT NULL DEFAULT 0,
-	mentioned INTEGER NOT NULL DEFAULT 0);
+	mentioned INTEGER NOT NULL DEFAULT 0, offers TEXT NOT NULL DEFAULT '{}');
 CREATE INDEX requests_entries_request ON requests_entries(request, id);
 CREATE TABLE requests_files(
 	entry INTEGER NOT NULL REFERENCES requests_entries(id), name TEXT NOT NULL, data BLOB NOT NULL,

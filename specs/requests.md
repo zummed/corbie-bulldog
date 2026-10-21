@@ -14,7 +14,7 @@ The **origin** is the place a request was asked: a Slack channel or thread, a Gi
 
 ## The thread
 
-Everything said in a request is an entry: who it is by, who it is to, when, its words, and any files with it. The asking is the first entry. After it come replies, what workers asked people and told them, the sub-requests made, the decisions with who decided and when, and the answers. An entry is written once and never changed. Times are kept as instants and shown in the office's zone, the `zone` of the top team file.
+Everything said in a request is an entry: who it is by, who it is to, when, its words, and any files with it. The asking is the first entry. After it come replies, what workers asked people and told them, the sub-requests made, the decisions with who decided and when, and the answers. A question a worker puts to a person may offer choices, a few short answers they may pick from; what they pick is their answer, its words exactly as if they had typed them, and they may answer anything else all the same. The entry keeps what it offers, and whoever sees it sees what it offered. An entry is written once and never changed. Times are kept as instants and shown in the office's zone, the `zone` of the top team file.
 
 A team's heed that notes a message, the asking or more said, writes its word on it: an entry by the rule to the team, answering the message, holding the rule's note, or that the rule noted it when it gives none. It is what was read of the team, and goes to nobody. The message itself is not changed, and whoever sees it sees that it was **noted**; only the team's people see the rule and its note.
 
