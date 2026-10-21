@@ -36,7 +36,7 @@ const statusOf = { working: "processing", waiting: "suspended", done: "active" }
 // What Slack says when a status is refused for good, by its error code,
 // with what a person does about it. Any other, as ratelimited, is thrown.
 const statusRefusedFor = {
-  missing_scope: "the app needs the chat:write scope",
+  missing_scope: "the app needs the chat:write scope, and must be declared an agent in its Slack settings, which gives it assistant:write",
   not_allowed_token_type: "SLACK_TOKEN must be the app's bot token",
   feature_disabled: "agents are not turned on for the workspace",
   not_authorized: "the app must be declared an agent in its Slack settings",

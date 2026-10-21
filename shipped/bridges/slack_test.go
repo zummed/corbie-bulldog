@@ -29,8 +29,9 @@ const (
 
 // A slack stands in for Slack's Web API and its Socket Mode: it knows a
 // few channels and who is in them, keeps what the app posted and the
-// status it set of its agent session in each thread, answers as Slack does, and sends a connection the
-// envelopes a test gives it, telling the test each one acknowledged.
+// status it set of its agent session in each thread, answers as Slack
+// does, and sends a connection the envelopes a test gives it, telling the
+// test each one acknowledged.
 type slack struct {
 	*httptest.Server
 	t      *testing.T
@@ -781,7 +782,8 @@ func TestBridgesSlackShowsItsStatus(t *testing.T) {
 	}
 	// What Slack refuses for good is refused, in words a person reads that
 	// say what to mend; any other error is tried again.
-	for code, says := range map[string]string{"missing_scope": "chat:write", "not_allowed_token_type": "bot token", "feature_disabled": "workspace",
+	for code, says := range map[string]string{"missing_scope": "chat:write scope, and must be declared an agent in its Slack settings, which gives it assistant:write",
+		"not_allowed_token_type": "bot token", "feature_disabled": "workspace",
 		"not_authorized": "declared an agent", "channel_not_found": "not in the conversation", "invalid_status": "no such status",
 		"thread_ts_required": "only in a thread"} {
 		sl.fail = func(method string) (string, bool) { return code, method == "agents.sessions.setStatus" }
