@@ -619,13 +619,14 @@ func answerOf(v *requests.View, held bool, carried []bridges.Carried) *answerOut
 // request gives one request as the one looking sees it: what was done,
 // what was read of its team when they are its person, its thread in part,
 // its sub-requests as they see them, the decisions they were asked, and
-// its runs to its team's people.
+// its runs to its team's people, with what each read unless the address
+// leaves it out.
 func (s *site) request(person string, w http.ResponseWriter, r *http.Request) (any, error) {
 	n, err := number(r, "n")
 	if err != nil {
 		return nil, err
 	}
-	before, size, err := paging(r)
+	before, size, records, err := paging(r)
 	if err != nil {
 		return nil, err
 	}
@@ -687,11 +688,14 @@ func (s *site) request(person string, w http.ResponseWriter, r *http.Request) (a
 		for _, run := range runs {
 			out.Runs = append(out.Runs, runOf(run))
 		}
-		records, err := s.Requests.WhatWasRead(n, person)
+		if !records {
+			return out, nil
+		}
+		read, err := s.Requests.WhatWasRead(n, person)
 		if err != nil {
 			return nil, err
 		}
-		for _, rec := range records {
+		for _, rec := range read {
 			out.Records = append(out.Records, recordOut{Run: rec.Run, Team: rec.Team, Worker: rec.Worker, Gone: rec.Gone, Events: rec.Events})
 		}
 	}
@@ -797,17 +801,26 @@ func givenOf(g *work.Given, party func(requests.Who) requests.Party, ds []*decis
 	return out
 }
 
-// paging reads which part of a thread is asked for: before an entry, and
-// how many.
-func paging(r *http.Request) (before int64, size int, err error) {
-	size = Thread
+// paging reads which part of a request is asked for: its thread before an
+// entry, and how many entries; and whether what its runs read is given,
+// which a screen that shows none of it leaves out, so that nothing is read
+// from Corbie for it.
+func paging(r *http.Request) (before int64, size int, records bool, err error) {
+	size, records = Thread, true
 	for name, values := range r.URL.Query() {
 		if len(values) != 1 {
-			return 0, 0, unreadable("The address gives %s more than once.", name)
+			return 0, 0, false, unreadable("The address gives %s more than once.", name)
+		}
+		if name == "records" {
+			if values[0] != "no" {
+				return 0, 0, false, unreadable("records is no, or not given, and not %q.", values[0])
+			}
+			records = false
+			continue
 		}
 		n, err := counted(name, values[0])
 		if err != nil {
-			return 0, 0, err
+			return 0, 0, false, err
 		}
 		switch name {
 		case "before":
@@ -815,10 +828,10 @@ func paging(r *http.Request) (before int64, size int, err error) {
 		case "size":
 			size = int(min(n, ThreadMost))
 		default:
-			return 0, 0, unreadable("The address gives %s, which is not taken here.", name)
+			return 0, 0, false, unreadable("The address gives %s, which is not taken here.", name)
 		}
 	}
-	return before, size, nil
+	return before, size, records, nil
 }
 
 // counted reads a number above nothing that the address gives.

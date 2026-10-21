@@ -254,7 +254,7 @@
   async function earlier(v, button) {
     button.disabled = true;
     try {
-      const back = await B.api("/api/requests/" + v.number + "?before=" + v.before);
+      const back = await B.api("/api/requests/" + v.number + "?before=" + v.before + "&records=no");
       kept.entries = union(back.entries || [], kept.entries);
       kept.before = back.before || 0;
       await B.show();

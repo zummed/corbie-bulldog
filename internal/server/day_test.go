@@ -248,6 +248,15 @@ func TestServerTheHousesDay(t *testing.T) {
 		t.Errorf("Kit, of the house, is shown what it read %v, %d records and the runs %+v", v.Read, len(v.Records), v.Runs)
 	}
 	holds(t, "what the house read", string(kit.get("/api/requests/"+itoa(n)).body), "The kitchen sockets are on circuit 4.")
+	// A screen that shows none of what was read asks for it to be left
+	// out, and is given the rest.
+	var bare viewOut
+	unread := kit.get("/api/requests/" + itoa(n) + "?records=no").is(http.StatusOK)
+	unread.into(&bare)
+	if !bare.Read || bare.Records != nil || len(bare.Runs) != len(v.Runs) || strings.Contains(string(unread.body), "The kitchen sockets are on circuit 4.") {
+		t.Errorf("Kit, asking for no records, is given %s", unread.body)
+	}
+	kit.get("/api/requests/" + itoa(n) + "?records=yes").is(http.StatusBadRequest)
 	steward := v.Runs[slices.IndexFunc(v.Runs, func(r runOut) bool { return r.Worker == "steward" })]
 	watched(t, kit, steward.Name, http.StatusOK)
 	s.nobody().get("/api/requests/" + itoa(n)).is(http.StatusUnauthorized)

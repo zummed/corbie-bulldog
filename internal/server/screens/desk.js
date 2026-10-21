@@ -73,7 +73,7 @@
       // it, and is a card of its own all the same.
       const all = (rs) => rs.flatMap((r) => [r, ...all(r.subs || [])]);
       const list = all(out.requests || []);
-      const details = await Promise.all(list.map((r) => B.api("/api/requests/" + r.number + "?size=1").catch((err) => ({number: r.number, error: err}))));
+      const details = await Promise.all(list.map((r) => B.api("/api/requests/" + r.number + "?size=1&records=no").catch((err) => ({number: r.number, error: err}))));
       const reqs = [...own.map(ownChange), ...list.map((r, i) => waitingOn(r, details[i]))];
       const cards = reqs.reduce((n, r) => n + r.querySelectorAll(".ask-card").length, 0);
       return B.sect(B.label("Waiting on you", B.el("span", {class: "count"}, out.before ? B.me.waiting : cards)),
