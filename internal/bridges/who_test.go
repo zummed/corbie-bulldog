@@ -419,10 +419,13 @@ func TestBridgesChoiceOnAQuestionAnswersIt(t *testing.T) {
 			"answers": ref, "choice": choice})
 	}
 	// Al reads #help, and it does not wait on him; Dana's pick of what it
-	// does not offer is not taken; her pick is her answer; and her second
+	// does not offer, as written or not, is not taken, nor a press on what
+	// the service no longer shows; her pick is her answer; and her second
 	// finds it waiting no longer.
 	press("U0AL0000", "the visa")
 	press("U0DANA00", "the diners")
+	press("U0DANA00", "The amex")
+	press("U0DANA00", "")
 	press("U0DANA00", "the amex")
 	press("U0DANA00", "the visa")
 	if len(d.chosen) != 0 {
@@ -446,6 +449,8 @@ func TestBridgesChoiceOnAQuestionAnswersIt(t *testing.T) {
 	want := []string{
 		"That was sent to someone else, so nothing you said was taken.",
 		"That is not one of the choices the question offers, so it was not taken.",
+		"That is not one of the choices the question offers, so it was not taken.",
+		"That question is no longer there to press, so nothing you chose was taken.",
 		"Taken: you answered the amex.",
 		"That is no longer waiting on you, so nothing you said was taken.",
 	}

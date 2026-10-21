@@ -614,6 +614,7 @@ const (
 	notHere       = "Nothing is taken from there, so your choice was not taken."
 	notFromGuests = "Choices are taken there only from people of the office, so yours was not taken."
 	notOffered    = "That is not one of the choices the question offers, so it was not taken."
+	notShown      = "That question is no longer there to press, so nothing you chose was taken."
 	answered      = "Taken: you answered %s."
 )
 
@@ -894,8 +895,12 @@ func (b *Bridges) chose(o *office.Office, bridge string, t thing) (handing, erro
 // picked answers a question with the words of the choice someone picked,
 // as if they had typed them, under the rules a typed answer is: only from
 // whom it waits on, and only while it waits. A choice the question does
-// not offer is not taken.
+// not offer is not taken, nor a press the service could no longer say
+// the choice of, as on a message it no longer shows.
 func (b *Bridges) picked(o *office.Office, sent *thingRow, e requests.Entry, who requests.Who, t thing, in requests.Where) (handing, error) {
+	if t.Choice == "" {
+		return handing{}, b.sentence(in.Bridge, t, notShown)
+	}
 	if !slices.Contains(e.Choices, t.Choice) {
 		return handing{}, b.sentence(in.Bridge, t, notOffered)
 	}

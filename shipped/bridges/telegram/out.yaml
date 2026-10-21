@@ -1,9 +1,10 @@
 # The Telegram bridge's out machine. It carries one thing to one chat: to
 # a person directly when direct is true, as their chat with the bot. A
 # question that offers no choices is sent for a reply, and a decision, or
-# a question that offers choices, with a button for each choice. It ends with { sent }, naming every message it sent, or, when
-# Telegram refuses it for good, { refused }. Bulldog gives the text, and
-# each file's data, as a blob of the run's input.
+# a question that offers choices, with a button for each choice. It ends
+# with { sent }, naming every message it sent, or, when Telegram refuses
+# it for good, { refused }. Bulldog gives the text, and each file's data,
+# as a blob of the run's input.
 flow: telegram-out
 input: { settings: any, to: string, direct: boolean, text: blob, files: list, answers: any, choices: any, ref: any }
 stages:
