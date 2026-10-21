@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -28,7 +29,7 @@ const (
 
 // A slack stands in for Slack's Web API and its Socket Mode: it knows a
 // few channels and who is in them, keeps what the app posted and the
-// reactions it made, answers as Slack does, and sends a connection the
+// status it set of its agent session in each thread, answers as Slack does, and sends a connection the
 // envelopes a test gives it, telling the test each one acknowledged.
 type slack struct {
 	*httptest.Server
@@ -37,8 +38,8 @@ type slack struct {
 	mu     sync.Mutex
 	posted []map[string]any
 	ts     int
-	// reactions are the app's on each message, as channel/ts: name.
-	reactions map[string]bool
+	// statuses are the app's agent sessions, by channel/thread.
+	statuses map[string]string
 	// asked counts the calls of each method.
 	asked map[string]int
 	// gone are threads whose first message was deleted.
@@ -52,7 +53,7 @@ type slack struct {
 }
 
 func newSlack(t *testing.T) *slack {
-	sl := &slack{t: t, ts: 1700000000, reactions: map[string]bool{}, gone: map[string]bool{}, asked: map[string]int{},
+	sl := &slack{t: t, ts: 1700000000, statuses: map[string]string{}, gone: map[string]bool{}, asked: map[string]int{},
 		envelopes: make(chan map[string]any), acks: make(chan string, 16)}
 	sl.Server = httptest.NewServer(http.HandlerFunc(sl.serve))
 	t.Cleanup(sl.Close)
@@ -156,15 +157,16 @@ func (sl *slack) serve(w http.ResponseWriter, r *http.Request) {
 		body["ts"] = fmt.Sprintf("%d.000100", sl.ts)
 		sl.posted = append(sl.posted, body)
 		answer(map[string]any{"ok": true, "channel": body["channel"], "ts": body["ts"]})
-	case "reactions.add", "reactions.remove":
-		on := fmt.Sprintf("%v/%v: %v", body["channel"], body["timestamp"], body["name"])
+	case "agents.sessions.setStatus":
+		thread, _ := body["thread_ts"].(string)
+		status, _ := body["status"].(string)
 		switch {
-		case method == "reactions.add" && sl.reactions[on]:
-			answer(map[string]any{"ok": false, "error": "already_reacted"})
-		case method == "reactions.remove" && !sl.reactions[on]:
-			answer(map[string]any{"ok": false, "error": "no_reaction"})
+		case thread == "":
+			answer(map[string]any{"ok": false, "error": "thread_ts_required"})
+		case !slices.Contains([]string{"active", "processing", "suspended", "closed"}, status):
+			answer(map[string]any{"ok": false, "error": "invalid_status"})
 		default:
-			sl.reactions[on] = method == "reactions.add"
+			sl.statuses[fmt.Sprintf("%v/%s", body["channel_id"], thread)] = status
 			answer(map[string]any{"ok": true})
 		}
 	case "conversations.history":
@@ -742,47 +744,54 @@ func TestBridgesSlackChartsAndImagesShown(t *testing.T) {
 	}
 }
 
-func TestBridgesSlackMarksWithEyes(t *testing.T) {
+func TestBridgesSlackShowsItsStatus(t *testing.T) {
 	t.Parallel()
 	sl, s := newSlackBridge(t)
-	// A message is heard as its channel and its ts, which is what a mark
-	// on it answers.
+	// A message is heard as its channel and its ts.
 	reply := event("Ev1", map[string]any{"type": "message", "channel": "C0HELP00", "channel_type": "channel", "user": "U0DANA00", "text": "@gromit refunded?",
 		"ts": "1700000009.000100", "thread_ts": "1700000001.000100"})
-	things := sl.hears(reply)
-	if len(things) != 1 || things[0]["id"] != "C0HELP00/1700000009.000100" {
+	if things := sl.hears(reply); len(things) != 1 || things[0]["id"] != "C0HELP00/1700000009.000100" {
 		t.Fatalf("the reply is heard as %v", things)
 	}
-	mark := func(working bool) *client.Run {
-		return s.carry(map[string]any{"to": "C0HELP00/1700000001.000100", "answers": things[0]["id"], "working": working})
+	// What a team is doing in a thread is the status of the app's agent
+	// session there, and nothing is posted.
+	mark := func(to, working string) *client.Run {
+		return s.carry(map[string]any{"to": to, "working": working})
 	}
-	on := "C0HELP00/1700000009.000100: eyes"
-	if got := sent(t, mark(true)); got != "C0HELP00/1700000009.000100" || !sl.reactions[on] || len(sl.posted) != 0 {
-		t.Errorf("the mark went as %q, Slack holding %v and posted %v", got, sl.reactions, sl.posted)
+	thread := "C0HELP00/1700000001.000100"
+	for _, w := range [][2]string{{"working", "processing"}, {"waiting", "suspended"}, {"working", "processing"}, {"done", "active"}} {
+		if got := sent(t, mark(thread, w[0])); got != thread || sl.statuses[thread] != w[1] || len(sl.posted) != 0 {
+			t.Errorf("%s went as %q, Slack holding %v and posted %v", w[0], got, sl.statuses, sl.posted)
+		}
 	}
-	// Marked already, it is done all the same, and so is a mark taken off
-	// that is gone.
-	sent(t, mark(true))
-	sent(t, mark(false))
-	if sl.reactions[on] {
-		t.Errorf("the mark is still on: %v", sl.reactions)
+	// Set twice, it is the same.
+	sent(t, mark(thread, "done"))
+	if sl.statuses[thread] != "active" {
+		t.Errorf("Slack holds %v", sl.statuses)
 	}
-	sent(t, mark(false))
-	// A message said to the app directly is marked in that conversation.
-	dm := event("Ev2", map[string]any{"type": "message", "channel": "D0DANA00", "channel_type": "im", "user": "U0DANA00", "text": "refunded?", "ts": "1700000010.000100"})
-	direct := sl.hears(dm)
-	sent(t, s.carry(map[string]any{"to": "U0DANA00", "direct": true, "answers": direct[0]["id"], "working": true}))
-	if !sl.reactions["D0DANA00/1700000010.000100: eyes"] {
-		t.Errorf("Slack holds %v", sl.reactions)
+	// A thread said to the app directly is shown the same.
+	sent(t, mark("D0DANA00/1700000010.000100", "working"))
+	if sl.statuses["D0DANA00/1700000010.000100"] != "processing" {
+		t.Errorf("Slack holds %v", sl.statuses)
 	}
-	// An app with no reactions:write scope is refused for good, in words a
-	// person reads; any other error is tried again.
-	sl.fail = func(method string) (string, bool) { return "missing_scope", strings.HasPrefix(method, "reactions.") }
-	if r := mark(true); r.Status != "done" || !strings.Contains(fmt.Sprint(r.Output.(map[string]any)["refused"]), "missing_scope") {
-		t.Errorf("missing_scope ends %s with %#v", r.Status, r.Output)
+	// A place that is no thread shows nothing, and asks Slack nothing.
+	asked := sl.asked["agents.sessions.setStatus"]
+	if got := sent(t, mark("U0DANA00", "working")); got != "U0DANA00" || sl.asked["agents.sessions.setStatus"] != asked {
+		t.Errorf("a place with no thread went as %q, Slack asked %d times", got, sl.asked["agents.sessions.setStatus"]-asked)
+	}
+	// What Slack refuses for good is refused, in words a person reads that
+	// say what to mend; any other error is tried again.
+	for code, says := range map[string]string{"missing_scope": "chat:write", "not_allowed_token_type": "bot token", "feature_disabled": "workspace",
+		"not_authorized": "declared an agent", "channel_not_found": "not in the conversation", "invalid_status": "no such status",
+		"thread_ts_required": "only in a thread"} {
+		sl.fail = func(method string) (string, bool) { return code, method == "agents.sessions.setStatus" }
+		r := mark(thread, "working")
+		if refused := fmt.Sprint(r.Output.(map[string]any)["refused"]); r.Status != "done" || !strings.Contains(refused, code) || !strings.Contains(refused, says) {
+			t.Errorf("%s ends %s with %#v", code, r.Status, r.Output)
+		}
 	}
 	sl.fail = func(method string) (string, bool) { return "ratelimited", true }
-	if r := mark(false); r.Status != "failed" {
+	if r := mark(thread, "done"); r.Status != "failed" {
 		t.Errorf("ratelimited ends %s with %#v", r.Status, r.Output)
 	}
 }

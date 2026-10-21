@@ -1,8 +1,8 @@
 // The Slack bridge's script, for both its machines: input.do is hear, for
-// the in machine, or say, for the out machine, which also marks a message
-// the team works on. It speaks Slack's Web API
-// with the app's bot token, and listens over Socket Mode with the app's
-// app-level token, holding each only as a handle.
+// the in machine, or say, for the out machine, which also shows what a
+// team is doing in a thread. It speaks Slack's Web API with the app's bot
+// token, and listens over Socket Mode with the app's app-level token,
+// holding each only as a handle.
 const api = "https://slack.com/api"
 const bearer = token => secrets.text`Bearer ${secrets.get(token)}`
 
@@ -27,14 +27,23 @@ const refusedFor = ["channel_not_found", "not_in_channel", "is_archived", "msg_t
   "restricted_action", "restricted_action_read_only_channel", "restricted_action_non_threadable_channel", "user_not_found",
   "user_disabled", "cannot_dm_bot", "messages_tab_disabled", "invalid_arguments", "markdown_text_conflict"]
 
-// What Slack says when a mark is refused for good, by its error code: the
-// app may not react, or the message cannot take it. A mark already there,
-// or already gone, is done.
-const markRefusedFor = refusedFor.concat(["missing_scope", "not_reactable", "message_not_found", "too_many_reactions", "too_many_emoji", "invalid_name"])
-const markDone = { add: "already_reacted", remove: "no_reaction" }
+// The status of the app's agent session in a thread for what a team is
+// doing there: Slack shows its own working state while it is processing.
+// Done leaves the session active, not closed, so the next message in the
+// thread has it processing again.
+const statusOf = { working: "processing", waiting: "suspended", done: "active" }
 
-// The reaction that marks a message while the team works on it.
-const mark = "eyes"
+// What Slack says when a status is refused for good, by its error code,
+// with what a person does about it. Any other, as ratelimited, is thrown.
+const statusRefusedFor = {
+  missing_scope: "the app needs the chat:write scope",
+  not_allowed_token_type: "SLACK_TOKEN must be the app's bot token",
+  feature_disabled: "agents are not turned on for the workspace",
+  not_authorized: "the app must be declared an agent in its Slack settings",
+  channel_not_found: "the app is not in the conversation",
+  invalid_status: "Slack takes no such status",
+  thread_ts_required: "Slack shows a status only in a thread",
+}
 
 // What Slack says when a reply cannot go under the message it answers,
 // which it no longer has: the text is then said in the place, not in reply.
@@ -358,18 +367,19 @@ function packed(said, choices) {
   return messages.map((x, i) => ({ message: { text: fallbackOf(x.blocks[0]), blocks: x.blocks }, written: x.written, last: i === messages.length - 1 }))
 }
 
-// A mark, given working, on the message the team works on, which is what
-// it answers, as channel/ts, as hear names it: the app reacts to it with
-// eyes while the team works on it, and takes the reaction off once it is
-// done. It says nothing.
-if (typeof input.working === "boolean") {
-  const [channel, ts] = String(input.answers || "").split("/")
-  if (!channel || !ts) return { refused: "there is no message of Slack's to mark" }
-  const how = input.working ? "add" : "remove"
-  const answer = call("reactions." + how, { channel: channel, timestamp: ts, name: mark })
-  if (answer.ok || answer.error === markDone[how]) return { sent: channel + "/" + ts }
-  if (markRefusedFor.includes(answer.error)) return { refused: "Slack refused to mark the message the team works on: " + answer.error }
-  throw new Error("Slack failed reactions." + how + ": " + answer.error)
+// A mark, given working: the status of the app's agent session in the
+// thread it is for, as channel/thread, set to what the team is doing
+// there. It says nothing. A request asked at a person's direct place
+// itself, as before the bridge gave a thread, has no thread to show it in.
+if (input.working) {
+  const [channel, thread] = String(input.to).split("/")
+  if (!thread) return { sent: input.to }
+  const status = statusOf[input.working]
+  if (!status) return { refused: "Slack has no status for " + input.working }
+  const answer = call("agents.sessions.setStatus", { channel_id: channel, thread_ts: thread, status: status })
+  if (answer.ok) return { sent: channel + "/" + thread }
+  if (statusRefusedFor[answer.error]) return { refused: "Slack refused to show what the team is doing: " + answer.error + ", " + statusRefusedFor[answer.error] }
+  throw new Error("Slack failed agents.sessions.setStatus: " + answer.error)
 }
 
 // say: to a person directly in their conversation with the app, or in a
