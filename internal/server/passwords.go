@@ -47,8 +47,9 @@ var nobodys = sync.OnceValue(func() []byte {
 })
 
 // byPassword signs in the person a name and password are, as their key in
-// an address does. While the name waits after wrong tries, nothing is
-// checked; a wrong try is counted against the name, whoever's it is.
+// an address does. Each try of a name is counted against it, whoever's it
+// is, before it is checked, and cleared by a right password; while the
+// name waits after wrong tries, nothing is checked.
 func (s *site) byPassword(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Name     *string `json:"name"`
@@ -67,17 +68,17 @@ func (s *site) byPassword(w http.ResponseWriter, r *http.Request) {
 		answer(w, http.StatusServiceUnavailable, "The office does not read well yet, so nobody signs in until it does.")
 		return
 	}
-	name, now := strings.TrimSpace(*body.Name), s.clock.Now()
+	name := strings.TrimSpace(*body.Name)
 	if len(name) > 200 {
 		answer(w, http.StatusForbidden, wrongPassword)
 		return
 	}
-	until, err := triedUntil(s.db, name)
+	until, err := tried(s.db, name, s.clock.Now())
 	if err != nil {
 		s.failed(w, r, err)
 		return
 	}
-	if now.Before(until) {
+	if !until.IsZero() {
 		answer(w, http.StatusTooManyRequests, fmt.Sprintf(tooManyTries, until.In(o.Zone).Format("15:04")))
 		return
 	}
@@ -95,10 +96,6 @@ func (s *site) byPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	right := bcrypt.CompareHashAndPassword(hash, []byte(*body.Password)) == nil && p != nil && p.Password
 	if !right {
-		if err := triedWrong(s.db, name, now); err != nil {
-			s.failed(w, r, err)
-			return
-		}
 		answer(w, http.StatusForbidden, wrongPassword)
 		return
 	}
@@ -182,52 +179,45 @@ func hasPassword(db *sql.DB, person string) (bool, error) {
 	return hash != nil, err
 }
 
-// triedUntil gives when a name may be tried again, the zero time when it
-// may be now.
-func triedUntil(db *sql.DB, name string) (time.Time, error) {
-	var until string
-	switch err := db.QueryRow(`SELECT until FROM server_tries WHERE name = ?`, name).Scan(&until); {
-	case errors.Is(err, sql.ErrNoRows):
-		return time.Time{}, nil
-	case err != nil:
-		return time.Time{}, fmt.Errorf("the tries of a name cannot be read: %w", err)
-	case until == "":
-		return time.Time{}, nil
-	}
-	t, err := time.Parse(stamped, until)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("the tries of a name are kept with a time that cannot be read, %q: %w", until, err)
-	}
-	return t, nil
-}
-
-// triedWrong counts a wrong try of a name: from the Tries-th on, the name
-// waits before it is tried again. The count of a name not tried for a day
-// begins again.
-func triedWrong(db *sql.DB, name string, now time.Time) error {
+// tried counts a try of a name before it is checked, all at once, so
+// that tries sent together are counted one after another: from the
+// Tries-th on, the name waits before it is tried again. While it waits, a
+// try is not counted, and tried gives when it may be tried again; the
+// zero time is a try counted, to be checked. The count of a name not
+// tried for a day begins again.
+func tried(db *sql.DB, name string, now time.Time) (time.Time, error) {
 	tx, err := db.Begin()
 	if err != nil {
-		return fmt.Errorf("a wrong try cannot be counted: %w", err)
+		return time.Time{}, fmt.Errorf("a try cannot be counted: %w", err)
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(`DELETE FROM server_tries WHERE last < ?`, stamp(now.Add(-24*time.Hour))); err != nil {
-		return fmt.Errorf("the tries of a day ago cannot be let go: %w", err)
+		return time.Time{}, fmt.Errorf("the tries of a day ago cannot be let go: %w", err)
 	}
-	wrong := 0
-	if err := tx.QueryRow(`SELECT wrong FROM server_tries WHERE name = ?`, name).Scan(&wrong); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("the tries of a name cannot be read: %w", err)
+	wrong, until := 0, ""
+	if err := tx.QueryRow(`SELECT wrong, until FROM server_tries WHERE name = ?`, name).Scan(&wrong, &until); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return time.Time{}, fmt.Errorf("the tries of a name cannot be read: %w", err)
+	}
+	if until != "" {
+		t, err := time.Parse(stamped, until)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("the tries of a name are kept with a time that cannot be read, %q: %w", until, err)
+		}
+		if now.Before(t) {
+			return t, nil
+		}
 	}
 	wrong++
-	until := ""
+	until = ""
 	if wrong >= Tries {
 		wait := TriedWait << min(wrong-Tries, 6)
 		until = stamp(now.Add(min(wait, TriedLongest)))
 	}
 	if _, err := tx.Exec(`INSERT INTO server_tries (name, wrong, last, until) VALUES (?, ?, ?, ?)
 		ON CONFLICT(name) DO UPDATE SET wrong = excluded.wrong, last = excluded.last, until = excluded.until`, name, wrong, stamp(now), until); err != nil {
-		return fmt.Errorf("a wrong try cannot be counted: %w", err)
+		return time.Time{}, fmt.Errorf("a try cannot be counted: %w", err)
 	}
-	return tx.Commit()
+	return time.Time{}, tx.Commit()
 }
 
 // triedRight lets go of a name's wrong tries.

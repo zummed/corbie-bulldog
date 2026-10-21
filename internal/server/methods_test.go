@@ -347,6 +347,29 @@ func TestServerPasswordTriesLimited(t *testing.T) {
 		s.nobody().post("/signin/password", map[string]string{"name": "sam", "password": "a wrong guess"}).is(http.StatusForbidden)
 	}
 	s.nobody().post("/signin/password", map[string]string{"name": "sam", "password": "correct horse battery"}).is(http.StatusOK)
+
+	// Tries sent together are counted one after another, so no more of
+	// them are checked than one after another would be.
+	address := s.address()
+	answered := make(chan int, 2*Tries)
+	for range 2 * Tries {
+		go func() {
+			r, err := http.Post(address+"/signin/password", "application/json", strings.NewReader(`{"name":"together","password":"a wrong guess"}`))
+			if err != nil {
+				answered <- 0
+				return
+			}
+			r.Body.Close()
+			answered <- r.StatusCode
+		}()
+	}
+	counted := map[int]int{}
+	for range 2 * Tries {
+		counted[<-answered]++
+	}
+	if counted[http.StatusForbidden] != Tries || counted[http.StatusTooManyRequests] != Tries {
+		t.Errorf("%d tries sent together are answered %v", 2*Tries, counted)
+	}
 }
 
 func TestServerPasswordDestroyedWithEntry(t *testing.T) {
