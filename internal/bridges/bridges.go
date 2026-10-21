@@ -49,12 +49,15 @@ const (
 
 // The inputs a bridge's machines are given. An in machine that takes
 // cursor listens, and one that takes delivery hears; an out machine that
-// takes direct can say something to a person directly, and is told so.
+// takes direct can say something to a person directly, and is told so,
+// and one that takes working is told when a team starts and stops
+// working on a thing heard at a place.
 const (
 	InputSettings = "settings"
 	InputCursor   = "cursor"
 	InputDelivery = "delivery"
 	InputDirect   = "direct"
+	InputWorking  = "working"
 )
 
 // EmitHeard is the name a listening run emits a list of things under, to
@@ -247,15 +250,15 @@ func (b *Bridges) unlock() {
 
 // carried has the requests told, once this area's work is let go, that
 // how an entry of a request is carried changed: a sign-in link is of no
-// request.
-func (b *Bridges) carried(request int64) {
-	if request == 0 {
+// request, and a mark is no entry's.
+func (b *Bridges) carried(th thingRow) {
+	if th.request == 0 || marks(th.kind) {
 		return
 	}
 	if b.carrying == nil {
 		b.carrying = map[int64]bool{}
 	}
-	b.carrying[request] = true
+	b.carrying[th.request] = true
 }
 
 func older(version int) error {
@@ -357,7 +360,7 @@ func (b *Bridges) unclaim() error {
 		return failed(err)
 	}
 	for _, th := range unclaimed {
-		b.carried(th.request)
+		b.carried(th)
 	}
 	return nil
 }

@@ -26,12 +26,20 @@ const (
 )
 
 // The kinds of thing carried: an entry of a request, a sentence answering
-// what someone said on a bridge, and a one-time sign-in link.
+// what someone said on a bridge, a one-time sign-in link, and the marks
+// that a team is working on an entry heard at its request's origin, and
+// is no longer.
 const (
-	ofEntry    = "entry"
-	ofSentence = "sentence"
-	ofSignIn   = "sign-in"
+	ofEntry      = "entry"
+	ofSentence   = "sentence"
+	ofSignIn     = "sign-in"
+	ofWorking    = "working"
+	ofNotWorking = "not working"
 )
+
+// marks says whether a kind of thing is a mark: no entry's carrying, and
+// shown on no request.
+func marks(kind string) bool { return kind == ofWorking || kind == ofNotWorking }
 
 // Chat is the built-in chat's name as a bridge, which no bridge of the
 // office takes.
@@ -111,11 +119,12 @@ func (b *Bridges) thing(id int64) (*thingRow, error) {
 	return &things[0], nil
 }
 
-// sentThing gives the thing carried on a bridge that the service gave a
+// sentThing gives the entry carried on a bridge that the service gave a
 // reference for, among the references kept for it one per line, or nil.
+// A mark names the message it marks, which was never sent.
 func (b *Bridges) sentThing(bridge, sent string) (*thingRow, error) {
-	things, err := b.things(`WHERE bridge = ? AND instr(char(10) || sent || char(10), char(10) || ? || char(10)) > 0 AND state = ? ORDER BY id DESC LIMIT 1`,
-		bridge, sent, Sent)
+	things, err := b.things(`WHERE bridge = ? AND instr(char(10) || sent || char(10), char(10) || ? || char(10)) > 0 AND state = ? AND kind = ? ORDER BY id DESC LIMIT 1`,
+		bridge, sent, Sent, ofEntry)
 	if err != nil || len(things) == 0 {
 		return nil, err
 	}
@@ -141,14 +150,14 @@ func (b *Bridges) refThing(bridge, r string) (*thingRow, error) {
 	return th, nil
 }
 
-// add keeps a thing to be carried, once for each entry and place. One
-// given up before any run of it was started, while its bridge was stopped,
-// is kept again when it is to be carried once more.
+// add keeps a thing to be carried, once for each entry, place and kind.
+// One given up before any run of it was started, while its bridge was
+// stopped, is kept again when it is to be carried once more.
 func (b *Bridges) add(th thingRow) error {
 	if th.entry != 0 {
 		var n int
-		if err := b.db.QueryRow(`SELECT count(*) FROM bridges_things WHERE entry = ? AND bridge = ? AND place = ? AND NOT (state = ? AND runs = 0)`,
-			th.entry, th.bridge, th.place, GivenUp).Scan(&n); err != nil {
+		if err := b.db.QueryRow(`SELECT count(*) FROM bridges_things WHERE entry = ? AND bridge = ? AND place = ? AND kind = ? AND NOT (state = ? AND runs = 0)`,
+			th.entry, th.bridge, th.place, th.kind, GivenUp).Scan(&n); err != nil {
 			return failed(err)
 		}
 		if n > 0 {
@@ -164,7 +173,7 @@ func (b *Bridges) add(th thingRow) error {
 	if err != nil {
 		return failed(err)
 	}
-	b.carried(th.request)
+	b.carried(th)
 	return nil
 }
 
@@ -197,6 +206,81 @@ func (b *Bridges) directOrigin(origin *requests.Origin, n int64) (bool, error) {
 // no direct place carries only what goes to an origin.
 func takesDirect(bridge *office.Bridge) bool {
 	return bridge.Out != nil && office.Takes(bridge.Out, InputDirect)
+}
+
+// takesWorking says whether a bridge's out machine marks what a team is
+// working on: it takes the input working. Any other is never told.
+func takesWorking(bridge *office.Bridge) bool {
+	return bridge.Out != nil && office.Takes(bridge.Out, InputWorking)
+}
+
+// Working keeps a mark, to be carried to a request's origin, on each of
+// the entries a run of its lead starts on that was heard there: the team
+// is working on it. Only a bridge that runs, and whose out machine takes
+// working, is told. What waits to be carried is looked at first, so the
+// mark goes after everything said before it.
+func (b *Bridges) Working(request int64, entries []int64) error {
+	b.mu.Lock()
+	defer b.unlock()
+	o, err := b.office()
+	if err != nil {
+		return err
+	}
+	if err := b.scan(o); err != nil {
+		return err
+	}
+	r, err := b.requests.Get(request)
+	if err != nil {
+		return err
+	}
+	origin := r.Origin
+	if origin.Kind != requests.AtPlace {
+		return nil
+	}
+	if bridge := o.Bridges[origin.Bridge]; bridge == nil || !bridge.Runs() || !takesWorking(bridge) {
+		return nil
+	}
+	for _, e := range entries {
+		var heard int
+		if err := b.db.QueryRow(`SELECT count(*) FROM bridges_heard WHERE bridge = ? AND place = ? AND entry = ?`, origin.Bridge, origin.Place, e).
+			Scan(&heard); err != nil {
+			return failed(err)
+		}
+		if heard == 0 {
+			continue
+		}
+		th := thingRow{bridge: origin.Bridge, place: origin.Place, direct: origin.Heard == office.Direct, kind: ofWorking, request: request, entry: e}
+		if err := b.add(th); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Worked keeps, for each mark of a request that went or is still to go, a
+// mark to be carried after it that the team is no longer working on that
+// entry, once its lead's run has ended. What the run said is looked at
+// first, so its answer goes before the mark comes off.
+func (b *Bridges) Worked(request int64) error {
+	b.mu.Lock()
+	defer b.unlock()
+	o, err := b.office()
+	if err != nil {
+		return err
+	}
+	if err := b.scan(o); err != nil {
+		return err
+	}
+	marked, err := b.things(`WHERE request = ? AND kind = ? AND state IN (?, ?, ?) ORDER BY id`, request, ofWorking, Waiting, Sending, Sent)
+	if err != nil {
+		return err
+	}
+	for _, th := range marked {
+		if err := b.add(thingRow{bridge: th.bridge, place: th.place, direct: th.direct, kind: ofNotWorking, request: request, entry: th.entry}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // scan looks at every request the store has told of since it was last
@@ -399,7 +483,7 @@ func (b *Bridges) Carry() ([]Start, time.Time, error) {
 			if _, err := b.db.Exec(`UPDATE bridges_things SET state = ?, run = '', why = ? WHERE id = ?`, Sending, why, th.id); err != nil {
 				return nil, time.Time{}, failed(err)
 			}
-			b.carried(th.request)
+			b.carried(th)
 			starts = append(starts, start)
 			break
 		}
@@ -415,7 +499,7 @@ func (b *Bridges) leave(th thingRow, state, why string) error {
 		state, why, ofSignIn, th.id); err != nil {
 		return failed(err)
 	}
-	b.carried(th.request)
+	b.carried(th)
 	if th.kind == ofSignIn {
 		b.told = append(b.told, SignIn{Thing: th.id, Failed: why})
 	}
@@ -431,6 +515,8 @@ func (b *Bridges) prepare(o *office.Office, th thingRow) (Start, string, string,
 		return Start{}, GivenUp, stopped(th.bridge, bridge), nil
 	case th.direct && !takesDirect(bridge):
 		return Start{}, GivenUp, fmt.Sprintf("the bridge %s says nothing to anyone directly", th.bridge), nil
+	case marks(th.kind) && !takesWorking(bridge):
+		return Start{}, Withdrawn, fmt.Sprintf("the bridge %s no longer marks what a team works on", th.bridge), nil
 	}
 	input := map[string]any{
 		InputSettings: bridge.Settings, "to": th.place, InputDirect: th.direct,
@@ -442,6 +528,17 @@ func (b *Bridges) prepare(o *office.Office, th thingRow) (Start, string, string,
 	switch th.kind {
 	case ofSignIn:
 		start.Kind = KindSignIn
+	case ofWorking, ofNotWorking:
+		r, err := b.requests.Get(th.request)
+		if err != nil {
+			return Start{}, "", "", err
+		}
+		start.Labels = requests.Labels(r)
+		heard, err := b.heardOf(th.bridge, th.entry)
+		if err != nil {
+			return Start{}, "", "", err
+		}
+		input["answers"], input[InputWorking] = heard, th.kind == ofWorking
 	case ofEntry:
 		still, err := b.stillFor(o, &th)
 		if err != nil {
@@ -576,11 +673,22 @@ func (b *Bridges) answersOf(e requests.Entry, th thingRow) (string, error) {
 	var err error
 	switch {
 	case e.Answers != 0:
-		err = b.db.QueryRow(`SELECT id FROM bridges_heard WHERE bridge = ? AND entry = ?`, th.bridge, e.Answers).Scan(&id)
+		return b.heardOf(th.bridge, e.Answers)
 	case e.Kind == requests.KindAnswer && th.person == "":
 		err = b.db.QueryRow(`SELECT id FROM bridges_heard WHERE bridge = ? AND request = ? AND place = ? AND entry > 0 AND entry < ? ORDER BY entry DESC LIMIT 1`,
 			th.bridge, e.Request, th.place, e.ID).Scan(&id)
 	}
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return "", failed(err)
+	}
+	return id, nil
+}
+
+// heardOf gives the id of the thing heard on a bridge that an entry was
+// taken from, or "".
+func (b *Bridges) heardOf(bridge string, entry int64) (string, error) {
+	var id string
+	err := b.db.QueryRow(`SELECT id FROM bridges_heard WHERE bridge = ? AND entry = ?`, bridge, entry).Scan(&id)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", failed(err)
 	}
@@ -593,7 +701,8 @@ func (b *Bridges) answersOf(e requests.Entry, th thingRow) (string, error) {
 // refused is given up at once; one whose run failed is carried again by a
 // new run, each later than the last, and given up after MaxRuns. A
 // sign-in link is carried by one run alone, and the server is told how it
-// ended.
+// ended; a mark is carried by one run alone too, so it never holds up
+// what comes after it for long.
 func (b *Bridges) OutEnded(id int64, run string, end End) error {
 	b.mu.Lock()
 	defer b.unlock()
@@ -623,7 +732,7 @@ func (b *Bridges) OutEnded(id int64, run string, end End) error {
 		_, err = b.db.Exec(`UPDATE bridges_things SET state = ?, sent = ?, run = '', ended = ? WHERE id = ?`, Sent, sent, run, id)
 	case refused != "":
 		_, err = b.db.Exec(`UPDATE bridges_things SET state = ?, why = ?, run = '', ended = ? WHERE id = ?`, GivenUp, refused, run, id)
-	case th.kind == ofSignIn || th.runs >= MaxRuns:
+	case th.kind == ofSignIn || marks(th.kind) || th.runs >= MaxRuns:
 		_, err = b.db.Exec(`UPDATE bridges_things SET state = ?, why = ?, run = '', ended = ? WHERE id = ?`, GivenUp, failure, run, id)
 	default:
 		_, err = b.db.Exec(`UPDATE bridges_things SET state = ?, why = ?, run = '', ended = ?, next = ? WHERE id = ?`,
@@ -632,7 +741,7 @@ func (b *Bridges) OutEnded(id int64, run string, end End) error {
 	if err != nil {
 		return failed(err)
 	}
-	b.carried(th.request)
+	b.carried(*th)
 	if th.kind == ofSignIn {
 		b.told = append(b.told, SignIn{Thing: id, Sent: sent != "", Refused: refused, Failed: failure})
 	}

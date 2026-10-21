@@ -181,7 +181,7 @@ A team's docs, each by its name with its size, and each opened whole, are seen b
 
 Who may say more is one rule, the same on the screens as through a bridge, and the requests area's. A sub-request is asked at no place, so nobody says more in it from an origin. A guest says more only at the origin, through the bridge, and never signs in. Seeing a sub-request from the request it was asked from gives no voice in it.
 
-The top team's people also see a bridge that is failing, with what Corbie said; to anyone else it is running. A worker at work on something a person may not see is not shown at work to them.
+The top team's people also see a bridge that is failing, with what Corbie said, or why the marks it carried last were given up; to anyone else it is running. A worker at work on something a person may not see is not shown at work to them.
 
 ## The API
 
@@ -241,6 +241,6 @@ The screens are in the program and load nothing from any other site. Besides the
 - **Work** looks in Corbie for another server of the office before the server opens anything of it, is started by the server once it listens, labels every run with the office's identity the server holds, starts and renews the server's own run for it and otherwise leaves that run alone, stops a request when a person who may stop it asks, says which teams each worker may ask, gives a run as it keeps it to those who may watch it, with what a run of a lead or a routine's worker was given, worked out again from the request and the office, and gives how many runs are at work and which requests wait their turn, in the order they start, saying when either changes.
 - **Decisions** is given a person's answer from the screens, as that person, and says that a worker asked to decide for a team runs as that team's; it builds each decision's line when it is shown, and gives the walk for a team and a key, and for a team's disclosure, by which the screens show who decides a tool, a list and a disclosure, and `check` lists who decides a tool.
 - **Work** starts a sign-in method's machine on what a provider gave a browser, labelled as every run is, and hands the server how it ended.
-- **Bridges** carry a one-time sign-in link to a person's direct place, one out run at a time, telling the server how it ended, give each bridge whose runs are failing, and are called at an address the server serves without a key.
+- **Bridges** carry a one-time sign-in link to a person's direct place, one out run at a time, telling the server how it ended, give each bridge whose runs, or whose latest marks, are failing, and are called at an address the server serves without a key.
 - **Changes** is given a person's draft to check and put, and names the people who decide a change, to whom the server shows the office's files and the history; the server makes the repository of a folder that has none, and the office's first commit is the one commit Bulldog makes that is neither a decided change nor a team's note.
 - **Corbie** is reached as a client, named as `corbie` itself is told.

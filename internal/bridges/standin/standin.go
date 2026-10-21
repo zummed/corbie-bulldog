@@ -97,6 +97,15 @@ func Folder(hears, direct bool) map[string]string {
 	}
 }
 
+// Marking gives a stand-in bridge's files with an out machine that takes
+// working, as Slack's does, so it is told when a team starts and stops
+// working on a thing heard at a place.
+func Marking(folder map[string]string) map[string]string {
+	out := maps.Clone(folder)
+	out["out.yaml"] = strings.Replace(folder["out.yaml"], "text: blob }", `text: blob, working: "boolean?" }`, 1)
+	return out
+}
+
 // In gives the files of a bridge folder, by their paths in the office,
 // under bridges/<name>.
 func In(name string, folder map[string]string) map[string]string {

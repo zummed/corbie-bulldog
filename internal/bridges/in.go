@@ -316,7 +316,9 @@ func (b *Bridges) trouble(name, what string) error {
 }
 
 // Troubles gives the bridges whose runs are failing, in the office's
-// order: what the latest said, since when, and how many in a row.
+// order: what the latest said, since when, and how many in a row. A
+// bridge whose in runs go well is failing while the marks it carried last
+// were given up, until one goes.
 func (b *Bridges) Troubles() ([]Trouble, error) {
 	b.mu.Lock()
 	defer b.unlock()
@@ -330,11 +332,43 @@ func (b *Bridges) Troubles() ([]Trouble, error) {
 		if err != nil {
 			return nil, err
 		}
-		if row.trouble != "" {
-			troubles = append(troubles, Trouble{Bridge: name, Error: row.trouble, Since: row.since, Failures: row.failures})
+		t := Trouble{Bridge: name, Error: row.trouble, Since: row.since, Failures: row.failures}
+		if t.Error == "" {
+			if t, err = b.marksFailing(name); err != nil {
+				return nil, err
+			}
+		}
+		if t.Error != "" {
+			troubles = append(troubles, t)
 		}
 	}
 	return troubles, nil
+}
+
+// marksFailing gives a bridge as failing when the latest mark it carried
+// was given up: with why, since the first of those given up after the
+// last that went, and how many; or with no error.
+func (b *Bridges) marksFailing(name string) (Trouble, error) {
+	t := Trouble{Bridge: name}
+	var went, latest int64
+	var since string
+	if err := b.db.QueryRow(`SELECT coalesce(max(id), 0) FROM bridges_things WHERE bridge = ? AND kind IN (?, ?) AND state = ?`,
+		name, ofWorking, ofNotWorking, Sent).Scan(&went); err != nil {
+		return t, failed(err)
+	}
+	if err := b.db.QueryRow(`SELECT count(*), coalesce(min(made), ''), coalesce(max(id), 0) FROM bridges_things WHERE bridge = ? AND kind IN (?, ?) AND state = ? AND id > ?`,
+		name, ofWorking, ofNotWorking, GivenUp, went).Scan(&t.Failures, &since, &latest); err != nil {
+		return t, failed(err)
+	}
+	if t.Failures == 0 {
+		return t, nil
+	}
+	th, err := b.thing(latest)
+	if err != nil || th == nil {
+		return t, err
+	}
+	t.Error, t.Since = "a mark that the team works on a message was not carried: "+th.why, unstamp(since)
+	return t, nil
 }
 
 // A thing is one thing an in run heard, as it gave it.
