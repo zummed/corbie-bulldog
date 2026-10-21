@@ -57,7 +57,7 @@ Had the answer named an account number, the rule would have referred it, and it 
 7. What was done is seen by the asker, by whoever can read the origin, and by the people of the team it went to, and sight goes down the tree of sub-requests, never up or sideways. Whoever an entry is to sees that entry and its answer.
 8. A person's yes is accepted only from their checked identity.
 9. Everything said is an entry in a request's thread, with who it is by and who it is to. The one-time sign-in link is part of no request.
-10. Bulldog speaks to no outside service. Every one is reached by a bridge, which Corbie runs; a bridge that is called at its address is not Bulldog speaking to a service. What lives there keeps its state there, and Bulldog never sets it.
+10. Bulldog speaks to no outside service. Every one is reached by a bridge, or, to sign a person in, by a sign-in method's machine, each of which Corbie runs; sending a browser to a provider is not Bulldog speaking to it; a bridge that is called at its address is not Bulldog speaking to a service. What lives there keeps its state there, and Bulldog never sets it.
 11. What a team is and does is read from the files each time it is needed, and nobody keeps a description of anyone else.
 12. What Corbie can do, Corbie does. A workaround in Bulldog names the general feature Corbie should gain.
 13. An error is reported where a person will read it, and every problem found together is reported together.
