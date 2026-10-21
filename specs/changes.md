@@ -130,7 +130,7 @@ Where Bulldog changes part of a file a person wrote, setting a field or moving a
 
 ## The history
 
-The office's folder is in a git repository. Bulldog reads and writes it with a library, runs no git program, and never pushes or pulls: where the repository goes is its people's. The history is read with anything that reads git.
+The office's folder is in a git repository. Bulldog reads and writes it with a library, runs no git program, and never pushes or pulls: where the repository goes is its people's. A repository the server made takes their push onto the branch it has out, writing the files with it, so a change made in a clone and pushed back is the office's at once. The history is read with anything that reads git.
 
 ```
 commit 4f1c…    builder    4 Oct 14:02

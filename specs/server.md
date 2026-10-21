@@ -29,7 +29,7 @@ With no folder named, it is the folder the program is run in when that holds an 
 | What it finds | What it does |
 |---|---|
 | a folder with nothing in it, or `~/bulldog` not there | writes the example office there, which is in the program, and makes it a git repository of its own, even inside another |
-| an office in no repository | makes it one, leaving `.bulldog/` out, and commits what is there |
+| an office in no repository | makes it one, leaving `.bulldog/` out, that takes a person's push onto the branch it has out, and commits what is there |
 | an office with no `.bulldog/` | makes it, with the office's identity |
 | an office whose `.bulldog/` was made in another folder | refuses it, naming both folders, unless the command is `init`, which takes it as the office moved |
 

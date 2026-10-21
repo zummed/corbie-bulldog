@@ -166,6 +166,17 @@ func TestServerOfficeInNoRepositoryMadeOne(t *testing.T) {
 	if commits != 1 || !slices.Equal(files, want) {
 		t.Errorf("the repository has %d commits, the first holding %v", commits, files)
 	}
+	repo, err := git.PlainOpen(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := repo.Config()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if push := cfg.Raw.Section("receive").Option("denyCurrentBranch"); push != "updateInstead" {
+		t.Errorf("receive.denyCurrentBranch is %q, not updateInstead", push)
+	}
 	testkit.Write(t, dir, map[string]string{".bulldog/later.txt": "Bulldog's own\n"})
 	db, err := OpenStore(dir)
 	if err != nil {

@@ -40,8 +40,8 @@ The detailed rules behind the [Server overview](../server.md). Requirements are 
 
 **C-server-05** A folder given the example is made a repository of its own even when it lies within another repository. Otherwise the office's changes would be committed into someone else's project. *Test:* `server_new_office_has_own_repository`
 
-**R-server-07** An office in no repository is made one: what is there is committed by Bulldog as the office's first commit, and `.bulldog/` is left out of it.
-*Accept:* a copy of the house with no `.git/` is served; the repository has one commit holding every file of the house and none under `.bulldog/`, and a file added under `.bulldog/` later is not shown as an edit by hand.
+**R-server-07** An office in no repository is made one: what is there is committed by Bulldog as the office's first commit, and `.bulldog/` is left out of it. The repository takes a person's push onto the branch it has out, and writes the office's files with it (git's `receive.denyCurrentBranch updateInstead`), so a clone's change pushed back is the office's change, read again at once; a push is refused while a file there is edited and not committed.
+*Accept:* a copy of the house with no `.git/` is served; the repository has one commit holding every file of the house and none under `.bulldog/`, its config sets `receive.denyCurrentBranch` to `updateInstead`, and a file added under `.bulldog/` later is not shown as an edit by hand.
 
 **C-server-06** The example written into a new office, the house without its bridge and its sign-in by Google, reads with no problem, and a person can ask it something in the chat as soon as it is served. A person's first sight of Bulldog must not be a list of problems. *Test:* `server_example_reads_well`
 

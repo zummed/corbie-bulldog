@@ -115,11 +115,21 @@ func BeginOwn(dir string, now time.Time) (string, error) {
 	return begin(dir, now)
 }
 
-// begin makes a folder a repository, Bulldog's own folder excluded, and
-// commits every file of the office there.
+// begin makes a folder a repository, Bulldog's own folder excluded, that
+// takes a person's push onto the branch it has out, writing the files with
+// it, and commits every file of the office there.
 func begin(dir string, now time.Time) (string, error) {
-	if _, err := git.PlainInit(dir, false); err != nil {
+	made, err := git.PlainInit(dir, false)
+	if err != nil {
 		return "", fmt.Errorf("%s cannot be made a repository: %w", dir, err)
+	}
+	cfg, err := made.Config()
+	if err != nil {
+		return "", err
+	}
+	cfg.Raw.Section("receive").SetOption("denyCurrentBranch", "updateInstead")
+	if err := made.SetConfig(cfg); err != nil {
+		return "", fmt.Errorf("%s cannot be set to take a push: %w", dir, err)
 	}
 	exclude := filepath.Join(dir, ".git", "info", "exclude")
 	if err := os.MkdirAll(filepath.Dir(exclude), 0o755); err != nil {
