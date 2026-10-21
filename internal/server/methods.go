@@ -36,8 +36,27 @@ const (
 // account.
 const noAccount = "No one of the office signs in with that %s account."
 
+// noURL is why every sign-in method signs nobody in on a server started
+// with no --url: a provider is given the address it sends the browser
+// back to, exactly as it was written there, and the address the server
+// listens on is seldom one a provider takes.
+const noURL = "the server was started with no --url, which the address its provider sends the browser back to is made with"
+
 // backOf gives the address a method's provider sends the browser back to.
 func backOf(base, method string) string { return base + "/signin/" + method + "/back" }
+
+// runs says whether a sign-in method signs anyone in on this server: it
+// has no problem, and the server was given its --url.
+func (s *site) runs(m *office.SignIn) bool { return m.Runs() && s.urlGiven != "" }
+
+// stoppedSaid is what a browser sent to a method that does not run is
+// told, sending it nowhere.
+func (s *site) stoppedSaid(m *office.SignIn) string {
+	if !m.Runs() {
+		return fmt.Sprintf("Signing in with %s is stopped until the office's problems with it are mended.", methodCalled(m))
+	}
+	return fmt.Sprintf("Signing in with %s is stopped: %s.", methodCalled(m), noURL)
+}
 
 // linkOrMethod is a sign-in method's start, at its name, or else the page
 // of a one-time link: no method is named as a link's random words are.
@@ -65,12 +84,12 @@ func methodCalled(m *office.SignIn) string {
 // what the browser's cookie is given, so that only this browser, within
 // Signing, comes back with it once.
 func (s *site) toProvider(w http.ResponseWriter, r *http.Request, o *office.Office, m *office.SignIn) {
-	if !m.Runs() {
-		s.signInPage(w, http.StatusServiceUnavailable, fmt.Sprintf("Signing in with %s is stopped until the office's problems with it are mended.", methodCalled(m)))
+	if !s.runs(m) {
+		s.signInPage(w, http.StatusServiceUnavailable, s.stoppedSaid(m))
 		return
 	}
 	sg := signing{state: random(32), method: m.Name, browser: random(32), nonce: random(32), verifier: random(32), made: s.clock.Now()}
-	to, err := authorizeOf(m, backOf(s.url, m.Name), sg)
+	to, err := authorizeOf(m, backOf(s.urlGiven, m.Name), sg)
 	if err != nil {
 		s.say("signing in with %s: %v", m.Name, err)
 		s.signInPage(w, http.StatusServiceUnavailable, fmt.Sprintf("Signing in with %s cannot begin: %v.", methodCalled(m), err))
@@ -123,7 +142,8 @@ func authorizeOf(m *office.SignIn, back string, sg signing) (string, error) {
 
 // back takes the browser the provider sent back: its state must be one
 // this browser began, within Signing, and it is used up whatever follows.
-// The method's machine is given the code, and the one person whose account
+// A method stopped since signs nobody in. The method's machine is given
+// the code, and the one person whose account
 // by the method it answers is signed in, as their key in an address does.
 func (s *site) back(w http.ResponseWriter, r *http.Request) {
 	o := s.Keeper.Office()
@@ -148,6 +168,10 @@ func (s *site) back(w http.ResponseWriter, r *http.Request) {
 		s.signInPage(w, http.StatusBadRequest, fmt.Sprintf("This sign-in with %s was not begun in this browser, is more than ten minutes old, or was used already: begin it again.", methodCalled(m)))
 		return
 	}
+	if !s.runs(m) {
+		s.signInPage(w, http.StatusServiceUnavailable, s.stoppedSaid(m))
+		return
+	}
 	if q.Get("code") == "" {
 		said := q.Get("error_description")
 		if said == "" {
@@ -159,7 +183,7 @@ func (s *site) back(w http.ResponseWriter, r *http.Request) {
 		s.signInPage(w, http.StatusForbidden, fmt.Sprintf("%s did not sign you in: %s.", methodCalled(m), said))
 		return
 	}
-	signed, err := s.Work.SignIn(m, map[string]any{"code": q.Get("code"), "verifier": sg.verifier, "redirect": backOf(s.url, m.Name), "nonce": sg.nonce})
+	signed, err := s.Work.SignIn(m, map[string]any{"code": q.Get("code"), "verifier": sg.verifier, "redirect": backOf(s.urlGiven, m.Name), "nonce": sg.nonce})
 	if err != nil {
 		s.say("signing in with %s: %v", m.Name, err)
 		s.signInPage(w, http.StatusServiceUnavailable, fmt.Sprintf("Signing in with %s failed, and the failure is in the server's log.", methodCalled(m)))

@@ -27,9 +27,12 @@ type site struct {
 	Areas
 	db    *sql.DB
 	clock work.Clock
-	// url is how a person reaches the server, with no / at its end.
-	url string
-	say func(format string, args ...any)
+	// url is how a person reaches the server, with no / at its end, and
+	// urlGiven the same when it was given with --url, from which alone the
+	// address a sign-in method's provider sends the browser back to is
+	// made: "" when it was not.
+	url, urlGiven string
+	say           func(format string, args ...any)
 	// screens are the screens following the stream of changes.
 	screens *screens
 	// asked are the names a one-time link was asked for, which are

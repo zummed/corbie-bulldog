@@ -55,15 +55,16 @@ type (
 	}
 	// signInOut is a sign-in method: what the sign-in page calls it, the
 	// folder it runs, one Bulldog ships or its own, whether it runs or is
-	// stopped by a problem, and the address its provider sends the browser
-	// back to.
+	// stopped, and the address its provider sends the browser back to,
+	// or, on a server given no --url, why there is none.
 	signInOut struct {
-		Name    string `json:"name"`
-		Called  string `json:"called"`
-		Folder  string `json:"folder"`
-		Shipped bool   `json:"shipped"`
-		Status  string `json:"status"`
-		Back    string `json:"back"`
+		Name     string `json:"name"`
+		Called   string `json:"called"`
+		Folder   string `json:"folder"`
+		Shipped  bool   `json:"shipped"`
+		Status   string `json:"status"`
+		Back     string `json:"back,omitempty"`
+		Unserved string `json:"unserved,omitempty"`
 	}
 	runsOut struct {
 		Limit   int `json:"limit"`
@@ -310,11 +311,16 @@ func (s *site) me(person string, w http.ResponseWriter, r *http.Request) (any, e
 	out.Office.SignIn = []signInOut{}
 	for _, name := range o.SignInOrder {
 		m := o.SignIns[name]
-		status := "running"
-		if !m.Runs() {
-			status = "stopped"
+		one := signInOut{Name: name, Called: methodCalled(m), Folder: m.Dir(), Shipped: m.From != "", Status: "running"}
+		if !s.runs(m) {
+			one.Status = "stopped"
 		}
-		out.Office.SignIn = append(out.Office.SignIn, signInOut{Name: name, Called: methodCalled(m), Folder: m.Dir(), Shipped: m.From != "", Status: status, Back: backOf(s.url, name)})
+		if s.urlGiven == "" {
+			one.Unserved = noURL
+		} else {
+			one.Back = backOf(s.urlGiven, name)
+		}
+		out.Office.SignIn = append(out.Office.SignIn, one)
 	}
 	out.Office.Password = slices.ContainsFunc(o.Everyone, func(name string) bool { return o.People[name].Password })
 	return out, nil

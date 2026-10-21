@@ -33,6 +33,13 @@ func signingIn(t *testing.T) map[string]string {
 	return files
 }
 
+// houseURL is how a person reaches the house in a test of sign-in
+// methods, which sign nobody in on a server started with no --url.
+const houseURL = "https://house.example"
+
+// atURL serves an office at houseURL.
+func atURL(o *Options) { o.URL = houseURL }
+
 // begin has a browser begin to sign in by a method, and gives where it was
 // sent and the cookie that binds the sign-in to it.
 func (s *serving) begin(method string) (*url.URL, *http.Cookie) {
@@ -73,8 +80,8 @@ func (s *serving) signInBy(method, code string) reply {
 func TestServerSignInByMethodGivesTheKey(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, signingIn(t))
-	s := b.serve()
-	if !s.logged("google signs people in by their provider sending them back to " + s.address() + "/signin/google/back") {
+	s := b.serve(atURL)
+	if !s.logged("google signs people in by their provider sending them back to " + houseURL + "/signin/google/back") {
 		t.Errorf("the log does not name google's redirect URI:\n%s", strings.Join(s.lines(), "\n"))
 	}
 	page := string(s.nobody().get("/").is(http.StatusOK).body)
@@ -85,7 +92,7 @@ func TestServerSignInByMethodGivesTheKey(t *testing.T) {
 	to, bound := s.begin("google")
 	q := to.Query()
 	if to.Host != "accounts.example" || to.Path != "/auth" || q.Get("response_type") != "code" || q.Get("client_id") != "house-client" ||
-		q.Get("redirect_uri") != s.address()+"/signin/google/back" || q.Get("scope") != "openid email" || q.Get("code_challenge_method") != "S256" ||
+		q.Get("redirect_uri") != houseURL+"/signin/google/back" || q.Get("scope") != "openid email" || q.Get("code_challenge_method") != "S256" ||
 		len(q.Get("state")) < 32 || len(q.Get("nonce")) < 32 || len(q.Get("code_challenge")) != 43 {
 		t.Errorf("the browser was sent to %s", to)
 	}
@@ -120,7 +127,7 @@ func TestServerSignInByMethodGivesTheKey(t *testing.T) {
 
 func TestServerUnwrittenAccountAnsweredAlike(t *testing.T) {
 	t.Parallel()
-	s := newBench(t, signingIn(t)).serve()
+	s := newBench(t, signingIn(t)).serve(atURL)
 	stranger := s.signInBy("google", "stranger@gmail.com").is(http.StatusForbidden)
 	near := s.signInBy("google", "sam@example.org").is(http.StatusForbidden)
 	if stranger.cookie() != nil || near.cookie() != nil || string(stranger.body) != string(near.body) || !strings.Contains(string(near.body), "No one of the office signs in with that Google account.") {
@@ -148,7 +155,7 @@ func TestServerUnwrittenAccountAnsweredAlike(t *testing.T) {
 func TestServerSigningStateBoundUsedOnceAndShort(t *testing.T) {
 	t.Parallel()
 	b := newBench(t, signingIn(t))
-	s := b.serve()
+	s := b.serve(atURL)
 	refused := func(what string, r reply) {
 		t.Helper()
 		if r.status != http.StatusBadRequest || r.cookie() != nil || !strings.Contains(string(r.body), "begin it again") {
@@ -194,9 +201,9 @@ func TestServerStoppedSignInMethodBeginsNothing(t *testing.T) {
 	t.Parallel()
 	files := signingIn(t)
 	files["signin/google/signin.yaml"] = "flow: x\nstages: [\n"
-	s := newBench(t, files).serve()
+	s := newBench(t, files).serve(atURL)
 	r := s.nobody().get("/signin/google").is(http.StatusServiceUnavailable)
-	if !strings.Contains(string(r.body), "Signing in with Google is stopped") || r.header.Get("Location") != "" {
+	if !strings.Contains(string(r.body), "Signing in with Google is stopped until the office&#39;s problems with it are mended.") || r.header.Get("Location") != "" {
 		t.Errorf("a stopped method is answered %s", r.body)
 	}
 	if page := string(s.nobody().get("/").body); strings.Contains(page, "/signin/google") {
@@ -204,14 +211,32 @@ func TestServerStoppedSignInMethodBeginsNothing(t *testing.T) {
 	}
 	me := s.as("sam").get("/api/me").is(http.StatusOK).json()
 	methods := me["office"].(map[string]any)["signin"].([]any)
-	if len(methods) != 1 || methods[0].(map[string]any)["status"] != "stopped" {
+	if len(methods) != 1 || methods[0].(map[string]any)["status"] != "stopped" || methods[0].(map[string]any)["back"] != houseURL+"/signin/google/back" {
 		t.Errorf("the office's methods are %v", methods)
+	}
+
+	// On a server started with no --url, a method with no problem is
+	// stopped as well, and says why.
+	s = newBench(t, signingIn(t)).serve()
+	if !s.logged("google signs nobody in: the server was started with no --url") {
+		t.Errorf("the log does not say google is stopped:\n%s", strings.Join(s.lines(), "\n"))
+	}
+	r = s.nobody().get("/signin/google").is(http.StatusServiceUnavailable)
+	if !strings.Contains(string(r.body), "Signing in with Google is stopped: the server was started with no --url") || r.header.Get("Location") != "" || r.cookie() != nil {
+		t.Errorf("a method on a server with no --url is answered %s", r.body)
+	}
+	if page := string(s.nobody().get("/").body); strings.Contains(page, "/signin/google") {
+		t.Errorf("the sign-in page offers a method on a server with no --url: %s", page)
+	}
+	m := s.as("sam").get("/api/me").is(http.StatusOK).json()["office"].(map[string]any)["signin"].([]any)[0].(map[string]any)
+	if m["status"] != "stopped" || m["back"] != nil || !strings.Contains(m["unserved"].(string), "no --url") {
+		t.Errorf("a method on a server with no --url is %v", m)
 	}
 }
 
 func TestServerMeSaysHowOneSignsIn(t *testing.T) {
 	t.Parallel()
-	s := newBench(t, signingIn(t)).serve()
+	s := newBench(t, signingIn(t)).serve(atURL)
 	sam := s.as("sam").get("/api/me").is(http.StatusOK).json()
 	me := sam["me"].(map[string]any)
 	accounts := me["accounts"].([]any)
@@ -233,7 +258,7 @@ func TestServerMeSaysHowOneSignsIn(t *testing.T) {
 		t.Errorf("Kit is %v", k)
 	}
 	office := kit["office"].(map[string]any)
-	if !office["password"].(bool) || office["signin"].([]any)[0].(map[string]any)["back"] != s.address()+"/signin/google/back" {
+	if !office["password"].(bool) || office["signin"].([]any)[0].(map[string]any)["back"] != houseURL+"/signin/google/back" {
 		t.Errorf("the office is %v", office)
 	}
 }

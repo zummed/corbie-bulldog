@@ -29,9 +29,11 @@
 
   // signIn draws one sign-in method: what the sign-in page calls it, the
   // folder it runs, its one status, the address its provider sends the
-  // browser back to, and what is wrong with it to those who see that.
+  // browser back to, and what is wrong with it: why the server gives it
+  // no such address, and, to those who see them, its problems.
   function signIn(m) {
-    const problems = (B.me.problems || []).filter((p) => p.signin === m.name);
+    const problems = (B.me.problems || []).filter((p) => p.signin === m.name).map((p) => p.said);
+    if (m.unserved) problems.unshift("Stopped: " + m.unserved + ".");
     return B.el("section", {class: "br", id: "signin-" + m.name, "aria-label": m.name},
       B.el("div", {class: "br-head"},
         B.el("h2", {class: "mono"}, m.name),
@@ -40,8 +42,8 @@
         B.kv([
           ["Button", "Sign in with " + m.called],
           ["Folder", m.shipped ? B.el("span", {class: "line"}, B.el("span", {class: "mono"}, m.folder), B.el("a", {class: "faint", href: "#/office/built-in"}, "Built-in")) : B.el("span", {class: "mono"}, m.folder)],
-          [B.el("span", {class: "line"}, "Redirect URI", ...B.info("About the redirect URI", "Registered at the provider, exactly.")), B.el("span", {class: "mono"}, m.back)],
-          problems.length ? ["Problems", B.el("div", {class: "stack br-problems"}, problems.map((p) => B.el("span", {class: "mono br-bad"}, p.said)))] : null,
+          [B.el("span", {class: "line"}, "Redirect URI", ...B.info("About the redirect URI", "Registered at the provider, exactly.")), m.back ? B.el("span", {class: "mono"}, m.back) : B.el("span", {class: "faint"}, "None")],
+          problems.length ? ["Problems", B.el("div", {class: "stack br-problems"}, problems.map((p) => B.el("span", {class: "mono br-bad"}, p)))] : null,
         ])));
   }
 

@@ -18,7 +18,7 @@ The sign-in page shows "Sign in with Microsoft". Bulldog sends the browser to th
 ## Set up at Microsoft
 
 1. In the Microsoft Entra admin center, under App registrations, make a new registration, for accounts in this organizational directory only.
-2. Give it, under Authentication, the platform Web, with the redirect URI `<office url>/signin/<name>/back`, exactly as the server's log names it at its start, with the office's `--url`, as `https://bulldog.example.com/signin/entra/back`. Without `--url` the office is reached at `http://127.0.0.1:7410`, which Microsoft takes only as `localhost`, from the computer the server runs on.
+2. Give it, under Authentication, the platform Web, with the redirect URI `<office url>/signin/<name>/back`, exactly as the server's log names it at its start, with the office's `--url`, as `https://bulldog.example.com/signin/entra/back`. Without `--url` the method signs nobody in. On one's own computer, serve with `--url http://localhost:7410`, the only plain `http` address Microsoft takes.
 3. Under Certificates & secrets, make a client secret, and keep its value in Corbie: `corbie controller secret set ENTRA_CLIENT_SECRET`. It expires: make a new one before it does.
 4. Write the Directory (tenant) ID as `tenant` and the Application (client) ID as `client_id` in the entry.
 5. Write each person's sign-in name under their name, as `entra: al@corp.example`.

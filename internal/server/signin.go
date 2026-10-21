@@ -112,7 +112,7 @@ func (s *site) signInPage(w http.ResponseWriter, status int, said string) {
 	}
 	var methods []string
 	for _, name := range o.SignInOrder {
-		if m := o.SignIns[name]; m.Runs() {
+		if m := o.SignIns[name]; s.runs(m) {
 			methods = append(methods, fmt.Sprintf(`<a class="signin-with" href="/signin/%s">Sign in with %s</a>`, html.EscapeString(name), html.EscapeString(methodCalled(m))))
 		}
 	}

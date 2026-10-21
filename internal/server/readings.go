@@ -13,14 +13,15 @@ import (
 // each person new in a good one, whose key it makes, once every area has
 // taken it, as taken gives it and took tells.
 type readings struct {
-	say    func(format string, args ...any)
-	db     *sql.DB
-	keeper *office.Keeper
-	clock  work.Clock
-	dir    string
-	url    string
-	taken  func() *office.Office
-	took   chan struct{}
+	say      func(format string, args ...any)
+	db       *sql.DB
+	keeper   *office.Keeper
+	clock    work.Clock
+	dir      string
+	url      string
+	urlGiven string
+	taken    func() *office.Office
+	took     chan struct{}
 
 	// logged are the problems of the latest reading, as they were said;
 	// read is the good reading the people's keys were last made for.
@@ -70,7 +71,8 @@ func (r *readings) problems() bool {
 // person new in it: to every person, at the first. A link is given only
 // once every area has taken the reading, so that whoever opens it finds
 // the office as it read. Before them it says, of each sign-in method new
-// in the reading, the address its provider sends the browser back to.
+// in the reading, the address its provider sends the browser back to, or
+// that it signs nobody in for want of one.
 func (r *readings) links() {
 	o := r.taken()
 	if o == nil || o == r.read {
@@ -91,8 +93,12 @@ func (r *readings) links() {
 		r.office()
 	}
 	for _, name := range o.SignInOrder {
-		if r.read == nil || r.read.SignIns[name] == nil {
-			r.say("%s signs people in by their provider sending them back to %s, which the provider must have as a redirect URI", name, backOf(r.url, name))
+		switch {
+		case r.read != nil && r.read.SignIns[name] != nil:
+		case r.urlGiven == "":
+			r.say("%s signs nobody in: %s", name, noURL)
+		default:
+			r.say("%s signs people in by their provider sending them back to %s, which the provider must have as a redirect URI", name, backOf(r.urlGiven, name))
 		}
 	}
 	given := made

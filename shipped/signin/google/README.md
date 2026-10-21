@@ -17,7 +17,7 @@ The sign-in page shows "Sign in with Google". Bulldog sends the browser to Googl
 ## Set up at Google
 
 1. In the Google Cloud console, under APIs & Services, set up the OAuth consent screen: internal, for a Google Workspace of your own, or external, with the people who sign in as its test users or the app published.
-2. Under Credentials, create an OAuth client ID of the type Web application, and add as its authorized redirect URI `<office url>/signin/<name>/back`, exactly as the server's log names it at its start, with the office's `--url`, as `https://bulldog.example.com/signin/google/back`. Without `--url` the office is reached at `http://127.0.0.1:7410`, which Google takes only from the computer the server runs on.
+2. Under Credentials, create an OAuth client ID of the type Web application, and add as its authorized redirect URI `<office url>/signin/<name>/back`, exactly as the server's log names it at its start, with the office's `--url`, as `https://bulldog.example.com/signin/google/back`. Without `--url` the method signs nobody in. On one's own computer, serve with `--url http://localhost:7410`, a plain `http` address Google takes only for `localhost`.
 3. Write its client ID as `client_id` in the entry, and keep its secret in Corbie: `corbie controller secret set GOOGLE_CLIENT_SECRET`.
 4. Write each person's Google address under their name, as `google: sam@example.com`.
 
