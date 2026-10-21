@@ -153,8 +153,8 @@ func authorizeOf(m *office.SignIn, back string, sg signing) (string, error) {
 // back takes the browser the provider sent back: its state must be one
 // this browser began, within Signing, and it is used up whatever follows.
 // A method stopped since signs nobody in. The method's machine is given
-// the code, and the one person whose account
-// by the method it answers is signed in, as their key in an address does.
+// the code, and the one person whose account by the method it answers is
+// signed in, as their key in an address does.
 func (s *site) back(w http.ResponseWriter, r *http.Request) {
 	o := s.Keeper.Office()
 	if o == nil {
