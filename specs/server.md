@@ -33,7 +33,7 @@ With no folder named, it is the folder the program is run in when that holds an 
 | an office with no `.bulldog/` | makes it, with the office's identity |
 | an office whose `.bulldog/` was made in another folder | refuses it, naming both folders, unless the command is `init`, which takes it as the office moved |
 
-The example is the house the office page shows, without its bridge: no `bridges` key and no Telegram identities under its people, spoken to in the built-in chat alone. It reads with no problem at once, and a person can ask it something as soon as it is served. Setting a bridge is a person's first change: setting the shipped Telegram bridge writes `telegram: { from: ./.bulldog/bridges/telegram, places: { direct: {} } }` under `bridges`, the settings Bulldog ships it with, which hear people's direct messages to the bot.
+The example is the house the office page shows, without its bridge and its sign-in by Google, each of which needs a service set up: no `bridges` or `signin` key, and no Telegram identities or Google accounts under its people, spoken to in the built-in chat alone. Sam may still set a password, as his entry says. It reads with no problem at once, and a person can ask it something as soon as it is served. Setting a bridge is a person's first change: setting the shipped Telegram bridge writes `telegram: { from: ./.bulldog/bridges/telegram, places: { direct: {} } }` under `bridges`, the settings Bulldog ships it with, which hear people's direct messages to the bot.
 
 - A folder named that is not there is refused, and nothing is made: `corbie bulldog init <folder>` makes it.
 - A folder that has things in it and no `office.yaml` is no office. It is refused, and left as it was.

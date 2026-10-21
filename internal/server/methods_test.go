@@ -24,8 +24,9 @@ import (
 func signingIn(t *testing.T) map[string]string {
 	t.Helper()
 	files := house(t)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], `telegram: "4471" }`, `telegram: "4471", google: Sam@Example.com, password: true }`, 1)
-	files["office.yaml"] += "signin:\n  google: { client_id: house-client, authorize: \"https://accounts.example/auth\", scope: openid email, label: Google }\n"
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "google: sam@example.com", "google: Sam@Example.com", 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "  google:\n    from: ./.bulldog/signin/google\n    client_id: 1234567890-house.apps.googleusercontent.com   # from the Google Cloud console; Corbie keeps GOOGLE_CLIENT_SECRET\n",
+		"  google: { client_id: house-client, authorize: \"https://accounts.example/auth\", scope: openid email, label: Google }\n", 1)
 	for name, text := range testkit.SignIn() {
 		files["signin/google/"+name] = text
 	}
@@ -175,7 +176,7 @@ func TestServerSigningStateBoundUsedOnceAndShort(t *testing.T) {
 	refused("an old state", s.back("google", "sam@example.com", to.Query().Get("state"), bound))
 	// A state another method began.
 	files := signingIn(t)
-	files["office.yaml"] += "  other: { client_id: c, authorize: \"https://other.example/auth\", scope: openid }\n"
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "signin:\n", "signin:\n  other: { client_id: c, authorize: \"https://other.example/auth\", scope: openid }\n", 1)
 	for name, text := range testkit.SignIn() {
 		files["signin/other/"+name] = text
 	}
@@ -283,8 +284,9 @@ func TestServerPasswordWrongNameAnsweredAlike(t *testing.T) {
 			t.Errorf("%s is answered %s, and a wrong password %s", name, r.body, wrong.body)
 		}
 	}
-	// The sign-in page offers a password whoever is named.
+	// A house where nobody may set a password offers none.
 	files := house(t)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], ", password: true", "", 1)
 	if page := string(newBench(t, files).serve().nobody().get("/").body); strings.Contains(page, `id="password"`) {
 		t.Error("the house, where nobody may set a password, offers one")
 	}
@@ -352,10 +354,7 @@ func TestServerPasswordDestroyedWithEntry(t *testing.T) {
 
 func TestServerBuiltInListsSignInMethods(t *testing.T) {
 	t.Parallel()
-	files := house(t)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], `telegram: "4471" }`, `telegram: "4471", google: sam@example.com }`, 1)
-	files["office.yaml"] += "signin:\n  google:\n    from: ./.bulldog/signin/google\n    client_id: house-client\n"
-	s := newBench(t, files).serve()
+	s := newBench(t, house(t)).serve()
 	var out shippedOut
 	s.as("kit").get("/api/shipped").is(http.StatusOK).into(&out)
 	things := map[string]thingOut{}

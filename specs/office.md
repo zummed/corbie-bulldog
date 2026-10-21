@@ -25,7 +25,7 @@ house/
 - **`notes/`** in a team's folder holds its notes, and **`docs/`** its docs. A bridge runs the folder Bulldog ships that its entry's `from` names, as `./.bulldog/bridges/telegram`, or else the office's own: **`bridges/`**, at the top only, holds a folder for each bridge of the office's own, `bridges/<name>`, found by the bridge's name alone. The settings `bridges` gives a bridge are handed whole to its machines, and Bulldog reads of them only the folder `from` names and the places the bridge listens in, whose shape is the bridges page's; the office checks that each team a place names is a team of the office, and that the settings fit the shape its machines' input gives them. A sign-in method runs a folder the same way: the one Bulldog ships that its entry's `from` names, as `./.bulldog/signin/google`, or else the office's own, **`signin/<name>`**, at the top only, holding its one machine, `signin.yaml`.
 - **`.bulldog/` is Bulldog's, not the office's.** It holds Bulldog's store, the office's identity, and what Bulldog ships, which a definition names by its path there, and Corbie reads it from there as it reads the office's files. What Bulldog ships is its own machines, flat at the top, the ask among them; and one folder for each thing an office uses, a tools file in `tools/<name>/`, a rule in `rules/<name>/`, a bridge in `bridges/<name>/` or a sign-in method in `signin/<name>/`, with the thing's page, `README.md`, which is also its page of the manual, named by its path, as `tools/talk`. No change touches it and it is not in the history. Nothing else whose name starts with a dot is the office either.
 
-The office the server writes into an empty folder is this house without the bridge: no `bridges` key and no Telegram identities under its people, spoken to in the built-in chat alone. It reads with no problem at once; the server page says when it is written.
+The office the server writes into an empty folder is this house without the bridge and its sign-in by Google: no `bridges` or `signin` key and no Telegram identities or Google accounts under its people, spoken to in the built-in chat alone. It reads with no problem at once; the server page says when it is written.
 
 Everything a definition or a team file names is inside the folder. What runs is what is in the files. A folder that is not there, or holds no `office.yaml`, is not an office, and Bulldog writes nothing into it.
 
@@ -37,13 +37,17 @@ name: The house
 about: The house and everything in it, but the garden.
 zone: Europe/London
 everyone:
-  sam: { name: Sam, title: Owner. Decides money and the building., telegram: "4471" }
+  sam: { name: Sam, title: Owner. Decides money and the building., telegram: "4471", google: sam@example.com, password: true }
   kit: { name: Kit, title: Lives here., telegram: "4472" }
 bridges:
   telegram:
     from: ./.bulldog/bridges/telegram
     places:
       direct: {}                   # as Bulldog ships it: Sam and Kit may ask the house in a direct message
+signin:
+  google:
+    from: ./.bulldog/signin/google
+    client_id: 1234567890-house.apps.googleusercontent.com   # from the Google Cloud console; Corbie keeps GOOGLE_CLIENT_SECRET
 models:
   usual: { name: sonnet, service: claude-code }
 people: [sam, kit]
@@ -180,11 +184,11 @@ name: Platform support
 about: "Help with the platform and with payments, asked in #help."
 zone: Europe/London
 everyone:
-  al:    { name: Al, title: Runs the office., slack: U0AL0000, gitlab: "1041" }
-  dana:  { name: Dana, title: Support., slack: U0DANA00 }
-  lee:   { name: Lee, title: Payments., slack: U0LEE000 }
-  priya: { name: Priya, title: Payments., slack: U0PRI000 }
-  raj:   { name: Raj, title: Backend., slack: U0RAJ000, gitlab: "1187" }
+  al:    { name: Al, title: Runs the office., slack: U0AL0000, gitlab: "1041", entra: al@platform.example }
+  dana:  { name: Dana, title: Support., slack: U0DANA00, entra: dana@platform.example }
+  lee:   { name: Lee, title: Payments., slack: U0LEE000, entra: lee@platform.example }
+  priya: { name: Priya, title: Payments., slack: U0PRI000, entra: priya@platform.example }
+  raj:   { name: Raj, title: Backend., slack: U0RAJ000, gitlab: "1187", entra: raj@platform.example }
 bridges:
   slack:
     from: ./.bulldog/bridges/slack
@@ -195,6 +199,11 @@ bridges:
     site: gitlab.com
     places:
       platform/api: { team: platform }
+signin:
+  entra:
+    from: ./.bulldog/signin/entra
+    tenant: 72f988bf-86f1-41af-91ab-2d7cd011db47       # the directory's ID; Corbie keeps ENTRA_CLIENT_SECRET
+    client_id: 5f3c1a2e-0b7d-4e8a-9c61-2a4b8d0e7f19
 models:
   usual: { name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }
 people: [al]
@@ -270,5 +279,5 @@ The problems shown are always those of the latest reading. Until the office has 
 - **Decisions** reads the `decide` and `disclosure` lists and the notes a disclosure check reads, and runs the rules they name, each as it is written. The office gives the people a team's decisions reach: those its `everything` names, or its people where it writes none, or, where that names nobody, those of the first `everything` outward that does, with anyone no longer in the office left out. Decisions and Requests both take them from here.
 - **Bridges** reads `bridges`, the folders under `bridges/` and the folders Bulldog ships that a `from` names, says the shape of the places a bridge listens in, whose teams the office checks, and matches the identity a bridge gives to the person whose entry names it.
 - **Changes** writes the office's files, a person's entry among them, keeps each note a worker writes as a commit, has every change checked by a reading of the folder as it would be after the change, and asks which files are the office's and which files only one worker's definition names.
-- **Server** reads the office from the folder it is given at each start, writes the house without its bridge into an empty folder, holds the office's identity, which is not its name and not in its files, signs people in, sending a one-time link over a person's bridges in the order written, by the sign-in methods `signin` names, each to the person whose entry writes the account its machine answers, and by a password of their own where their entry says `password: true`, and shows each team's `about`, notes, docs and problems of the latest reading, and each worker's model as filled in, with what each of its tools may reach, each model's secret, and when each routine comes round next, to those who may see them.
+- **Server** reads the office from the folder it is given at each start, writes the house without its bridge or Google into an empty folder, holds the office's identity, which is not its name and not in its files, signs people in, sending a one-time link over a person's bridges in the order written, by the sign-in methods `signin` names, each to the person whose entry writes the account its machine answers, and by a password of their own where their entry says `password: true`, and shows each team's `about`, notes, docs and problems of the latest reading, and each worker's model as filled in, with what each of its tools may reach, each model's secret, and when each routine comes round next, to those who may see them.
 - **Corbie's client** checks every definition, as it does before a start.

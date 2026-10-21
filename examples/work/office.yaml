@@ -3,11 +3,11 @@ name: Platform support
 about: "Help with the platform and with payments, asked in #help."
 zone: Europe/London
 everyone:
-  al:    { name: Al, title: Runs the office., slack: U0AL0000, gitlab: "1041" }
-  dana:  { name: Dana, title: Support., slack: U0DANA00 }
-  lee:   { name: Lee, title: Payments., slack: U0LEE000 }
-  priya: { name: Priya, title: Payments., slack: U0PRI000 }
-  raj:   { name: Raj, title: Backend., slack: U0RAJ000, gitlab: "1187" }
+  al:    { name: Al, title: Runs the office., slack: U0AL0000, gitlab: "1041", entra: al@platform.example }
+  dana:  { name: Dana, title: Support., slack: U0DANA00, entra: dana@platform.example }
+  lee:   { name: Lee, title: Payments., slack: U0LEE000, entra: lee@platform.example }
+  priya: { name: Priya, title: Payments., slack: U0PRI000, entra: priya@platform.example }
+  raj:   { name: Raj, title: Backend., slack: U0RAJ000, gitlab: "1187", entra: raj@platform.example }
 bridges:
   slack:
     from: ./.bulldog/bridges/slack
@@ -18,6 +18,11 @@ bridges:
     site: gitlab.com
     places:
       platform/api: { team: platform }
+signin:
+  entra:
+    from: ./.bulldog/signin/entra
+    tenant: 72f988bf-86f1-41af-91ab-2d7cd011db47       # the directory's ID; Corbie keeps ENTRA_CLIENT_SECRET
+    client_id: 5f3c1a2e-0b7d-4e8a-9c61-2a4b8d0e7f19
 models:
   usual: { name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }
 people: [al]

@@ -227,7 +227,7 @@ func TestRequestsAskerReadEachTime(t *testing.T) {
 		t.Fatalf("Dana's request is asked by %+v", p)
 	}
 	files := d.files
-	d.read(replace(t, files, "office.yaml", "dana:  { name: Dana, title: Support., slack: U0DANA00 }", "dana:  { name: Dana, title: Support. }"))
+	d.read(replace(t, files, "office.yaml", "dana:  { name: Dana, title: Support., slack: U0DANA00,", "dana:  { name: Dana, title: Support.,"))
 	if p := got[requests.Party](t)(d.Asks(d.dana)); p.Kind != requests.IsGuest || p.Bridge != "slack" || p.ID != slackDana {
 		t.Errorf("with her identity gone, Dana's request is asked by %+v", p)
 	}

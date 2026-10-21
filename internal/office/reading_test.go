@@ -17,7 +17,7 @@ func TestTheOfficeIsReadWhole(t *testing.T) {
 	t.Parallel()
 	o := reads(t, house(t))
 	want := []string{"bins.yaml", "builder.yaml", "clerk.yaml", "fixer.yaml", "sparks.yaml", "steward.yaml",
-		"garden/gardener.yaml", "garden/groundsman.yaml", "small-orders.js", ".bulldog/bridges/telegram/in.yaml", ".bulldog/bridges/telegram/out.yaml"}
+		"garden/gardener.yaml", "garden/groundsman.yaml", "small-orders.js", ".bulldog/bridges/telegram/in.yaml", ".bulldog/bridges/telegram/out.yaml", ".bulldog/signin/google/signin.yaml"}
 	if got := slices.Sorted(slices.Values(o.Checked)); !slices.Equal(got, slices.Sorted(slices.Values(want))) {
 		t.Errorf("Corbie checked %v", o.Checked)
 	}
@@ -51,7 +51,7 @@ func TestOfficeEveryProblemTogether(t *testing.T) {
 			t.Errorf("the problem %#v does not say its file and what is wrong", p)
 		}
 	}
-	if p := says(t, problems, "office.yaml", "nobody"); p.Line != 14 {
+	if p := says(t, problems, "office.yaml", "nobody"); p.Line != 18 {
 		t.Errorf("the problem is said at line %d", p.Line)
 	}
 }

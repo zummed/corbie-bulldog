@@ -149,7 +149,7 @@ func withMoreBridges(files map[string]string, sam string) map[string]string {
 	maps.Copy(files, standin.In("pigeon", standin.Folder(false, true)))
 	maps.Copy(files, standin.In("board", standin.Folder(false, false)))
 	files["office.yaml"] = strings.Replace(files["office.yaml"], "bridges:\n", "bridges:\n  pigeon: { places: { direct: {} } }\n  board: { places: {} }\n", 1)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], `sam: { name: Sam, title: Owner. Decides money and the building., telegram: "4471" }`, sam, 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], `sam: { name: Sam, title: Owner. Decides money and the building., telegram: "4471", google: sam@example.com, password: true }`, sam, 1)
 	return files
 }
 

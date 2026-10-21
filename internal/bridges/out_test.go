@@ -110,7 +110,7 @@ func TestBridgesThingsGoWhereTheyAreFor(t *testing.T) {
 
 func TestBridgesNoDirectPlaceCarriesToNoPerson(t *testing.T) {
 	t.Parallel()
-	files := replace(t, work(t), "office.yaml", "lee:   { name: Lee, title: Payments., slack: U0LEE000 }", `lee:   { name: Lee, title: Payments., gitlab: "2001" }`)
+	files := replace(t, work(t), "office.yaml", "lee:   { name: Lee, title: Payments., slack: U0LEE000,", `lee:   { name: Lee, title: Payments., gitlab: "2001",`)
 	d := open(t, files)
 	n := d.ask("C1/1.0", "refund one")
 	sub, err := d.requests.Sub(n, d.requests.Worker("bot"), "payments", "refund one charge", "ticket-1")
@@ -339,7 +339,7 @@ func TestBridgesSignedInMayAskForAnother(t *testing.T) {
 
 func TestBridgesSignInLinkOnlyDirect(t *testing.T) {
 	t.Parallel()
-	d := open(t, replace(t, work(t), "office.yaml", `al:    { name: Al, title: Runs the office., slack: U0AL0000, gitlab: "1041" }`, `al:    { name: Al, title: Runs the office., gitlab: "1041" }`))
+	d := open(t, replace(t, work(t), "office.yaml", `al:    { name: Al, title: Runs the office., slack: U0AL0000, gitlab: "1041",`, `al:    { name: Al, title: Runs the office., gitlab: "1041",`))
 	if _, err := d.SignIn("gitlab", "al", "https://work.example/signin/abc"); err == nil {
 		t.Error("the GitLab bridge, with no direct place, takes a sign-in link")
 	}
@@ -518,7 +518,7 @@ func TestBridgesOutEndingTakenOnce(t *testing.T) {
 
 func TestBridgesNewlyReachedStartFromNow(t *testing.T) {
 	t.Parallel()
-	files := replace(t, work(t), "office.yaml", "lee:   { name: Lee, title: Payments., slack: U0LEE000 }", "lee:   { name: Lee, title: Payments. }")
+	files := replace(t, work(t), "office.yaml", "lee:   { name: Lee, title: Payments., slack: U0LEE000,", "lee:   { name: Lee, title: Payments.,")
 	d := open(t, files)
 	n := d.ask("C1/1.0", "refund one")
 	sub, err := d.requests.Sub(n, d.requests.Worker("bot"), "payments", "refund one charge", "ticket-1")
@@ -530,7 +530,7 @@ func TestBridgesNewlyReachedStartFromNow(t *testing.T) {
 	d.decide(sub.Number, "Refund one charge", "lee")
 	// Nothing is carried before the new reading, so what was written before
 	// it is first looked at after it.
-	d.read(replace(t, d.files, "office.yaml", "lee:   { name: Lee, title: Payments. }", "lee:   { name: Lee, title: Payments., slack: U0LEE000 }"))
+	d.read(replace(t, d.files, "office.yaml", "lee:   { name: Lee, title: Payments.,", "lee:   { name: Lee, title: Payments., slack: U0LEE000,"))
 	if got := texts(d.drain()); !slices.Equal(got, []string{"slack:U0LEE000: Refund one charge"}) {
 		t.Errorf("Lee is carried %v", got)
 	}

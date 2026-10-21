@@ -1,6 +1,7 @@
 package work
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/zummed/corbie-bulldog/internal/testkit"
@@ -11,7 +12,7 @@ import (
 func signingIn(t *testing.T) map[string]string {
 	t.Helper()
 	files := house(t)
-	files["office.yaml"] += "signin:\n  test: { label: Test }\n"
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "signin:\n", "signin:\n  test: { label: Test }\n", 1)
 	for name, text := range testkit.SignIn() {
 		files["signin/test/"+name] = text
 	}

@@ -27,13 +27,16 @@ func sub(dir string) fs.FS {
 	return tree
 }
 
-// telegram is who a person is on the Telegram bridge, as the house's
-// office.yaml writes it beside their name and title.
-var telegram = regexp.MustCompile(`, telegram: "[^"]*"`)
+// elsewhere is who a person is on the Telegram bridge and their account
+// by Google, as the house's office.yaml writes them beside their name and
+// title.
+var elsewhere = regexp.MustCompile(`, (telegram: "[^"]*"|google: [^,}]*)`)
 
 // NewHouse gives the files of the office written into an empty folder:
-// the house without its bridge, spoken to in the built-in chat alone. It
-// has no bridges key and no Telegram identities.
+// the house without its bridge and its sign-in by Google, each needing a
+// service set up, spoken to in the built-in chat alone. It has no bridges
+// or signin key, no Telegram identities and no Google accounts; a person
+// may still set a password where the house says so.
 func NewHouse() map[string][]byte {
 	files := map[string][]byte{}
 	err := fs.WalkDir(House(), ".", func(name string, d fs.DirEntry, err error) error {
@@ -48,14 +51,14 @@ func NewHouse() map[string][]byte {
 		panic(err)
 	}
 	var kept []string
-	inBridges := false
+	left := false
 	for _, line := range strings.SplitAfter(string(files["office.yaml"]), "\n") {
 		top := line != "" && line[0] != ' ' && line[0] != '\n' && line[0] != '#'
 		if top {
-			inBridges = strings.HasPrefix(line, "bridges:")
+			left = strings.HasPrefix(line, "bridges:") || strings.HasPrefix(line, "signin:")
 		}
-		if !inBridges {
-			kept = append(kept, telegram.ReplaceAllString(line, ""))
+		if !left {
+			kept = append(kept, elsewhere.ReplaceAllString(line, ""))
 		}
 	}
 	files["office.yaml"] = []byte(strings.Join(kept, ""))

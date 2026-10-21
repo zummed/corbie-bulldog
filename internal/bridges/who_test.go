@@ -370,7 +370,7 @@ func TestBridgesIdentityChangedOnlyByAChange(t *testing.T) {
 	}
 	// Once a change writes Lee with the new account, his yes is taken from
 	// it, and no longer from the old.
-	d.read(replace(t, d.files, "office.yaml", "slack: U0LEE000 }", "slack: U0NEWLEE }"))
+	d.read(replace(t, d.files, "office.yaml", "slack: U0LEE000,", "slack: U0NEWLEE,"))
 	lee = slices.DeleteFunc(to(d.drain(), "slack", "U0NEWLEE"), func(s bridges.Start) bool { return s.Input["ref"] == nil })
 	if len(lee) != 1 {
 		t.Fatalf("the decision is not carried to Lee's new account: %v", lee)

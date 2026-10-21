@@ -401,7 +401,7 @@ func TestALeadWhoIsAPersonAnsweringOnABridgeReachesItsDisclosureCheck(t *testing
 	t.Parallel()
 	files := work(t)
 	files["office.yaml"] = strings.Replace(files["office.yaml"], "platform/api: { team: platform }", "platform/api: { team: platform }\n      support/desk: { team: support }", 1)
-	files["office.yaml"] = strings.Replace(files["office.yaml"], "slack: U0DANA00 }", `slack: U0DANA00, gitlab: "1300" }`, 1)
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "slack: U0DANA00,", `slack: U0DANA00, gitlab: "1300",`, 1)
 	files["support/team.yaml"] += "disclosure: [./kindly.js]\n"
 	files["support/kindly.js"] = `return input.text.includes("calm down") ? { says: "refuse", note: "say it kindly" } : { says: "yes" }`
 	b := newBench(t, files)

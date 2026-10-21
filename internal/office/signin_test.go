@@ -11,13 +11,13 @@ import (
 	"github.com/zummed/corbie-bulldog/shipped"
 )
 
-// signingIn gives the house with Sam signing in by Google and by a
-// password of his own, as the house's office.yaml may write it.
+// signingIn gives the house, with Sam signing in by Google and by a
+// password of his own, his account written in capitals and the client's
+// ID a short one.
 func signingIn(t *testing.T) map[string]string {
 	t.Helper()
-	files := replace(t, house(t), "office.yaml", `telegram: "4471" }`, `telegram: "4471", google: Sam@Example.com, password: true }`)
-	files["office.yaml"] += "signin:\n  google:\n    from: ./.bulldog/signin/google\n    client_id: 1234-house.apps.googleusercontent.com\n"
-	return files
+	files := replace(t, house(t), "office.yaml", "google: sam@example.com", "google: Sam@Example.com")
+	return replace(t, files, "office.yaml", "    client_id: 1234567890-house.apps.googleusercontent.com   # from the Google Cloud console; Corbie keeps GOOGLE_CLIENT_SECRET\n", "    client_id: 1234-house.apps.googleusercontent.com\n")
 }
 
 // stopped reads an office that reads, with a problem stopping one sign-in
@@ -69,9 +69,14 @@ func TestSignInMethodsInTheFiles(t *testing.T) {
 	if o := reads(t, own); o.SignIns["google"].Dir() != "signin/google" || !o.SignIns["google"].Runs() || !slices.Contains(o.Checked, "signin/google/signin.yaml") {
 		t.Errorf("the office's own google runs %s", o.SignIns["google"].Dir())
 	}
-	// The house without it reads with no sign-in method.
-	if o := reads(t, house(t)); len(o.SignIns) != 0 {
+	// The house without it, and Sam's account, reads with no sign-in
+	// method; the work office signs in by entra.
+	none := replace(t, signingIn(t), "office.yaml", "signin:\n  google:\n    from: ./.bulldog/signin/google\n    client_id: 1234-house.apps.googleusercontent.com\n", "")
+	if o := reads(t, replace(t, none, "office.yaml", ", google: Sam@Example.com", "")); len(o.SignIns) != 0 {
 		t.Errorf("the house has the sign-in methods %v", o.SignInOrder)
+	}
+	if o := reads(t, work(t)); !slices.Equal(o.SignInOrder, []string{"entra"}) || o.SignIns["entra"].Dir() != ".bulldog/signin/entra" || len(o.People["al"].Accounts) != 1 {
+		t.Errorf("the work office signs in by %v", o.SignInOrder)
 	}
 }
 
@@ -151,7 +156,7 @@ func TestOfficeAccountNamesOnePerson(t *testing.T) {
 	files := signingIn(t)
 	says(t, refused(t, replace(t, files, "office.yaml", `telegram: "4472" }`, `telegram: "4472", google: SAM@example.com }`)), "office.yaml", "sam and kit are both SAM@example.com by google")
 	// The same account by two methods is two accounts.
-	files["office.yaml"] += "  google-work:\n    from: ./.bulldog/signin/google\n    client_id: 5678-house.apps.googleusercontent.com\n"
+	files["office.yaml"] = strings.Replace(files["office.yaml"], "signin:\n", "signin:\n  google-work:\n    from: ./.bulldog/signin/google\n    client_id: 5678-house.apps.googleusercontent.com\n", 1)
 	o := reads(t, replace(t, files, "office.yaml", `telegram: "4472" }`, `telegram: "4472", google-work: sam@example.com }`))
 	if o.Account("google", "sam@example.com").Name != "sam" || o.Account("google-work", "sam@example.com").Name != "kit" {
 		t.Error("an account names someone by another method")
