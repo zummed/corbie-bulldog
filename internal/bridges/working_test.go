@@ -202,19 +202,16 @@ func TestBridgesMarkNeverHoldsUpAnAnswer(t *testing.T) {
 	d.ended(out[0], map[string]any{"sent": "s1"})
 	// The failed run may have made its mark all the same, so the team is
 	// done there after the answer. That fails too: it is given up, and
-	// kept again when the request is next looked at.
+	// kept again once, at once, as a failed mark's request is looked at
+	// again.
 	out = d.carry()
 	if len(out) != 1 || out[0].Input["working"] != "done" {
 		t.Fatalf("the next out run is %v", marked(out))
 	}
 	d.failed(out[0], "Slack said ratelimited")
-	if again := d.carry(); len(again) != 0 {
-		t.Errorf("a given up mark is carried again at once: %v", marked(again))
-	}
-	d.requests.Tell(n)
 	out = d.carry()
 	if len(out) != 1 || out[0].Input["working"] != "done" {
-		t.Fatalf("once the request is looked at again, the out run is %v", marked(out))
+		t.Fatalf("after the mark failed, the out run is %v", marked(out))
 	}
 	// That one is refused, and given up: it is kept again no more, however
 	// often the request is looked at, or Bulldog started again. The
@@ -303,16 +300,18 @@ func TestBridgesDisclosureShownAsWorking(t *testing.T) {
 		t.Errorf("once disclosed, what is carried is %v", got)
 	}
 	// A decision put to someone who has since left the office still waits
-	// on a person.
+	// on a person. The first waiting fails, and is kept again at once.
 	d.delivered("slack", said("U0RAJ000", "#help", "C2/1.0", "the webhook retries twice"))
 	r := d.latest()
 	d.starts(r)
 	d.decide(r, "restart the webhook?", "raj")
 	var got []string
+	failing := true
 	for out := d.carry(); len(out) > 0; out = d.carry() {
 		for _, s := range out {
 			got = append(got, marked([]bridges.Start{s})...)
-			if s.Input["working"] == "waiting" {
+			if s.Input["working"] == "waiting" && failing {
+				failing = false
 				d.failed(s, "the job failed: 502")
 			} else {
 				d.ended(s, map[string]any{"sent": "s"})
@@ -320,12 +319,12 @@ func TestBridgesDisclosureShownAsWorking(t *testing.T) {
 		}
 	}
 	slices.Sort(got)
-	if !slices.Equal(got, []string{"restart the webhook?", "waiting at C2/1.0", "working at C2/1.0"}) {
+	if !slices.Equal(got, []string{"restart the webhook?", "waiting at C2/1.0", "waiting at C2/1.0", "working at C2/1.0"}) {
 		t.Errorf("as Raj is asked, what is carried is %v", got)
 	}
 	d.read(replace(t, marking(t), "office.yaml", `  raj:   { name: Raj, title: Backend., slack: U0RAJ000, gitlab: "1187", entra: raj@platform.example }`+"\n", ""))
 	d.requests.Tell(r)
-	if got := marked(to(d.drain(), "slack", "C2/1.0")); !slices.Equal(got, []string{"waiting at C2/1.0"}) {
+	if got := marked(to(d.drain(), "slack", "C2/1.0")); len(got) != 0 {
 		t.Errorf("once Raj has left, the thread is carried %v", got)
 	}
 	st, err := d.requests.State(r)

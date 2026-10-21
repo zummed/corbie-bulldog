@@ -425,7 +425,7 @@ func (b *Bridges) look(o *office.Office, n int64) error {
 		return err
 	}
 	var now string
-	if last != nil {
+	if last != nil && (last.text != markDone || last.state == GivenUp) {
 		if now, err = b.standing(n); err != nil {
 			return err
 		}
@@ -806,7 +806,8 @@ func (b *Bridges) heardOf(bridge string, entry int64) (string, error) {
 // new run, each later than the last, and given up after MaxRuns. A
 // sign-in link is carried by one run alone, and the server is told how it
 // ended; a mark is carried by one run alone too, so it never holds up
-// what comes after it for long.
+// what comes after it for long, and one whose run failed has its request
+// looked at again, so the mark is kept again once.
 func (b *Bridges) OutEnded(id int64, run string, end End) error {
 	b.mu.Lock()
 	defer b.unlock()
@@ -846,6 +847,9 @@ func (b *Bridges) OutEnded(id int64, run string, end End) error {
 		return failed(err)
 	}
 	b.carried(*th)
+	if marks(th.kind) && sent == "" && refused == "" {
+		b.mark(th.request)
+	}
 	if th.kind == ofSignIn {
 		b.told = append(b.told, SignIn{Thing: id, Sent: sent != "", Refused: refused, Failed: failure})
 	}
