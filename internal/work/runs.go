@@ -362,16 +362,6 @@ func (w *Work) lost(ctx context.Context, n *note) {
 			w.trouble(n.Request, n.Team, fmt.Sprintf("Bulldog could not say that the run of %s was lost: %v", n.Worker, err))
 		}
 	}
-	w.worked(n)
-}
-
-// worked has the bridges told, once a lead's run on a request has ended
-// and what it said is written, that the team is done with it.
-func (w *Work) worked(n *note) {
-	if err := w.bridges.Worked(n.Request); err != nil {
-		w.Log("request %d: the bridges could not be told that %s is no longer working on it: %v", n.Request, n.Worker, err)
-	}
-	w.carryNow = true
 }
 
 // endOther keeps how a run ended that is no lead's or heed's on a
@@ -444,7 +434,6 @@ func (w *Work) take(ctx context.Context, n *note, run *client.Run, e ending) {
 	if err := w.said(ctx, n, run, e); err != nil {
 		w.trouble(n.Request, n.Team, fmt.Sprintf("Bulldog could not write how the run of %s ended: %v", n.Worker, err))
 	}
-	w.worked(n)
 }
 
 // said writes in a request how its run ended: the answer, by the worker;

@@ -43,12 +43,18 @@ type desk struct {
 	signedIn []bridges.SignIn
 	// choose is what Decisions says to a choice.
 	choose func(bridges.Choice) (string, error)
+	// disclosures are the decisions that ask a team's disclosure check,
+	// by their entry, and going the requests a run of whose lead goes, as
+	// Work says.
+	disclosures map[int64]bool
+	going       map[int64]bool
 }
 
 // open opens a store on a new file and reads an office into it.
 func open(t *testing.T, files map[string]string) *desk {
 	t.Helper()
-	d := &desk{t: t, file: filepath.Join(t.TempDir(), "bulldog.db"), clock: testkit.NewClock(testkit.Monday)}
+	d := &desk{t: t, file: filepath.Join(t.TempDir(), "bulldog.db"), clock: testkit.NewClock(testkit.Monday),
+		disclosures: map[int64]bool{}, going: map[int64]bool{}}
 	d.choose = func(c bridges.Choice) (string, error) { return "Taken: " + c.Choice + c.Text + ".", nil }
 	d.connect()
 	d.read(files)
@@ -75,12 +81,13 @@ func (d *desk) connect() {
 		d.chosen = append(d.chosen, c)
 		return d.choose(c)
 	}
-	b.Choices = func(e requests.Entry) []string {
+	b.Decision = func(e requests.Entry) ([]string, bool) {
 		if e.Kind == "decision" {
-			return []string{"yes", "no"}
+			return []string{"yes", "no"}, d.disclosures[e.ID]
 		}
-		return nil
+		return nil, false
 	}
+	b.Going = func(n int64) (bool, error) { return d.going[n], nil }
 	b.SignedIn = func(s bridges.SignIn) { d.signedIn = append(d.signedIn, s) }
 	d.db, d.requests, d.Bridges = db, store, b
 }
@@ -327,6 +334,15 @@ func (d *desk) decide(n int64, text string, people ...string) *requests.Entry {
 	}
 	e, err := d.requests.Write(n, requests.Writing{Kind: "decision", By: requests.Bulldog, To: whos, Text: text, Read: true, Waits: whos})
 	must(d.t, err)
+	return e
+}
+
+// disclose writes a decision put to people by a team's disclosure check,
+// as Decisions writes one.
+func (d *desk) disclose(n int64, text string, people ...string) *requests.Entry {
+	d.t.Helper()
+	e := d.decide(n, text, people...)
+	d.disclosures[e.ID] = true
 	return e
 }
 

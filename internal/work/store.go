@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/zummed/corbie-bulldog/internal/decisions"
@@ -271,6 +272,16 @@ func (w *Work) goingNotes() ([]*note, error) {
 // notesOf gives the runs of a request, oldest first.
 func (w *Work) notesOf(request int64, kind string) ([]*note, error) {
 	return scanNotes(w.db.Query(noteColumns+` WHERE request = ? AND kind = ? ORDER BY rowid`, request, kind))
+}
+
+// leading says whether a run of a request's lead is going: noted, and its
+// ending not yet kept.
+func (w *Work) leading(request int64) (bool, error) {
+	notes, err := w.notesOf(request, KindWork)
+	if err != nil {
+		return false, err
+	}
+	return slices.ContainsFunc(notes, func(n *note) bool { return n.Status == going }), nil
 }
 
 // An ending is how a run ended, as it is kept with it.

@@ -316,18 +316,19 @@ func (w *Work) heard(run string, answer *bridges.Answer) {
 }
 
 // choosing has the bridges give a choice heard to the decision its entry
-// asks, and carry each decision with its choices. Typed words are read as
-// the choice, its first word, and a note, the rest.
+// asks, and carry each decision with its choices, knowing which asks a
+// team's disclosure check. Typed words are read as the choice, its first
+// word, and a note, the rest.
 func choosing(b *bridges.Bridges, d *decisions.Decisions, log func(string, ...any)) {
-	b.Choices = func(e requests.Entry) []string {
-		_, ok, err := d.OfEntry(e.ID)
+	b.Decision = func(e requests.Entry) ([]string, bool) {
+		dec, ok, err := d.OfEntry(e.ID)
 		if err != nil {
-			log("whether entry %d asks a decision could not be read, so it is carried with no choices: %v", e.ID, err)
+			log("whether entry %d asks a decision could not be read, so it is taken as none: %v", e.ID, err)
 		}
 		if !ok {
-			return nil
+			return nil, false
 		}
-		return decisions.Choices()
+		return decisions.Choices(), dec.Kind == decisions.OfDisclosure
 	}
 	b.Choose = func(c bridges.Choice) (string, error) {
 		dec, ok, err := d.OfEntry(c.Entry)

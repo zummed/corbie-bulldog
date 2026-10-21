@@ -283,6 +283,7 @@ func New(db *sql.DB, c Corbie, clock Clock, identity string, a Areas) (*Work, er
 	a.Decisions.Trouble = func(err error) { w.Log("the decisions: %v", err) }
 	a.Changes.Told = w.Told
 	choosing(a.Bridges, a.Decisions, func(format string, args ...any) { w.Log(format, args...) })
+	a.Bridges.Going = w.leading
 	return w, nil
 }
 

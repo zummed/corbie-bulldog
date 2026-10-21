@@ -7,8 +7,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zummed/corbie/client"
+
 	"github.com/zummed/corbie-bulldog/internal/bridges"
 	"github.com/zummed/corbie-bulldog/internal/bridges/standin"
+	"github.com/zummed/corbie-bulldog/internal/decisions"
 	"github.com/zummed/corbie-bulldog/internal/requests"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
 )
@@ -194,4 +197,112 @@ func TestWorkMarkOffHoweverTheRunEnds(t *testing.T) {
 	if runs := f.runs(m); len(runs) != 1 || runs[0].Status != failed {
 		t.Errorf("the bot's runs are %+v", runs)
 	}
+}
+
+// quietAt stays until the work is still, and says whether no out run of a
+// bridge carries to a place.
+func (b *bench) quietAt(bridge, to string) bool {
+	b.t.Helper()
+	b.still()
+	return !slices.ContainsFunc(b.going(bridges.KindOut, bridge), func(r *client.Run) bool { return b.input(r.ID)["to"] == to })
+}
+
+func TestWorkNoDoneWhileTheNextRunGoes(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, marking(t))
+	held, let := b.hold("charged twice", testkit.Say("Duplicate confirmed."))
+	listening := b.listening("slack")
+	b.hand(listening, thing("said", "U0DANA00", "#help", "C1/1.0", "text", "@bot customer 4411 was charged twice"))
+	n := b.at("slack", "C1/1.0")
+	b.started(n, 1)
+	b.until("the bot is held", func() bool { return held() == 1 })
+	if got := b.markOn("slack", "C1/1.0"); got != "working" {
+		t.Errorf("as the bot starts, the thread is carried %q", got)
+	}
+	// Dana says more while the bot works. Its answer then reads as the
+	// request's, and the next run, on what she said, starts on a request
+	// answered: the team is done there only once that run has ended.
+	b.hand(listening, thing("said", "U0DANA00", "#help", "C1/1.0", "text", "@bot and the second card?"))
+	again, letAgain := b.hold("second card", testkit.Say("Charged once."))
+	let()
+	b.started(n, 2)
+	b.until("the bot is held again", func() bool { return again() == 1 })
+	got := []string{b.markOn("slack", "C1/1.0"), b.markOn("slack", "C1/1.0"), b.markOn("slack", "C1/1.0")}
+	if !slices.Equal(got, []string{"Duplicate confirmed.", "done", "working"}) {
+		t.Errorf("after the first run, the thread is carried %v", got)
+	}
+	if !b.quietAt("slack", "C1/1.0") {
+		t.Errorf("while the next run goes, the thread is carried more")
+	}
+	letAgain()
+	got = []string{b.markOn("slack", "C1/1.0"), b.markOn("slack", "C1/1.0")}
+	if !slices.Equal(got, []string{"Charged once.", "done"}) {
+		t.Errorf("after the next run, the thread is carried %v", got)
+	}
+	b.settled(n, requests.Answered)
+	if !b.quietAt("slack", "C1/1.0") {
+		t.Errorf("once done, the thread is carried more")
+	}
+}
+
+func TestWorkDoneAfterARunEndedWhileAway(t *testing.T) {
+	t.Parallel()
+	b := newBench(t, marking(t))
+	held, let := b.hold("charged twice", testkit.Say("Duplicate confirmed."))
+	listening := b.listening("slack")
+	b.hand(listening, thing("said", "U0DANA00", "#help", "C1/1.0", "text", "@bot customer 4411 was charged twice"))
+	n := b.at("slack", "C1/1.0")
+	run := b.started(n, 1)
+	b.until("the bot is held", func() bool { return held() == 1 })
+	if got := b.markOn("slack", "C1/1.0"); got != "working" {
+		t.Errorf("as the bot starts, the thread is carried %q", got)
+	}
+	// Bulldog stops, and the bot's run ends while it is away: once it is
+	// started again, the answer goes, and then the team is done there.
+	b.halt()
+	let()
+	b.corbie.Ended(t, run.Name)
+	b.restart()
+	got := []string{b.markOn("slack", "C1/1.0"), b.markOn("slack", "C1/1.0")}
+	if !slices.Equal(got, []string{"Duplicate confirmed.", "done"}) {
+		t.Errorf("after the restart, the thread is carried %v", got)
+	}
+	b.settled(n, requests.Answered)
+}
+
+func TestWorkMarkWorkingWhileADisclosureWaits(t *testing.T) {
+	t.Parallel()
+	files, checking := marking(t), payments(t)
+	for _, name := range []string{"payments/team.yaml", "payments/no-cards.js"} {
+		files[name] = checking[name]
+	}
+	files["office.yaml"] = strings.Replace(files["office.yaml"], `"#help": { guests: true }`, `"#help": { team: payments, guests: true }`, 1)
+	b := newBench(t, files)
+	b.says(func(testkit.Turn) testkit.Reply {
+		return testkit.Say("Duplicate confirmed on card 4111 1111 1111 1111.")
+	})
+	listening := b.listening("slack")
+	b.hand(listening, thing("said", "U0DANA00", "#help", "C1/1.0", "text", "customer 4411 was charged twice"))
+	n := b.at("slack", "C1/1.0")
+	if got := b.markOn("slack", "C1/1.0"); got != "working" {
+		t.Errorf("as the ledger starts, the thread is carried %q", got)
+	}
+	// The ledger's answer names a card, so its disclosure check refers it
+	// to Lee and Priya: Dana waits on payments, still at work, and her
+	// thread is told nothing more.
+	dec := b.disclosing(n, decisions.SaysAnswer)
+	if in := b.carryOn("slack", "U0LEE000"); !strings.Contains(fmt.Sprint(in["text"]), "4111") {
+		t.Errorf("Lee is carried %v", in)
+	}
+	if !b.quietAt("slack", "C1/1.0") {
+		t.Errorf("while the disclosure waits, the thread is carried more")
+	}
+	if r, err := b.d.Decide(ctx, dec.ID, b.reqs.Person("lee"), "yes", ""); err != nil || !r.Taken {
+		t.Fatalf("Lee's yes: %v %v", r, err)
+	}
+	got := []string{b.markOn("slack", "C1/1.0"), b.markOn("slack", "C1/1.0")}
+	if !strings.Contains(got[0], "4111") || got[1] != "done" {
+		t.Errorf("once disclosed, the thread is carried %v", got)
+	}
+	b.settled(n, requests.Answered)
 }

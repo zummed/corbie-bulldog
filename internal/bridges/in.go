@@ -839,7 +839,7 @@ func (b *Bridges) answer(sent *thingRow, who requests.Who, person *office.Person
 	if err != nil {
 		return handing{}, err
 	}
-	if b.Choices != nil && b.Choices(e) != nil {
+	if choices, _ := b.decision(e); choices != nil {
 		return b.choose(t, Choice{Bridge: in.Bridge, Who: who, Person: nameOf(person), Request: sent.request, Entry: sent.entry, Text: t.Text, In: in})
 	}
 	if e.Kind == requests.KindQuestion {

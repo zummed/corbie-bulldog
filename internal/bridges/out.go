@@ -224,15 +224,8 @@ const (
 // is working on it: a run of its lead has started. Only a bridge that
 // runs, and whose out machine takes working, is told. What waits to be
 // carried is looked at first, so the mark goes after everything said
-// before it.
-func (b *Bridges) Working(request int64) error { return b.marking(request, markWorking) }
-
-// Worked keeps a mark, to be carried to a request's origin, that the team
-// is done with it, once its lead's run has ended. What the run said is
-// looked at first, so its answer goes before the mark.
-func (b *Bridges) Worked(request int64) error { return b.marking(request, markDone) }
-
-func (b *Bridges) marking(request int64, state string) error {
+// before it. From then on, the mark follows where the request stands.
+func (b *Bridges) Working(request int64) error {
 	b.mu.Lock()
 	defer b.unlock()
 	o, err := b.office()
@@ -242,7 +235,11 @@ func (b *Bridges) marking(request int64, state string) error {
 	if err := b.scan(o); err != nil {
 		return err
 	}
-	return b.markAs(o, request, state)
+	last, err := b.lastMark(request)
+	if err != nil || last != nil && last.text == markWorking && last.state != GivenUp {
+		return err
+	}
+	return b.markAs(o, request, markWorking)
 }
 
 // lastMark gives the latest mark of a request that went, is to go, or was
@@ -256,20 +253,10 @@ func (b *Bridges) lastMark(request int64) (*thingRow, error) {
 	return &things[0], nil
 }
 
-// markAs keeps a mark of what a team is doing at a request's origin,
-// unless its latest mark says so already: so done comes only after the
-// team was marked at work there, whether that mark went or not, and
-// waiting only while it is at work.
+// markAs keeps a mark of what a team is doing at a request's origin, when
+// the origin is a place of a bridge that runs and whose out machine takes
+// working.
 func (b *Bridges) markAs(o *office.Office, request int64, state string) error {
-	last, err := b.lastMark(request)
-	switch {
-	case err != nil:
-		return err
-	case last != nil && last.text == state:
-		return nil
-	case state != markWorking && (last == nil || last.text == markDone):
-		return nil
-	}
 	r, err := b.requests.Get(request)
 	if err != nil {
 		return err
@@ -288,26 +275,90 @@ func (b *Bridges) markAs(o *office.Office, request int64, state string) error {
 	return b.add(thingRow{bridge: origin.Bridge, place: origin.Place, direct: direct, kind: ofMark, request: request, text: state})
 }
 
-// follow keeps, while a request's lead is marked at work at its origin, a
-// mark of where the request stands: waiting while it waits on a person,
-// as on a question put to them or a decision that has reached them, and
-// working again once nothing does.
-func (b *Bridges) follow(o *office.Office, n int64) error {
-	last, err := b.lastMark(n)
-	if err != nil || last == nil || last.text == markDone {
-		return err
+// follow keeps, while a request's team is marked at work at its origin, as
+// its latest mark says, a mark of where the request stands, unless that
+// mark says so already. A mark given up by its run may have been made, or
+// not: it keeps the team marked at work, so done follows it, and it is
+// not what the thread shows, so the same mark is kept again. A done that
+// went, or is to go, leaves the team marked at work no longer, until a
+// run of its lead starts on the request again.
+func (b *Bridges) follow(o *office.Office, n int64, last *thingRow, now string) error {
+	switch {
+	case last == nil:
+		return nil
+	case last.text == markDone && (last.state != GivenUp || now != markDone):
+		return nil
+	case last.text == now && last.state != GivenUp:
+		return nil
 	}
+	return b.markAs(o, n, now)
+}
+
+// standing gives where a request stands, as a mark says it: done once it
+// is answered and no run of its lead goes; waiting while it waits on a
+// person, as on a question put to them or a decision that has reached
+// them, but not on its team's disclosure check, since the asker waits on
+// the team for that; and working otherwise. A request reads as answered
+// while a run that started after its answer goes, so Work is asked
+// whether one does.
+func (b *Bridges) standing(n int64) (string, error) {
 	st, err := b.requests.State(n)
 	if err != nil {
-		return err
+		return "", err
 	}
-	switch {
-	case st.Is == requests.Waiting && slices.ContainsFunc(st.On, func(p requests.Party) bool { return p.Kind == requests.IsPerson || p.Kind == requests.IsGuest }):
-		return b.markAs(o, n, markWaiting)
-	case st.Is == requests.Waiting || st.Is == requests.Working:
-		return b.markAs(o, n, markWorking)
+	switch st.Is {
+	case requests.Answered:
+		going := false
+		if b.Going != nil {
+			if going, err = b.Going(n); err != nil {
+				return "", err
+			}
+		}
+		if !going {
+			return markDone, nil
+		}
+		return markWorking, nil
+	case requests.Waiting:
+		waits, err := b.requests.WaitsIn(n)
+		if err != nil {
+			return "", err
+		}
+		for _, w := range waits {
+			if w.On.Kind != requests.IsPerson && w.On.Kind != requests.IsGuest && w.On.Kind != requests.IsGone {
+				continue
+			}
+			disclosure, err := b.disclosure(w.Entry)
+			if err != nil {
+				return "", err
+			}
+			if !disclosure {
+				return markWaiting, nil
+			}
+		}
 	}
-	return nil
+	return markWorking, nil
+}
+
+// disclosure says whether an open entry asks a team's disclosure check.
+func (b *Bridges) disclosure(entry int64) (bool, error) {
+	if entry == 0 {
+		return false, nil
+	}
+	e, err := b.requests.Entry(entry)
+	if err != nil {
+		return false, err
+	}
+	_, disclosure := b.decision(e)
+	return disclosure, nil
+}
+
+// decision gives, of an entry that asks a decision, the choices it offers
+// and whether it asks its team's disclosure check, as Decisions says.
+func (b *Bridges) decision(e requests.Entry) ([]string, bool) {
+	if b.Decision == nil {
+		return nil, false
+	}
+	return b.Decision(e)
 }
 
 // scan looks at every request the store has told of since it was last
@@ -349,9 +400,21 @@ func (b *Bridges) markAll(numbers []int64) {
 }
 
 // look keeps what each entry of a request not yet looked at is to be
-// carried as, and then a mark of where it stands, when its lead is marked
-// at work.
+// carried as, and then a mark of where it stands, when its team is marked
+// at work. Where it stands is read first, and its entries after, so what
+// is written meanwhile, as by a decision on another goroutine, is never
+// marked before it is carried: it is looked at again.
 func (b *Bridges) look(o *office.Office, n int64) error {
+	last, err := b.lastMark(n)
+	if err != nil {
+		return err
+	}
+	var now string
+	if last != nil {
+		if now, err = b.standing(n); err != nil {
+			return err
+		}
+	}
 	var seen int64
 	if err := b.db.QueryRow(`SELECT entry FROM bridges_seen WHERE request = ?`, n).Scan(&seen); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return failed(err)
@@ -372,7 +435,7 @@ func (b *Bridges) look(o *office.Office, n int64) error {
 			return failed(err)
 		}
 	}
-	return b.follow(o, n)
+	return b.follow(o, n, last, now)
 }
 
 // queue keeps where an entry is carried, as Requests says: to its
@@ -600,8 +663,8 @@ func (b *Bridges) prepare(o *office.Office, th thingRow) (Start, string, string,
 		switch {
 		case e.Kind == requests.KindQuestion:
 			choices = e.Choices
-		case b.Choices != nil:
-			choices = b.Choices(e)
+		default:
+			choices, _ = b.decision(e)
 		}
 		if choices != nil || e.Kind == requests.KindQuestion {
 			input["choices"], input["ref"] = append([]string{}, choices...), ref(th.id)

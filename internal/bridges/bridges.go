@@ -169,10 +169,15 @@ type Bridges struct {
 	// sentence carried back to whoever made it. Decisions sets it. It is
 	// called while this area works, and must not call back into it.
 	Choose func(Choice) (string, error)
-	// Choices gives the choices an entry offers when it is a decision,
-	// and nil for any other entry. Decisions sets it. It is called while
-	// this area works, and must not call back into it.
-	Choices func(requests.Entry) []string
+	// Decision gives, of an entry that asks a decision, the choices it
+	// offers and whether it asks its team's disclosure check, and nil and
+	// false of any other entry. Decisions sets it. It is called while this
+	// area works, and must not call back into it.
+	Decision func(requests.Entry) ([]string, bool)
+	// Going says whether a run of a request's lead is going: one whose
+	// ending is not yet kept. Work sets it. It is called while this area
+	// works, and must not call back into it.
+	Going func(request int64) (bool, error)
 	// SignedIn is told how each sign-in link's carrying ended, once this
 	// area's work on it is done, so it may ask for the link to be carried
 	// on another bridge. The server sets it.
@@ -305,7 +310,10 @@ func (b *Bridges) office() (*office.Office, error) {
 // before. Who was reached before is the earlier reading's, and nothing of
 // anyone is kept here besides: the first reading since the server started
 // has none before it, so what waits on everyone is looked at again, and
-// what was already kept to be carried is kept once. What waits to be
+// what was already kept to be carried is kept once. On a bridge newly
+// mended, or whose out machine newly takes working, each request whose
+// team is still marked at work at its origin there is looked at again, so
+// its mark says where it stands now, done among it. What waits to be
 // carried on a bridge no longer in the office is given up, and a run that
 // was asked for before then and never named, which was never started, is
 // asked for again.
@@ -321,6 +329,14 @@ func (b *Bridges) Read(o *office.Office) error {
 		return err
 	}
 	b.o = o
+	for name, bridge := range o.Bridges {
+		if before == nil || !bridge.Runs() || !takesWorking(bridge) || marksOn(before, name) {
+			continue
+		}
+		if err := b.markedAt(name); err != nil {
+			return err
+		}
+	}
 	for _, name := range o.Everyone {
 		for _, id := range o.People[name].Reached {
 			if bridge := o.Bridges[id.Bridge]; bridge == nil || !bridge.Runs() || reached(before, name, id) {
@@ -343,6 +359,39 @@ func (b *Bridges) Read(o *office.Office) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// marksOn says whether a reading of the office has a bridge that runs and
+// whose out machine takes working.
+func marksOn(o *office.Office, name string) bool {
+	bridge := o.Bridges[name]
+	return bridge != nil && bridge.Runs() && takesWorking(bridge)
+}
+
+// markedAt keeps, to be looked at again, each request whose team is
+// marked at work at its origin on a bridge: its latest mark there is not
+// done, or is a done given up by its run.
+func (b *Bridges) markedAt(bridge string) error {
+	rows, err := b.db.Query(`SELECT t.request FROM bridges_things t WHERE t.bridge = ? AND t.kind = ? AND t.id = (
+		SELECT max(id) FROM bridges_things WHERE request = t.request AND kind = ? AND state != ? AND NOT (state = ? AND runs = 0))
+		AND NOT (t.text = ? AND t.state != ?)`, bridge, ofMark, ofMark, Withdrawn, GivenUp, markDone, GivenUp)
+	if err != nil {
+		return failed(err)
+	}
+	defer rows.Close()
+	var numbers []int64
+	for rows.Next() {
+		var n int64
+		if err := rows.Scan(&n); err != nil {
+			return failed(err)
+		}
+		numbers = append(numbers, n)
+	}
+	if err := rows.Err(); err != nil {
+		return failed(err)
+	}
+	b.markAll(numbers)
 	return nil
 }
 
