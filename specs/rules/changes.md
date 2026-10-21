@@ -88,6 +88,8 @@ The detailed rules behind the [Changes overview](../changes.md). Requirements ar
 
 **C-changes-11** A worker's draft that adds, changes or removes a bridge's in machine, or any file it uses, is refused; so is one that adds or removes a bridge's entry in `office.yaml`, or changes its `from` or any of its settings but its places; a person's is not. A worker's change to a bridge's places is drafted as any change, and set apart (C-changes-14). An in machine says who a person is, so a rewritten one could give a yes in any person's name; and a bridge's entry says what it runs, where it listens and whom it signs in as, so a worker could send its token to another host or sign it in as someone else. *Test:* `changes_a_worker_cannot_set_a_bridge`
 
+**C-changes-24** An empty draft, an empty why, a draft with a problem the office does not already have, or a draft that touches a file with an edit by hand not yet committed is never put to be decided: `put_draft` answers why it is not written, a held one is refused by Bulldog at once with that as its note, and nobody is asked. `check_draft` says each of these before it is tried. A decider is not asked about what could not be written. *Test:* `changes_an_unfit_change_is_not_put`
+
 ## What a change says
 
 **R-changes-12** A change says, of teams: each team new, gone, or moved inside another; each change to a team's `about`, its people, its lead, its heed and its settings, its decider lists, its disclosure check, its routines, its `models` and its notes; and each change to the office's `zone` and `runs`.
