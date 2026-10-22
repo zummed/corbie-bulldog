@@ -1,6 +1,6 @@
-// Package serve serves an office: its requests engine, its bridges and its
-// screens on a Corbie, with the office read again whenever a file of it
-// changes. The program and the demo serve an office with it.
+// Package serve serves an office on a Corbie: its requests engine, its
+// bridges and its screens, with the office read again whenever one of its
+// files changes. The program and the demo serve an office with it.
 package serve
 
 import (
@@ -24,12 +24,12 @@ import (
 	"github.com/zummed/corbie/client"
 )
 
-// Look is how often the office's files are looked at for a change.
-const Look = 2 * time.Second
+// look is how often the office's files are looked at for a change.
+const look = 2 * time.Second
 
 // Read reads the office in a directory as serving does: the office, with
 // the problems Corbie's parser finds in its bridges and in each team's
-// request machine.
+// request machine. A reading that is refused gives office.Problems.
 func Read(dir string) (*requests.Reading, error) {
 	o, err := office.Read(dir, shipped.Files)
 	if err != nil {
@@ -51,8 +51,8 @@ func Problems(problems []office.Problem) string {
 	return counted
 }
 
-// An Office is an office served on a Corbie.
-type Office struct {
+// A Bulldog serves one office on a Corbie.
+type Bulldog struct {
 	Engine  *requests.Engine
 	Bridges *bridges.Bridges
 	Screens *screens.Screens
@@ -62,35 +62,35 @@ type Office struct {
 	files string // the office's files when it was read last
 }
 
-// New makes an office served on a Corbie from a reading of it, with the
-// office's secret. The screens are reached at the address, such as
-// https://bulldog.example. What goes wrong, and each reading of the office,
-// is written to out, a line at a time.
-func New(corbie *client.Client, r *requests.Reading, secret []byte, address string, out io.Writer) *Office {
-	s := &Office{log: log.New(out, "", log.LstdFlags), dir: r.Office.Dir}
-	s.files, _ = files(s.dir)
-	report := func(err error) { s.log.Print(err) }
-	s.Bridges = bridges.New(corbie, secret)
-	s.Engine = requests.New(corbie, s.Bridges, secret, r)
-	s.Bridges.Engine = s.Engine
-	s.Screens = screens.New(corbie, s.Engine, s.Bridges, secret, address)
-	s.Engine.Report, s.Bridges.Report, s.Screens.Report = report, report, report
-	return s
+// New makes a Bulldog that serves an office on a Corbie, from a reading of
+// the office and with its secret. The screens are reached at the address,
+// such as https://bulldog.example. What goes wrong, and each reading of
+// the office, is written to out, a line at a time.
+func New(corbie *client.Client, r *requests.Reading, secret []byte, address string, out io.Writer) *Bulldog {
+	b := &Bulldog{log: log.New(out, "", log.LstdFlags), dir: r.Office.Dir}
+	b.files, _ = files(b.dir)
+	report := func(err error) { b.log.Print(err) }
+	b.Bridges = bridges.New(corbie, secret)
+	b.Engine = requests.New(corbie, b.Bridges, secret, r)
+	b.Bridges.Engine = b.Engine
+	b.Screens = screens.New(corbie, b.Engine, b.Bridges, secret, address)
+	b.Engine.Report, b.Bridges.Report, b.Screens.Report = report, report, report
+	return b
 }
 
 // Run serves the office, with the screens on a listener, until the context
 // ends, then stops each part and waits for it. It returns an error when a
 // part ends before then.
-func (s *Office) Run(ctx context.Context, l net.Listener) error {
+func (b *Bulldog) Run(ctx context.Context, l net.Listener) error {
 	ctx, stop := context.WithCancel(ctx)
 	defer stop()
-	if problems := s.Engine.Reading().Office.Problems; len(problems) > 0 {
-		s.log.Print("The office has " + Problems(problems))
+	if problems := b.Engine.Reading().Office.Problems; len(problems) > 0 {
+		b.log.Print("The office has " + Problems(problems))
 	}
-	server := &http.Server{Handler: s.Screens, BaseContext: func(net.Listener) context.Context { return ctx }, ReadHeaderTimeout: 30 * time.Second}
+	server := &http.Server{Handler: b.Screens, BaseContext: func(net.Listener) context.Context { return ctx }, ReadHeaderTimeout: 30 * time.Second}
 	ended := make(chan error, 3)
-	go func() { ended <- s.Engine.Run(ctx) }()
-	go func() { ended <- s.Bridges.Run(ctx) }()
+	go func() { ended <- b.Engine.Run(ctx) }()
+	go func() { ended <- b.Bridges.Run(ctx) }()
 	go func() {
 		err := server.Serve(l)
 		if errors.Is(err, http.ErrServerClosed) {
@@ -98,8 +98,8 @@ func (s *Office) Run(ctx context.Context, l net.Listener) error {
 		}
 		ended <- err
 	}()
-	look := time.NewTicker(Look)
-	defer look.Stop()
+	ticker := time.NewTicker(look)
+	defer ticker.Stop()
 	running, errs := 3, []error{}
 serving:
 	for {
@@ -109,8 +109,8 @@ serving:
 		case err := <-ended:
 			running, errs = running-1, append(errs, err)
 			break serving
-		case <-look.C:
-			s.reread()
+		case <-ticker.C:
+			b.reread()
 		}
 	}
 	stop()
@@ -124,34 +124,39 @@ serving:
 // reread reads the office again when its files have changed since it was
 // read last. A reading that is refused leaves the last good one in force,
 // with the refused reading's problems in place of its own.
-func (s *Office) reread() {
-	now, err := files(s.dir)
+func (b *Bulldog) reread() {
+	now, err := files(b.dir)
 	if err != nil {
-		s.log.Printf("The office's files cannot be looked at: %v", err)
+		b.log.Printf("The office's files cannot be looked at: %v", err)
 		return
 	}
-	if now == s.files {
+	if now == b.files {
 		return
 	}
-	s.files = now
-	r, err := Read(s.dir)
+	b.files = now
+	last := b.Engine.Reading()
+	r, err := Read(b.dir)
 	var refused office.Problems
 	switch {
+	case err == nil && r.Office.ID != last.Office.ID:
+		refused = office.Problems{{File: ".bulldog/id", Text: fmt.Sprintf("the office's id was %s and is now %s; Bulldog serves the office as %s until it is started again", last.Office.ID, r.Office.ID, last.Office.ID)}}
 	case errors.As(err, &refused):
-		last := s.Engine.Reading()
-		o := *last.Office
-		o.Problems = refused
-		s.Engine.Swap(&requests.Reading{Office: &o, Machines: last.Machines})
-		s.log.Print("The office was read again and refused, so the last good reading stays in force. " + Problems(refused))
 	case err != nil:
-		s.log.Printf("The office cannot be read again: %v", err)
+		b.log.Printf("The office cannot be read again: %v", err)
+		return
 	case len(r.Office.Problems) > 0:
-		s.Engine.Swap(r)
-		s.log.Print("The office was read again, with " + Problems(r.Office.Problems))
+		b.Engine.Swap(r)
+		b.log.Print("The office was read again, with " + Problems(r.Office.Problems))
+		return
 	default:
-		s.Engine.Swap(r)
-		s.log.Print("The office was read again.")
+		b.Engine.Swap(r)
+		b.log.Print("The office was read again.")
+		return
 	}
+	o := *last.Office
+	o.Problems = refused
+	b.Engine.Swap(&requests.Reading{Office: &o, Machines: last.Machines})
+	b.log.Print("The office was read again and refused, so the last good reading stays in force. " + Problems(refused))
 }
 
 // files gives the name, size and time of change of each file of an

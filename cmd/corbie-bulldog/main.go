@@ -32,9 +32,9 @@ const listen = "127.0.0.1:8484"
 var commands = []cli.Command{
 	{Name: "", Usage: "<directory> [--listen <address>] [--url <url>]", Summary: "serve an office until stopped", Stays: true, Run: serveOffice, Help: `
 It serves the office's requests, bridges, routines and screens, as a client
-of the Corbie that --config and --store name, as for corbie. It looks at the
-office's files every 2 seconds, and reads the office again when one has
-changed. While a reading is refused, the last good one stays in force.
+of the Corbie that --config and --store name. It reads the office again
+when one of its files changes. While a reading is refused, the last good
+one stays in force.
 
   --listen <address>   where the screens listen; default 127.0.0.1:8484
   --url <url>          where people reach the screens, which links to them
@@ -90,13 +90,12 @@ func serveOffice(e *cli.Env, args []string) error {
 	if address == "" {
 		address = "http://" + l.Addr().String()
 	}
-	served := serve.New(corbie, r, secret, address, e.Err)
 	how := "corbie bulldog key " + given[0] + " <person>"
 	if address != "http://"+listen {
 		how += " --url " + address
 	}
-	fmt.Fprintf(e.Out, "Bulldog serves %s at %s.\n%s prints a person's key link, which signs them in.\n", r.Office.Name, address, how)
-	return served.Run(e.Context(), l)
+	fmt.Fprintf(e.Out, "Bulldog serves %s until it is stopped.\n\n  screens    %s\n  key link   %s\n\n", r.Office.Name, address, how)
+	return serve.New(corbie, r, secret, address, e.Err).Run(e.Context(), l)
 }
 
 // check prints every problem of an office, and fails when there is one.
