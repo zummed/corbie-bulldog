@@ -1,6 +1,11 @@
-For us: a team's heed that acts on what names the bot or follows straight on its answer, and asks a fast model of the rest.
+For us: a heed rule that asks a fast model whether a message is for the team.
 
-It acts at once when a message it weighs is addressed, as the mentioned heed does. Otherwise it asks a System One model whether the newest message is for the team, given the team, the thread before it and what is new, and acts when the model is at least as sure as `threshold`, or notes "Not for <team> (0.12)", with how sure it was. Past `timeout` it acts, with the note "timed out", whatever it was doing.
+1. When `./.bulldog/rules/mentioned/mentioned.js` says yes, it says yes, and asks no model.
+2. Otherwise it asks a System One model how sure it is that the message is for the team, given the thread before it.
+3. It says yes when the model is at least as sure as `threshold`, and no otherwise. The note gives the team and how sure the model was, as "Not for payments (0.12)."
+4. When the model has not answered within `timeout`, it says yes.
+
+It never says `pass`. It is given `request` and `said`, the message weighed.
 
 ## Needs
 
@@ -8,23 +13,20 @@ It acts at once when a message it weighs is addressed, as the mentioned heed doe
 
 ## Settings
 
-- `timeout`: `10s`. How long it may take; past it, the lead starts. It is the one limit on a heed, and is kept by Corbie's controller, so it holds when a runner is gone.
-- `threshold`: `0.5`. How sure the model must be that the message is for the team.
-- `model`: `jev-latest`. The fast decision model asked.
-- `question`: `The newest message asks this team for something, or answers what it last said.` The question put to the model.
+| Setting | Default | What it is |
+|---|---|---|
+| `timeout` | `10s` | how long the model may take; past it, the message comes in |
+| `threshold` | `0.5` | how sure the model must be that the message is for the team |
+| `model` | `jev-latest` | the System One model asked |
+| `question` | `The newest message asks this team for something, or answers what it last said.` | the question put to the model |
+
+The settings are the defaults in `for-us.yaml`'s input. To change them, copy the directories `rules/for-us` and `rules/mentioned` into the office as `./rules/`, change the defaults in the copy, and name `./rules/for-us/for-us.yaml`.
 
 ## Example
 
 ```yaml
-# in a team file
-heed: ./.bulldog/rules/for-us/for-us.yaml
-# or, with settings
-heed: { rule: ./.bulldog/rules/for-us/for-us.yaml, timeout: 5s, threshold: 0.6 }
+# office.yaml, in the work office
+heed: [./.bulldog/rules/for-us/for-us.yaml]
 ```
 
-From a team within, the path begins `../.bulldog/`.
-
-## Changed
-
-- 0.3.0: weighs messages in the order they were said, so one said while the lead was answering no longer stands between its answer and what follows it, and one by whoever it answered is acted on as said while it was answering.
-- 0.2.0: first shipped.
+In #help, "Was order 4411 refunded?" comes in, with the note "For office (0.93)."

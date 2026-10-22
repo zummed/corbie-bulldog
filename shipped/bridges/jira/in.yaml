@@ -1,13 +1,12 @@
-# The Jira bridge's in machine. It listens: it asks Jira for the issues of
-# the projects its places name that changed since the cursor, and hears
-# each new issue, comment and change of status; while nothing is new, it
-# rests thirty seconds and asks again, since Jira cannot be asked to wait.
-# It ends with what it heard and the cursor to go on from, or after an
-# hour with nothing. Its first ask, given no cursor, hears nothing. It
-# speaks to the Jira at the settings' site, as example.atlassian.net, and
-# signs in as the settings' email with the API token that is the Corbie
-# secret JIRA_TOKEN.
+# Jira's in. Each job asks Jira once for the issues of the projects the
+# places name that changed since the cursor, and emits heard, { things,
+# cursor }, for each new issue and comment. Then the chart rests 30
+# seconds, since Jira cannot be asked to wait, and asks again; it rests the
+# same after a job that fails. It speaks to the Jira at the settings' site,
+# as example.atlassian.net, and signs in as the settings' email with the
+# API token that is the Corbie secret JIRA_TOKEN.
 statechart: jira-in
+keep: 12h
 input:
   type: object
   required: [settings, cursor]
@@ -17,28 +16,18 @@ input:
       required: [site, email]
       additionalProperties: false
       properties:
-        from: { type: string }
         site: { type: string }
         email: { type: string }
         places: { type: object }
     cursor: {}
-initial: listening
+initial: hearing
 states:
-  listening:
-    initial: hearing
-    timers: { enough: 1h }
-    on: { enough: heard }
-    states:
-      hearing:
-        job:
-          script: ./jira.js
-          input: { do: hear, settings: "${input.settings}", cursor: "${states.hearing.output ? states.hearing.output.cursor : input.cursor}" }
-          allow: ["net:${input.settings.site}", "secret:JIRA_TOKEN@net:${input.settings.site}"]
-        on:
-          done:
-            - { go: heard, when: "${event.data.heard.length > 0}" }
-            - { go: resting }
-      resting:
-        timers: { again: 30s }
-        on: { again: hearing }
-  heard: { end: done, output: "${states.hearing.output}" }
+  hearing:
+    job:
+      script: ./jira.js
+      input: { do: hear, settings: "${input.settings}", cursor: "${states.hearing.output?.cursor ?? input.cursor}" }
+      allow: ["net:${input.settings.site}", "secret:JIRA_TOKEN@net:${input.settings.site}"]
+    on: { done: resting, failed: resting }
+  resting:
+    timers: { again: 30s }
+    on: { again: hearing }

@@ -1,16 +1,14 @@
-# The Jira bridge's out machine. It answers in the issue it is given, by
-# its key, with a comment, and changes nothing of its state. Jira has no
-# place to say anything to a person directly, so this takes no direct, and
-# carries only what goes to an issue. It ends with { sent } or, when Jira
-# refuses it for good, { refused }. Bulldog gives the text, and each
-# file's data, as a blob of the run's input. It speaks to the Jira at the
-# settings' site.
+# Jira's out. It answers in an issue, given by its key, with as many
+# comments as the text takes, and gives { sent }, the id of its last
+# comment; it throws when Jira refuses. Jira has no place to say anything
+# to a person directly, so this takes no direct. It speaks to the Jira at
+# the settings' site.
 flow: jira-out
-input: { settings: any, to: string, text: blob, files: list }
+input: { settings: map, to: string, text: string }
 stages:
   say:
     job:
       script: ./jira.js
-      input: { do: say, settings: "${input.settings}", to: "${input.to}", text: "${input.text}", files: "${input.files}" }
+      input: { do: say, settings: "${input.settings}", to: "${input.to}", text: "${input.text}" }
       allow: ["net:${input.settings.site}", "secret:JIRA_TOKEN@net:${input.settings.site}"]
 output: ${stages.say.output}

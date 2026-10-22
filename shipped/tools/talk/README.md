@@ -1,10 +1,20 @@
-The talk tools: ask another team, ask a person, tell someone, and read the thread, each a run that waits on Bulldog.
+Talk: the tools a worker uses to ask another team or a person, and wait for the answer.
 
-`ask_team` asks another team of the office, as a sub-request, and gives its answer. `ask_person` asks a person of the worker's team, or whoever asked, and gives what they say; it may offer `choices`, up to 8 short answers of up to 75 characters, which the person may pick with a press of a button, on a bridge or on the screens, and still answer anything else. `tell` says something to whoever asked, or to a person of the team, and goes on. `read_thread` reads the request's thread from an entry on, each noted message marked, or, with `place`, what was said before it where it was asked, in the team's requests there that everyone who reads this one reads, newest first. A worker that asks or tells anyone outside its own colleagues names this file.
+| Tool | What it does |
+|---|---|
+| `ask_team(team, question)` | asks another team of the office, and waits for its answer |
+| `ask_person(who, question, choices)` | asks a person, by their name, and waits for the answer |
+
+Each tool runs `./.bulldog/wait/wait.yaml`, and its result is the wait's output: `{ answer, by, thing }`, `{ answer: null, note }` after 7 days, or `{ answer: null, refused }`.
+
+- `ask_team` is marked for approval, so the asking team's `check` is asked about the question before it leaves. Without a `check`, the question leaves at once.
+- `ask_team` is refused for the asking team itself, a team already in the request's chain, and a name that is no team.
+- `ask_person` may ask a person of the worker's team, or one its team file names. Anyone else is refused, and nobody is asked.
+- `choices`, up to 8 short answers, are offered as buttons. The person may still answer anything else.
 
 ## Needs
 
-Nothing: no secret and no host. Each tool runs `.bulldog/call.yaml`, which only waits on Bulldog's answer, for up to 7 days.
+Nothing: no secret and no host.
 
 ## Settings
 
@@ -13,30 +23,11 @@ None.
 ## Example
 
 ```yaml
+# steward.yaml
+agent: steward
+model: usual
+prompt: ${input.said}
 tools_file: [./.bulldog/tools/talk/talk.yaml]
 ```
 
-From a team within, the path begins `../.bulldog/`.
-
-A worker that may ask only some teams writes its own `ask_team` beside the file, with the teams by name in an `enum`. It stands before the file's, and Corbie refuses any other team:
-
-```yaml
-tools_file: [./.bulldog/tools/talk/talk.yaml]
-tools:
-  ask_team:
-    does: Ask payments or platform, and wait for its answer
-    args:
-      type: object
-      properties:
-        team: { type: string, enum: [payments, platform] }
-        question: { type: string }
-      required: [team, question]
-    job:
-      machine: ./.bulldog/call.yaml
-      input: { tool: ask_team, args: "${args}", unanswered: No answer came within 7 days. }
-```
-
-## Changed
-
-- 0.2.0: moved here from `.bulldog/talk.yaml`; `read_thread`.
-- 0.5.0: `ask_person` takes `choices`.
+The steward asks the garden with `ask_team({ team: garden, question: "When do we sow the beds?" })`, and is given `{ answer: "In May." }`.

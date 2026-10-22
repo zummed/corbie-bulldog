@@ -1,16 +1,13 @@
-# The Telegram bridge's out machine. It carries one thing to one chat: to
-# a person directly when direct is true, as their chat with the bot. A
-# question that offers no choices is sent for a reply, and a decision, or
-# a question that offers choices, with a button for each choice. It ends
-# with { sent }, naming every message it sent, or, when Telegram refuses
-# it for good, { refused }. Bulldog gives the text, and each file's data,
-# as a blob of the run's input.
+# Telegram's out. It sends one message to a chat, or to a person directly
+# in their chat with the bot, and gives { sent }, the id of its last
+# message. With ref, the message has a button for each choice, or, with no
+# choices, asks for a reply. It throws when Telegram refuses.
 flow: telegram-out
-input: { settings: any, to: string, direct: boolean, text: blob, files: list, answers: any, choices: any, ref: any }
+input: { settings: map, to: string, direct: boolean, text: string, choices: any, ref: any, answers: any }
 stages:
   say:
     job:
       script: ./telegram.js
-      input: { do: say, to: "${input.to}", text: "${input.text}", files: "${input.files}", answers: "${input.answers}", choices: "${input.choices}", ref: "${input.ref}" }
+      input: { do: say, to: "${input.to}", text: "${input.text}", choices: "${input.choices}", ref: "${input.ref}", answers: "${input.answers}" }
       allow: [net:api.telegram.org, "secret:TELEGRAM_TOKEN@net:api.telegram.org"]
 output: ${stages.say.output}

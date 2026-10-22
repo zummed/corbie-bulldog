@@ -1,6 +1,15 @@
-GitLab issues and merge requests: it listens on the projects its places name, answers in the issue or merge request, and hears it closed.
+GitLab: a bridge that hears issues and merge requests opened and commented on in the projects its places name, and answers there with a comment.
 
-The in machine asks GitLab what happened on each project since its cursor, resting thirty seconds while nothing has; its first ask hears nothing and marks where each project stands. The opening of an issue or merge request, and each comment on one, is heard; it is answered with a comment. GitLab has no place to say anything to a person directly.
+The in run asks GitLab what happened on each project, then rests 30 seconds, since GitLab cannot be asked to wait. A project new to the bridge is heard from when the bridge first asks about it. GitLab has no place to say anything to a person directly, so a question or a decision is never sent by GitLab.
+
+| Thing | GitLab's |
+|---|---|
+| `id` | `note:<id>` for a comment, or `event:<id>` for an opening |
+| `from` | the author's user id, which never changes |
+| `place` | the project's path, as `platform/api` |
+| `where` | the issue, `platform/api#7`, or the merge request, `platform/api!12` |
+| `text` | the comment, or the title and description of what was opened |
+| `mentioned` | the text has an @mention of the bridge's account |
 
 ## Needs
 
@@ -8,26 +17,26 @@ The in machine asks GitLab what happened on each project since its cursor, resti
 
 ## Settings
 
-- `from`: `./.bulldog/bridges/gitlab`, the folder it runs, as Bulldog ships it.
-- `site`: the host of the GitLab it speaks to, as `gitlab.com`, or your own. The token is sent there.
-- `places`: each project by its path, as `platform/api`, with the `team` asked there, the office when none is named, and whether `guests` may ask.
+| Setting | What it is |
+|---|---|
+| `site` | the host of the GitLab it speaks to, as `gitlab.com`, or your own; the token is sent there |
+| `places` | each project by its path, as `platform/api`, with the `team` asked there, the office without one, and whether `guests` may ask |
 
 ## Leaves out
 
 - What the bridge's own account did, and GitLab's system notes.
-- What happened to anything but an issue or a merge request.
+- Anything else that happens: a push, a close, a merge, and what happens to anything but an issue or a merge request.
 
-Each is logged in the in run's record on Corbie, with its id, its place and why, and never its words.
+Each is logged in the in run's record, with its id, its project and why, never its words.
 
 ## Example
 
 ```yaml
-# in office.yaml
+# office.yaml
 bridges:
-  gitlab: { from: ./.bulldog/bridges/gitlab, site: gitlab.com, places: { platform/api: { team: platform } } }
+  gitlab:
+    from: ./.bulldog/bridges/gitlab
+    site: gitlab.com
+    places:
+      platform/api: { team: platform }
 ```
-
-## Changed
-
-- 0.1.0: first shipped.
-- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; reaches the host in `site`, and sends GITLAB_TOKEN there, in place of gitlab.com; logs what it leaves out; takes no setting but those above, each checked when the office is read.

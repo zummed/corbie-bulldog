@@ -1,6 +1,15 @@
-Jira issues: it listens on the projects its places name, answers in the issue, and hears its status change.
+Jira: a bridge that hears issues opened and commented on in the projects its places name, and answers there with a comment.
 
-The in machine asks Jira for the issues of each project that changed since its cursor, resting thirty seconds while nothing has; its first ask hears nothing. A new issue, each comment and each change of status is heard; it is answered with a comment. Jira has no place to say anything to a person directly.
+The in run asks Jira for the issues of each project that changed, then rests 30 seconds, since Jira cannot be asked to wait. A new bridge hears from when it first asks. Jira has no place to say anything to a person directly, so a question or a decision is never sent by Jira.
+
+| Thing | Jira's |
+|---|---|
+| `id` | `issue:<id>` for a new issue, or `comment:<id>` |
+| `from` | the author's account id, which never changes |
+| `place` | the project's key, as `OPS` |
+| `where` | the issue's key, as `OPS-12` |
+| `text` | the comment, or the summary and description of a new issue |
+| `mentioned` | the text mentions the bridge's account, as `[~accountid:…]` |
 
 ## Needs
 
@@ -8,26 +17,28 @@ The in machine asks Jira for the issues of each project that changed since its c
 
 ## Settings
 
-- `from`: `./.bulldog/bridges/jira`, the folder it runs, as Bulldog ships it.
-- `site`: the host of your Jira Cloud, as `example.atlassian.net`. The token is sent there.
-- `email`: the Jira account the token is of, which the bridge signs in as.
-- `places`: each project by its key, as `OPS`, with the `team` asked there, the office when none is named, and whether `guests` may ask.
+| Setting | What it is |
+|---|---|
+| `site` | the host of your Jira Cloud, as `example.atlassian.net`; the token is sent there |
+| `email` | the Jira account the token is of, which the bridge signs in as |
+| `places` | each project by its key, as `OPS`, with the `team` asked there, the office without one, and whether `guests` may ask |
 
 ## Leaves out
 
-- What the bridge's own account wrote.
+- What the bridge's own account wrote, and what an app wrote.
+- A change of status, and every other change to an issue.
 
-Each is logged in the in run's record on Corbie, with its id, its place and why, and never its words.
+Each one left out is logged in the in run's record, with its id, its issue and why, never its words.
 
 ## Example
 
 ```yaml
-# in office.yaml
+# office.yaml
 bridges:
-  jira: { from: ./.bulldog/bridges/jira, site: example.atlassian.net, email: bot@example.com, places: { OPS: { team: platform } } }
+  jira:
+    from: ./.bulldog/bridges/jira
+    site: example.atlassian.net
+    email: bot@example.com
+    places:
+      OPS: { team: platform }
 ```
-
-## Changed
-
-- 0.1.0: first shipped.
-- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; reaches the host in `site`, and sends JIRA_TOKEN there, in place of example.atlassian.net; logs what it leaves out; takes no setting but those above, each checked when the office is read.

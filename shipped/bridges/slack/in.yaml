@@ -1,17 +1,13 @@
-# The Slack bridge's in machine. It listens over Socket Mode: with the
-# app's app-level token, the Corbie secret SLACK_APP_TOKEN, it asks Slack
-# for a connection, and over it hears each event and each press of a
-# button as Slack sends it, handing each over as it is heard and only then
-# telling Slack it was received. It ends when Slack warns that it will
-# close the connection, or after four minutes, well within its time limit,
-# and Bulldog starts the next. With the app's bot token, SLACK_TOKEN, it
-# reads a channel's name and who is in it, and the files said there; the
-# app needs the im:history scope for Slack to send what a person types in
-# their conversation with it. A message said there is given at its
-# thread, as one in a channel is. The job's allow list is what limits it:
-# slack.com, files.slack.com and the hosts Slack's connections are made
-# to, and nothing written or run.
-flow: slack-in
+# Slack's in. Each job opens a Socket Mode connection with the app-level
+# token, the Corbie secret SLACK_APP_TOKEN, and emits heard, { things,
+# cursor }, for each message and each press of a button Slack sends, then
+# tells Slack it was received. A job ends after 4 minutes, or when Slack
+# closes the connection, and the next job connects again. When a job fails,
+# the chart rests 30 seconds. With the bot token, SLACK_TOKEN, it reads a
+# channel's name and the files said there. Slack keeps nothing to read
+# back, so the cursor is always null.
+statechart: slack-in
+keep: 12h
 input:
   type: object
   required: [settings, cursor]
@@ -20,15 +16,18 @@ input:
       type: object
       additionalProperties: false
       properties:
-        from: { type: string }
         places: { type: object }
     cursor: {}
-stages:
-  hear:
+initial: hearing
+states:
+  hearing:
     job:
       script: ./slack.js
-      input: { do: hear, settings: "${input.settings}", cursor: "${input.cursor}" }
+      input: { do: hear, settings: "${input.settings}" }
       allow: [net:slack.com, net:files.slack.com, net:wss-primary.slack.com, net:wss-backup.slack.com,
         "secret:SLACK_TOKEN@net:slack.com", "secret:SLACK_TOKEN@net:files.slack.com", "secret:SLACK_APP_TOKEN@net:slack.com"]
       timeout: 5m
-output: ${stages.hear.output}
+    on: { done: hearing, failed: resting }
+  resting:
+    timers: { again: 30s }
+    on: { again: hearing }

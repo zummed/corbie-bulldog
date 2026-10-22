@@ -1,39 +1,44 @@
-# A team's heed that asks a fast model whether what is new is for the
-# team. Its script acts at once on what is addressed to the lead, as the
-# mentioned heed does, and otherwise asks a System One model at
-# api.typesafe.ai, with the Corbie secret TYPESAFE_KEY. Its settings are
-# in its input, each with its default and what it is for. Its one time
-# limit is timeout, a timer of the chart's, which ends it as act whatever
-# its script is doing, the runner it was on gone among it.
+# A heed rule that asks a fast model whether the message is for the team.
+# It says yes at once, with no model, when mentioned.js does. Otherwise
+# for-us.js asks a System One model at api.typesafe.ai, with the Corbie
+# secret TYPESAFE_KEY. Its settings are the defaults below. Past timeout
+# it says yes, whatever its script is doing.
 statechart: for-us
 input:
   type: object
-  required: [said, request]
+  required: [request, said]
   properties:
-    said: { type: string }
     request: { type: object }
+    said: { type: string }
     settings:
       type: object
       default: {}
       additionalProperties: false
       properties:
-        timeout: { type: string, default: 10s, description: "How long it may take; past it, the lead starts. It is the one limit on a heed, and is kept by Corbie's controller, so it holds when a runner is gone." }
+        timeout: { type: string, default: 10s, description: "How long the model may take; past it, the message comes in." }
         threshold: { type: number, default: 0.5, description: How sure the model must be that the message is for the team. }
-        model: { type: string, default: jev-latest, description: The fast decision model asked. }
+        model: { type: string, default: jev-latest, description: The System One model asked. }
         question: { type: string, default: "The newest message asks this team for something, or answers what it last said.", description: The question put to the model. }
-initial: deciding
+initial: addressed
 states:
-  deciding:
+  addressed:
+    job: { script: ../mentioned/mentioned.js, input: { request: "${input.request}" } }
+    on:
+      done:
+        - { go: said_yes, when: "${event.data.says == 'yes'}" }
+        - asking
+  asking:
     job:
       script: ./for-us.js
       input:
-        said: ${input.said}
         request: ${input.request}
+        said: ${input.said}
         threshold: ${input.settings.threshold}
         model: ${input.settings.model}
         question: ${input.settings.question}
       allow: [net:api.typesafe.ai, "secret:TYPESAFE_KEY@net:api.typesafe.ai"]
     timers: { out: "${input.settings.timeout}" }
     on: { done: weighed, out: timed_out }
-  weighed: { end: done, output: "${states.deciding.output}" }
-  timed_out: { end: done, output: { says: act, note: timed out } }
+  said_yes: { end: done, output: "${states.addressed.output}" }
+  weighed: { end: done, output: "${states.asking.output}" }
+  timed_out: { end: done, output: { says: "yes", note: "The model did not answer in time, so the message comes in." } }

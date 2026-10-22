@@ -1,212 +1,104 @@
-# Office: rules
+# Office
 
-The detailed rules behind the [Office overview](../office.md). Requirements are `R-office-nn`, constraints `C-office-nn`. "The house" and "the work office" are the two offices the overview shows as files; the house is the fuller example there, with its Telegram bridge and Sam's sign-in by Google and by a password, and not the office the server writes into an empty folder, which is the house without the bridge or Google (R-server-06). A test writes them, or a copy changed as the rule says, into a folder of its own and reads it.
+The rules behind the [Office overview](../office.md). Area code: `office`. The house and the work office are `examples/house` and `examples/work`; a test writes one, or a copy changed as the rule says, into a directory of its own and reads it.
 
-## The folder
+## The directory
 
-**R-office-01** The office is the folder Bulldog is given, and its top team's file is `office.yaml` at the top of it; a folder that is not there, or that holds no `office.yaml`, is refused with that said, and nothing is written into it.
-*Accept:* reading a path that does not exist reports that it is not there. Reading a folder that holds files but no `office.yaml` reports that it holds no `office.yaml`, and the folder holds the same files, unchanged, afterwards.
+**R-office-42** The office is the directory Bulldog is given, its top team's file `office.yaml` at its top; a team within is a directory directly inside a team's directory that holds `team.yaml`.
+*Accept:* the house reads two teams, `office` and `garden`. With `garden/beds/team.yaml` added, it reads three, `beds` within `garden`. A directory with no `office.yaml` is refused, and the refusal says so.
 
-**R-office-02** A team within is a folder directly inside a team's folder that holds a `team.yaml`, and it may hold teams of its own the same way.
-*Accept:* the house with `garden/beds/team.yaml` added reads three teams: `office`, `garden` within it, and `beds` within `garden`.
+**R-office-43** A worker is a Corbie definition, an agent, a flow or a statechart, directly in a team's directory, named by its file's name; its definition's name is the same, and a definition anywhere else is not a worker.
+*Accept:* the house reads `steward`, `fixer` and `clerk` as the office's workers and `gardener` as the garden's. `small-orders.js` and a flow at `tools/tidy.yaml` are not workers. A `fixer.yaml` whose definition says `agent: mender` is a problem that names the file and both names.
 
-**R-office-03** A worker is each file directly in a team's folder whose definition is an agent, a flow or a statechart; it is a worker of that team and is named by its file's name without the extension.
-*Accept:* the house reads `steward`, `fixer`, `sparks`, `clerk`, `bins` and `builder` as the top team's workers and `gardener` and `groundsman` as the garden's. `crew.yaml`, a tools file, `small-orders.js` and a flow at `tools/check.yaml` are not workers. In the work office, `payments/no-account-numbers.yaml`, a flow named as a rule, is not a worker (C-office-22).
+**R-office-44** `./.bulldog/<path>`, written from any directory of the office, names what Bulldog ships, and Bulldog serves it from its binary.
+*Accept:* payments' `heed: [./.bulldog/rules/mentioned/mentioned.js]` and the ledger's `tools_file: [./.bulldog/tools/talk/talk.yaml]` read the shipped files. `./.bulldog/rules/nothing.js` is a problem that names the path.
 
-**R-office-04** Nothing whose name starts with a dot is the office: such a file or folder is no team, worker, note or bridge, and is not among the office's files.
-*Accept:* the house with `.git/`, `.bulldog/` and `.scratch/team.yaml` reads the same teams and workers as without them, and none of their files is among the office's files.
+**C-office-30** Bulldog's loader reads only the office's files and what Bulldog ships, and a path that leaves the office directory is a problem. A definition read from outside would run with nobody seeing it in the office. *Test:* `office_nothing_read_outside`
 
-**C-office-01** A `team.yaml` anywhere but directly in a team's folder, an `office.yaml` anywhere but at the top, and a `team.yaml` at the top, are each a problem of the reading. A team file that is not read is a team that silently does not exist. *Test:* `office_stray_team_file_refused`
+## A team file
 
-**C-office-02** Everything a team file names is inside the office folder, and Corbie is given the office's files and what Bulldog ships at `.bulldog/`, as the program holds it, and nothing else, to read a definition from. A worker or a rule read from outside the folder would run while being in no history and no re-reading. *Test:* `office_nothing_named_outside_folder`
+**R-office-45** A team file takes `name`, `about`, `people`, `lead`, `heed`, `check`, `decide`, `routines` and `models`, and `office.yaml` takes these and `zone`, `everyone` and `bridges`.
+*Accept:* the house and the work office read with no problem. `budget: 40` in `garden/team.yaml` is a problem that names the key and the file, and so is `zone` there.
 
-**C-office-03** What Bulldog ships is found at `.bulldog/` at the top of the office by its path there, a file in a shipped thing's folder as one at the top, such as `.bulldog/tools/talk/talk.yaml`, and by nothing else: no folder of the office is ever taken for Bulldog's because of a word in its path. Found by a word, an office file whose path held it would be read from Bulldog's files instead, with no problem said. *Test:* `office_own_files_by_path_only`
+**C-office-31** A key a team file does not take, or one only `office.yaml` takes written in another team file, is a problem, never read past. A key read past is a setting a person believes is in force and is not. *Test:* `office_unknown_key_refused`
 
-## A team
+**R-office-46** Every team has a `lead`: a worker of the team, or a person.
+*Accept:* the house's `lead: steward` reads, and so does `lead: sam` in `garden/team.yaml`. A team file with no `lead` is a problem, and so is `lead: gardener` in `office.yaml`.
 
-**R-office-05** A team file takes `name`, `about`, `people`, `lead`, `heed`, `decide`, `disclosure`, `routines` and `models`; the top team's file also takes `zone`, `everyone`, `bridges`, `signin` and `runs`, which is how many runs may be at work at once in the whole office and is a whole number from 1. The writes of the tools Bulldog ships, `put_draft`, `write_doc` and `write_note`, are `decide` keys in any team.
-*Accept:* the house and the work office read with no problem, `models` in `office.yaml` and in `garden/team.yaml` among them, and so does the house with `runs: 2` in `office.yaml`, and with `heed: ./for-us.js` in `garden/team.yaml` and a `garden/for-us.js` beside it; `runs: 0` there is a problem, and so is `budget: 40`, naming `budget`. Each of `zone`, `everyone`, `bridges` and `runs: 2` in `garden/team.yaml` is reported as a problem that names the key and the file, and `decide: { change: [sam] }` as one that names no tool.
+**R-office-47** A worker's `model:` of one word is filled in from the nearest team's `models`, its own team's first and the office's last, and a word no team gives is a problem of the worker.
+*Accept:* the steward's `model: usual` is sent to Corbie as `{ name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }`, and the gardener's as the garden's `claude-opus-5-5`. `model: fast` is a problem that names the worker.
 
-**C-office-04** A key a team file does not take, or one it takes only at the top written in a team within, is a problem of the reading, never read past. A key read past is a setting a person believes is in force and is not. *Test:* `office_unknown_key_refused`
+**R-office-48** A routine is `{ at, say }`, where `at` is a time of day, optionally after a weekday, in the office's `zone`, or UTC without one.
+*Accept:* `"mon 09:00"` and `"18:00"` read. `"25:00"` is a problem of the team file, and `zone: Europe/Londn` a problem of `office.yaml`.
 
-**R-office-06** A team is known by its folder's name and the top team as `office`; a team's `name` is what it is called, and a team that has none is called by its folder's name.
-*Accept:* the work office's teams are known as `office`, `platform`, `payments` and `support`, and called "Platform support", "Platform", "Payments" and "Support". With `name:` removed from `support/team.yaml`, it is called "support".
+## Deciders
 
-**C-office-05** Nothing is found by a team's `name`: it may be in any words, and changing it changes no team's identity. A key made from a name in any words can come out empty, and one made from a name that changes loses sight of what was found by the old one. *Test:* `office_name_is_only_words`
+**R-office-49** A decider is a rule, named by its path to a script or to a definition Bulldog ships; a worker of any team, named by its name; or a person, named by their name. People may only end a list.
+*Accept:* payments' `check: [./no-account-numbers.js, lee, priya]` and the house's `decide: [./small-orders.js, clerk, sam]` read. `[lee, ./no-account-numbers.js]` is a problem, and so is `[./missing.js]`.
 
-**R-office-07** A team's people are exactly those its `people` names, each a person under `everyone`; being in a team around it puts nobody in it.
-*Accept:* in the work office, the people of `payments` are `lee` and `priya`, those of `office` are `al`, and `al` is in no other team. `people: [sam, nobody]` in the house is a problem naming `nobody`.
+**R-office-50** A worker named as a decider declares `reply: { says: string, note: "string?" }`.
+*Accept:* the clerk, which declares it, reads as a decider. The steward named in `decide` is a problem that names the steward.
 
-**R-office-08** A team's `lead` names one worker or one person of that team, and every team has one.
-*Accept:* in the house, `lead: groundsman` in `office.yaml`, a `team.yaml` with no `lead`, and `lead: [gardener, groundsman]` are each a problem. In the work office, `support`'s lead is `dana`, a person.
-
-**R-office-09** A team need write no `decide`: a team that writes no `everything` list has its own people as that list.
-*Accept:* `garden/team.yaml` without `decide` reads, and its `everything` is Sam. `support/team.yaml`, which has no workers and no `decide`, reads. `platform/team.yaml`, which has no people and no `decide`, reads, and its `everything` is empty. `office.yaml` without `decide` reads, and its `everything` is Sam and Kit; with `decide: { everything: [./small-orders.js] }` it is a problem of `office.yaml`, by C-office-06.
-
-**R-office-10** Under `decide`, each key is `everything`, the name of a tool, or a write of the tools Bulldog ships, `put_draft`, `write_doc` or `write_note`, in any team, and each value is an ordered list of deciders; `disclosure` is one such list. An entry of a list is a decider by its name or path, or a rule or a worker marked to advise, a mapping of its name or path to the word `advise`, as `[reviewer: advise, paul]`; a rule or a worker may be marked on one list and not on another.
-*Accept:* the house's `decide` reads as two lists, `everything` and `order_part`, in the order written, and the work office's `disclosure` for payments reads as one list holding the rule `./no-account-numbers.yaml`. `decide: { everything: sam }` and `disclosure: { lee: yes }` are each a problem. In the house, `order_part: [./small-orders.js, clerk: advise, sam]` reads as the rule, the clerk marked to advise and Sam; `order_part: [clerk: advise, sam]` beside `cut_power: [clerk, sam]` reads, the clerk advising on the one and not the other; and payments' `disclosure: [./no-account-numbers.yaml: advise]` reads as the rule, marked to advise, and no worker.
-
-**R-office-11** A decider is a person under `everyone`, a worker of any team, or a rule, which is a path from the team's file to a bare script or a Corbie definition in the team's own folder, and not in a team within it, or to a rule Bulldog ships (R-office-35); a list may name no person, only rules and workers; a name that is none of these, a path to nothing, a decider written twice in one list, an entry marked with anything but `advise`, a person marked to advise, since a person never refers, and a mapping that is not one decider marked are each a problem of the team file at the entry's line.
-*Accept:* `disclosure: [./no-account-numbers.yaml]`, a definition, reads in `payments/team.yaml`, and so does the house's `order_part: [./small-orders.js, clerk: advise, sam]`, a bare script and a worker that advises before a person; with `sam` removed, `[./small-orders.js]`, a list with no person in it, reads too. `[./missing.js, lee]`, `[nobody]`, `[lee, lee]`, and `[../bot.yaml]`, a path out of the team's folder, are each a problem naming the entry. In the house, `order_part: [./garden/check.js]` in `office.yaml`, naming a script in the garden's folder, is a problem. `decide: { everything: [bot, al] }` in `platform/team.yaml` reads, `bot` being a worker of the top team. In the house, `order_part` written `[clerk: yes, sam]`, `[clerk: { advise: true }, sam]`, `[./small-orders.js, sam: advise]` or `[{ clerk: advise, sparks: advise }, sam]` is each a problem of `office.yaml` naming `order_part`, at its line.
-
-**C-office-06** The top team's `everything`, as written or as taken from its people, names at least one person; one that names none is a problem of `office.yaml`. This is the one check of a reading that a person is reached: a decision that every decider refers, and a team with no people, go out to the office's `everything` in the end, and a person must be there for it to reach. *Test:* `office_top_everything_names_a_person`
-
-**R-office-38** A rule a `decide` or `disclosure` list names, written for an older Bulldog, has each line of its files of the office that answers `pass` or reads `passes` or `pass_goes_to` reported as a problem on each team whose lists name it, with its file and line, naming what took its place: `refer`, the input's `referrals` and its `referral_goes_to`. Its own file is read, and for a definition each file of the office it names; a rule Bulldog ships is not. The problem does not stop the rule: it runs, and a `pass` it answers is no answer Bulldog knows (R-decisions-19).
-*Accept:* the house's `small-orders.js` written `return { says: "pass", note: … }` on its line 6 reads, with a problem of `small-orders.js:6` on the top team naming `refer`, and the rule runs. `payments/no-account-numbers.yaml` handing its script `${input.passes}` on its line 9, and `payments/no-account-numbers.js` returning `{ says: 'pass' }` on its line 11, are a problem each on payments, naming `referrals` and `refer`; a comment in the script saying the rule passes nothing it is unsure of is none.
-
-**C-office-20** In a list, every rule and worker comes before every person; a list with a rule or a worker after a person is a problem naming the team and the list. A decider after the people could never be reached. *Test:* `office_people_last_in_list`
-
-**C-office-21** A list names only people of the office, workers of the office, rules in the team's own folder and rules Bulldog ships; any other entry is a problem naming the team, the list and the entry. A misspelt decider would otherwise be passed over at the moment it matters. *Test:* `office_unknown_decider_is_a_problem`
-
-**C-office-22** A definition that a `decide` or `disclosure` list or a `heed` names by its path, marked to advise or not, is a rule and never a worker, wherever in the team's folder it sits. Read as a worker too, it could be taken for a colleague or a lead and started with the allow lines written for judging. *Test:* `office_rule_definition_is_not_a_worker`
-
-**C-office-23** A rule may do only what its own file says: a bare script is given its decision and no permission, and a definition only what its own allow lines allow; Bulldog grants a rule nothing and writes no definition around one. A bare script is wrapped by Corbie's client, in a flow of one stage that runs it with no permission. What a rule may reach is then read where it is written, and judged when it changes. *Test:* `office_rule_granted_nothing`
-
-**R-office-35** A rule may be one Bulldog ships, in a folder of its own under `.bulldog/rules/` at the top of the office, and any team may name it in a list, or as its heed, by its path from the team's file, as `./.bulldog/rules/<name>/<file>` in `office.yaml` and `../.bulldog/rules/<name>/<file>` in a team directly within. It is read from what Bulldog ships, never from the office's files, and sent as it ships: it names no model by one word and holds its own allow lines, so it is the same rule whichever team names it, and is checked once; a problem Corbie finds in it is reported on each team that names it. It is of no team: like any rule, it decides as the team whose decision it is, its run labelled with that team (R-work-47) and its word in a request's thread that team's reading, seen by that team's people and not by the people of another team that names it. A path into `.bulldog/` that is not a rule Bulldog ships in `rules/`, such as its talk tools, is a problem naming the entry.
-*Accept:* `order_part: [./.bulldog/rules/none/none.js, sam]` in the house's `office.yaml` is a problem saying Bulldog ships no such rule, and so is `[./.bulldog/tools/talk/talk.yaml, sam]`. In `garden/team.yaml`, `everything: [../.bulldog/rules/none/none.js, sam]` is the same problem, and not one of a path leaving the garden's folder, while `[./.bulldog/rules/none/none.js, sam]` there names `garden/.bulldog/`, which is no file of the office (C-office-03).
-
-**R-office-36** A team's `heed` names one rule, which weighs what is said at a channel place before the team's lead starts on it: by its path alone, as `heed: ./for-us.js`, or as the `rule` of a mapping whose every other key is a setting, as `heed: { rule: ./for-us.yaml, timeout: 5s, threshold: 0.6 }`. The settings are handed to the rule whole and as written, and a heed written as a path alone has none; Bulldog reads none of them, but checks them against the shape the rule's input gives `settings`, when it gives one, and settings that do not fit are a problem of the heed on the team file, at its line, naming each place, which stops only the heed. The rule is named, read and checked as a rule a list names is (R-office-11, R-office-35, C-office-23): a heed that is not a path or a mapping with a `rule` that is a path, and a path a list could not name, are each a problem of the team file naming `heed`; a rule Corbie refuses is reported on the team and stops only the heed. A heed is no decider, and nothing waits on it.
-*Accept:* the garden's `heed: ./for-us.js`, with `garden/for-us.js` there, reads as the rule `garden/for-us.js` with no settings, and `heed: { rule: ./for-us.yaml, timeout: 5s, threshold: 0.6 }`, with `garden/for-us.yaml` a flow, reads as the rule `garden/for-us.yaml`, checked as a definition and no worker of the garden, with the settings `timeout` and `threshold` as written, and no `rule` among them. Each of `heed: gardener`, `heed: [./for-us.js]`, `heed: { timeout: 5s }`, `heed: ./missing.js` and `heed: ../small-orders.js` is a problem of `garden/team.yaml` naming `heed`. With `garden/for-us.yaml` a flow Corbie refuses, the house reads, the problem is reported on the garden, its heed is not asked, and the gardener runs. With `heed: { rule: ../.bulldog/rules/for-us/for-us.yaml, threshold: high, treshold: 0.6 }`, the house reads, and `garden/team.yaml` has one problem at the heed's line naming `/settings/threshold` and `treshold`, and the heed is not asked.
-
-**C-office-26** A heed is asked only before a lead that is a worker: a team whose lead is a person and that names a heed reads, with a problem of the heed on the team naming the heed and the lead, and the heed is not asked; the rest of the team, its lead among them, is as it would be with no heed. Everything a person lead says in a request is its answer, so a heed before one would weigh the lead's own words, and the request would wait on them while it is weighed. *Test:* `office_heed_with_person_lead_is_a_problem_of_the_heed`
-
-**R-office-12** A `decide` key that names no tool, stage or job of any of its team's workers (R-office-39) is reported on its team and used for nothing, and the rest of the office reads; while one of the team's workers cannot be read, no key is reported for naming nothing. A key that begins with a `list:` entry's name and `_`, such as `github_create_issue`, names a tool its server lists, which is known only when a call is made, and is checked then.
-*Accept:* `decide: { order_prat: [sam] }` in `office.yaml` gives a reading with the house's workers running, and the reading's problems include one on the top team naming `order_prat`. With the fixer given a `github` entry, `github_create_issue: [kit]` is no problem, and `gitlab_x: [kit]` is one.
-
-**C-office-07** Which tools a worker holds, and what a flow's stages and a statechart's jobs run, is learned from its definition as Corbie's client fills it out, tools files included, and from no reading of the file of Bulldog's own. A reading of its own would differ from what runs. *Test:* `office_tools_from_filled_definition`
-
-**C-office-27** A tool whose job is the call Bulldog ships is named as the tool its input calls, its `tool`; one named otherwise, as `propose` calling `put_draft`, is a problem of its worker, which is given no run. A held job is decided, and a held write fixed and shown, by the tool's name, while Bulldog answers the tool its input calls, so a write under another name would be decided on its arguments alone and by the wrong team. *Test:* `office_a_bulldog_tool_is_named_as_its_call`
-
-**R-office-39** What a worker that is a flow or a statechart runs is read as an agent's tools are (C-office-07): each stage of a flow by its name, and each job of a statechart by the name Corbie gives it, a state's one job by the state's name and each of its named jobs by its own. Each has what its job is, told from where it resolves (C-server-54), and whether Corbie holds it for a yes, as a tool has. A `decide` key may name one, since Corbie names a held job by its stage or its job (R-decisions-06); and a worker one runs is called by that flow or statechart, as a colleague is called as a tool, so a flow started at the top names the ask when a worker it runs can be held (R-office-30).
-*Accept:* the house's bins flow runs `which`, the script `tools/bins.js`, which waits for nothing, and `decide: { which: [sam] }` in `office.yaml` reads with no problem, while `decide: { whcih: [sam] }` is a problem of the top team naming `whcih`. The steward written as a flow whose stage `mend` runs `./fixer.yaml` runs the fixer as a worker of the house, and reads while it names the ask; without `ask:` it is the steward's problem naming `ask`, since the fixer's `cut_power` waits for a yes. A statechart `porch.yaml` whose state `asking` runs `./sparks.yaml`, and whose state `locking` names the job `lock`, the script `tools/cut-power.js` marked for approval, runs `asking`, the worker sparks, and `lock`, waiting for a yes; `decide: { lock: [kit] }` reads.
-
-**R-office-32** A team's `about` is one line saying what the team looks after, given to workers choosing whom to ask and shown on the screens; a team file may leave it out, and one that holds more than one line is a problem naming the team and `about`.
-*Accept:* the garden's `about` reads as "The beds, the lawn and the shed." `about` left out of `support/team.yaml` reads, and support has no `about`. `about: |` followed by two lines in `garden/team.yaml` is a problem naming `garden` and `about`.
+**C-office-32** A worker or a rule named as a decider that holds a job for approval, or lists `ask_about`, is a problem of the team file that names it. Corbie refuses a machine run as an ask that asks for approval, so one such decider would stop the whole team. *Test:* `office_decider_never_asks_approval`
 
 ## People
 
-**R-office-13** Every person is written once, under `everyone` in `office.yaml`, by a name of their own, with an optional `name`, an optional `title`, an optional `password`, and, for each bridge that knows them, the bridge's name as a key and who they are there as its value, and for each sign-in method they may sign in by, the method's name as a key and their account by it as its value; a person's bridges are read in the order written; a person with no `name` is called by the name they are written under.
-*Accept:* the work office reads five people; `al` is called "Al", with the title "Runs the office.", and his bridges are, in order, Slack with identity `U0AL0000` and GitLab with identity `"1041"`; written `{ gitlab: "1041", slack: U0AL0000 }`, GitLab comes first. With `name:` removed from `raj`, he is called "raj". `everyone` in `garden/team.yaml` is a problem.
+**R-office-51** A person is written once in `everyone`, with `name` and, under each bridge's name, their lasting id on it; a team's `people`, its deciders and its `lead` name people by their key.
+*Accept:* the house reads Sam with `telegram: "4471"`. `people: [sam, jo]`, with no `jo` in `everyone`, is a problem that names `jo`.
 
-**R-office-14** Each key under a person, other than `name`, `title` and `password`, names a bridge of the office, an entry under `bridges` or a folder under `bridges/`, or a sign-in method of the office, an entry under `signin` or a folder under `signin/`.
-*Accept:* `kit: { name: Kit, slack: U0KIT000 }` in the house, which has no Slack bridge, is a problem naming `kit` and `slack`, and so are `kit: { name: Kit, gitlab: "1077" }` and `sam: { name: Sam, email: sam@example.com }`, the last naming `email`; with the house signing in by `google`, `sam: { …, entra: sam@corp.example }` is a problem naming `sam` and `entra`, saying it is no bridge or sign-in method of the office.
+**C-office-33** One identity on one bridge names one person, compared exactly as written. An answer is taken from the person an identity names, so a shared identity would let either person answer as the other. *Test:* `office_identity_names_one_person`
 
-**R-office-40** A person's account by a sign-in method is what the method's machine answers for them, written as a word that is not empty, and is compared whatever its case; `password` is `true` or `false`, and says whether they may set a password of their own to sign in with, which is never written in the files.
-*Accept:* the house with `signin: { google: { from: ./.bulldog/signin/google, client_id: … } }` and `google: Sam@Example.com, password: true` in Sam's entry reads: Sam's accounts are `google` `Sam@Example.com`, he may set a password, his bridges are Telegram alone, and `sam@example.com` by `google` names him; Kit has no account and may not set a password; `kit@example.com` by `google`, `sam@example.com` by `entra` and `4471` by `telegram` name nobody. `password: yes please` is a problem naming Sam's password, and `google: ""` one saying his account is empty; `password: false` reads.
-
-**C-office-28** Two people never share an account by one sign-in method, compared whatever its case; the same account by two methods is two accounts. Whoever holds an account signs in as the person it names, so a shared one would sign either in as the other. *Test:* `office_account_names_one_person`
-
-**R-office-15** A person named in no team is a person all the same.
-*Accept:* in the work office `raj` is a person, in no team's `people`, and may be named in a `decide` list.
-
-**C-office-09** Two people never share who they are on one bridge; the identities are compared exactly as written. A yes is taken from the person an identity names, so a shared one would let either answer as the other. *Test:* `office_identity_names_one_person`
-
-**C-office-25** How a person is reached is read from their entry in the files alone, and nothing kept outside the files, in the store, on the screens or by a bridge, adds an identity to it or overrides one; their entry, their own as much as anyone's, changes only as the files do, by a change decided like any other. Changing one's own identity on a bridge is what someone who had taken over an account would do first, and a yes is taken from whoever that identity names. *Test:* `office_person_reached_only_by_entry`
-
-## Workers
-
-**C-office-10** A worker is sent to Corbie as its file is written, but for a model named by one word, which is replaced by the nearest team's model of that name (R-office-34); Bulldog fills nothing else into it and rewrites nothing else. What a person reads in the file, with that model, is what runs, and the screens show the model filled in. *Test:* `office_worker_sent_as_written`
-
-**C-office-11** A worker's definition carries its file's name; one that carries another is refused, and stops only that worker. Runs are found and shown by their machine's name, and a worker whose definition carried another would be taken for that other. *Test:* `office_definition_carries_worker_name`
-
-**R-office-16** A worker whose definition Corbie's client refuses is given no run until it is mended, and its problems are reported with its file; when it is its team's lead, its team is reported as having a lead that cannot run.
-*Accept:* the house with `sparks.yaml` naming a tool with no job reads; `sparks` is reported with everything wrong in its file and is marked as not running; the fixer, which runs sparks, and the steward, which runs the fixer, are each reported once as using sparks and do not run, and the top team is reported as having a lead that cannot run; the other workers run. With `steward.yaml` broken instead, the top team is also reported as having a lead that cannot run.
-
-**R-office-30** A worker Bulldog starts at the top, a team's lead or a routine's worker, names as `ask:` the ask Bulldog ships, by its path under `.bulldog/`, when anything it runs can be held: a job marked for approval or permissions listed under `ask_about`, in its own definition or in any machine its tools run, colleagues and machines in `tools/` alike, as far down as they go, each read from its filled definition (C-office-07). A colleague called as a tool uses the nearest ask above it unless it names the ask Bulldog ships itself; one that can also be started at the top is held to the rule for those. A worker that must name the ask and names none, and any worker that names another as its `ask:`, is reported as that worker's problem, saying to name the ask Bulldog ships, and is given no run until it is mended.
-*Accept:* the house reads with the steward naming the ask and the fixer and sparks, colleagues only ever called as tools, naming none; the fixer's held `cut_power` goes to the ask the steward names. The house's `steward.yaml` with no `ask:` is reported as the steward's problem naming `ask`, since the fixer it calls holds `cut_power`, marked for approval; the top team is reported as having a lead that cannot run, and the other workers run. With `{ at: "08:00", to: fixer, say: "Anything to mend?" }` added to the house's routines, `fixer.yaml`, naming no `ask:`, is the fixer's problem naming `ask`; with `ask: { machine: ./.bulldog/ask.yaml }` added to it as well, it reads. `ask: { machine: ./tools/my-ask.yaml }` in `sparks.yaml` is sparks' problem.
-
-**R-office-33** A team file's `models` gives models by name: each key is a name, of small letters, figures and dashes beginning with a letter, and each value is a model written as Corbie writes one, which names the secret that holds its key, where it needs one, and never holds a key; a value that is not a mapping is a problem of the team file. What a model holds is checked by Corbie in each definition it is filled into.
-*Accept:* the house's `models` reads as `usual`, with Claude Code's `sonnet`, and the garden's as `usual`, with Claude Code's `opus`; the work office's as `usual`, with `claude-sonnet-5-5` and the secret `ANTHROPIC_KEY`. `models: { usual: sonnet }` and `models: { Usual: { name: sonnet, service: claude-code } }` in `office.yaml` are each a problem naming the entry. `usual: { name: sonnet, service: claude-code, address: https://x.example }` in `office.yaml` reads; the fixer, which names `usual`, is reported with Corbie's refusal of its model, and the other workers run.
-
-**R-office-34** A model a definition writes as one word is a name, never a model of Corbie's own, and is replaced, before the definition is checked or sent, by the model of that name in the `models` of its own team, or failing that of the nearest team around it that gives the name, out to the office; a rule's definition is looked up from its team, and a bridge's machines from the office. A rule Bulldog ships names no model by one word, and nothing is filled into it.
-*Accept:* in the house the fixer's `model: usual` is filled in as `{ name: sonnet, service: claude-code }`, the house's, and a gardener whose file says `model: usual` is filled in with the garden's `{ name: opus, service: claude-code }`. With `garden/beds/team.yaml` added, giving no `models`, a worker in `beds/` that says `model: usual` is filled in with the garden's. With the garden's `models` removed, the gardener's is the house's. The fixer's definition as the screens show it holds the filled model, and its file still says `model: usual`.
-
-**C-office-24** A model named by one word that no team from the definition's own out to the office gives is a problem of that worker, rule or bridge alone, naming the word and the file: it is given no run until it is mended, and the rest of the office reads. A worker that calls it as a colleague cannot run either, and is reported once as using it, as of a colleague Corbie refuses, not with its problem again. Sent unfilled, the word would reach Corbie as a model no service offers, and the worker would fail at its start rather than when the office was read. *Test:* `office_unknown_model_name_stops_worker`
-
-## Routines
-
-**R-office-17** A routine has `at`, a time of day as `HH:MM` with an optional weekday from `mon` to `sun` before it; `to`, a worker of the same team; and `say`, what that worker is told; each is needed.
-*Accept:* the house's routines read. Each of these in `office.yaml` is a problem naming the routine: `at: "mon thu 09:00"`, `at: "25:00"`, `to: sam`, `to: gardener`, and a routine with no `say`.
-
-**R-office-18** A routine's time is one Corbie would take for a timer, and one it would not is a problem of its team's file.
-*Accept:* `at: "18:60"` is reported as a problem of the routine, in its team's file.
-
-**C-office-12** A time the files write, a routine's `at` among them, is written without a zone and read in the office's `zone`, or in UTC when the office names none; an `at` that names a zone of its own is a problem. Corbie reads a time with no zone as UTC, so without the office's zone a routine in London would come an hour out for half the year. *Test:* `office_routine_time_in_office_zone`
-
-**R-office-19** The office's `zone` is a time zone by its name in the zone database.
-*Accept:* `zone: Europe/London` reads; `zone: Somewhere/Else` is a problem.
-
-## Notes
-
-**R-office-20** A team's notes are the files in its `notes/` folder, and are read from the folder each time they are needed; a team with no `notes/` has none.
-*Accept:* a file written into `garden/notes/` is in the garden's notes at the next reading of them, with no reading of the office between. The work office's `support` has no notes.
-
-**R-office-31** A team's notes are the team's, the same in the context of every run Bulldog starts of one of its workers that names the notes tools and in no other team's runs, and are files of the office like any other: among the office's files, in its history, and not sealed as what a team read is. A worker has the notes tools, `write_note` in `tools/notes/notes.yaml`, only when its own definition names that file; each write is a commit with who and why.
-*Accept:* with `garden/notes/beds.md` written, the notes in the context of the gardener's run on a request to the garden and of the gardener's routine run are the same and hold it, those in a steward's run do not, and `garden/notes/beds.md` is among the office's files. Bins, whose definition names no `tools/notes/notes.yaml`, is given no notes in its routine's runs and has no notes tool, so cannot write one.
-
-## Docs
-
-**R-office-37** A team's docs are the Markdown files under its `docs/` folder, subfolders included, each named by its path there without `.md`, with its size, and are read from the folder each time they are needed; a file whose name starts with a dot, in a folder so named, anything not a plain file and anything not Markdown is no doc, and a team with no `docs/` has none. Docs are files of the office, written through a change like any other, and no run is given them: a worker of a team reads its own team's docs, then those of each team around it, out to the office, the nearer team's doc of a name standing before one further out, and only through the docs tools Bulldog ships (R-work-54).
-*Accept:* with `docs/boiler.md`, `docs/rooms/kitchen.md`, `docs/rooms/.draft.md`, `docs/.old/attic.md` and `docs/plan.pdf` in the house and `garden/docs/boiler.md` and `garden/docs/tools/mowers.md` in the garden, the house's docs are `boiler` and `rooms/kitchen`, each with its size; `docs/rooms/hall.md` written is among them at the next reading of them, with no reading of the office between. The garden's workers read the garden's `boiler` and `tools/mowers`, then the house's `rooms/hall` and `rooms/kitchen`, and not the house's `boiler`; the house's read nothing of the garden's. `garden/docs/tools/mowers.md` is among the office's files. The work office's `support` has no docs.
-
-## Bridges in the files
-
-**R-office-21** The top team's `bridges` names each bridge the office uses, by its name, with its settings; a bridge runs the folder Bulldog ships that its `from` names, which is only one under `.bulldog/bridges/`, or else its own folder, always `bridges/<name>`, holding `in.yaml` and `out.yaml`. A `bridges` entry with no `from` and no folder at `bridges/<name>`, a `from` that names no folder Bulldog ships under `.bulldog/bridges/`, an entry with `from` and a folder at `bridges/<name>` too, a folder under `bridges/` that `bridges` does not name, a folder missing either machine, and an in machine that takes both `cursor` and `delivery` or neither (R-bridges-04) are each a problem of that bridge, shown on the office and naming the bridge; that bridge is not run until it is mended, and the rest of the office reads and runs.
-*Accept:* the work office reads two bridges, `slack` and `gitlab`, with the settings written, each running the folder Bulldog ships that its `from` names; written under `lab`, the same entry is a bridge `lab` running `.bulldog/bridges/gitlab`. A `from` of `./bridges/gitlab`, `./.bulldog/bridges/matrix` or `./.bulldog/tools/talk`, and a folder `bridges/gitlab/` beside `gitlab`'s `from`, each give a problem on the office naming `gitlab`, the last saying `bridges/gitlab is not run: gitlab has a from`; with `./bridges/gitlab` as the `from` and the folder there too, there are both problems, and neither says the bridge runs `./bridges/gitlab`. With `gitlab` copied into `bridges/gitlab/` and its `from` taken out, it runs that folder; removing `gitlab` from `bridges`, removing `bridges/gitlab/`, removing `bridges/gitlab/out.yaml`, and writing `bridges/gitlab/in.yaml` to take both `cursor` and `delivery`, and then neither, each give a reading with a problem on the office naming `gitlab`, no run of `gitlab`, and `slack` and the office's workers running; so does adding `bridges/jira/` with files in it and nothing named for it, naming `jira`; an empty folder is not among the office's files. A person's `gitlab` identity left when `gitlab` is removed from `bridges` is part of that bridge's problem, not the person's. The house without its `telegram` entry and its people's Telegram identities reads with no problem.
-
-**R-office-22** What a bridge's settings hold is the bridge's own, but for the folder its `from` names (R-office-21) and the places it listens in, whose shape is the bridges page's: the office checks that the settings are a mapping, that each team a place names is a team of the office, and that they fit the shape either of its machines' input gives `settings`, when one gives one, and each failing is a problem of that bridge, on `office.yaml` at its entry's line, which stops only that bridge (C-office-15).
-*Accept:* `slack: { from: ./.bulldog/bridges/slack, places: { "#help": { guests: true } } }` reads, and its settings, `from` among them, are given back as written; with `anything: 3` beside them, a setting the shipped Slack does not take, and GitLab's with no `site`, each is a problem of its bridge on `office.yaml` at its entry's line, naming `anything` and `site`, and only that bridge is not run. `slack: "#help"` is a problem on the office naming `slack`, and `slack` is not run. `"#help": { team: billing }` under the Slack bridge's places, with no team `billing`, is a problem on the office naming `slack` and `billing`; `slack` is not run, and `gitlab` and the office's workers run.
-
-**R-office-41** The top team's `signin` names each sign-in method the office has, by its name, with its settings; a method runs the folder Bulldog ships that its `from` names, which is only one under `.bulldog/signin/`, or else its own folder, always `signin/<name>`, holding its machine, `signin.yaml`, which takes `code`, `verifier`, `redirect`, `nonce` and `settings`, and which Corbie's client checks with the method's settings against the shape its input gives them. An entry with no `from` and no folder at `signin/<name>`, a `from` that names no folder Bulldog ships under `.bulldog/signin/`, an entry with `from` and a folder at `signin/<name>` too, a folder under `signin/` that `signin` does not name, a folder with no `signin.yaml`, a machine that does not take each of those or that Corbie refuses, and settings that are not a mapping or do not fit its machine's input, are each a problem of that method, shown on the office and naming it; that method signs nobody in until it is mended, and the rest of the office reads and runs. A setting the entry leaves out is read as the default its machine's input gives.
-*Accept:* the house with `signin: { google: { from: ./.bulldog/signin/google, client_id: 1234-house.apps.googleusercontent.com } }` reads one method, `google`, running `.bulldog/signin/google`, with its settings as written, its `authorize` read as Google's from the default, and its machine among those checked; with its `from` taken out and Bulldog's folder copied into `signin/google/`, it runs that folder. Each of these is a problem on the office naming `google`, with Telegram and the people as before: a `from` of `./.bulldog/signin/apple`, naming `./.bulldog/signin/entra` among those Bulldog ships; no `client_id`; `colour: blue` beside it; `google: yes`; a folder `signin/google/` beside its `from`; with no `from`, no folder, a folder with no `signin.yaml`, a machine that takes only `settings`, and a machine Corbie refuses. A folder `signin/okta/` that `signin` does not name is a problem naming `okta`. The house without `signin` has no sign-in method.
-
-**C-office-29** A sign-in method is never called by a bridge's name, nor `name`, `title` or `password`, and no bridge is called `password`; each is a problem of `office.yaml` at its line. A folder `signin/<name>` that `signin` does not name, with a bridge's name, is a problem of that folder saying so, and a person's key of that name is who they are on the bridge. A key of a person names one or the other, and one name for both would leave which a person's account is in doubt. *Test:* `office_sign_in_method_named_as_no_bridge_is`
-
-**R-office-23** A bridge whose `in.yaml` or `out.yaml` Corbie's client refuses carries nothing until it is mended, and is reported with its file; the rest of the office reads.
-*Accept:* the work office with its GitLab bridge copied into `bridges/gitlab/`, its `from` taken out, and a broken `bridges/gitlab/in.yaml` reads, `gitlab` is reported on the office as not running with what is wrong in its file, and `slack` runs.
-
-## Reading
-
-**R-office-24** The office is read whole: every team file, every worker's, bridge's and sign-in method's definition, and every rule, each checked by Corbie's client as it would be before a start.
-*Accept:* a reading of the house as the overview shows it, with its Telegram bridge, makes one check of each of its eight workers, each with its one-word model filled in, its bridge's two machines, its sign-in method's machine and its rule, `small-orders.js`, found as the bare script it is in its team's folder, which is all Corbie checks of a script before it runs, and of no other file. A reading of the work office checks `payments/no-account-numbers.yaml` as a definition.
-
-**C-office-13** Every problem of a reading is reported together, each with its file, where in the file when that is known, and what is wrong. A person mending the files should see everything wrong at once, not one thing per attempt. *Test:* `office_every_problem_together`
-
-**C-office-14** Reading and checking the office need no running Corbie, no network and no model. A person checks an office before serving it, and the tests check offices with none of these. *Test:* `office_checks_offline`
-
-**R-office-25** A problem in a team file refuses the reading, and the office goes on as it was last read well.
-*Accept:* with the house read and running, a second `steward` written into `garden/` gives a reading that is refused. The workers, teams and routines in use are those of the first reading, and the problem is reported.
-
-**C-office-15** A definition Corbie refuses stops only itself and the workers whose tools run it, each of those reported once with the one it runs that is refused, whether it is a worker's, a bridge's or a rule's, and a bridge that cannot be used, whatever is wrong with it, stops only that bridge; neither refuses the reading. One bad file should not take the office down. *Test:* `office_broken_definition_stops_itself`
-
-**R-office-26** The problems reported are always those of the latest reading, and a problem that is mended is no longer reported.
-*Accept:* a reading with a broken `sparks.yaml` reports it. Once the file is mended, the next reading reports no problem.
-
-**R-office-27** Until the office has been read well once since the server started, it starts nothing and only reports its problems; no reading is kept from one start to the next.
-*Accept:* serving a copy of the house whose `office.yaml` names no `lead` starts no run, and its problems are reported. Writing `lead: steward` into it gives a good reading, after which the office's runs start. With the house served and read well, the server stopped, `lead` removed by hand and the server started again, no run starts and the problem is reported.
-
-**R-office-28** The office is read again whenever any of its files is written, added, removed or renamed, and a change to a definition reaches its worker at its next run, while a run under way goes on as it was started.
-*Accept:* with the house running, a change to `fixer.yaml`'s `system` is in the definition of the fixer's next run, and a fixer run already under way keeps the definition it started with.
-
-**C-office-16** A rename, and a write that leaves a file's time older than before, are noticed as changes. Neither changes how many files there are or the newest time among them, so a look at those alone misses both. *Test:* `office_rename_noticed`
-
-**C-office-17** A good reading replaces the last one whole: nothing ever goes by half of one reading and half of another. A run started while the files change must see one office. *Test:* `office_reading_replaced_whole`
+**R-office-52** A team with no people has the office's people as its people, for being asked and for seeing its requests.
+*Accept:* in the work office, platform's people are Al, and a held job of platform's ops is put to Al.
 
 ## Names
 
-**R-office-29** The names of people, workers, teams and bridges are small letters, figures and dashes, beginning with a letter.
-*Accept:* a person `Sam`, a worker file `Fixer.yaml`, a team folder `the garden/` and a bridge `2way` are each a problem naming the name.
+**R-office-53** Names of people, workers and teams start with a small letter and hold small letters, figures and dashes; each is used once in the office, and `office`, `team`, `bulldog`, `chat`, `guest`, `wait`, `ask` and `clock` are reserved.
+*Accept:* a team directory `2nd-floor` is a problem. So is a worker `sam.yaml` in an office with a person `sam`, and a person named `chat`.
 
-**C-office-18** A name is used once in the whole office, among people, workers and teams together; a model's name is not among them, and a team within may give it again. Deciders, leads and requests name each by its name alone. *Test:* `office_names_used_once`
+## Reading the office
 
-**C-office-19** These names are reserved, and a person, worker, team, bridge or sign-in method so named is a problem: `office`, `team`, `notes`, `docs`, `bridges`, `signin`, `chat`, `routine`, `bulldog` and `guest`; and no bridge or sign-in method is called `name`, `title` or `password`. Each is a file or folder of the office, the built-in chat, a key of a person, or who Bulldog itself writes as, and one so named would be taken for it. The built-in chat is never written under `bridges`. *Test:* `office_reserved_names_refused`
+**R-office-54** Bulldog reads the office again when any file in it changes. A problem in `office.yaml` or a team file keeps the last good reading in force, a broken worker, rule or bridge stops only itself and the teams that use it, and every problem is shown.
+*Accept:* with the house served, `budget: 40` written into `garden/team.yaml` leaves both teams as they were and shows the problem. A `fixer.yaml` that is not YAML stops the office's requests and shows the problem, and the garden still takes requests.
+
+**R-office-55** `corbie bulldog check <directory>` reads the office as serving does, prints every problem with its file, starts nothing, and exits with a failure status when there is any problem.
+*Accept:* on the house it prints nothing and exits 0. With `budget: 40` in `garden/team.yaml` and `people: [sam, jo]` in `office.yaml`, it prints both problems, each naming its file, and exits 1. No run is started either time.
+
+**C-office-34** Every problem of a reading is found and reported together, never only the first. One problem at a time costs a person a round of editing for each. *Test:* `office_every_problem_together`
+
+## What Bulldog ships
+
+**R-office-56** Bulldog ships, under `./.bulldog/`, `wait/wait.yaml`, `clock/clock.yaml`, `docs/docs.yaml`, `tools/talk/talk.yaml`, `tools/docs/docs.yaml`, `rules/mentioned/mentioned.js`, `rules/for-us/for-us.yaml` and the bridges `slack`, `telegram`, `gitlab` and `jira`, and each shipped directory has a `README.md`.
+*Accept:* each path reads through the loader, Corbie's parser takes each definition, and each shipped directory holds a `README.md`.
+
+## Docs
+
+**R-office-57** A team's docs are values kept in Corbie's store at `<office id>/<team>/docs/<name>`, and a doc's name is one part of a kept path.
+*Accept:* the ledger's `write_doc("refunds.md", …)`, once approved, keeps the text at `<office id>/payments/docs/refunds.md`, and `read_doc` with no name then lists `refunds.md`. `write_doc("Refunds.MD", …)` fails, and its error gives the rule for a name.
+
+**R-office-58** `read_doc(name)` reads one of the team's docs, or lists them with no name, and is allowed `kept.read` only; `write_doc(name, text)` writes one whole, is allowed `kept.write` only, and is marked for approval.
+*Accept:* the ledger reads `refunds.md` back as it was written. `read_doc`'s job lists no `kept.write` entry, and `write_doc`'s lists no `kept.read` entry.
+
+**C-office-35** Every run Bulldog starts for a team, a request or a docs run, is started with the list `network`, `disk`, `exec`, `env`, `secret:*@*`, `kept.read:<office id>/<team>/**` and `kept.write:<office id>/<team>/**`. The shipped docs tools take their path from the worker's input, which a calling model may write, so only the start list keeps a team's runs to its own docs. *Test:* `office_team_runs_keep_to_own_docs`
+
+**C-office-36** `write_doc` waits for the team's `decide`, which is shown the whole new text. Anything a bridge hears can steer a lead, and every later run reads a doc as the team's own. *Test:* `office_write_doc_waits_for_decide`
+
+## The office's id and secret
+
+**R-office-59** Bulldog writes `.bulldog/id`, a random id of 16 hex digits, once, at the first start; it is the one file Bulldog writes in the office.
+*Accept:* serving the house writes `.bulldog/id`. Serving it again keeps the same id, and no other file of the office changes.
+
+**C-office-37** The office's secret is made at the first start and kept in Bulldog's own directory in the user's config directory, never in the office directory. The office directory is edited, copied and put in git, and the secret signs every key. *Test:* `office_secret_never_in_office`
 
 ## Interfaces
 
-- **Requests** read each team's people, each person's identity on each bridge, each team's lead and the team each bridge's place names (R-office-22), so that a request heard at a listed place goes first to that team's lead, its origin where in that place it was said, and say who stands as the people of a team with none (R-requests-36): its own, or those its decisions reach.
-- **Work** starts workers from their definitions as read, each with its one-word model filled in (R-office-34), keeps to `runs`, starts each routine's clock with the office's zone, gives workers each team's `about` (R-office-32), gives each run it starts of a worker that names the notes tools the team's notes, ships the tools files, each of which a worker has only when its definition names it (R-office-31), the docs tools reading a team's docs and those of each team around it (R-office-37), and is told when a reading replaces the last.
-- **Decisions** reads the `decide` and `disclosure` lists and the notes a disclosure check reads, and runs the rules they name, each as written (C-office-23); a rule's lines written for an older Bulldog are reported here and do not stop it (R-office-38, R-decisions-19). The office gives the people a team's decisions reach (R-decisions-39): those its `everything` names, or its people where it writes none, or, where that names nobody, those of the first `everything` outward that does, with anyone no longer in the office left out; Decisions and Requests both take them from here.
-- **Bridges** reads the `bridges` settings, the folders under `bridges/` and the folders Bulldog ships that a `from` names, says the shape of a bridge's places, whose teams the office checks (R-office-22), is told of a broken bridge, which the office reports and stops alone (R-office-21), and matches a bridge's identity to a person.
-- **Changes** checks a change by a reading of the folder as it would be after it, writes a person's entry only by a change decided like any other (C-office-25), and keeps each note a worker writes as a commit.
-- **Server** reads each sign-in method, its machine and its settings as filled with its defaults (R-office-41), and the person whose account by it a machine answered (R-office-40), and whose entry says `password: true`; it gives the folder at each start, writes the house without its bridge or Google into an empty folder (R-server-06), holds the office's identity, sends a one-time link over a person's bridges in the order written (R-office-13), and shows each team's `about`, notes, docs and problems of the latest reading, and each worker's model as filled in (C-office-10), with what each of its tools may reach, each model's secret, and when each routine comes round next (R-server-32), to those who may see them.
-- **Corbie's client** checks every definition and rule, as it does before a start (R-office-24).
+Uses:
+
+- **Corbie.** Its parser, to check each worker and rule through a loader that serves the office's files and `./.bulldog/`; its rule for a kept path, for a doc's name.
+- **Shipped.** The files served at `./.bulldog/`.
+
+Used by:
+
+- **Requests.** The reading: teams, people, workers, deciders, routines, models and the loader; the start list of a team's runs; the office's id and secret.
+- **Bridges.** The bridges with their settings, and each person's identities.
+- **Screens.** The teams, people, problems and docs' place; the start list; the office's secret.

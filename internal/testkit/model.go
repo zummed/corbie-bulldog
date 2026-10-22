@@ -12,12 +12,12 @@ import (
 	"github.com/zummed/corbie/plugin/llm/standin"
 )
 
-// A Model stands in for a model service that speaks as Anthropic's does,
-// as Corbie's own stand-in. Each turn an agent takes is given to the test,
-// which says what the model replies; every turn is kept, for the test to
-// read what was shown.
+// A Model is a stand-in for a model service that speaks as Anthropic's
+// does. The test gives each turn of an agent the model's reply, and every
+// turn is kept for the test to read. A call without KeyValue as its key is
+// refused.
 type Model struct {
-	// URL is where the service is.
+	// URL is the address of the service.
 	URL    string
 	server *httptest.Server
 	answer func(Turn) Reply
@@ -27,27 +27,25 @@ type Model struct {
 	turns []Turn
 }
 
-// A Turn is one call to the model: what it was shown.
+// A Turn is one call to the model: what it was sent.
 type Turn struct {
-	// System is the system text.
 	System string
-	// Messages are the conversation so far, as the service is sent them.
+	// Messages are the conversation so far, as the service was sent it.
 	Messages []Message
-	// Tools are the names of the tools the model is offered.
-	Tools []string
-	// ToolsGiven are the tools as the model is told of them.
-	ToolsGiven []ToolGiven
+	// Tools are the tools the model is offered, by name.
+	Tools map[string]Tool
 	// Number counts the turns of one conversation from 1.
 	Number int
 }
 
-// A Message is one message of a conversation, as the service is sent it:
-// content sent as text alone is a block of text.
+// A Message is one message of a conversation. Content sent as a string is
+// one block of text.
 type Message struct {
 	Role    string           `json:"role"`
 	Content []map[string]any `json:"content"`
 }
 
+// UnmarshalJSON reads a message as the service was sent it.
 func (m *Message) UnmarshalJSON(data []byte) error {
 	var sent struct {
 		Role    string `json:"role"`
@@ -70,9 +68,8 @@ func (m *Message) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// A ToolGiven is a tool as the model is told of it.
-type ToolGiven struct {
-	Name        string         `json:"name"`
+// A Tool is a tool as the model is told of it.
+type Tool struct {
 	Description string         `json:"description"`
 	Schema      map[string]any `json:"input_schema"`
 }
@@ -85,8 +82,7 @@ func (t Turn) Prompt() string {
 	return textOf(t.Messages[0].Content)
 }
 
-// Last is the text of the latest message: what the model was last told,
-// tool results among it.
+// Last is the text of the latest message, tool results among it.
 func (t Turn) Last() string {
 	if len(t.Messages) == 0 {
 		return ""
@@ -94,8 +90,8 @@ func (t Turn) Last() string {
 	return textOf(t.Messages[len(t.Messages)-1].Content)
 }
 
-// textOf gives the text in a message's content, a tool result's text
-// among it, one part to a line.
+// textOf gives the text of a message's content, each block of text and each
+// tool result on a line of its own.
 func textOf(content []map[string]any) string {
 	var parts []string
 	for _, block := range content {
@@ -118,8 +114,8 @@ func textOf(content []map[string]any) string {
 	return strings.Join(parts, "\n")
 }
 
-// A Reply is what the model says in a turn: words, and the tools it calls.
-// A reply that calls no tool ends the agent's turn with its words.
+// A Reply is what the model says in a turn: text, and the tools it calls.
+// A reply that calls no tool ends the agent's turn with its text.
 type Reply struct {
 	Text  string
 	Calls []Call
@@ -131,7 +127,7 @@ type Call struct {
 	Args any
 }
 
-// Say is a reply of words alone.
+// Say is a reply of text alone.
 func Say(text string) Reply { return Reply{Text: text} }
 
 // Use is a reply that calls a tool.
@@ -143,9 +139,9 @@ func (r Reply) And(name string, args any) Reply {
 	return r
 }
 
-// Script answers each turn of a conversation with the reply of its place:
-// the first turn the first, and so on. A turn past the last is answered
-// with "done".
+// Script answers the turns of a conversation in order: the first turn with
+// the first reply, and so on. A turn after the last reply is answered
+// "done".
 func Script(replies ...Reply) func(Turn) Reply {
 	return func(t Turn) Reply {
 		if t.Number <= len(replies) {
@@ -155,11 +151,10 @@ func Script(replies ...Reply) func(Turn) Reply {
 	}
 }
 
-// NewModel starts a model that answers each turn as answer says, and stops
-// it when the test ends. Turns may come side by side, and answer may take
-// as long as it likes: a turn the test holds holds the agent, and the
-// model is stopped only once every answer has been given, so a turn held
-// is let go before the test ends, by a defer or a cleanup.
+// NewModel starts a model that gives each turn the reply answer gives, and
+// stops it when the test ends. Turns may come side by side. A turn waits
+// while answer runs, and the model stops only once every answer has
+// returned, so a test that holds a turn lets it go before it ends.
 func NewModel(t testing.TB, answer func(Turn) Reply) *Model {
 	m := StartModel(answer)
 	t.Cleanup(m.Close)
@@ -167,33 +162,34 @@ func NewModel(t testing.TB, answer func(Turn) Reply) *Model {
 }
 
 // StartModel starts a model as NewModel does, for a program that is not a
-// test, such as the demo, which stops it with Close.
+// test, which stops it with Close.
 func StartModel(answer func(Turn) Reply) *Model {
 	m := &Model{answer: answer}
-	m.server = httptest.NewServer(&standin.Server{Answer: m.reply})
+	m.server = httptest.NewServer(&standin.Server{Answer: m.reply, Key: KeyValue})
 	m.URL = m.server.URL
 	return m
 }
 
-// Close stops the model, once every turn being answered has its answer.
+// Close stops the model once every answer has returned.
 func (m *Model) Close() {
 	m.server.CloseClientConnections()
 	m.server.Close()
 }
 
-// Line is the model as a definition or a team file writes it.
+// Line is the model as a definition or a team file writes it, naming the
+// secret Key.
 func (m *Model) Line() string {
 	return fmt.Sprintf(`{ name: claude-test, service: anthropic, address: "%s", secret: %s }`, m.URL, Key)
 }
 
-// Turns gives every turn taken so far, in the order they came.
+// Turns gives every turn so far, in the order they came.
 func (m *Model) Turns() []Turn {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return append([]Turn(nil), m.turns...)
 }
 
-// reply answers one call as the test says, and keeps it as a turn.
+// reply keeps a call as a turn, and answers it with the test's reply.
 func (m *Model) reply(c standin.Call) standin.Reply {
 	turn, err := turnOf(c)
 	if err != nil {
@@ -205,32 +201,36 @@ func (m *Model) reply(c standin.Call) standin.Reply {
 	said := m.answer(turn)
 	out := standin.Reply{Text: said.Text}
 	for _, call := range said.Calls {
-		args, err := json.Marshal(call.Args)
-		if err != nil || call.Args == nil {
-			args = []byte("{}")
+		args := []byte("{}")
+		if call.Args != nil {
+			if args, err = json.Marshal(call.Args); err != nil {
+				return standin.Reply{Error: fmt.Sprintf("the test's arguments to %s are not JSON: %v", call.Name, err)}
+			}
 		}
 		out.Calls = append(out.Calls, standin.ToolCall{ID: fmt.Sprintf("toolu_%d", m.calls.Add(1)), Name: call.Name, Args: string(args)})
 	}
 	return out
 }
 
-// turnOf gives what a call showed the model as a turn of its
-// conversation.
+// turnOf reads what a call sent the model as a turn of its conversation.
 func turnOf(c standin.Call) (Turn, error) {
 	data, err := json.Marshal(map[string]any{"messages": c.Messages, "tools": c.Tools})
 	if err != nil {
 		return Turn{}, err
 	}
 	var sent struct {
-		Messages []Message   `json:"messages"`
-		Tools    []ToolGiven `json:"tools"`
+		Messages []Message `json:"messages"`
+		Tools    []struct {
+			Name string `json:"name"`
+			Tool
+		} `json:"tools"`
 	}
 	if err := json.Unmarshal(data, &sent); err != nil {
 		return Turn{}, err
 	}
-	turn := Turn{System: c.System, Messages: sent.Messages, ToolsGiven: sent.Tools, Number: (len(sent.Messages) + 1) / 2}
+	turn := Turn{System: c.System, Messages: sent.Messages, Tools: map[string]Tool{}, Number: (len(sent.Messages) + 1) / 2}
 	for _, tool := range sent.Tools {
-		turn.Tools = append(turn.Tools, tool.Name)
+		turn.Tools[tool.Name] = tool.Tool
 	}
 	return turn, nil
 }

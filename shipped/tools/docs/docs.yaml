@@ -1,0 +1,19 @@
+# The docs tools: read and write the team's docs, kept in Corbie's store
+# under the place Bulldog gives a worker as input.request.docs. read_doc may
+# only read, and write_doc may only write. write_doc is marked for
+# approval, so the team's decide is shown the new text first.
+read_doc:
+  does: Read one of your team's docs by its name, or, with no name, list the names of your team's docs
+  args: { name: "string?" }
+  job:
+    script: ../../docs/docs.js
+    input: { place: "${input.request.docs}", do: "${args.name ? 'read' : 'list'}", name: "${args.name ?? null}" }
+    allow: ["kept.read:${input.request.docs}/**"]
+write_doc:
+  does: Write one of your team's docs, whole, in place of what it held. A name is small letters, digits, ., - and _, such as refunds.md. Your team's deciders are shown the new text, and it is written once they say yes
+  args: { name: string, text: string }
+  job:
+    script: ../../docs/docs.js
+    input: { place: "${input.request.docs}", do: write, name: "${args.name}", text: "${args.text}" }
+    allow: ["kept.write:${input.request.docs}/**"]
+    approve: true

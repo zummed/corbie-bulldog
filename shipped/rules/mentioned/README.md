@@ -1,10 +1,18 @@
-Mentioned: a team's heed that acts on what names the bot or follows straight on its answer, and notes the rest, with no model.
+Mentioned: a heed rule that lets in a message that names the bot or follows the bot's answer to its sender.
 
-It acts when a message it weighs is marked as naming the bot, as the shipped Slack bridge marks one, or is said by whoever the lead answered, straight after that answer, "Follows <lead>'s answer.", or while the lead was answering them, "Said while <lead> was answering.". Anything else it notes, with "Not addressed to <lead>.". It acts if any one message it weighs is addressed.
+It is a script, and asks no model.
+
+| It says | When |
+|---|---|
+| `yes` | the message names the bridge's bot, `request.mentioned` |
+| `yes` | the latest earlier request of the thread was asked by the same sender, and has an answer |
+| `no` | otherwise |
+
+It never says `pass`.
 
 ## Needs
 
-Nothing: no secret and no host. It is a bare script, which runs with no permission.
+Nothing: no secret and no host. It runs with no permissions.
 
 ## Settings
 
@@ -13,13 +21,8 @@ None.
 ## Example
 
 ```yaml
-# in a team file
-heed: ./.bulldog/rules/mentioned/mentioned.js
+# payments/team.yaml
+heed: [./.bulldog/rules/mentioned/mentioned.js]
 ```
 
-From a team within, the path begins `../.bulldog/`.
-
-## Changed
-
-- 0.3.0: weighs messages in the order they were said, so one said while the lead was answering no longer stands between its answer and what follows it, and one by whoever it answered is acted on as said while it was answering.
-- 0.2.0: first shipped.
+In #refunds, Dana's "@bot was order 4411 refunded?" comes in, with the note "The message names the bot." Her "thanks!" after the answer comes in too. Raj's "lunch?" does not.

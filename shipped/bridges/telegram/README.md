@@ -1,6 +1,17 @@
-Telegram: it listens for what is said to the bot, and carries questions and decisions to a person directly, with a button for each choice.
+Telegram: a bridge that hears what is said to the bot on Telegram, and sends answers and questions there.
 
-The in machine asks Telegram for what is new since its cursor, waiting up to fifty seconds while nothing is. Its first run hears nothing and marks where Telegram stands. A chat holds no threads, only replies, so everything said is threadless, and a reply to any message of an answer goes on from it.
+The in run asks Telegram for what is new, waiting up to 50 seconds at a time while nothing is. A new bridge hears nothing said before it started. A chat holds no threads, so every message at one chat, or at one topic of a group, has the same `where`, and a reply is how a person answers a message.
+
+The out sends one message. A question with choices has a button for each, and a question without asks for a reply. A message to a person directly goes to their chat with the bot.
+
+| Thing | Telegram's |
+|---|---|
+| `id` | `<chat>:<message>`, or `press:<id>` for a press |
+| `from` | the sender's user id, which never changes |
+| `place` | `direct` for a person's chat with the bot, or a group's chat id |
+| `where` | the chat id, or `<chat>/<topic>` for a topic of a group |
+| `mentioned` | the message has an @mention of the bot |
+| `answers` | `<chat>:<message>` of the message it replies to |
 
 ## Needs
 
@@ -8,26 +19,26 @@ The in machine asks Telegram for what is new since its cursor, waiting up to fif
 
 ## Settings
 
-- `from`: `./.bulldog/bridges/telegram`, the folder it runs, as Bulldog ships it.
-- `places`: `direct`, anything said to the bot in a person's own chat with it, and each group by its chat id, with the `team` asked there, the office when none is named, and whether `guests` may ask.
+| Setting | What it is |
+|---|---|
+| `places` | `direct`, any person's chat with the bot, and each group by its chat id, each with the `team` asked there, the office without one, and whether `guests` may ask |
 
 ## Leaves out
 
-- What the bot said, and what any other bot said.
+- What a bot said, the bot itself among them.
 - Every kind of update but a message and a press of a button.
+- A file over 16 MiB, or one Telegram will not give; the message is heard with a line naming the file.
 
-Each is logged in the in run's record on Corbie, with its id, its place and why, and never its words.
+Each is logged in the in run's record, with its id and why, never its words.
 
 ## Example
 
 ```yaml
-# in office.yaml
+# office.yaml
 bridges:
-  telegram: { from: ./.bulldog/bridges/telegram, places: { direct: {} } }
+  telegram:
+    from: ./.bulldog/bridges/telegram
+    places:
+      direct: {}
+      "-1001234": { team: garden, guests: true }
 ```
-
-## Changed
-
-- 0.1.0: first shipped.
-- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; logs what it leaves out; takes no setting but those above, each checked when the office is read.
-- 0.5.0: a question that offers choices is sent with a button for each, as a decision is, in place of asking for a reply, and a press answers it; more than three choices, or long ones, are each on a row of their own.

@@ -1,0 +1,13 @@
+# Lists, reads and writes one team's docs, for the screens. place is the
+# kept path of the team's docs, <office id>/<team>/docs; do is list, read
+# or write. Bulldog starts it with the team's start list, so it keeps to
+# that team's own kept values.
+flow: docs
+input: { place: string, do: string, name: "string?", text: "string?" }
+stages:
+  docs:
+    job:
+      script: ./docs.js
+      input: "${input}"
+      allow: ["kept.read:${input.place}/**", "kept.write:${input.place}/**"]
+output: ${stages.docs.output}

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Bulldog</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the page</a>
+<header class="top">
+  <a class="brand" id="brand" href="#/">Bulldog</a>
+  <nav class="nav" aria-label="Screens">
+    <a href="#/" data-nav="requests">Requests <span class="owed" id="owed" hidden></span></a>
+    <a href="#/office" data-nav="office">Office</a>
+  </nav>
+  <span class="me" id="me"></span>
+  <button class="signout" id="signout" type="button">Sign out</button>
+</header>
+<div class="notice">
+  <div id="trouble" role="alert"></div>
+  <div class="stale" id="stale" hidden><span>This has changed.</span><button class="btn sm ghost" id="stale-show" type="button">Show it</button></div>
+</div>
+<main id="main" tabindex="-1"></main>
+<script src="/static/core.js"></script>
+<script src="/static/room.js"></script>
+<script src="/static/requests.js"></script>
+<script src="/static/request.js"></script>
+<script src="/static/office.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -22,9 +22,6 @@ done
 
 [tasks.test]
 description = "Run every package's tests with the race detector"
-# Tests run side by side, two at a time in each package as packages run at
-# once: the race detector keeps every core busy at that, and more at a
-# time only starves a test past its patience.
 run = "CGO_ENABLED=1 go test -race -parallel 2 ./..."
 
 [tasks.vet]

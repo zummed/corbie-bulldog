@@ -2,10 +2,7 @@ package testkit
 
 import (
 	"context"
-	"io"
-	"net/http"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -15,117 +12,148 @@ import (
 
 func TestMain(m *testing.M) { Main(m) }
 
-// draft fills out a definition with the files beside it.
-func draft(t *testing.T, src string, files map[string]string) *machine.Draft {
+// start starts a run of a definition given with its files, and gives the
+// run's name.
+func start(t *testing.T, corbie *Corbie, src string, files map[string]string, input any) string {
 	t.Helper()
-	d, err := machine.Parse([]byte(src), machine.Given(files))
+	draft, err := machine.Parse([]byte(src), machine.Given(files))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return d
+	run, err := corbie.Start(context.Background(), draft, client.Start{Input: input, Labels: map[string]string{"kind": "test"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return run
 }
 
-func TestAnAgentIsAnsweredByTheStandIn(t *testing.T) {
+func TestAFlowRunsToItsEnd(t *testing.T) {
 	t.Parallel()
-	clock := NewClock(Monday)
-	corbie := NewCorbie(t, clock)
+	corbie := NewCorbie(t)
+	run := start(t, corbie, `flow: adds
+input: { n: number }
+stages:
+  add: { job: { script: ./add.js, input: { n: "${input.n}" } } }
+output: ${stages.add.output}
+`, map[string]string{"add.js": `return input.n + 1`}, map[string]any{"n": 1})
+	ended := corbie.Ended(t, run)
+	if ended.Status != "done" || ended.Output != 2.0 {
+		t.Fatalf("the flow ended %s with %#v: %s", ended.Status, ended.Output, ended.Error)
+	}
+}
+
+func TestAnAgentIsAnsweredByTheModel(t *testing.T) {
+	t.Parallel()
+	corbie := NewCorbie(t)
 	model := NewModel(t, func(turn Turn) Reply {
 		if turn.Number == 1 {
 			return Use("shout", map[string]any{"word": "hello"})
 		}
-		return Say("it said " + turn.Last())
+		return Say("It said " + turn.Last() + ".")
 	})
-	d := draft(t, `agent: echo
+	run := start(t, corbie, `agent: echo
 input: { said: string }
 model: `+model.Line()+`
 system: You echo.
 prompt: ${input.said}
 tools:
   shout: { does: Shout a word, args: { word: string }, job: { script: ./shout.js, input: { word: "${args.word}" } } }
-`, map[string]string{"shout.js": `return input.word.toUpperCase()`})
-	run, err := corbie.Start(context.Background(), d, client.Start{Input: map[string]any{"said": "say hello"}, Labels: map[string]string{"kind": "test"}})
-	if err != nil {
-		t.Fatal(err)
-	}
+`, map[string]string{"shout.js": `return input.word.toUpperCase()`}, map[string]any{"said": "Say hello."})
 	ended := corbie.Ended(t, run)
 	if ended.Status != "done" {
-		t.Fatalf("the run ended %s: %s", ended.Status, ended.Error)
+		t.Fatalf("the agent ended %s: %s", ended.Status, ended.Error)
 	}
-	if text, _ := ended.Output.(map[string]any)["reply"].(string); !strings.Contains(text, "HELLO") {
-		t.Errorf("the reply holds no tool result: %#v", ended.Output)
+	if reply, _ := ended.Output.(map[string]any)["reply"].(string); reply != "It said HELLO." {
+		t.Errorf("the agent replied %#v", ended.Output)
 	}
 	turns := model.Turns()
-	if len(turns) != 2 || turns[0].Prompt() != "say hello" || turns[0].System != "You echo." || !strings.Contains(strings.Join(turns[0].Tools, " "), "shout") {
-		t.Errorf("the turns shown were %#v", turns)
+	if len(turns) != 2 {
+		t.Fatalf("the model had %d turns: %#v", len(turns), turns)
+	}
+	first, second := turns[0], turns[1]
+	if first.Number != 1 || first.System != "You echo." || first.Prompt() != "Say hello." || first.Tools["shout"].Description != "Shout a word" {
+		t.Errorf("the first turn is %#v", first)
+	}
+	if second.Number != 2 || second.Last() != "HELLO" {
+		t.Errorf("the second turn is %#v", second)
+	}
+}
+
+func TestAStatechartWaitsOnATicket(t *testing.T) {
+	t.Parallel()
+	corbie := NewCorbie(t)
+	run := start(t, corbie, `statechart: asks
+initial: asking
+states:
+  asking: { ticket: answer, on: { answer: answered } }
+  answered: { end: done, output: "${event.data}" }
+`, nil, nil)
+	ticket := corbie.Waiting(t, run, "answer")
+	if _, err := corbie.Reply(context.Background(), run, ticket, "yes", 0); err != nil {
+		t.Fatal(err)
+	}
+	if ended := corbie.Ended(t, run); ended.Status != "done" || ended.Output != "yes" {
+		t.Fatalf("the statechart ended %s with %#v: %s", ended.Status, ended.Output, ended.Error)
+	}
+}
+
+func TestATimerFallsDueWhenTheClockMoves(t *testing.T) {
+	t.Parallel()
+	corbie := NewCorbie(t)
+	run := start(t, corbie, `statechart: waits
+initial: waiting
+states:
+  waiting: { timers: { due: 2h }, on: { due: woken } }
+  woken: { end: done, output: woken }
+`, nil, nil)
+	corbie.Until(t, "the statechart has a timer", func() bool {
+		shown, err := corbie.Show(context.Background(), run)
+		return err == nil && shown.Timers == 1
+	})
+	corbie.Clock.Move(2 * time.Hour)
+	ended := corbie.Ended(t, run)
+	if ended.Status != "done" || ended.Output != "woken" || !ended.Ended.Equal(Monday.Add(2*time.Hour)) {
+		t.Fatalf("the statechart ended %s with %#v at %v: %s", ended.Status, ended.Output, ended.Ended, ended.Error)
+	}
+}
+
+func TestAKeptValueOutlivesItsRun(t *testing.T) {
+	t.Parallel()
+	corbie := NewCorbie(t)
+	keeps := `flow: keeps
+stages:
+  it: { job: { script: ./it.js, allow: ["kept.read:notes/**", "kept.write:notes/**"] } }
+output: ${stages.it.output}
+`
+	wrote := corbie.Ended(t, start(t, corbie, keeps, map[string]string{"it.js": `kept.write("notes/tea", { text: "Tea is up." })`}, nil))
+	if wrote.Status != "done" {
+		t.Fatalf("the run that keeps a value ended %s: %s", wrote.Status, wrote.Error)
+	}
+	read := corbie.Ended(t, start(t, corbie, keeps, map[string]string{"it.js": `return kept.read("notes/tea")`}, nil))
+	if read.Status != "done" || read.Output != "Tea is up." {
+		t.Fatalf("a later run ended %s with %#v: %s", read.Status, read.Output, read.Error)
 	}
 }
 
 func TestAScriptAnswersByTurn(t *testing.T) {
 	t.Parallel()
-	answer := Script(Say("one"), Use("x", nil))
-	if got := answer(Turn{Number: 1}); got.Text != "one" {
+	answer := Script(Say("One."), Use("look", nil).And("ask", map[string]any{"who": "sam"}))
+	if got := answer(Turn{Number: 1}); got.Text != "One." {
 		t.Errorf("the first turn is %#v", got)
 	}
-	if got := answer(Turn{Number: 2}); len(got.Calls) != 1 || got.Calls[0].Name != "x" {
+	if got := answer(Turn{Number: 2}); len(got.Calls) != 2 || got.Calls[0].Name != "look" || got.Calls[1].Name != "ask" {
 		t.Errorf("the second turn is %#v", got)
 	}
 	if got := answer(Turn{Number: 3}); got.Text != "done" {
-		t.Errorf("a turn past the script is %#v", got)
+		t.Errorf("a turn after the script is %#v", got)
 	}
 }
 
-func TestATimerComesWhenTheClockMoves(t *testing.T) {
+func TestADirIsWrittenFromItsFiles(t *testing.T) {
 	t.Parallel()
-	clock := NewClock(Monday)
-	corbie := NewCorbie(t, clock)
-	d := draft(t, `statechart: wait
-initial: waiting
-states:
-  waiting: { timers: { due: 2h }, on: { due: asking } }
-  asking: { ticket: answer, on: { answer: answered } }
-  answered: { end: done, output: "${event.data}" }
-`, nil)
-	run, err := corbie.Start(context.Background(), d, client.Start{Labels: map[string]string{"kind": "test"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	corbie.Until(t, "the chart is going", func() bool {
-		shown, err := corbie.Show(context.Background(), run)
-		return err == nil && shown.Timers == 1
-	})
-	clock.Move(2 * time.Hour)
-	ticket := corbie.Waiting(t, run, "answer")
-	if _, err := corbie.Reply(context.Background(), run, ticket, "yes", 0); err != nil {
-		t.Fatal(err)
-	}
-	if ended := corbie.Ended(t, run); ended.Output != "yes" || !ended.Ended.Equal(Monday.Add(2*time.Hour)) {
-		t.Errorf("the chart ended with %#v at %v", ended.Output, ended.Ended)
-	}
-}
-
-func TestAFolderIsWrittenFromItsFiles(t *testing.T) {
-	t.Parallel()
-	dir := Folder(t, map[string]string{"office.yaml": "name: A\n", "garden/team.yaml": "name: B\n"})
+	dir := Dir(t, map[string]string{"office.yaml": "name: A\n", "garden/team.yaml": "name: B\n"})
 	files := Files(t, os.DirFS(dir))
-	if files["office.yaml"] != "name: A\n" || files["garden/team.yaml"] != "name: B\n" || len(files) != 2 {
-		t.Errorf("the folder holds %#v", files)
-	}
-}
-
-func TestAModelStartedWithNoTestStopsWhenClosed(t *testing.T) {
-	t.Parallel()
-	m := StartModel(Script(Say("hello")))
-	resp, err := http.Post(m.URL+"/v1/messages", "application/json", strings.NewReader(`{"messages":[{"role":"user","content":"hi"}]}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	body, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if !strings.Contains(string(body), "message_stop") || len(m.Turns()) != 1 {
-		t.Errorf("the model answered %q", body)
-	}
-	m.Close()
-	if _, err := http.Post(m.URL+"/v1/messages", "application/json", strings.NewReader(`{}`)); err == nil {
-		t.Error("a closed model still answers")
+	if len(files) != 2 || files["office.yaml"] != "name: A\n" || files["garden/team.yaml"] != "name: B\n" {
+		t.Errorf("the directory holds %#v", files)
 	}
 }

@@ -1,12 +1,24 @@
-Slack: listens over Socket Mode for what is said and each press of a button; it answers in the thread, and carries questions and decisions to a person directly.
+Slack: a bridge that hears messages and presses of buttons over Socket Mode, and answers in the thread or to a person directly.
 
-The in machine listens: it opens a connection to Slack with the app-level token, so the office needs no address Slack can reach, and hands over each thing as Slack sends it, then tells Slack it was received. Each run listens a few minutes and the next connects again. What is said to the app directly is taken as in a channel: a new message begins a request of its own, or answers a question the app sent the person directly while it waits on them, and the answer goes in its thread, where a reply goes on with it. A file said in Slack is read; a file in an answer is named, not sent. A message that names the app is marked as mentioned, for a team's heed, and the app's mention in it reads as its name, as `@gromit`; anyone else's stays as Slack gives it. An answer goes as Markdown, which Slack shows, a decision's beside its buttons, as is a question's that offers choices. A chart and an image a worker writes are shown as Slack's own, as below. While a team works on what was asked in a thread, the app shows it there as Slack shows an agent at work: its agent session in the thread is `processing`, which Slack shows as working; `suspended` while the team waits on someone, as on a question it put or a decision that has reached people; and `active` once the team is done, whether it answered or said nothing. A session is left active, not closed, since a closed one is over, and a follow-up in the thread has the team at work there again. Slack shows no stop button beside it, as the app does not hear a session stopped there; a request is stopped on the screens. The app needs Socket Mode turned on, with its Event Subscriptions, for the message events, and its Interactivity.
+The in run opens a connection to Slack with the app-level token, so the office needs no address Slack can reach. Slack sends each message and each press over it, and the bridge hands each over, then tells Slack it was received. Each job listens 4 minutes, and the next connects again.
 
-A thing is lost if the runner stops after handing it over and telling Slack it was received, and before the handover is written down: Corbie does not yet let a script wait until what it hands over is kept.
+A message at the top of a channel, or of a person's conversation with the app, begins a thread of its own, and the answer goes in that thread. A message that names the app is heard with `mentioned`, and the app's mention reads as its name, as `@gromit`. A file said in Slack is read.
+
+The out sends Markdown, which Slack shows. A question or a decision has a button for each choice. A message to a person directly goes to their conversation with the app.
+
+| Thing | Slack's |
+|---|---|
+| `id` | `<channel>/<ts>`, or `press:<user>:<ts>` for a press |
+| `from` | the sender's user id, which never changes |
+| `place` | `direct` for a person's conversation with the app, or the channel's name, as `#help` |
+| `where` | `<channel>/<thread ts>` |
+| `answers` | `<channel>/<thread ts>` of the message a reply in a thread is under |
+
+A thing is lost if the runner stops after Slack is told it was received and before the thing is written to the in run's record.
 
 ## Charts and images
 
-A worker writes a chart as a fence marked `chart`, holding the chart in JSON, and Slack shows it as a chart of its own, among the Markdown:
+A worker writes a chart as a fenced block that opens with ` ```chart `, holding the chart in JSON. Slack shows it as a chart of its own, among the Markdown:
 
 ````
 ```chart
@@ -15,49 +27,46 @@ A worker writes a chart as a fence marked `chart`, holding the chart in JSON, an
 ```
 ````
 
-- `type`: `bar`, `line`, `area` or `pie`, needed.
-- `title`: up to 50 characters, needed.
-- `categories`: 1 to 20 labels, each up to 20 characters and different.
-- `series`: 1 to 12, each with a `name` up to 20 characters and different, and one number in `values` for each category. A pie has one series, of numbers above 0, and up to 12 categories, one slice each.
-- `x_label`, `y_label`: up to 50 characters each, not for a pie.
+| Field | What it is |
+|---|---|
+| `type` | `bar`, `line`, `area` or `pie`; needed |
+| `title` | up to 50 characters; needed |
+| `categories` | 1 to 20 labels, each up to 20 characters, all different |
+| `series` | 1 to 12, each with a different `name` of up to 20 characters, and one number in `values` for each category; a pie has one series of numbers above 0, and up to 12 categories |
+| `x_label`, `y_label` | up to 50 characters each; not for a pie |
 
-A message holds two charts at most, and the next goes on in the next message. An image alone on its line, as `![the refunds dashboard](https://ledger.example.com/refunds.png)`, at an `https` address Slack can fetch, is shown as the image. A chart that does not fit the above, and a message Slack will not show, as one with an image it cannot fetch, is said as it was written. A table in Markdown is shown by Slack as one. Every other bridge, and the screens, show the fence as written.
+- A message holds at most two charts; the next goes in the next message.
+- An image alone on its line, as `![the refunds dashboard](https://ledger.example.com/refunds.png)`, at an `https` address Slack can fetch, is shown as the image.
+- A chart that does not fit the table, and a message Slack will not show, such as one with an image it cannot fetch, is sent as written.
 
 ## Needs
 
-- `SLACK_TOKEN`, the app's bot token, for `slack.com` and `files.slack.com`. The app needs the `im:history` scope to read what a person types in their conversation with it, and `chat:write`.
-- The app declared as an agent in its Slack settings, and agents turned on for the workspace, to show what a team is doing in a thread. Without them, the top team's people see the bridge failing, with Slack's words and what to mend, and every answer still goes.
-- `SLACK_APP_TOKEN`, the app-level token, with the `connections:write` scope, for `slack.com`, which gives the connection's address on `wss-primary.slack.com` or `wss-backup.slack.com`.
+- `SLACK_TOKEN`, the app's bot token, for `slack.com` and `files.slack.com`. The app needs `chat:write`; `im:write`, to message a person directly; `im:history`, to hear what a person types in their conversation with it; `channels:read` and `im:read`, to read a conversation's name; and `files:read`, to read a file said.
+- `SLACK_APP_TOKEN`, the app-level token, with the scope `connections:write`, for `slack.com`. Slack gives it the connection's address on `wss-primary.slack.com` or `wss-backup.slack.com`.
+- Socket Mode turned on in the app's settings, with Event Subscriptions for message events and Interactivity.
 
 ## Settings
 
-- `from`: `./.bulldog/bridges/slack`, the folder it runs, as Bulldog ships it.
-- `places`: `direct`, a person's conversation with the app, and each channel by its name, with the `team` asked there, the office when none is named, and whether `guests` may ask.
+| Setting | What it is |
+|---|---|
+| `places` | `direct`, any person's conversation with the app, and each channel by its name, as `"#help"`, each with the `team` asked there, the office without one, and whether `guests` may ask |
 
 ## Leaves out
 
-- What the app said, and what any other bot said.
+- What a bot said, the app among them.
 - Edits, deletions, joins, and every event that is not a message.
 
-Each is logged in the in run's record on Corbie, with its id, its place and why, and never its words, and told to Slack as received.
+Each is logged in the in run's record, with its id, its channel and why, never its words, and Slack is told it was received.
 
 ## Example
 
 ```yaml
-# in office.yaml
+# office.yaml
 bridges:
   slack:
     from: ./.bulldog/bridges/slack
     places:
       direct: {}
       "#help": { guests: true }
+      "#refunds": { team: payments }
 ```
-
-## Changed
-
-- 0.1.0: first shipped.
-- 0.2.0: run in place, by `from` in its entry, and no longer copied into the office; logs what it leaves out, and marks a message that names the app as mentioned; listens over Socket Mode in place of being called at the office's address: may now connect to wss-primary.slack.com and wss-backup.slack.com, needs SLACK_APP_TOKEN, and no longer needs SLACK_SIGNING_SECRET; sends answers as Markdown, which Slack shows, and writes the app's own mention as its name; takes no setting but those above, each checked when the office is read.
-- 0.5.0: shows a chart fence and an image alone on its line as Slack's own chart and image, saying them as written when Slack will not show them; a question that offers choices is sent with a button for each, as a decision is, and a press answers it.
-- 0.5.1: gives a message said to the app directly at its thread, as in a channel, so each new message begins a request of its own and is answered in its thread, and no longer asks Slack what the app said before; reacts with 👀 to a message while a team works on it, and needs the `reactions:write` scope for that; names a message heard by its channel and its time, `C0HELP00/1700000009.000100`, in place of the id of the event Slack sent it in, so a message heard just before the upgrade, and sent again by Slack after it, is taken a second time, and one heard before it that a team starts on after it is not marked, the bridge showing failing until the next mark goes.
-- 0.5.2: shows what a team is doing in a thread as Slack's own status of the app's agent session there, working, waiting on someone, and done, in place of reacting with 👀 to each message: needs the app declared as an agent, and no longer needs `reactions:write`.
-- 0.5.3: a thread's status follows its request: `active` once the request is answered and no run of the team's lead goes, not after each run, and `processing`, not `suspended`, while an answer waits on the team's own disclosure check; a 👀 that 0.5.1 put on a message before the upgrade is not taken off, since the bridge no longer reacts at all, and stays until someone takes it off by hand; what 0.5.1 had still to put on or take off at the upgrade is let go, and the bridge does not show failing for it. When Slack refuses a status for a missing scope, the bridge says the app needs `chat:write` and must be declared an agent, which gives it `assistant:write`.

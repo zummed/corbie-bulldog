@@ -1,12 +1,11 @@
-# The GitLab bridge's in machine. It listens: it asks GitLab for what
-# happened on each project its places name since the cursor, and while
-# nothing has, it rests thirty seconds and asks again, since GitLab cannot
-# be asked to wait; it ends with what it heard and the cursor to go on
-# from, or after an hour with nothing. Its first ask, given no cursor,
-# hears nothing, and marks where each project stands. It speaks to the
-# GitLab at the settings' site, as gitlab.com, with the token that is the
-# Corbie secret GITLAB_TOKEN.
+# GitLab's in. Each job asks GitLab once what happened on each project the
+# places name since the cursor, and emits heard, { things, cursor }, when
+# its cursor moves. Then the chart rests 30 seconds, since GitLab cannot be
+# asked to wait, and asks again; it rests the same after a job that fails.
+# It speaks to the GitLab at the settings' site, as gitlab.com, with the
+# token that is the Corbie secret GITLAB_TOKEN.
 statechart: gitlab-in
+keep: 12h
 input:
   type: object
   required: [settings, cursor]
@@ -16,27 +15,17 @@ input:
       required: [site]
       additionalProperties: false
       properties:
-        from: { type: string }
         site: { type: string }
         places: { type: object }
     cursor: {}
-initial: listening
+initial: hearing
 states:
-  listening:
-    initial: hearing
-    timers: { enough: 1h }
-    on: { enough: heard }
-    states:
-      hearing:
-        job:
-          script: ./gitlab.js
-          input: { do: hear, settings: "${input.settings}", cursor: "${states.hearing.output ? states.hearing.output.cursor : input.cursor}" }
-          allow: ["net:${input.settings.site}", "secret:GITLAB_TOKEN@net:${input.settings.site}"]
-        on:
-          done:
-            - { go: heard, when: "${event.data.heard.length > 0}" }
-            - { go: resting }
-      resting:
-        timers: { again: 30s }
-        on: { again: hearing }
-  heard: { end: done, output: "${states.hearing.output}" }
+  hearing:
+    job:
+      script: ./gitlab.js
+      input: { do: hear, settings: "${input.settings}", cursor: "${states.hearing.output?.cursor ?? input.cursor}" }
+      allow: ["net:${input.settings.site}", "secret:GITLAB_TOKEN@net:${input.settings.site}"]
+    on: { done: resting, failed: resting }
+  resting:
+    timers: { again: 30s }
+    on: { again: hearing }

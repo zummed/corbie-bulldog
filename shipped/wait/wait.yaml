@@ -1,0 +1,13 @@
+# Waits on a person or a team. Bulldog carries the question, and answers
+# the ticket answer with { answer, by, thing }. With no answer after 7 days,
+# it ends with none.
+statechart: wait
+input: { to: map, said: string, choices: "list?" }
+initial: waiting
+states:
+  waiting:
+    ticket: answer
+    timers: { too_long: 7d }
+    on: { answer: answered, too_long: unanswered }
+  answered: { end: done, output: "${event.data}" }
+  unanswered: { end: done, output: { answer: null, note: "No answer came within 7 days." } }

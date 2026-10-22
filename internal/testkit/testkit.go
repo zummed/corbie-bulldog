@@ -1,7 +1,7 @@
-// Package testkit is what the tests of Bulldog stand on: a whole Corbie in
-// the test's process with its store in memory, a model that says what a
-// test tells it to, a clock the test moves, and an office's folder written
-// from a map of files. Nothing in it reaches the network or needs a key.
+// Package testkit is what Bulldog's tests run on: a whole Corbie in the
+// test's process with its store in memory, a stand-in model the test
+// answers, a clock the test moves, and directories written from a map of
+// files. Nothing in it reaches the network or needs a key.
 package testkit
 
 import (
@@ -20,8 +20,8 @@ import (
 	_ "github.com/zummed/corbie/statechart"
 )
 
-// Main is the TestMain of a package whose tests run a Corbie: the test
-// binary stands in for the process a runner starts for each job.
+// Main is the TestMain of a package whose tests run a Corbie: the runner
+// runs each job in a process of the test binary.
 func Main(m *testing.M) {
 	if len(os.Args) > 1 && os.Args[1] == runner.JobArg {
 		runner.JobMain()
@@ -30,17 +30,17 @@ func Main(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// Folder writes a folder of the test's own from its files, each under its
-// path in the folder, and gives where it is.
-func Folder(t testing.TB, files map[string]string) string {
+// Dir makes a directory of the test's own, writes the files into it, and
+// gives its path.
+func Dir(t testing.TB, files map[string]string) string {
 	t.Helper()
 	dir := t.TempDir()
 	Write(t, dir, files)
 	return dir
 }
 
-// Write writes files into a folder, each under its path in it, making the
-// folders they are in.
+// Write writes each file under its slash-separated path in a directory,
+// making the directories on the way.
 func Write(t testing.TB, dir string, files map[string]string) {
 	t.Helper()
 	for name, contents := range files {
@@ -55,7 +55,7 @@ func Write(t testing.TB, dir string, files map[string]string) {
 }
 
 // Files reads every file of a tree into a map by its path, for a test to
-// change before it writes them with Folder.
+// change before it writes them with Dir.
 func Files(t testing.TB, tree fs.FS) map[string]string {
 	t.Helper()
 	files := map[string]string{}

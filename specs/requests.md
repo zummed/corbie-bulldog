@@ -1,84 +1,385 @@
 # Requests
 
-A request is one thing someone asked. It is asked on a bridge, in the built-in chat or by a routine, and it goes to one team: a request from a bridge goes to the team the place it was said in names, in the bridge's settings, or to the office where the place names none; one from the chat to the team the person picks, or the office; one from a routine to its team. This area keeps every request and everything said in it, and decides who may see which part of it and who may say more in it. It knows the office only as the files say it is, read each time, and Corbie's runs only by their labels.
+A request is one thing asked of a team, and one run of the team's request machine. Bulldog starts the run, answers the tickets it waits on, and carries its answer back where it was asked.
 
-## A request
+## Where a request comes from
 
-A request has a number, given once in the office and never again; the team it went to; its asker; its origin; and a thread of entries. The team's lead starts on it, or, for a routine, the worker the routine names. A team whose lead is a person waits for that person, and their answer is the request's answer.
+The request's `heard` says how it came:
 
-The **asker** is whoever asked: a person, a guest, or, for a routine, the team itself. A person or a guest is kept as the identity their bridge checked, or, for the chat, as the person signed in, and who that is is read from the office each time it matters. A name written again for someone new inherits nothing.
+| `heard` | How |
+|---|---|
+| `channel` | a message at a channel: a bridge's listed place other than `direct` |
+| `direct` | a direct message to a bridge's bot, where the bridge lists `direct` |
+| `chat` | a person asked on the screens |
+| `team` | a worker of another team asked with `ask_team` |
+| `routine` | a routine of the team, at its time |
 
-The team is told who is asking, read from the office when its run is given the request: a person, by their name and the teams they are in; or a guest, as a guest, with the bridge and the identity it vouched for. Whether a guest may have what they ask is the team's own to judge, by its workers and its decisions, as it judges anything else; Bulldog adds no permission of its own for it.
+## The request machine
 
-The **origin** is the place a request was asked: a Slack channel or thread, a GitLab issue, the built-in chat. It fixes who reads the answer, and, on a bridge, which team is asked: each place a bridge's settings list names its team, or none for the office, and a direct message to the bridge is a place like any other, heard only when it is listed. Every answer goes back there, and whoever can read the place may see what was done and say more in it. Who can read a place a bridge listens to comes from the source: it is the people whose identities the bridge's in machine last reported as reading it, and a place it never reported is read by the asker alone. The chat is read by the asker alone. A request whose asking opened a source thing at its place, such as an issue, as its bridge names it, keeps the thing's link with its origin. A routine's request has its routine as its origin, read by the people of its team, and, when one of them ran it now on the screens, keeps who did. A sub-request is asked at no place and has no origin of its own: it has the request that asked it.
+For each team, Bulldog fills out the team file into one Corbie flow, named after the team. It is written as if it were at the office's top directory, so every path starts `./`, and its decisions are statecharts written in place. It is checked with Corbie's parser, and shown on the team's page as it is sent to Corbie.
 
-## The thread
+| Stage | Job | When |
+|---|---|---|
+| `heed` | the heed decision | the team has a `heed`, and `heard` is `channel` |
+| `work` | the lead: its worker, or `wait.yaml` to the person who leads | the heed said yes, or there is no heed stage |
+| `check` | the check decision, on the answer | the team has a `check`, the answer is not empty, and the asker is not one of the team's people and not the team's own routine |
 
-Everything said in a request is an entry: who it is by, who it is to, when, its words, and any files with it. The asking is the first entry. After it come replies, what workers asked people and told them, the sub-requests made, the decisions with who decided and when, and the answers. A question a worker puts to a person may offer choices, a few short answers they may pick from; what they pick is their answer, its words exactly as if they had typed them, and they may answer anything else all the same. The entry keeps what it offers, and whoever sees it sees what it offered. An entry is written once and never changed. Times are kept as instants and shown in the office's zone, the `zone` of the top team file.
+This is payments' request machine, from its team file in Office, without its `ask:`, which Held jobs shows.
 
-A team's heed that notes a message, the asking or more said, writes its word on it: an entry by the rule to the team, answering the message, holding the rule's note, or that the rule noted it when it gives none. It is what was read of the team, and goes to nobody. The message itself is not changed, and whoever sees it sees that it was **noted**; only the team's people see the rule and its note.
+```yaml
+flow: payments
+keep: 30d
+input: { said: string, context: string, request: map, files: "list?" }
 
-Bulldog writes a few entries itself: that a run failed (to the team with the error, which its people are told as they are when it is shown or sent, and to the asker without it), that a request was stopped and by whom, or in place of who a line of its own, such as that a team did not disclose its answer, that its issue was closed at the source and by whom, that a team or a person has gone from the office, which answers what was open to them. They are by Bulldog, and no worker or person can be taken for it.
+stages:
+  heed:
+    when: ${input.request.heard == 'channel'}
+    job:
+      input: { request: "${input.request}" }
+      machine:
+        statechart: payments-heed
+        input: { request: map }
+        initial: d1
+        states:
+          d1:
+            job: { script: ./.bulldog/rules/mentioned/mentioned.js, input: { request: "${input.request}", notes: [] } }
+            on:
+              done:
+                - { go: said_yes, when: "${event.data?.says == 'yes'}" }
+                - { go: said_no, when: "${event.data?.says == 'no'}" }
+                - passed
+          said_yes: { end: done, output: { says: "yes", note: "${event.data.note ?? null}" } }
+          said_no: { end: done, output: { says: "no", note: "${event.data.note ?? null}" } }
+          passed: { end: done, output: { says: "no", note: "Every decider passed." } }
 
-## States
+  work:
+    when: ${stages.heed.skipped || stages.heed.output.says == 'yes'}
+    job:
+      machine: ./payments/ledger.yaml
+      input: { said: "${input.said}", context: "${input.context}", request: "${input.request}", files: "${input.files ?? []}" }
 
-A request that began in Bulldog, in the chat, by a routine, as a sub-request, or at a place that keeps no status of its own, is in one of three states.
+  check:
+    when: ${stages.work.output.reply != '' && input.request.heard != 'routine' && !['lee', 'priya'].includes(input.request.by.person)}
+    job:
+      input: { request: "${input.request}", answer: "${stages.work.output.reply}" }
+      machine:
+        statechart: payments-check
+        input: { request: map, answer: string }
+        initial: d1
+        states:
+          d1:
+            job: { script: ./payments/no-account-numbers.js, input: { request: "${input.request}", answer: "${input.answer}", notes: [] } }
+            on:
+              done:
+                - { go: said_yes, when: "${event.data?.says == 'yes'}" }
+                - { go: said_no, when: "${event.data?.says == 'no'}" }
+                - people
+          people:
+            job:
+              machine: ./.bulldog/wait/wait.yaml
+              input:
+                to: { people: [lee, priya] }
+                said: "May Payments give this answer?\n\n${input.answer}\n\n./no-account-numbers.js passed: ${states.d1.output.note}"
+                choices: [yes, no]
+            on:
+              done:
+                - { go: said_yes, when: "${event.data.answer == 'yes'}" }
+                - said_no
+          said_yes: { end: done, output: { says: "yes", note: "${event.data.note ?? null}" } }
+          said_no: { end: done, output: { says: "no", note: "${event.data.note ?? null}" } }
 
-- **Working**: its team is on it, and nothing in it waits on a person.
-- **Waiting on someone**: a question put to a person, a decision that has reached people, or a lead who is a person, waits for them. The state names who.
-- **Answered**: its lead's answer has been said, or its team's heed noted what was said, and nothing has been said in it since. An empty answer to a routine, or at a channel place, any place on a bridge but its direct place, says nothing: its request is answered with no entry, and nothing goes to the team's people or to the place. This holds for the first thing said there as for any after it. An answered request is **Noted** while nothing in it was ever answered, said or quiet: its heed noted every message in it, so its lead never started, nothing was said, and it waits on nobody. One its lead answered stays answered, and is not noted, when later talk in it is noted. An answered request whose lead answered the last message not noted with nothing is **Quiet**, and one stopped, while nothing since has opened it, is **Stopped**.
+output:
+  outcome: "${stages.heed.failed || stages.work.failed || stages.check.failed ? 'failed' : stages.heed.output?.says == 'no' ? 'noted' : stages.check.output?.says == 'no' ? 'withheld' : 'answered'}"
+  answer: "${stages.heed.failed || stages.work.failed || stages.check.failed ? 'Payments could not answer: its work failed.' : stages.heed.output?.says == 'no' ? null : stages.check.output?.says == 'no' ? 'Payments did not let its answer out.' : stages.work.output.reply}"
+```
 
-Something said in a request by someone who may say more in it is an entry in it, whether the request is open or answered, and makes an answered request working again. An answer held by its team's disclosure check is not yet said: until it is let go the request is working, or waiting on the people the disclosure has reached.
+A team without a heed has no `heed` stage, and its `work` has no `when:`. A team without a check has no `check` stage.
 
-A run that ends with no answer, because it failed or was stopped, while nothing else in its request is open, leaves the request answered. Bulldog's entry is its last, and goes to the origin, or for a sub-request to the run that asked: for a failure, it says only that the team could not answer, and the team's people are told the error; for a stop, it says who stopped it. Saying more makes it working again.
+Dana asks in #refunds "@bot was order 4411 refunded?". This is the run, as Corbie records it, with each event's data cut short:
 
-A request from something that keeps a status of its own, such as a GitLab issue or a Jira issue, shows that status as its bridge's in machine last reported it, with when, and has none of these three states. Beside it is shown whether its team's work on it is going, or waits on someone. Bulldog never sets that status. A change of it is not an entry and starts nothing, with one exception: the issue being closed at its source stops the request's work, as a stop does, with Bulldog's entry saying who closed it.
+```
+step 1  <- start {"context":…,"request":{"by":{"person":"dana"},…,"heard":"channel","mentioned":true,…},"said":"@bot was order 4411 refunded?"}
+step 1  -> job heed: a machine
+step 2  <- done from heed {"note":"The message names the bot.","says":"yes"}
+step 2  -> job work: a machine
+step 3  <- done from work {"conversation":…,"reply":"Refunded £40 to order 4411.",…}
+step 3  -> job check: a machine
+step 4  <- done from check {"note":"No account numbers.","says":"yes"}
+step 4  done
+output: {"answer":"Refunded £40 to order 4411.","outcome":"answered"}
+```
 
-## Sub-requests
+## The answer and the outcome
 
-Work that needs another team becomes a sub-request: a request of its own to that team, with a run of its own, made by a tool Bulldog ships. It is asked at no place: it has the request that asked it, and its answer goes back to the run that asked. The team asked is told the origin at the top of the tree, which is who will in the end read what it says. A team already asked above in the tree is not asked again beneath it: what the team below needs from it goes back in its answer.
+The request machine's output is `{ answer, outcome }`:
 
-Who may say more in a sub-request is the team that asked it, its people and, through their runs, its workers, and the people of the team it went to. Whoever sees the request that asked it sees what was done in it, because sight goes down, and has no voice in it.
+| `outcome` | When | `answer` |
+|---|---|---|
+| `answered` | the lead answered, and the check, if it ran, said yes | the lead's answer |
+| `noted` | the heed said no | none |
+| `withheld` | the check said no | "Payments did not let its answer out." |
+| `failed` | a stage failed | "Payments could not answer: its work failed." |
 
-Sub-requests make a tree under the request first asked. A sub-request goes on when the run that asked it ends, and an answer that comes when nothing waits for it any more, from a sub-request or from a person, is kept in the request that asked, once, and makes it working again. An answer to a request leaves the sub-requests open beneath it going. Stopping a request stops everything still open beneath it, and nothing above it.
+The lead's answer depends on what the lead is:
 
-## Two layers
+| Lead | Its answer |
+|---|---|
+| an agent | its `reply`: the text, or the text `answer` of the data it declares |
+| a person | `wait.yaml`'s `answer` |
+| a flow or a statechart | its output: text, or its text `answer` |
 
-**What was done** is what leaves a team: what was said at the origin and to the asker, the sub-requests with what each asked and how each was answered, the decisions with what was decided, who decided and when, and the answers.
+- The output is the only thing of a request that leaves its team: the reply, a ticket's answer, and the thread a later request is given. A stage's output never leaves.
+- The asker never sees an error. The team's people see it on the request.
+- A request is kept 30 days after it ends.
 
-**What was read** belongs to one team: what its runs read and said, their tool results and conversations, and what was said between its workers and its people away from the origin, such as a worker's question to one of its people, or the reasons a decider of the team was shown. Bulldog keeps no copy of a run. What a run read is read from Corbie, by the run's labels, for as long as Corbie keeps it, and is of the team those labels name. A worker deciding for another team runs as the team it decides for, as Decisions says, so what it read there is that team's.
+## What the lead is given
 
-What a team with a disclosure check says outside it, an answer, a question or a tell that anyone outside the team reads, as Work says, or a sub-request it makes, is what was read of that team until it is let go. A disclosure refused is an entry by the decider, with its note, to the team's lead, and is what was read of the team. A refused answer starts the lead again on the same request; a refused question, tell or sub-request is given to the run that said it. Whoever asked the team is told nothing of the refusal but, when the lead gives up or the limit on runs in a row is reached, the one line Decisions gives: that the team did not disclose its answer, and who refused.
+| Input | What it is |
+|---|---|
+| `said` | the new message |
+| `context` | the same as `request`, as text a model reads well, with the date and time in the office's zone and the team's people and workers |
+| `request` | what Bulldog knows of the request, as data |
+| `files` | the files said with it, as blobs |
 
-## Who sees what
+| `request` | What it is |
+|---|---|
+| `team` | the team asked |
+| `by` | who asked: `{ person }`, `{ guest }` with the identity the bridge gave, `{ team }`, or `{ routine }` with its `at` |
+| `heard` | `channel`, `direct`, `chat`, `team` or `routine` |
+| `place` | for a request heard on a bridge, `{ bridge, place, guests, where }`; for a sub-request, the `bridge`, `place` and `guests` of the request at the top of its chain |
+| `thread` | the requests before it in its thread, each `{ by, said, answer, at }`, the newest within 20,000 characters |
+| `teams` | the teams it may ask, each `{ name, about }` |
+| `open` | for a routine, the team's running requests, each `{ by, said, at }` |
+| `chain` | the teams whose requests asked this one, top first |
+| `docs` | the kept path of the team's docs, `<office id>/<team>/docs` |
+| `mentioned` | the message names the bridge's bot |
 
-One rule says who sees a request, read from the files each time something is shown or sent.
+`context` says how many requests of the thread are left out. Inside a team, workers call each other as Corbie tools, and a colleague is given what its caller gives it.
 
-- **What was done** is seen by its asker, by the people of the team it went to, by the people who can read its origin, and, for a sub-request, by whoever sees the request that asked it. Sight goes down the tree, never up or sideways: Dana and Al see what payments was asked and how it answered, and Lee and Priya see payments' sub-request and what is beneath it, but not what Dana asked, nor what platform was asked beside it.
-- **What was read** of a team is seen only by that team's people. Being in a team around it gives no sight inside it, and neither does seeing the request. A team that has gone, or has been renamed, keeps its past what was read for nobody.
-- **An entry put to someone** is seen by them, with its answer, and nothing else of the request.
+A sub-request is given its own thread only: the requests the same asking request made of the same team. Of the requests above it, it is given the asking team, the chain and where the chain began, and nothing else.
 
-A team with no people has as its people, for every purpose of sight and control, the people its decisions reach, as the office gives them, out through the teams around it: they are told of its failures, see what it read and what was done of its requests, say more in them, and watch and stop its runs.
+## Decisions
 
-Saying more follows one rule, the same on the screens as through a bridge: the asker, the people of the team the request went to, and, for a request with an origin, the people who can read it, or, for a sub-request, the people and workers of the team that asked it. What they say is an entry to the team. Nobody else says more in a request, and seeing it from the request above it gives no voice in it.
+A decision asks its deciders in order. Each gives `says`, `yes`, `no` or `pass`, with a `note`.
 
-A request someone may not see is, to them, a request that is not there: no number, no count, no notice, no worker shown busy on it. Nothing of a request is sent anywhere but to its origin and to those its entries are to, and what goes to the origin is only what was done.
+- The first `yes` or `no` is the answer.
+- When every decider passes, the answer is `no`.
+- A decider that fails fails the decision: a failed heed or check fails the request, and a failed `decide` approves nothing.
+- Each decider is given the notes of those before it. People see them above `yes` and `no`.
+- The people at the end of a list are asked together, and the first of them to answer gives the answer.
+- A worker passes on a job its own machine holds.
 
-## Guests
+What a decider is given:
 
-A guest is someone a bridge names who matches no person. A guest may ask only in the places the bridge's settings list as ones where guests may ask, a direct place like any other, and is answered there; which places those are is the bridge's. A guest may say more in what they asked, at its origin, and is put no question anywhere but there. A guest never decides, sees nothing on the screens and nothing of what was read, and anything done for them that needs a yes still waits for the team's deciders. When the office later names them, their identity matches a person, and what they asked is theirs to see.
+| Decision | `request` | `answer` | `question` | `jobs` | `notes` |
+|---|---|---|---|---|---|
+| heed | yes | | | | yes |
+| check, on an answer | yes | the answer | | | yes |
+| check, on a question to a team | yes | | `{ team, said }` | | yes |
+| decide | yes | | | Corbie's held jobs | yes |
 
-## The store
+What a decider gives back:
 
-Requests are kept in one store, in Bulldog's one file, and only this area reads or writes them. It keeps requests, their entries and the files on entries, and nothing of any other area. What waits on a person is worked out here, once, and the screens and the bridges read it here. A person can list the requests they may see, by team, by state and by the bridge and listed place they were asked at, those that wait on them, and those they asked.
+| Decider | Gives |
+|---|---|
+| a rule | `{ says, note }` |
+| a worker | its `reply`, `{ says, note }` |
+| people | `yes` or `no`, from whoever answered first |
 
-Each thing done is one write, whole or not at all: a request with its asking, an entry with its files, a sub-request with the entry that asked it, a stop with everything it closes. Whoever watches is told of a change after it is written, and of a change to how an entry is carried, which Bridges keeps and tells of. A store made by an older Bulldog is refused, and the person is told to make it again.
+```js
+// small-orders.js: each held job is Corbie's: its name, its input, and for an agent's tool call, asked.args
+const pounds = input.jobs.map(j => (j.asked?.args ?? j.input).pounds ?? Infinity)
+if (pounds.every(p => p <= 20)) return { says: "yes", note: "Under £20." }
+return { says: "pass", note: "More than I order alone." }
+```
 
-## Interfaces
+Bulldog writes each decision as a statechart in place, as payments' heed and check above: one state for each decider before the people, `d1`, `d2` and on, then `people`, then the final states `said_yes`, `said_no` and `passed`. A rule that is a script runs with no permissions.
 
-- **Office** gives the teams with their people, leads and workers, and each person with the identities their bridges give, read each time sight is decided or a request is made; it checks that each team a bridge's place names is in the office, and gives the people a team's decisions reach, who stand as the people of a team with none.
-- **Work** makes a routine's request, and is told the one it opened that is still open, starts the lead on a request and again when it is working again, writes what a team's heed noted, makes sub-requests through the tool Bulldog ships, gives an answer to the tool that waits for it and otherwise hands it here as a late entry, writes what its runs say outside a run as entries in their own request and no other, and reports how each run ended, telling a team with no people through the people this area names for it. It gives a run who is asking, as this area says, and a routine's run its team's open requests, each with its number, asker, state and first line, as the team's people see what was done. A run that reads what was said before its request where it was asked is given the messages and the team's answers of the team's earlier requests at that listed place, only of those every reader of its request reads, a reader the office does not name being the same reader only by the same identity. The labels it gives a run name the request and the team, and this area reads what was read from Corbie by them.
-- **Decisions** writes each decision as an entry naming the decision it is of, with what is put to a person as an entry to them, says how a decision appears in what was done, holds what a team with a disclosure check says outside it back from what was done until it is let go, the answer of a lead who is a person included, which this area hands it as soon as it is kept, however it was said, and gives it to read every answer it holds, so that one Bulldog stopped before handing is handed then, and holds no longer, waiting on the lead again, when it cannot be handed, writes a refused disclosure as an entry to the team's lead, and, when the lead gives up or reaches the limit, tells whoever asked the team only that it did not disclose its answer, and who refused; says that a run asked to decide for a team is of that team, walks to whoever a team's decisions reach, whom this area makes the people of a team with none, and refuses a decision that reaches nobody, with why.
-- **Bridges** hand in what is said, once, by the service's own id for it, with the sender's checked identity, the place it was said, whether it names the bridge's own bot, which its entry keeps, and the identities that can read it; say, for each place they hear, which team is asked there and whether guests may ask there; hear the status of a thing at its source and report it here, where it is shown, a close included; carry what is said to an origin or to a person; and read here what waits on whom and who may say more.
-- **Changes** keeps each draft with the request it is drafted in, and a change's decision is an entry there like any other.
-- **Server** keeps the file this store is in, and gives the screens each person's requests, both layers as they may see them, and what waits on them, with everyone they name as the office names them now; who may say more, who are the people of a team with none and the request a routine opened that is still open it reads here, and who may stop or decide from the screens is its to say.
+The heed rules Bulldog ships, `mentioned` and `for-us`, answer `yes` or `no`, never `pass`.
+
+## Held jobs
+
+The request machine's `ask:` is a flow written in place, given the jobs Corbie holds for approval in one step.
+
+- A held job that asks a team, the talk tool `ask_team`, goes to the `check` decision, on its question. Without a check, it is approved at once.
+- Every other held job goes to the `decide` decision. Without a `decide`, the team's people are asked.
+- The flow approves the held jobs of each part that said yes. A question the check refused gives the tool "Payments did not let its question out."
+
+This is payments' `ask:`, in the same file:
+
+```yaml
+ask:
+  input: { request: "${input.request}" }
+  machine:
+    flow: payments-approval
+    input: { request: map, asking: map, jobs: list }
+    stages:
+      check:
+        each: ${input.jobs.filter(j => j.input?.to?.team)}
+        job:
+          input: { request: "${input.request}", question: { team: "${item.input.to.team}", said: "${item.input.said}" } }
+          machine:
+            statechart: payments-check-question
+            input: { request: map, question: map }
+            initial: d1
+            states:
+              d1:
+                job: { script: ./payments/no-account-numbers.js, input: { request: "${input.request}", question: "${input.question}", notes: [] } }
+                on:
+                  done:
+                    - { go: said_yes, when: "${event.data?.says == 'yes'}" }
+                    - { go: said_no, when: "${event.data?.says == 'no'}" }
+                    - people
+              people:
+                job:
+                  machine: ./.bulldog/wait/wait.yaml
+                  input:
+                    to: { people: [lee, priya] }
+                    said: "May Payments ask ${input.question.team} this?\n\n${input.question.said}\n\n./no-account-numbers.js passed: ${states.d1.output.note}"
+                    choices: [yes, no]
+                on:
+                  done:
+                    - { go: said_yes, when: "${event.data.answer == 'yes'}" }
+                    - said_no
+              said_yes: { end: done, output: { says: "yes", note: "${event.data.note ?? null}" } }
+              said_no: { end: done, output: { says: "no", note: "${event.data.note ?? null}" } }
+      decide:
+        when: ${input.jobs.some(j => !j.input?.to?.team)}
+        job:
+          input: { request: "${input.request}", jobs: "${input.jobs.filter(j => !j.input?.to?.team)}" }
+          machine:
+            statechart: payments-decide
+            input: { request: map, jobs: list }
+            initial: people
+            states:
+              people:
+                job:
+                  machine: ./.bulldog/wait/wait.yaml
+                  input:
+                    to: { people: [lee, priya] }
+                    said: "May these run?\n\n${input.jobs.map(j => j.name + ' ' + JSON.stringify(j.asked?.args ?? j.input)).join('; ')}"
+                    choices: [yes, no]
+                on:
+                  done:
+                    - { go: said_yes, when: "${event.data.answer == 'yes'}" }
+                    - said_no
+              said_yes: { end: done, output: { says: "yes", note: "${event.data.note ?? null}" } }
+              said_no: { end: done, output: { says: "no", note: "${event.data.note ?? null}" } }
+    output:
+      approve: "${[...stages.check.output.filter(c => c.output?.says == 'yes').map(c => c.item.name), ...(stages.decide.output?.says == 'yes' ? input.jobs.filter(j => !j.input?.to?.team).map(j => j.name) : [])]}"
+      note: "${stages.check.output.some(c => c.output?.says != 'yes') ? 'Payments did not let its question out.' : null}"
+```
+
+The ledger asks platform "Is the charge service up?". Corbie holds the tool's job, the ask's `check` stage runs `no-account-numbers.js` on the question, which says yes, and the ask approves `ask_team`. Asked about account 12345678, the same rule says no, and the ledger is told `denied: the ask did not approve the job: Payments did not let its question out.`
+
+## Waiting on a person or a team
+
+Bulldog ships `wait.yaml`. It waits on its ticket `answer`, and ends with the answer, or after 7 days with no answer.
+
+```yaml
+statechart: wait
+input: { to: map, said: string, choices: "list?" }
+initial: waiting
+states:
+  waiting:
+    ticket: answer
+    timers: { too_long: 7d }
+    on: { answer: answered, too_long: unanswered }
+  answered: { end: done, output: "${event.data}" }
+  unanswered: { end: done, output: { answer: null, note: "No answer came within 7 days." } }
+```
+
+`to` is `{ team }` or `{ people: [...] }`. A worker uses it through the talk tools, by naming `./.bulldog/tools/talk/talk.yaml` in `tools_file`:
+
+| Tool | What it does |
+|---|---|
+| `ask_team(team, question)` | asks another team and waits for its answer; marked for approval, so it passes the team's `check` first |
+| `ask_person(who, question, choices)` | asks a person and waits for the answer; `choices`, up to 8 short answers, are offered as buttons |
+
+The same `wait.yaml` asks the people at the end of a decision, with the choices `yes` and `no`, and is the work of a team whose lead is a person.
+
+Bulldog finds each run of `wait` that waits on `answer` by the label `bulldog=<office id>`. It acts on it as follows.
+
+- The asking team is the run's `team=` label, which it carries from its request, and the chain is the request's `chain`, which Bulldog wrote. Bulldog never takes either from what a worker wrote.
+- **To a team**, Bulldog starts a request of that team, named from the wait run. When the sub-request ends, Bulldog answers the ticket with `{ answer }`, the sub-request's answer. When the wait run ends first, because its request was stopped, Bulldog cancels the sub-request.
+- An ask to the asking team itself, to a team in the chain, or to no team is refused: Bulldog answers `{ answer: null, refused: "<why, naming the teams it may ask>" }`, and starts nothing.
+- **To people**, Bulldog carries the question to each person, in their direct messages on each bridge whose out takes `direct`, with the choices as buttons, and on the screens. A question or a decision is never carried to a channel.
+- A person may be asked only when they are of the asking team or named in its team file. Otherwise the ask is refused as above, and nobody is asked.
+
+Bulldog answers a ticket only when all of these hold:
+
+1. The answerer is a person the wait waits on: by their identity on the bridge it came by, or signed in on the screens.
+2. The ticket still waits.
+3. For a decision, the answer is one of the choices offered.
+
+The answer is `{ answer, by: <person>, thing: <the thing's id> }`. A guest never answers.
+
+## Threads
+
+Requests form a thread when they were asked at the same `where` on a bridge, in one chat on the screens, or by one request of the same team. A request is given the requests before it in its thread, what each said and what it answered, as its output gave it. Requests of a thread start at once and run side by side.
+
+## Routines
+
+Bulldog keeps one run of the shipped `clock.yaml` for each routine, labelled with a fingerprint of the routine.
+
+```yaml
+statechart: clock
+keep: 12h
+input: { at: string }
+initial: waiting
+states:
+  waiting: { timers: { due: "${input.at}" }, on: { due: come } }
+  come: { ticket: came, on: { came: waiting } }
+```
+
+1. Bulldog starts the clock with `at`, the routine's time and the office's zone: `mon 09:00 Europe/London`.
+2. At that time the clock moves to `come` and waits on its ticket `came`.
+3. Bulldog starts a request of the team, its `said` the routine's `say`, named from the clock run and its step.
+4. Bulldog answers `came`, and the clock waits for the next time.
+
+A time that came while Bulldog was stopped is acted on once. When a routine changes or is removed, Bulldog cancels its clock, and starts a new one for the changed routine.
+
+## Carrying the answer back
+
+When a request ends, Bulldog carries its answer to its source:
+
+| Source | Where the answer goes |
+|---|---|
+| a place on a bridge | an out run of that bridge, to the request's `where` |
+| the chat | the screens |
+| another team | the asking wait's ticket |
+| a routine | the team's people, in their direct messages, and the screens |
+
+An empty answer, and a noted request, say nothing.
+
+## Stopping a request
+
+A person who may see a request may stop it on the screens. Bulldog cancels its run, and Corbie cancels everything below it. A sub-request it asked is cancelled when its wait ends.
+
+## Labels and names
+
+Every run Bulldog starts carries labels:
+
+| Label | On |
+|---|---|
+| `bulldog=<office id>` | every run |
+| `kind=request`, `bridge`, `clock`, `out` or `docs` | every run |
+| `team=<team>` | a request, a clock, a docs run |
+| `thread=<keyed hash of its thread>` | a request |
+| `made=<fingerprint>` | a bridge's in run, a clock |
+| `bridge=<name>` | a bridge's in and out runs |
+
+A child carries its parent's labels, so a wait carries its request's `team` and `thread`. Labels and run names hold no words of a request and no plain id of a person. What comes from a service is hashed with the office's secret.
+
+Bulldog names each run it starts in answer to something from that thing, and starts it only when no run has the name:
+
+| Run | Named from |
+|---|---|
+| a request heard on a bridge | the thing's time and a keyed hash of the bridge and the thing's id (Bridges) |
+| a sub-request | the wait run's time and a keyed hash of its id |
+| a routine's request | the clock run and its step |
+| a request in the chat | a new name |
+
+## After a restart
+
+Bulldog follows its runs by listing them by their labels: things heard, clocks waiting on `came`, waits on `answer`, requests that ended, and sub-requests whose wait ended. After a restart it finds all of them again in the store. Doing a thing twice changes nothing: a start under a name that exists is dropped, a ticket is answered once, and an out run is named from what it carries (Bridges).

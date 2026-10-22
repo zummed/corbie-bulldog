@@ -2,11 +2,9 @@ package shipped_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path"
-	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -18,13 +16,72 @@ import (
 	"github.com/zummed/corbie/machine"
 )
 
-// A systemOne is a stand-in System One service: it answers each call with
-// how sure it is, or, while sure gives a negative number, never answers.
+// dana and raj ask in #refunds; a guest asks there too.
+var (
+	dana  = map[string]any{"person": "dana"}
+	raj   = map[string]any{"person": "raj"}
+	guest = map[string]any{"guest": "slack U0GUEST1"}
+)
+
+// asked gives a request as a heed is given it: said at a channel, by
+// someone, after the thread.
+func asked(by map[string]any, mentioned bool, thread ...any) map[string]any {
+	return map[string]any{"team": "payments", "by": by, "heard": "channel", "mentioned": mentioned, "thread": thread}
+}
+
+// earlier is a request before this one in its thread.
+func earlier(by map[string]any, at, said string, answer any) map[string]any {
+	return map[string]any{"by": by, "said": said, "answer": answer, "at": "2026-10-05T" + at + ":00Z"}
+}
+
+// heedSays runs a heed and gives what it said.
+func heedSays(t *testing.T, corbie *testkit.Corbie, d *machine.Draft, input map[string]any) map[string]any {
+	t.Helper()
+	run := start(t, corbie, d, client.Start{Input: input, Secrets: map[string]string{"TYPESAFE_KEY": "ts-key"}})
+	ended := corbie.Ended(t, run)
+	out, _ := ended.Output.(map[string]any)
+	if ended.Status != "done" || out == nil {
+		t.Fatalf("the heed ended %s with %#v: %s", ended.Status, ended.Output, ended.Error)
+	}
+	return out
+}
+
+func TestMentionedSaysYesToWhatIsAddressed(t *testing.T) {
+	t.Parallel()
+	corbie := testkit.NewCorbie(t)
+	src, _ := shipped.Read("rules/mentioned/mentioned.js")
+	d, err := client.Script("mentioned.js", src, client.ScriptJob{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	refunded := earlier(dana, "09:00", "was 4411 refunded?", "Refunded £40.")
+	for _, c := range []struct {
+		name    string
+		request map[string]any
+		says    string
+		note    string
+	}{
+		{"named", asked(dana, true), "yes", "The message names the bot."},
+		{"after its answer to her", asked(dana, false, refunded), "yes", "The message follows the answer to its sender."},
+		{"after its answer, the thread out of order", asked(dana, false, refunded, earlier(raj, "08:00", "lunch?", nil)), "yes", "The message follows the answer to its sender."},
+		{"after its answer to someone else", asked(raj, false, refunded), "no", ""},
+		{"after a request not yet answered", asked(dana, false, earlier(dana, "09:00", "and 4412?", nil)), "no", ""},
+		{"after someone else came between", asked(dana, false, refunded, earlier(raj, "09:05", "lunch?", nil)), "no", ""},
+		{"a guest after its answer to that guest", asked(guest, false, earlier(guest, "09:00", "hello?", "Hello.")), "yes", "The message follows the answer to its sender."},
+		{"talk", asked(dana, false), "no", ""},
+	} {
+		out := heedSays(t, corbie, d, map[string]any{"request": c.request, "notes": []any{}})
+		if out["says"] != c.says || c.note != "" && out["note"] != c.note || out["note"] == "" {
+			t.Errorf("%s: the heed says %v", c.name, out)
+		}
+	}
+}
+
+// A systemOne stands in for System One: it answers each call with how sure
+// it is, or, while sure is below 0, holds the call until the test ends.
 type systemOne struct {
 	*httptest.Server
-	sure float64
-	// called is sent to as each call comes, which writes nothing to the
-	// store a test could wait on.
+	sure   float64
 	called chan struct{}
 	mu     sync.Mutex
 	asked  []map[string]any
@@ -64,28 +121,27 @@ func newSystemOne(t *testing.T, sure float64) *systemOne {
 	return s
 }
 
-// calls gives what each call to the stand-in asked, and with which key.
 func (s *systemOne) calls() ([]map[string]any, []string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]map[string]any(nil), s.asked...), append([]string(nil), s.keys...)
 }
 
-// forUs gives the for-us heed as shipped, with its service's host in place
-// of the stand-in's, reached over a plain connection.
+// forUs gives the shipped for-us rule, its service's host changed for the
+// stand-in's, reached over a plain connection.
 func forUs(t *testing.T, s *systemOne) *machine.Draft {
 	t.Helper()
 	addr := strings.TrimPrefix(s.URL, "http://")
 	pointed := func(name string) ([]byte, error) {
-		contents, ok := shipped.File(path.Join(path.Dir(shipped.ForUs), name))
-		if !ok {
-			return nil, fmt.Errorf("there is no %s", name)
+		contents, err := shipped.Read(path.Join("rules/for-us", name))
+		if err != nil {
+			return nil, err
 		}
 		text := strings.ReplaceAll(string(contents), "@net:api.typesafe.ai", "@net.unencrypted:"+addr)
 		text = strings.ReplaceAll(text, "net:api.typesafe.ai", "net:"+addr)
 		return []byte(strings.ReplaceAll(text, "https://api.typesafe.ai", "http://"+addr)), nil
 	}
-	src, _ := pointed(path.Base(shipped.ForUs))
+	src, _ := pointed("for-us.yaml")
 	d, err := machine.Parse(src, pointed)
 	if err != nil {
 		t.Fatalf("for-us is refused:\n%v", err)
@@ -93,174 +149,73 @@ func forUs(t *testing.T, s *systemOne) *machine.Draft {
 	return d
 }
 
-// dana is Dana as a heed is given her, said through Slack.
-var dana = map[string]any{"kind": "person", "name": "dana", "called": "Dana", "bridge": "slack", "id": "U0DANA00"}
-
-// raj is Raj, said through Slack.
-var raj = map[string]any{"kind": "person", "name": "raj", "called": "Raj", "bridge": "slack", "id": "U0RAJ000"}
-
-// weighing gives a heed's input: Dana's messages, new to the lead, after
-// the entries before them, with the settings. Each entry is numbered in
-// the order given, but for one that already has its number.
-func weighing(before []any, settings map[string]any, said ...string) map[string]any {
-	if before == nil {
-		before = []any{map[string]any{"kind": "asked", "by": dana, "text": "is the API down?"}}
-	}
-	var fresh []any
-	for _, text := range said {
-		fresh = append(fresh, map[string]any{"kind": "said", "by": dana, "text": text, "mentioned": strings.Contains(text, "<@")})
-	}
-	for i, e := range append(slices.Clone(before), fresh...) {
-		if e := e.(map[string]any); e["id"] == nil {
-			e["id"] = i + 1
-		}
-	}
-	return map[string]any{
-		"said": "[09:00] Dana: " + strings.Join(said, "\n[09:00] Dana: "),
-		"request": map[string]any{"number": 1, "worker": "bot", "team": map[string]any{"name": "office", "called": "Platform support", "about": "The API."},
-			"entries": before, "entries_not_shown": 0, "new": fresh},
-		"settings": settings,
-	}
-}
-
-// heedSays starts a heed and gives what it ended saying.
-func heedSays(t *testing.T, corbie *testkit.Corbie, d *machine.Draft, input map[string]any) map[string]any {
-	t.Helper()
-	run, err := corbie.Start(ctx, d, client.Start{Input: input, Secrets: map[string]string{"TYPESAFE_KEY": "ts-key"}, Labels: map[string]string{"test": "heed"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	ended := corbie.Ended(t, run)
-	out, _ := ended.Output.(map[string]any)
-	if ended.Status != "done" || out == nil {
-		t.Fatalf("the heed ended %s with %#v: %s", ended.Status, ended.Output, ended.Error)
-	}
-	return out
-}
-
-func TestTheMentionedHeedActsOnWhatIsAddressed(t *testing.T) {
+func TestForUsAsksItsModel(t *testing.T) {
 	t.Parallel()
-	corbie := testkit.NewCorbie(t, testkit.NewClock(testkit.Monday))
-	contents, _ := shipped.File(shipped.Mentioned)
-	d, err := client.Script(path.Base(shipped.Mentioned), contents, client.ScriptJob{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	answered := []any{
-		map[string]any{"kind": "asked", "by": dana, "text": "is the API down?"},
-		map[string]any{"kind": "answer", "by": map[string]any{"kind": "worker", "name": "bot"}, "to": []any{dana}, "text": "It is up."},
-	}
-	// The bot's answer came after what Dana said while it was answering.
-	answeredLate := []any{answered[0], map[string]any{"kind": "answer", "by": map[string]any{"kind": "worker", "name": "bot"}, "to": []any{dana}, "text": "It is up.", "id": 4}}
-	for _, c := range []struct {
-		name       string
-		before     []any
-		said       []string
-		says, note string
-	}{
-		{"named", nil, []string{"<@U0APP000> and now?"}, "act", "Names bot."},
-		{"one of two named", nil, []string{"hm", "<@U0APP000> and now?"}, "act", "Names bot."},
-		{"after its answer", answered, []string{"and now?"}, "act", "Follows bot's answer."},
-		{"not straight after its answer", append(answered[:2:2], map[string]any{"kind": "said", "by": raj, "text": "same here"}), []string{"and now?"}, "note", "Not addressed to bot."},
-		{"talk", nil, []string{"Raj, I'll look at it"}, "note", "Not addressed to bot."},
-		{"while it answers", answeredLate, []string{"the EU one"}, "act", "Said while bot was answering."},
-	} {
-		if out := heedSays(t, corbie, d, weighing(c.before, map[string]any{}, c.said...)); out["says"] != c.says || out["note"] != c.note {
-			t.Errorf("%s: the heed says %v", c.name, out)
-		}
-	}
-	// Someone else straight after the bot's answer to Dana is not
-	// addressing it.
-	input := weighing(answered, map[string]any{}, "me too")
-	input["request"].(map[string]any)["new"].([]any)[0].(map[string]any)["by"] = map[string]any{"kind": "guest", "called": "a guest", "bridge": "slack", "id": "U0GUEST1"}
-	if out := heedSays(t, corbie, d, input); out["says"] != "note" {
-		t.Errorf("a guest after the bot's answer to Dana: the heed says %v", out)
-	}
-	// Raj, while the bot answered Dana, does not stand between its answer
-	// and what she says after it; and he is not who it was answering.
-	input = weighing(answeredLate, map[string]any{}, "same here", "and now?")
-	fresh := input["request"].(map[string]any)["new"].([]any)
-	fresh[0].(map[string]any)["by"], fresh[1].(map[string]any)["id"] = raj, 5
-	if out := heedSays(t, corbie, d, input); out["says"] != "act" || out["note"] != "Follows bot's answer." {
-		t.Errorf("Dana after the bot's answer, Raj before it: the heed says %v", out)
-	}
-	fresh = fresh[:1]
-	input["request"].(map[string]any)["new"] = fresh
-	if out := heedSays(t, corbie, d, input); out["says"] != "note" {
-		t.Errorf("Raj while the bot answered Dana: the heed says %v", out)
-	}
-}
-
-func TestTheForUsHeedAsksItsModel(t *testing.T) {
-	t.Parallel()
-	corbie := testkit.NewCorbie(t, testkit.NewClock(testkit.Monday))
+	corbie := testkit.NewCorbie(t)
 	sure := newSystemOne(t, 0.55)
 	d := forUs(t, sure)
-	// With its defaults: the model is asked its question, and 0.55 is sure
-	// enough.
-	if out := heedSays(t, corbie, d, weighing(nil, map[string]any{}, "Raj, I'll look at it")); out["says"] != "act" || out["note"] != "For Platform support (0.55)" {
+	thread := earlier(dana, "09:00", "is the API down?", "It is up.")
+	if out := heedSays(t, corbie, d, map[string]any{"request": asked(raj, false, thread), "said": "Raj here: the EU one is down", "notes": []any{}}); out["says"] != "yes" || out["note"] != "For payments (0.55)." {
 		t.Errorf("the heed says %v", out)
 	}
-	asked, keys := sure.calls()
-	if len(asked) != 1 || asked[0]["model"] != "jev-latest" || keys[0] != "Bearer ts-key" {
-		t.Fatalf("the model was asked %v, with %v", asked, keys)
+	asked0, keys := sure.calls()
+	if len(asked0) != 1 || asked0[0]["model"] != "jev-latest" || keys[0] != "Bearer ts-key" {
+		t.Fatalf("the model was asked %v, with %v", asked0, keys)
 	}
-	question, _ := json.Marshal(asked[0]["questions"])
-	if state := asked[0]["state"].(string); !strings.Contains(state, "Platform support") || !strings.Contains(state, "Dana: is the API down?") || !strings.Contains(state, "Raj, I'll look at it") ||
-		string(question) != `{"for_us":{"instructions":"The newest message asks this team for something, or answers what it last said.","type":"noul"}}` {
-		t.Errorf("the model was given %q, and asked %s", state, question)
+	question, _ := json.Marshal(asked0[0]["questions"])
+	state, _ := asked0[0]["state"].(string)
+	for _, said := range []string{"payments", "dana: is the API down?", "payments: It is up.", "The newest, from raj:", "Raj here: the EU one is down"} {
+		if !strings.Contains(state, said) {
+			t.Errorf("the model was given %q, without %q", state, said)
+		}
 	}
-	// Its settings, as the team file writes them.
-	settings := map[string]any{"threshold": 0.6, "model": "jev-1.12", "question": "It is for the API team."}
-	if out := heedSays(t, corbie, d, weighing(nil, settings, "lovely weather")); out["says"] != "note" || out["note"] != "Not for Platform support (0.55)" {
+	if string(question) != `{"for_us":{"instructions":"The newest message asks this team for something, or answers what it last said.","type":"noul"}}` {
+		t.Errorf("the model was asked %s", question)
+	}
+	// Its settings, below how sure the model is.
+	settings := map[string]any{"threshold": 0.6, "model": "jev-1.12", "question": "It is for the payments team."}
+	if out := heedSays(t, corbie, d, map[string]any{"request": asked(raj, false), "said": "lovely weather", "settings": settings}); out["says"] != "no" || out["note"] != "Not for payments (0.55)." {
 		t.Errorf("the heed says %v", out)
 	}
-	asked, _ = sure.calls()
-	question, _ = json.Marshal(asked[len(asked)-1]["questions"])
-	if len(asked) != 2 || asked[1]["model"] != "jev-1.12" || !strings.Contains(string(question), "It is for the API team.") {
-		t.Errorf("the model was asked %v", asked)
+	asked1, _ := sure.calls()
+	if len(asked1) != 2 || asked1[1]["model"] != "jev-1.12" || !strings.Contains(asked1[1]["state"].(string), "lovely weather") {
+		t.Errorf("the model was asked %v", asked1)
 	}
-	// What names the bot is acted on with no model asked.
-	if out := heedSays(t, corbie, d, weighing(nil, settings, "<@U0APP000> is it?")); out["says"] != "act" || out["note"] != "Names bot." {
+	// What names the bot, and what follows its answer to the sender, come
+	// in with no model asked.
+	if out := heedSays(t, corbie, d, map[string]any{"request": asked(raj, true), "said": "@bot is it?"}); out["says"] != "yes" || out["note"] != "The message names the bot." {
 		t.Errorf("the heed says %v", out)
 	}
-	// And so is what whoever it answers says while it is answering.
-	late := []any{map[string]any{"kind": "asked", "by": dana, "text": "is the API down?"},
-		map[string]any{"kind": "answer", "by": map[string]any{"kind": "worker", "name": "bot"}, "to": []any{dana}, "text": "It is up.", "id": 4}}
-	if out := heedSays(t, corbie, d, weighing(late, settings, "the EU one")); out["says"] != "act" || out["note"] != "Said while bot was answering." {
+	if out := heedSays(t, corbie, d, map[string]any{"request": asked(dana, false, thread), "said": "thanks"}); out["says"] != "yes" || out["note"] != "The message follows the answer to its sender." {
 		t.Errorf("the heed says %v", out)
 	}
-	if asked, _ = sure.calls(); len(asked) != 2 {
-		t.Errorf("the model was asked %d times", len(asked))
+	if asked2, _ := sure.calls(); len(asked2) != 2 {
+		t.Errorf("the model was asked %d times", len(asked2))
 	}
 }
 
-func TestWorkForUsActsWhenItsTimeRunsOut(t *testing.T) {
+func TestForUsSaysYesWhenItsTimeRunsOut(t *testing.T) {
 	t.Parallel()
-	clock := testkit.NewClock(testkit.Monday)
-	corbie := testkit.NewCorbie(t, clock)
+	corbie := testkit.NewCorbie(t)
 	silent := newSystemOne(t, -1)
 	d := forUs(t, silent)
 	for _, c := range []struct {
 		settings map[string]any
 		limit    time.Duration
 	}{{map[string]any{}, 10 * time.Second}, {map[string]any{"timeout": "5s"}, 5 * time.Second}} {
-		run, err := corbie.Start(ctx, d, client.Start{Input: weighing(nil, c.settings, "lovely weather"), Secrets: map[string]string{"TYPESAFE_KEY": "ts-key"}, Labels: map[string]string{"test": "out"}})
-		if err != nil {
-			t.Fatal(err)
-		}
+		run := start(t, corbie, d, client.Start{Input: map[string]any{"request": asked(raj, false), "said": "lovely weather", "settings": c.settings}, Secrets: map[string]string{"TYPESAFE_KEY": "ts-key"}})
 		select {
 		case <-silent.called:
 		case <-time.After(testkit.Patience):
 			t.Fatalf("waited %v, and the model was not asked", testkit.Patience)
 		}
-		clock.Move(c.limit - time.Second)
+		corbie.Clock.Move(c.limit - time.Second)
 		if shown, err := corbie.Show(ctx, run); err != nil || shown.HasEnded() {
 			t.Fatalf("the heed ended a second before its time: %v %v", shown, err)
 		}
-		clock.Move(time.Second)
+		corbie.Clock.Move(time.Second)
 		ended := corbie.Ended(t, run)
-		if out, _ := ended.Output.(map[string]any); ended.Status != "done" || out["says"] != "act" || out["note"] != "timed out" {
+		if out, _ := ended.Output.(map[string]any); ended.Status != "done" || out["says"] != "yes" || out["note"] != "The model did not answer in time, so the message comes in." {
 			t.Errorf("with %v, the heed ended %s with %#v", c.settings, ended.Status, ended.Output)
 		}
 	}

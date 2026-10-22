@@ -1,9 +1,10 @@
-# The Telegram bridge's in machine. It listens: it asks Telegram for what
-# is new since the cursor, waiting up to fifty seconds while nothing is,
-# and ends with what it heard and the cursor to go on from. Its first run,
-# given no cursor, hears nothing, and ends with the cursor past all that
-# came before it. The bot's token is the Corbie secret TELEGRAM_TOKEN.
-flow: telegram-in
+# Telegram's in. Each job asks Telegram for what is new since the cursor,
+# waiting up to 50 seconds at a time, for 4 minutes, and emits heard,
+# { things, cursor }, for what it hears; the next job hears from where it
+# ended. When a job fails, the chart rests 30 seconds. The bot's token is
+# the Corbie secret TELEGRAM_TOKEN.
+statechart: telegram-in
+keep: 12h
 input:
   type: object
   required: [settings, cursor]
@@ -12,14 +13,17 @@ input:
       type: object
       additionalProperties: false
       properties:
-        from: { type: string }
         places: { type: object }
     cursor: {}
-stages:
-  hear:
+initial: hearing
+states:
+  hearing:
     job:
       script: ./telegram.js
-      input: { do: hear, settings: "${input.settings}", cursor: "${input.cursor}" }
+      input: { do: hear, settings: "${input.settings}", cursor: "${states.hearing.output?.cursor ?? input.cursor}" }
       allow: [net:api.telegram.org, "secret:TELEGRAM_TOKEN@net:api.telegram.org"]
-      timeout: 2m
-output: ${stages.hear.output}
+      timeout: 5m
+    on: { done: hearing, failed: resting }
+  resting:
+    timers: { again: 30s }
+    on: { again: hearing }

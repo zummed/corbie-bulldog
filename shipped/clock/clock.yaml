@@ -1,0 +1,10 @@
+# A routine's clock. At its time it waits on the ticket came; once Bulldog
+# has started the routine's request and answered came, it waits for its
+# time again. A time that came while Bulldog was stopped is acted on once.
+statechart: clock
+keep: 12h
+input: { at: string }
+initial: waiting
+states:
+  waiting: { timers: { due: "${input.at}" }, on: { due: come } }
+  come: { ticket: came, on: { came: waiting } }

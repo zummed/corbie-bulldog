@@ -1,4 +1,0 @@
-# platform/team.yaml: one worker, on its own, with no people
-name: Platform
-about: GitLab, the pipelines and deploys.
-lead: ops

@@ -1,126 +1,172 @@
 # Bulldog
 
-Bulldog is an office of teams, built on Corbie. A team may be real people, Corbie machines, or both. Someone asks for something, on Slack, on Telegram, in a GitLab issue, in the chat on the screens or at a set time, and it becomes a request to a team. The team does the work inside its own walls, asks other teams when it needs them, waits for a yes where a yes is needed, and answers where it was asked. Corbie runs everything. Bulldog keeps who is in the office, what was asked, what was said about it and what was decided, and stands at the boundary between teams, because that is where what a team knows is kept or let go.
+Bulldog is an office of teams on Corbie. People and workers in teams are asked things on Slack, Telegram, GitLab and Jira, on Bulldog's screens or at a set time, and the answer goes back where the question was asked. Corbie runs everything, and Bulldog keeps nothing but the office's id and secret.
 
-## The six concepts
+## Six concepts
 
-**Team.** A team is a folder, and its team file says how it works: its `about`, one line saying what it looks after; its people; its `lead`, the one worker or one person who answers for it; an optional `heed`, one rule that weighs what is said at a channel place before a lead that is a worker starts on it; who decides what; an optional `disclosure` check on what it says to anyone outside it; its `routines`; and the `models` it names, each a name and a model written as Corbie writes one, which names a secret and never holds a key. Its folder holds its workers, which are the Corbie definitions in it; its notes, the prose the team knows, which each run of a worker that names the notes tools is given; and its docs, reference its people keep, which no run is given, and which its workers and those of the teams within it read when they ask. Notes are the team's, never one worker's. A team may be all people, all workers, or both, and a team that runs on its own is usually one worker. A team with no people has the people its decisions reach as its people for every purpose of sight and control: being told of what failed, seeing what it read, and watching and stopping its runs. Teams sit inside teams, and the office is the top team. A team is sealed: what it read is seen only by its own people. Being in a team around it gives no sight inside it; only being named in it does.
+| Concept | What it is |
+|---|---|
+| team | a directory with a team file: its people, its lead, its decisions, its routines, its models |
+| person | someone real, written once in `office.yaml`, with who they are on each bridge |
+| worker | a Corbie definition, an agent, a flow or a statechart, directly in a team's directory |
+| bridge | a directory of two Corbie definitions, `in.yaml` and `out.yaml`, joining an outside service |
+| request | one thing asked of a team: one run of the team's request machine |
+| decision | a yes or no asked of an ordered list of deciders; a team writes three: `heed`, `check`, `decide` |
 
-**Person.** A person is someone real, written down once in the office with where they are reached: the identity each bridge gives for them, written under the bridge's name, and on the screens. They are named in the teams they belong to, and they see and decide what those teams let them. How a person is reached is their entry in the files, so changing it, their own entry included, is a change decided like any other. Most people never sign in: they live in their bridges. A person who wants the screens signs in by any way their entry writes: with the key link the server prints, or a one-time link they ask for by name on the sign-in page, sent over one of their own bridges and said in no request; with an account of theirs, such as Google's or Microsoft's, by a sign-in method the office names, when their entry writes the account there; or with a password of their own, when their entry lets them set one. A provider only says who someone is: nobody the office does not write signs in, and Bulldog never speaks to the provider, whose secret only the method's machine holds.
+## One machine per team, one run per request
 
-**Worker.** A worker is any Corbie machine in a team's folder, an agent, a flow or a statechart, sent to Corbie as it is written. Its model is written out in full, or named by one word, which is looked up in its own team's `models` and then in each team around it out to the office, so a team may give a name a model of its own; a name no team gives is a problem of that worker alone. What it may touch, which secrets it holds and which actions need a yes are said in its definition, and Corbie enforces them. Inside a team, workers use each other as ordinary Corbie tools. A worker that needs another team or a person uses the tools Bulldog ships, each a run that waits for the answer, and names them in its own definition. Beside them Bulldog ships small tools files, each for one purpose, so a worker names exactly the files whose tools it needs, and there is one idea in them: a worker's Bulldog tools reach its own team's files and those of the teams within it. A worker that names the notes tools is given its team's notes at each run's start and writes them; one that names none is given no notes. One that names the docs tools that read reads its team's docs and those of each team around it, and one that also names those that write mends its own team's. One that names the office tools that read reads the files of its own team's folder and of the teams within it, and one that also names those that write drafts them and puts what it drafted; the top team's reaches the whole office. Whether a write waits for a yes is written in its tools file, as any action's is: as shipped, a note is written at once, and a doc and a put draft wait for a yes. Corbie gives a held job to the nearest ask at or above its machine, so a worker Bulldog starts at the top, a team's lead or a routine's worker, names the ask Bulldog ships when anything it runs can be held. A colleague called as a tool uses the nearest ask above it unless it names the ask Bulldog ships itself, which it may, and must when it can also be started at the top; every ask a worker names is Bulldog's, and naming any other is a problem of that worker. Bulldog fills nothing into a definition but a model named by one word, and knows its runs by their labels. A worker is told who sits with it in its team, and which teams it may ask with each one's `about`: every other team but those of the requests above its own, or those its own `ask_team` names, read from the files each time.
+For each team, Bulldog fills out its team file into one Corbie flow, the team's **request machine**, with the stages `heed`, `work` and `check`. Every request is one run of it.
 
-**Bridge.** A bridge is where things come in and go out. The built-in chat, on the screens, is a bridge that needs no files. Every other, such as Slack, Telegram, GitLab issues and merge requests or Jira, is named, with its settings, under `bridges` in the top team file, and runs a folder holding an in machine and an out machine, ordinary definitions that Corbie runs like any worker: a folder Bulldog ships, which its entry's `from` names, or else the office's own folder of that name in `bridges/`. An entry with no folder, a `from` that names no bridge Bulldog ships, an entry with `from` beside a folder of its own, a folder with no entry, a folder missing a machine, an in machine fed both ways or neither, or a machine Corbie refuses stops only that bridge, and is a problem shown on the office; the rest of the office reads and runs. A bridge's settings list the places it listens in, and each place says which team is asked there, the office when it names none, and whether guests may ask there. A direct message to the bridge is a place like any other, heard only when it is listed; the one thing taken from anywhere is an answer to what Bulldog sent its sender directly, so a person decides by a direct message on a bridge that lists none. The in machine is fed by listening to its service, handing over what it hears as it goes or when its run ends, or by being called at the bridge's own address, and hands Bulldog what was said, with the sender's checked identity, which Bulldog matches to a person, and the identities that can read the place it was said in. Someone it matches to nobody is a guest, who may ask only in the places that let guests ask. The out machine carries what Bulldog has to say, and, where its service can show it, as Slack does with its own status of an agent at work, what a team is doing on what was asked there: working, waiting on someone, or done. What lives in an outside service keeps its state there, and Bulldog never sets it: a request that came from a GitLab issue shows the issue's state as the in machine last reported it. A bridge Bulldog ships is used in place, by a person writing its entry with `from` as a change, and changes with Bulldog.
+1. Someone asks: a bridge hears a message, a person asks on the screens, a worker asks another team with `ask_team`, or a routine's time comes.
+2. Bulldog starts a run of the team's request machine, labelled with the office and the team.
+3. `heed` asks whether a message at a channel is for the team, `work` runs the team's lead, and `check` asks whether the answer may leave the team.
+4. While the lead works, it may wait on a person, on another team or on a decision. Bulldog carries each question out and answers its ticket.
+5. When the run ends, Bulldog carries its answer back where the request came from.
 
-**Request.** A request is one thing someone asked, on a bridge or by a routine. It has an asker; an origin, which is the place it was asked, such as a thread on a bridge, an issue or the chat, or the routine that asked it, and which fixes who reads the answer; and a thread of entries, each by someone and to someone. It goes to a team: one asked on a bridge to the team its place names, one asked in the chat to the team the person picks or the office, and one a routine asks to the routine's team. That team's lead starts on it, told who is asking: a person and their teams, or a guest and the identity the bridge vouched for. Work that needs another team becomes a sub-request, which is a request of its own with a run of its own, asked at no place: its origin is the request that asked it. A request has at most one run at a time. A request is working, waiting on someone, or answered; answered with nothing ever said in it, because its team's heed noted every message in it, it is Noted, and waits on nobody. A run that fails or is stopped, with nothing else open, leaves it answered, with Bulldog's last entry saying what failed or who stopped it; saying more makes it working again. One from a GitLab or Jira issue also shows the issue's state at its source, with when it was reported; closing the issue there stops the request's work. It has two layers. What was done (what was said at the origin and by or to the asker, its sub-requests with what each asked and how each was answered, its decisions with what was decided, who decided and when, and its answers) is seen by the asker, by whoever can read its origin, and by the people of the team it went to, and sight goes down the tree of sub-requests, never up or sideways: whoever sees a request sees what was done beneath it, and a team asked something sees its own sub-request and what is under it, not the request above it or its siblings. Whoever an entry is to sees that entry and its answer, and nothing else of the request. Whoever can read its origin, its asker and the people of the team it went to may say more in it, on the screens or through the bridge alike, whether it is open or answered. In a sub-request, the asking team's people and its workers, through their runs, and the people of the team it went to may say more; whoever sees it only from the request above sees what was done in it and says nothing in it. What was read (tool results, workers' conversations, what was said inside a team) is seen only by the people of the team that read it. A guest is answered where they asked, and never decides or sees what was read.
+Permissions, secrets, approval, waiting, history and records are Corbie's. A team's docs are values kept in Corbie's store.
 
-**Decision.** A decision is a yes that work waits for: an action that Corbie holds because a worker's definition, or a tools file it names, says it needs a yes, or anything a team that set a disclosure check says where anyone outside it reads it. A write to the office's files is an action like any other. It is asked of an ordered list of deciders, which each team writes in its team file. A decider is a rule, a worker of any team, or a person, and a list may hold no person at all: a team leaves a kind of decision wholly to its rules and workers by taking the person off the end of its list, which is a change to the files like any other. A rule is a script in the team's folder that decides from its input, or, when it needs anything more, such as the network or a key to ask a fast decision model, a Corbie definition there that holds its own permissions; a team may also name a rule Bulldog ships. Each decider says yes, refuses, or refers with a note. A yes or a refusal ends the decision; a referral goes to the next, carrying its note, so a rule or a worker that wants a person to look refers with its view. What every decider in a list refers goes to the team's `everything` list, which is its people when it writes none. An `everything` whose deciders all refer it, and that of a team with no people, goes outward to the `everything` of the team around it, and so on out to the office; a decider reached outside the team sees only that one decision. The office reads only if its own `everything` reaches a person. A decision that reaches nobody is refused, with why. A held write to the office's files, `put_draft` or `write_doc`, is decided by the innermost team whose folder holds every file it writes, by its list of the tool's name or else its `everything`; a write that touches a team file is decided by the team around that team, and one to `office.yaml` by the top team. Its deciders are shown every file whole beside what it replaces. A refused disclosure goes back to the team's lead, with the decider's note, to try again, and whoever asked the team is told only if it gives up or reaches the limit on runs in a row, by one fixed line, that the team did not disclose its answer, with who refused, and nothing of the answer or the note. A worker of another team that decides for a team runs as that team's, labelled with it, and what it read there is seen only by that team's people. A person decides on the screens or by a direct message on their bridges, and only their checked identity is accepted.
+## A day at home
 
-## Where the work is done
+The house is one family's office: Sam and Kit, a top team that looks after the house, and a garden team within it.
 
-**Inside a team, workers use each other as ordinary Corbie tools. Between teams, work always goes as a request.**
+```yaml
+# office.yaml
+name: The house
+about: The house and everything in it, but the garden.
+zone: Europe/London
+everyone:
+  sam: { name: Sam, telegram: "4471" }
+  kit: { name: Kit, telegram: "4472" }
+bridges:
+  telegram:
+    from: ./.bulldog/bridges/telegram
+    places:
+      direct: {}                       # Sam and Kit ask the house in a direct message
+models:
+  usual: { name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }
+people: [sam, kit]
+lead: steward
+decide: [./small-orders.js, clerk, sam]
+routines:
+  - { at: "mon 09:00", say: "What is still open?" }
+```
 
-Inside a team, Corbie does it all: a worker calls a colleague as a tool, Corbie holds the team's secrets bound to the team's hosts, and the team's jobs run on its own runners. Nothing crosses to another team but a request, and nothing comes back but an answer. The team that answers is told who will read its answer, and its disclosure check, where it has one, stands between what it read and what it says.
+1. At 08:12 Kit sends the house a photo on Telegram: "The socket by the boiler sparks."
+2. Bulldog starts a request of `office`. A direct message has no heed, so the steward starts at once.
+3. The steward hands the repair to the fixer, its colleague. The fixer orders a part with `order_part`, for £35, which waits for a yes.
+4. The office's `decide` asks in order. `small-orders.js` passes: "More than I order alone." The clerk passes: "The house has the money for it."
+5. Sam gets the question on Telegram, both notes above the buttons `yes` and `no`, and presses `yes`.
+6. The part is ordered, and the steward answers Kit in the same chat.
+7. On Monday at 09:00 the routine asks the steward "What is still open?", and the answer goes to Sam and Kit.
 
-## A day
+## A day at work
 
-**At home.** The house is the top team, with the garden, a team of its own, inside it. Its people are Sam and Kit, and the steward is its lead. This day needs three of its workers: the steward, the fixer and sparks.
+The work office is one Slack bot over three teams: the office, whose lead is the bot; payments, which holds customer data; and platform, one worker with no people.
 
-1. Kit types "the kitchen socket sparked" into the chat. It is a request to the house, and the steward starts on it.
-2. The steward hands it to the fixer, its colleague, as a Corbie tool. The fixer asks sparks, another tool, which circuit the socket is on.
-3. The fixer asks to cut that circuit. Its definition says that needs a yes, so Corbie holds it, and gives it to the ask the steward names, the nearest above the fixer: the fixer, only ever called by the steward as a tool, names no ask, and sparks, which holds nothing, names none either. Sam decides for the house. Sam set the Telegram bridge Bulldog ships in the house as its first change, with the settings Bulldog ships it with, which hear people's direct messages to the bot. Bulldog starts its out machine with the question, Sam taps yes, and the in machine hands Bulldog Sam's checked Telegram identity. Bulldog sees it is Sam's and tells Corbie to go ahead.
-4. The fixer orders a new socket for £12. That needs a yes too, and the house names a rule for small orders, then the clerk, who advises, then Sam, to decide it. The rule says yes, and the order goes. Had the order been large, the rule would have referred it, the clerk would have looked at the money and recommended yes or refused, and on its yes Sam would have been asked, shown both, with their notes.
-5. The fixer asks Kit to say when the socket arrives. The request shows "waiting on Kit" until Thursday, when Kit answers in the chat and the fixer finishes the job.
-6. The steward answers Kit, and the request is answered.
-7. On Monday at nine the house's routine asks the steward what is still open, and gives it the house's open requests. Its answer goes to Sam and Kit.
+```yaml
+# payments/team.yaml
+name: Payments
+about: Charges, refunds and the ledger. Holds customer data.
+people: [lee, priya]
+lead: ledger
+heed: [./.bulldog/rules/mentioned/mentioned.js]  # in #refunds, only what names the bot
+check: [./no-account-numbers.js, lee, priya]     # may this leave payments?
+decide: [lee, priya]                              # may this held job run?
+```
 
-**At work.** The office is Platform support, which Al runs. Its top team is Al and a worker called the bot, its lead, which answers what is asked in #help on Slack: the Slack bridge's settings list #help as its one place, naming no team, so the office is the team asked there, and letting guests ask there. The office's heed is `for-us`, as Bulldog ships it, which weighs what is said in #help before the bot starts on it; the bot asks only platform and payments, its own `ask_team` naming those two, and reads the office's docs, such as what #help is told of refunds, when it needs them. Inside it are three teams: platform, which looks after GitLab and deploys; payments, whose people are Lee and Priya, which holds customer data and checks what leaves it: its `disclosure` is a rule that looks for account numbers, and what the rule refers goes on to Lee or Priya, who decide `everything` for payments; and support, which is Dana.
+1. At 10:02 a guest asks in #help: "Was order 4411 refunded?"
+2. Bulldog starts a request of `office`. Its heed, the shipped `for-us`, says yes, and the bot starts.
+3. The bot asks payments with `ask_team`. The office has no `check`, so the question leaves at once.
+4. Bulldog starts a request of payments. A team asked it, so there is no heed, and the ledger starts.
+5. The ledger answers "Refunded £40 on 3 May." Payments' check runs `no-account-numbers.js`, which says yes.
+6. Bulldog answers the bot's wait with that answer, and the bot answers the guest in the thread in #help.
 
-1. In #help, Dana writes: "customer 4411 was charged twice after Tuesday's release; refund one and tell me what broke." The Slack bridge's in machine hands it to Bulldog with Dana's Slack identity, which Bulldog matches to Dana. It becomes a request to the office, whose origin is Dana's thread in #help. The office's heed weighs it first: it names nobody and follows no answer of the bot's, so for-us asks its fast model, which is sure it asks the office for something, and the bot starts on it. Had Dana written to someone else in the channel, it would have been noted and kept in the request, and the bot would not have started.
-2. The bot asks platform and payments. Each question is a sub-request with a run of its own, and each team is told that #help will read its answer.
-3. Platform's worker reads GitLab and answers: "merge request 812 broke the webhook retry."
-4. Payments' ledger reads the charges, card numbers included, finds the duplicate and asks to refund it. Corbie holds the refund. Bulldog starts the Slack bridge's out machine with a direct message to Lee and Priya, giving the charge and the ledger's reasoning. Lee taps yes. Bulldog checks that the identity the in machine gives is Lee's and that Lee decides for payments, then tells Corbie to go ahead.
-5. The ledger answers "Duplicate confirmed; £40 refunded." The disclosure rule finds no account number and says yes, and the answer leaves payments.
-6. Bulldog starts the out machine with the bot's answer, which lands in Dana's thread.
-7. On the screens, Dana and Al, and anyone who can read #help, see what was done: two sub-requests, "Refund one charge: approved by Lee, 14:02", and both answers. What was read inside payments, the ledger lines, the card numbers and the ledger's conversation, is seen only by Lee and Priya. Al runs the office, but he is not named in payments, so he does not see inside it. Lee and Priya see payments' sub-request and what was done beneath it, but not the request above it or what platform was asked.
+Later, the ledger asks platform about account 12345678. Payments' check says no, and the ledger's tool gets "Payments did not let its question out." Platform never sees the question.
 
-Had the answer named an account number, the rule would have referred it, and it would have waited for Lee or Priya before leaving payments; had Lee refused it, it would have gone back to the ledger with Lee's note, and the bot would have been told only "payments did not disclose its answer", with Lee's name, if the ledger gave up or reached the limit on runs in a row. Had the bot failed while it waited, the held refund would still have waited on Lee, because it is held in Corbie. Had the message come from someone the office does not name, the bot would have been told it was a guest, with the Slack identity the bridge vouched for, and would have judged what to do for them; anything that would act would still have waited on the office's deciders, and the guest would have been answered in the thread and seen nothing else.
+## What holds it together
 
-## The rules that hold it together
+- Bulldog keeps nothing of its own but the office's id and secret. Every request, question, routine and bridge is a Corbie run, found again by its labels.
+- Every run Bulldog starts carries labels, `bulldog=<office id>` and `kind` among them. Labels and run names hold no words of a request and no plain id of a person.
+- Bulldog starts runs and answers their tickets. Nothing in Corbie calls Bulldog.
+- What a request machine gives is the only thing that leaves a team. Everything a team sends to another team passes its `check`.
+- Bulldog talks to no outside service itself. Every way in and out but its own screens is a bridge.
+- A run Bulldog starts in answer to something is named from that thing, so a second start of it is dropped.
+- Every run Bulldog starts for a team may read and write kept values only under that team's own path.
 
-1. The files are the office. A worker changes them only with the tools Bulldog ships, which reach its own team's files and those of the teams within it, and every write is a commit that says who, why and, where it waited for a yes, who decided. Whether a write waits is the tools file's, as for any action, and never Bulldog's own: an office narrows or widens it by copying the tools file or writing the tool in a worker's own definition. How a person is reached is in the files too, so changing it, even their own, is a person's to draft. The history is read only by the people who decide changes.
-2. A worker is sent to Corbie as its definition is written, but for a model named by one word, which Bulldog fills in from the nearest team whose `models` gives that name, and the screens show the model filled in. Bulldog rewrites nothing else in a definition, and writes none: a routine's clock is one Bulldog ships, given the routine's time. A rule that needs nothing is a script given its input; a rule that needs anything is a definition, in its team's folder or among those Bulldog ships, that holds its own permissions, and one Bulldog ships is sent as it ships.
-3. Nothing in Corbie calls Bulldog. Bulldog starts runs, watches them, answers the tickets they wait on and cancels them; a tool that needs the office is a run that waits. A worker names in its own definition the ask and the tools Bulldog ships that it uses: a worker Bulldog starts at the top names the ask when anything it runs can be held, and a colleague called as a tool uses the nearest ask above it unless it names the ask Bulldog ships itself, so a held action's yes is asked of its team's deciders.
-4. Every run Bulldog starts carries labels, naming its office by an identity of the office's own rather than its name, and its team and request, and is found by them.
-5. Inside a team, workers use each other as Corbie tools; between teams, work goes as a request.
-6. Teams are sealed. What a team read is seen only by its own people, and being in a team around it gives no sight inside it. What a team that is renamed or removed read is seen by nobody.
-7. What was done is seen by the asker, by whoever can read the origin, and by the people of the team it went to, and sight goes down the tree of sub-requests, never up or sideways. Whoever an entry is to sees that entry and its answer.
-8. A person's yes is accepted only from their checked identity.
-9. Everything said is an entry in a request's thread, with who it is by and who it is to. The one-time sign-in link is part of no request.
-10. Bulldog speaks to no outside service. Every one is reached by a bridge, or, to sign a person in, by a sign-in method's machine, each of which Corbie runs; sending a browser to a provider is not Bulldog speaking to it; a bridge that is called at its address is not Bulldog speaking to a service. What lives there keeps its state there, and Bulldog never sets it.
-11. What a team is and does is read from the files each time it is needed, and nobody keeps a description of anyone else.
-12. What Corbie can do, Corbie does. A workaround in Bulldog names the general feature Corbie should gain.
-13. An error is reported where a person will read it, and every problem found together is reported together.
-14. Bulldog grants nothing of its own. What a worker or a rule may do is its definition's, and Corbie enforces it; who decides is the team file's; and whether a guest may have what they ask is for the team's own workers to judge.
+## Where the sealing stops
 
-## The pages
+A team is sealed: what it read is shown only to its people. These are the limits of that.
 
-| Page | Rules | What it covers |
-|---|---|---|
-| [office.md](office.md) | [rules/office.md](rules/office.md) | The folder: teams, people, workers, models, notes, docs and routines as written; checking every worker and bridge with Corbie; problems, and what each stops; reading the office again when it changes |
-| [requests.md](requests.md) | [rules/requests.md](rules/requests.md) | The request, its entries and origin, its states, sub-requests, guests, who sees what, and the store that keeps them |
-| [work.md](work.md) | [rules/work.md](rules/work.md) | Driving Corbie: starting the lead, what a run is given, how it ends, labels, the tools Bulldog ships for asking a team or a person, routines firing, restarts and recovery |
-| [decisions.md](decisions.md) | [rules/decisions.md](rules/decisions.md) | Deciders, held actions, disclosure checks, reaching deciders, and how a decision is final |
-| [bridges.md](bridges.md) | [rules/bridges.md](rules/bridges.md) | The in and out contract, the built-in chat, the bridges Bulldog ships as definitions, the places a bridge listens in and the team each names, identity, who can read a place, guests, state at the source, and delivery: sent twice rather than lost |
-| [changes.md](changes.md) | [rules/changes.md](rules/changes.md) | The tools that write the office's files, drafting and checking a change, what it lets more by, whose decision a write is, writing it, and the history |
-| [server.md](server.md) | [rules/server.md](rules/server.md) | The program and its commands, the folder and its state, sign-in by link, by method and by password, and the API: what each person may see and do |
+- Whoever holds Bulldog's client identity, usually the computer's owner, reads every team's records.
+- The check covers what Bulldog carries. A worker's own permissions let it send anything wherever they allow.
+- A check that asks a model is a filter, not a guarantee.
+- A worker allowed to write the office directory can change the deciders, and how people are messaged.
+- Whoever runs the store sees the names of every team's docs.
 
-Each area is one module of the code. An overview says how things are; its rules page holds the detailed requirements and constraints behind it, and says nothing the overview does not.
+## Running it
+
+| Command | What it does |
+|---|---|
+| `corbie bulldog <directory>` | serves the office: its requests, bridges, routines and screens |
+| `corbie bulldog check <directory>` | prints every problem of the office, and starts nothing |
+| `corbie bulldog key <directory> <person>` | prints a person's key link, which signs them in |
+| `mise run demo` | serves the house on a stand-in model and a Corbie in the same process, with nothing to set up |
+
+Bulldog is a Corbie client on the Corbie its config names. After a restart it finds everything again in the store, and doing a thing twice changes nothing.
+
+## Areas
+
+Each area has an overview here and its rules in `rules/`, and is one package.
+
+**[Office](office.md).** The office directory: teams, people, workers, bridges, routines, models and docs, read with every problem found together, and what Bulldog ships.
+
+**[Requests](requests.md).** The request machine, decisions, waiting on a person or a team, threads, routines, labels, and carrying an answer back.
+
+**[Bridges](bridges.md).** What a bridge hears and how Bulldog acts on it, and one message carried out.
+
+**[Screens](screens.md).** Signing in, who sees what, the three screens and the API behind them.
+
+Beside them, with no area of their own:
+
+| Package | What it does |
+|---|---|
+| `internal/testkit` | a whole Corbie in the test's process, a stand-in model and a clock the test moves |
+| `shipped` | what Bulldog ships, served at `./.bulldog/` |
+| `cmd/corbie-bulldog` | the program: serve, `check` and `key` |
+| `cmd/demo` | the house on a stand-in model |
+
 ## Words
 
-Every page uses these words in these senses, and no other word for the same thing.
+One word for one thing, the same in the specs, the code and the screens.
 
-- **Office**: the top team, and the folder that holds it and every team inside it. It is not a seventh concept. **Problem**: something a reading of the office finds wrong, with the file it is in. A problem of one worker or one bridge stops only that one, and the workers that run it as a tool, and the rest of the office reads and runs.
-- **Team**: a folder with a team file, as above. The **team file** is where its `about`, people, lead, heed, deciders, disclosure check, routines and `models` are named, and, in the top team's, the office's `zone`, its bridges, its sign-in methods and its `runs`. The `about` is one line saying what the team looks after, which the screens show and workers are given when they choose whom to ask. The `zone` is the office's time zone, in which times are shown and a routine's `at` is read; a time written without a zone is in the office's. `runs` is how many runs the office has working at once. **Heed**: the one rule a team may name to weigh what is said at a channel place before its lead, a worker, starts on it, named as a rule in a list is, with any settings written beside it handed to it whole; it is no decider, and nothing waits on it. **Models**: a team's names for models, each a model written as Corbie writes one; a worker that names its model by one word is given the nearest team's model of that name, its own team's first and the office's last.
-- **Person**: someone real, written down once in the office. **Everyone**: every person of the office, as `everyone` in the top team file writes them; a team's people are only those its `people` names. **Key**: a person's sign-in, carried by the link the server prints or by a one-time link sent over the first of their own bridges that sends it, and given to the browser by every other way they sign in. **Sign-in method**: a way to sign in by an account elsewhere, named under `signin` in the top team file, which runs a folder of Corbie definitions, one Bulldog ships or the office's own, as a bridge does; it is not a seventh concept. A person's **account** by it is written in their entry under its name. **Guest**: someone a bridge names who matches no person; they may ask in a place whose settings let guests ask, and be answered, and nothing more.
-- **Worker**: a Corbie machine in a team's folder. **Lead**: the one worker or person that answers for a team; each request to the team goes to it, and a worker lead starts on what the team's heed lets through. **Tools file**: a file of tools Bulldog ships, in a folder of `.bulldog/tools/` for each purpose: `talk/talk.yaml`; `notes/notes.yaml`; `docs/read.yaml` and `docs/write.yaml`; `office/read.yaml` and `office/write.yaml`. A worker names exactly the files whose tools it needs, and one that writes names the `read.yaml` beside the `write.yaml`.
-- **Bridge**: where things come in and go out; the built-in chat, or a folder with an **in machine** and an **out machine**, one Bulldog ships or the office's own. **Place**: where on a bridge something is said, as narrow as the service allows, such as a thread rather than its channel. A bridge's settings list the places it listens in, each with the team asked there, the office when none is named, and whether guests may ask there. A **direct place** is between one person and the bridge alone, and is heard only when listed, like any other. Who can read a place is what its bridge's in machine reports; a place never reported is read by the asker alone.
-- **Request**: one thing someone asked. **Sub-request**: a request one team's work makes to another team, with a run of its own. **Asker**: who asked it. **Origin**: the place it was asked, such as a Slack thread, a GitLab issue or the chat, or the routine that asked it; it fixes who reads the answer. A sub-request is asked at no place: its origin is the request that asked it, and the origin at the top of its tree is who in the end reads what it says.
-- **Entry**: one thing said in a request's thread, with who it is by and who it is put to. **Noted**: a message a team's heed let lie, kept in the request, with the heed's word on it seen only by the team's people; a request is Noted while every message in it was, and nothing was ever answered.
-- **What was done**: what leaves a team: what was said at the origin and by or to the asker, the sub-requests with what each asked and how each was answered, the decisions with what was decided, who decided and when, and the answers. **What was read**: tool results, workers' conversations and what was said inside a team.
-- **Decision**: a yes that work waits for; its line, such as "Refund one charge: approved by Lee, 14:02", is built from it and the office as read each time it is written in a thread or shown, and is not kept with it. **Held action**: a job Corbie holds until its yes comes. **Decider**: one of those asked, in order, for a decision: a rule, a worker or a person. **Refer**: what a decider says when it neither says yes nor refuses, with a note, which sends the decision on to whoever is next; the thread shows it as Referred. **Rule**: a decider in its team's folder, or among those Bulldog ships, that is a script, or a definition holding its own permissions when it needs any; it decides as the team whose decision it is. A team's heed is a rule too, read and checked as one. A rules page is a different thing, and says so by its name.
-- **Disclosure**: the decision that lets what a team says outside itself, an answer, a question to someone outside, a tell or a sub-request, leave a team that set a disclosure check.
-- **Change**: new text for files of the office, written every file or none: what `put_draft` puts, a doc `write_doc` writes, or a person's draft on the screens. It is no decision of its own kind: where its tool's job is held it is a held action, decided by the team whose folder holds its files, as the changes page says. A **draft** is a change being made; it is **put** when `put_draft` is called, or a person puts it on the screens. The **people who decide changes** are the people the top team's `put_draft` list names; where it names no person, those its `everything` names; where neither names a person, the top team's people. Only they put a change from the screens and read the history; anyone else asks for one in a request, and a worker that names the office tools drafts it. What a change **lets more by** is where someone may do or see more than they could, or something that waited for a yes no longer does.
-- **Routine**: something a team says to one of its workers at a set time, a time of day and optionally a weekday; the answer goes to the team's people.
-- **Notes**: the prose a team knows, kept in its folder, given to each run of one of the team's workers that names the notes tools, and written by them with `write_note`, at once unless the tools file holds it for a yes. Notes are files, not sealed: whoever drafts or decides a change reads them. On the screens a team's people see its notes and its problems, and the people who decide changes see every file, note and problem of the office. A secret belongs in Corbie's secrets and what a team read belongs in its runs, never in its notes.
-- **Docs**: the reference a team keeps in its folder, Markdown files in folders, each named by its path, and written through a change or by `write_doc`, which a worker that names `tools/docs/write.yaml` uses to mend one of its own team's, and which waits for a yes as shipped. No run is given them: a worker whose definition names `tools/docs/read.yaml` reads them when it asks, its own team's first, then those of each team around it out to the office, the nearer team's doc of a name standing before one further out. On the screens a team's docs are opened by its people, the people of each team within it, and the people who decide changes.
-- **Shipped**: what Bulldog ships, in `.bulldog/` at the top of every office: its own machines, and one folder for each thing an office uses by its path there, a tools file in `tools/`, a rule in `rules/`, a bridge in `bridges/` or a way to sign in in `signin/`, with the thing's page. Each is made of Corbie definitions, as an office's own are, so it is not a seventh concept.
-- **Run**: one instance of a Corbie machine that Bulldog started. **Label**: a word Bulldog gives a run at its start, by which it is found.
-- **Screens**: what a signed-in person sees in the browser. The built-in chat is the bridge inside them.
-
-Corbie's words keep Corbie's meaning: machine, definition, job, ticket, ask, tag, held. A **role** is Corbie's: a controller or a runner, never a worker. A request is never called a ticket; a ticket is what a run waits on.
+| Word | What it means |
+|---|---|
+| office | the directory Bulldog serves, and its top team, `office` |
+| team | a directory with a team file, inside the office |
+| person | an entry of `everyone` in `office.yaml` |
+| guest | someone a bridge hears at a place that lets guests ask, whom no entry names |
+| worker | a Corbie definition directly in a team's directory |
+| lead | the worker, or the person, that takes every request to a team |
+| colleague | a worker another worker of its team uses as a tool |
+| rule | a decider named by its path: a script, or a shipped definition |
+| decider | a rule, a worker or a person in a decision's list |
+| decision | `heed`, `check` or `decide`: a yes or a no from an ordered list of deciders |
+| bridge | a directory with `in.yaml` and `out.yaml` |
+| place | where a bridge takes requests, as its settings list them, or `direct` |
+| channel | a listed place other than `direct` |
+| thing | one message, or one press of a button, that a bridge's in run hands over |
+| request | one run of a team's request machine |
+| request machine | the flow Bulldog fills out from a team file |
+| source | where a request came from, and where its answer goes: a place, the chat, another team's wait, or a routine |
+| chat | asking a team on the screens |
+| sub-request | a request a worker makes of another team with `ask_team` |
+| wait | a run of the shipped `wait.yaml`, waiting on a person or a team |
+| fork | a wait or a decision of a request, drawn as a line off WORK |
+| thread | the requests asked at one `where` on a bridge, in one chat, or by one request of one team |
+| routine | something said to a team's lead at a time of day |
+| doc | a text a team keeps in Corbie's store under its name |
+| outcome | how a request ended: `answered`, `noted`, `withheld` or `failed` |
 
 ## What Corbie should gain
 
-Each is general to any client of Corbie.
-
-- **A problem of a file that cannot be read names that file**, apart from what was said of it, so a client that gave the file says the problem where it belongs. Until then, when a worker's colleague cannot have its one-word model filled in, Bulldog finds the colleague by the end of Corbie's text, which is what its loader said of that file.
-- **Runner tags given once at a start**, joined to each script job's tags in the tree, for an office whose sensitive team's jobs run only on a runner beside their system.
-- **A reading of a definition's reach**: every job in its tree, as Corbie fills it out, with the hosts it may reach, the secrets it may send and to where, what it is denied, what it is asked about and which of its jobs are held, so a client shows what a definition may touch without reading it a second way. Until then Bulldog works out from the filled definition what each worker's tools, a flow's stages and a statechart's jobs run, what each may reach, and which wait for a yes.
-- **When a run's timer is due**, given to clients with the run, so a client shows when a waiting run comes round next without working out the time a second way. Until then Bulldog works out a routine's next time from its `at` and the office's zone, as its clock's timer is filled.
-- **A count of what the records of runs found by their labels say of one kind**, with when it was last said, so a client shows how often something happened without reading every record. Until then the screens do not show how many things a bridge left out, or when it last did: each is a line in its in run's record, read on Corbie.
-- **An emit a script can wait on**: a script can wait until what it emitted is in the run's record, so work it then acknowledges outside Corbie is never lost in a batch of emits not yet written. The Slack bridge Bulldog ships tells Slack a thing was received once it has handed it over; until then, a runner that stops between the two loses that thing.
-- **Masking that says so**: the first time a secret's value is masked in what came back to a run, the run gets a step naming that secret; and a request whose header or address holds the mask of a secret the job holds is refused, with a fix saying that the text holds the secret's name, not its value. A body is not refused, since bridges carry masked text on, and there is no flag to leave a value unmasked, which would open masking for every plugin. Today a value is masked silently, so an identifier held as a secret, such as a client id, spoils whatever the service sends back holding it, and nothing says why; until then the manual says to hold as a secret only what the service never sends back.
-- **A reply that cannot be read as asked fails with its status and the start of its body**, cut short, with secrets masked, in place of the parse error alone, and Corbie's own examples throw with the body too. Until then the manual's tool, and the work example's, ask for the reply as text, check its status, throw with the status and the start of the body, and parse only after a 2xx, so a service's reason, as "answered 401: Bad HTTP authentication header format", reaches the team's people.
-- **A job that runs after its yes says which held job it was**: the run of a job Corbie held and then let run carries the ask's run and the job's name, so a client that fixed something when the job was held knows which of its holds the run is. Until then Bulldog finds the change a held `put_draft` or `write_doc` fixed by the request, the tool and the why its call is given.
-- **A script reads the files its job lists, and a job may list a folder**: `files: [./docs/**]` is read from the definition's folder, uploaded with the start and read as text through the lookup `require` uses, never from the runner's disk; and Corbie's check reports a permission scope beginning `./` or `../` as a problem, since today it silently means the job's scratch folder. A worker could then read reference files of its own with no tool; until then an absolute path is the stopgap, and the docs tools Bulldog ships do not wait on it.
-- **A start's life known when it is read**: a client that asks after a run waiting to start is told it was never taken up only once the life its start was given has passed. Today it is told so once a few minutes have passed since the run was named, whatever life the start was given. Until then Bulldog, whose starts are good for an hour, takes Corbie's word that a start was never taken up only once its own hour has passed.
-- **A watch tells of a start that was refused**: a run whose start the controller refused, as too late or as failing its check, is given once by a watch, ended with why, as a run that ends is. Today such a run has no head and is in no listing, so a client that learns from its watch that its runs ended is never told. Until then Bulldog reads each start it sent once, 30 seconds after it went, unless the watch has told of its ending by then, so one Corbie refused is ended with Corbie's reason.
-- **A secret's name filled from a definition's input**, as a host already is, `secret:${input.settings.secret}@net:oauth2.googleapis.com`, checked when the run starts, so that an office names in its settings which of its secrets a shipped definition sends, as it names the site. Until then a way to sign in that Bulldog ships names its client's secret itself, `GOOGLE_CLIENT_SECRET` or `ENTRA_CLIENT_SECRET`, and an office that keeps it under another name copies the folder.
-- **One bound shared by a client's requests to the store**, rather than one made for each start, so many starts sent side by side do not each open as many requests as one may. Today each start bounds its own uploads, 16 at once, so 16 starts side by side may open 256. Until then Bulldog sends at most 16 of its starts side by side in a round, and a bucket store may see bursts of that many times 16 requests.
-
-## Built with
-
-Go, one module, one binary, no cgo. Everything Bulldog keeps is in one SQLite file, and the office's identity beside it; the file is read through a driver written in Go. The history is read and written with a git library written in Go, and no git program is run. The screens are in the binary: HTML, CSS, plain JavaScript and the IBM Plex fonts they are set in, with no build step. Corbie is used as a Go package, so no gateway runs between them. Go and the tasks are run through mise, which pins the versions. Tests need no network, no secret and no model: each runs a whole Corbie in the test's process, with a stand-in model. A test moves a clock it controls and steps the work until it is still, and never waits a fixed time. Every test is run with the race detector on.
-
-Nothing is kept backwards compatible until version 1. A file's shape or the store's schema is changed in place, and an office made by an older Bulldog is made again.
+- **A start keyed by the caller's own id.** Bulldog names a request from the thing's own time and a keyed hash of its id, looks for that name before it starts, and lets go of a thing more than a day old. Corbie reads the time in a run's name as when the start was sent: a start not yet taken and named more than 15 minutes ago is reported as never taken up, and one named more than a day ago loses its uploads to housekeeping. A start keyed by the caller's id, with no time in the run's name, would need none of this.

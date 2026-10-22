@@ -1,56 +1,42 @@
-// The Telegram bridge's script, for both its machines: input.do is hear,
-// for the in machine, or say, for the out machine. It speaks Telegram's
-// Bot API with the bot's token, which it holds only as a handle.
+// Telegram's script, for both its machines: input.do is hear, for the in,
+// or say, for the out. It speaks Telegram's Bot API with the bot's token,
+// which it holds only as a handle.
 const api = "https://api.telegram.org"
 const token = secrets.get("TELEGRAM_TOKEN")
 
-// Telegram takes 1 to 4096 characters in a message, after entities are
-// parsed, and counts them as UTF-16 code units, which is how a string's
-// length is counted here.
+// How long one job hears, well within its time limit.
+const listenFor = 4 * 60 * 1000
+
+// Telegram takes 1 to 4096 characters in a message, counted as UTF-16 code
+// units, as a string's length is here.
 const longest = 4096
 
-// The largest file Bulldog keeps of what was said.
+// The largest file the bridge reads of what was said.
 const largestFile = 16 << 20
 
-// call calls a method of the Bot API and gives its result, or { refused }
-// with Telegram's words when it refuses the call for good. Telegram says
-// how a call went by its error_code: 400 is a call it will never take, 403
-// a chat the bot may not write to; anything else, such as 429 or a
-// failure of its own, is thrown, so the run fails and is tried again. No
-// error made here holds the address called, since it holds the token.
+// call calls a method of the Bot API and gives Telegram's answer:
+// { ok, result } or { ok: false, error_code, description }. No error made
+// here holds the address called, since it holds the token.
 function call(method, options) {
   const reply = http.post(secrets.text`${api}/bot${token}/${method}`, Object.assign({ as: "text", timeout: 70 }, options))
-  let body
   try {
-    body = JSON.parse(reply.body)
+    return JSON.parse(reply.body)
   } catch (e) {
     throw new Error("Telegram answered " + method + " with status " + reply.status + " and no answer it could read")
   }
-  if (body.ok) return body.result
-  if (body.error_code === 400 || body.error_code === 403) return { refused: "Telegram refused " + method + ": " + body.description }
-  throw new Error("Telegram failed " + method + " with " + body.error_code + ": " + body.description)
 }
 
-// must gives a call's result, and throws a refusal: while hearing, what
-// Telegram refuses is not a thing heard but a fault of the bridge.
+// must gives a call's result, and throws what Telegram refuses.
 function must(method, options) {
-  const result = call(method, options)
-  if (result && result.refused) throw new Error(result.refused)
-  return result
+  const answer = call(method, options)
+  if (!answer.ok) throw new Error("Telegram refused " + method + " with " + answer.error_code + ": " + answer.description)
+  return answer.result
 }
 
-// place gives where a message was said, as narrow as Telegram allows: a
-// person's chat with the bot is them, and a topic of a group is its own.
-function place(chat, from, topic) {
-  if (chat.type === "private") return String(from.id)
-  return topic ? chat.id + "/" + topic : String(chat.id)
-}
-
-// filesOf gives the files a message holds, each read whole out of
-// Telegram: a document, or the largest size of a photo. One too large to
-// keep, or that Telegram refuses for good, is left out and named, so one
-// file never stops the bridge hearing what comes after it; a failure that
-// may pass is thrown, and the run is tried again.
+// filesOf gives the files a message holds, each read whole: a document, or
+// the largest size of a photo. A file too large, or one Telegram will
+// never give (400), is left out and named, so one file never stops the
+// bridge hearing what comes after it.
 function filesOf(m) {
   const wanted = []
   if (m.document) wanted.push({ id: m.document.file_id, name: m.document.file_name || "document", size: m.document.file_size })
@@ -62,96 +48,108 @@ function filesOf(m) {
   const left = []
   for (const f of wanted) {
     if (f.size > largestFile) {
-      left.push(f.name + ", as too large to keep")
+      left.push(f.name + ", as too large")
       continue
     }
     const file = call("getFile", { json: { file_id: f.id } })
-    if (file.refused) {
-      left.push(f.name + ", as " + file.refused)
+    if (!file.ok && file.error_code === 400) {
+      left.push(f.name + ", as Telegram said: " + file.description)
       continue
     }
-    const data = http.get(secrets.text`${api}/file/bot${token}/${file.file_path}`, { as: "bytes", timeout: 70 })
-    if (data.status >= 400 && data.status < 500) {
-      left.push(f.name + ", as Telegram answered status " + data.status + " for it")
-      continue
-    }
+    if (!file.ok) throw new Error("Telegram refused getFile with " + file.error_code + ": " + file.description)
+    const data = http.get(secrets.text`${api}/file/bot${token}/${file.result.file_path}`, { as: "bytes", timeout: 70 })
     if (data.status !== 200) throw new Error("Telegram answered status " + data.status + " for the file " + f.name)
     files.push({ name: f.name, data: data.body })
   }
   return { files: files, left: left }
 }
 
-// chosen gives the choice a press of a button made: the button's data is
-// Bulldog's reference and the choice's place among the buttons, which
-// keeps it within the 64 bytes Telegram allows, and the choice is the
-// text of that button on the message pressed. A press on a message
-// Telegram no longer shows makes no choice, which Bulldog answers.
+// names says whether a message names the bot: an @mention of its username,
+// or a mention of the bot by its id.
+function names(m, me) {
+  const text = m.text || m.caption || ""
+  return (m.entities || m.caption_entities || []).some(e =>
+    (e.type === "mention" && text.substr(e.offset, e.length).toLowerCase() === "@" + me.username.toLowerCase()) ||
+    (e.type === "text_mention" && e.user && e.user.id === me.id))
+}
+
+// chosen gives a press's ref and choice: a button's data is the out's ref
+// and the choice's place among the buttons, which fits the 64 bytes
+// Telegram allows, and the choice is that button's text.
 function chosen(q) {
   const data = String(q.data || "")
-  const cut = data.indexOf(":")
-  if (cut < 0) return { answers: data, choice: "" }
+  const cut = data.lastIndexOf(":")
+  if (cut < 0) return { ref: data, choice: null }
   const rows = (q.message && q.message.reply_markup && q.message.reply_markup.inline_keyboard) || []
-  for (const row of rows) for (const button of row) if (button.callback_data === data) return { answers: data.slice(0, cut), choice: button.text }
-  return { answers: data.slice(0, cut), choice: "" }
+  for (const row of rows) for (const button of row) if (button.callback_data === data) return { ref: data.slice(0, cut), choice: button.text }
+  return { ref: data.slice(0, cut), choice: null }
+}
+
+// heard gives the thing an update holds: a message said, or a press of a
+// button. Left out is what a bot said and any other kind of update, each
+// logged with its id and why, never its words.
+function heard(u, me) {
+  const m = u.message
+  const q = u.callback_query
+  if (m && (!m.from || m.from.is_bot)) {
+    log("left out " + m.chat.id + ":" + m.message_id + ": a bot said it")
+    return null
+  }
+  if (m) {
+    const got = filesOf(m)
+    let text = m.text || m.caption || ""
+    for (const left of got.left) text += (text ? "\n" : "") + "[a file left out: " + left + "]"
+    // A chat holds no threads, and a topic of a group is a place of its own.
+    const topic = m.is_topic_message ? m.message_thread_id : 0
+    const replied = m.reply_to_message && m.reply_to_message.message_id !== topic
+    return {
+      id: m.chat.id + ":" + m.message_id, at: new Date(m.date * 1000).toISOString(), kind: "said", from: String(m.from.id),
+      place: m.chat.type === "private" ? "direct" : String(m.chat.id), where: topic ? m.chat.id + "/" + topic : String(m.chat.id),
+      text: text, files: got.files, mentioned: names(m, me),
+      answers: replied ? m.chat.id + ":" + m.reply_to_message.message_id : null, ref: null, choice: null,
+    }
+  }
+  if (q) {
+    // Answered at once, so the person's app stops waiting; whether Telegram
+    // takes it changes nothing heard.
+    call("answerCallbackQuery", { json: { callback_query_id: q.id } })
+    const chat = q.message ? q.message.chat : { id: q.from.id, type: "private" }
+    const topic = q.message && q.message.is_topic_message ? q.message.message_thread_id : 0
+    const press = chosen(q)
+    return {
+      id: "press:" + q.id, at: new Date().toISOString(), kind: "press", from: String(q.from.id),
+      place: chat.type === "private" ? "direct" : String(chat.id), where: topic ? chat.id + "/" + topic : String(chat.id),
+      text: "", files: [], mentioned: false, answers: null, ref: press.ref, choice: press.choice,
+    }
+  }
+  log("left out update " + u.update_id + ": " + (Object.keys(u).find(k => k !== "update_id") || "empty"))
+  return null
 }
 
 if (input.do === "hear") {
-  // The first run asks for the latest update alone, which marks all
-  // before it as read, and hears nothing of them. Ten at a time keep what
-  // a run ends with well within what Corbie carries.
-  const first = input.cursor === null || input.cursor === undefined
-  const updates = first
-    ? must("getUpdates", { json: { offset: -1, timeout: 0 } })
-    : must("getUpdates", { json: { offset: input.cursor, timeout: 50, limit: 10, allowed_updates: ["message", "callback_query"] } })
-  let cursor = first ? 0 : input.cursor
-  const heard = []
-  for (const u of updates) {
-    cursor = Math.max(cursor, u.update_id + 1)
-    if (first) continue
-    // Every message said is heard. Left out is only what a bot said, and
-    // any other kind of update, each logged with its id, its place and
-    // why, and never its words.
-    const m = u.message
-    const q = u.callback_query
-    if (m && (!m.from || m.from.is_bot)) log("left out " + m.chat.id + ":" + m.message_id + " in " + m.chat.id + ": bot")
-    if (!m && !q) {
-      const kind = Object.keys(u).find(k => k !== "update_id") || "empty"
-      const of = u[kind] || {}
-      const chat = of.chat || (of.message && of.message.chat)
-      log("left out update " + u.update_id + " in " + (chat ? chat.id : "no chat") + ": " + kind)
-    }
-    if (m && m.from && !m.from.is_bot) {
-      const direct = m.chat.type === "private"
-      const got = filesOf(m)
-      let text = m.text || m.caption || ""
-      for (const left of got.left) text += (text ? "\n" : "") + "[a file left out: " + left + "]"
-      // A chat, and a topic of a group, holds no threads: a reply is how
-      // something is said more in what went before.
-      const thing = {
-        id: m.chat.id + ":" + m.message_id, kind: "said", from: String(m.from.id),
-        heard_in: direct ? "direct" : String(m.chat.id), place: place(m.chat, m.from, m.is_topic_message ? m.message_thread_id : 0),
-        threadless: true, text: text, files: got.files,
-      }
-      if (m.reply_to_message && !(m.is_topic_message && m.reply_to_message.message_id === m.message_thread_id)) {
-        thing.answers = m.chat.id + ":" + m.reply_to_message.message_id
-      }
-      heard.push(thing)
-    }
-    if (q && q.from) {
-      // The press is answered at once, so the person's client stops
-      // waiting; what Bulldog says of it follows as a message.
-      call("answerCallbackQuery", { json: { callback_query_id: q.id } })
-      const chat = q.message ? q.message.chat : { type: "private" }
-      const press = chosen(q)
-      heard.push({
-        id: "press:" + q.id, kind: "choice", from: String(q.from.id),
-        heard_in: chat.type === "private" ? "direct" : String(chat.id),
-        place: place(chat, q.from, q.message && q.message.is_topic_message ? q.message.message_thread_id : 0),
-        answers: press.answers, choice: press.choice,
-      })
-    }
+  const me = must("getMe", {})
+  let cursor = input.cursor
+  if (cursor === null || cursor === undefined) {
+    // A new bridge asks for the latest update alone, which has Telegram
+    // forget all before it, and hears none of them.
+    const latest = must("getUpdates", { json: { offset: -1, timeout: 0 } })
+    cursor = latest.length ? latest[latest.length - 1].update_id + 1 : 0
+    emit("heard", { things: [], cursor: cursor })
   }
-  return { heard: heard, cursor: cursor }
+  const until = Date.now() + listenFor
+  for (let left = listenFor; left > 0; left = until - Date.now()) {
+    const wait = Math.min(50, Math.ceil(left / 1000))
+    const updates = must("getUpdates", { json: { offset: cursor, timeout: wait, limit: 100, allowed_updates: ["message", "callback_query"] }, timeout: wait + 20 })
+    if (!updates.length) continue
+    const things = []
+    for (const u of updates) {
+      cursor = Math.max(cursor, u.update_id + 1)
+      const thing = heard(u, me)
+      if (thing) things.push(thing)
+    }
+    emit("heard", { things: things, cursor: cursor })
+  }
+  return { cursor: cursor }
 }
 
 // split cuts text into parts Telegram takes, in order, never inside a
@@ -172,17 +170,14 @@ function split(text, most) {
   return parts
 }
 
-// say: the text in as many messages as it takes, the first in reply to
+// say: the text in as many messages as it takes, the first replying to
 // what it answers, even when Telegram no longer has that, and the last
-// with a button for each choice, or asking for a reply to a question
-// that offers none; then each file. A few short choices share one row,
-// and any others are each on a row of their own, since Telegram cuts a
-// button's text short to fit its row. What it sent is named by every
-// message it sent, so a reply to any of them answers it.
+// with a button for each choice, or asking for a reply to a question that
+// offers none. A few short choices share one row; otherwise each has a row
+// of its own, since Telegram cuts a button's text to fit its row.
 const [chat, topic] = String(input.to).split("/")
-const parts = split(blobs.read(input.text), longest)
-const files = input.files || []
-if (!parts.length && !files.length) return { refused: "there is nothing to say" }
+const parts = split(input.text, longest)
+if (!parts.length) throw new Error("there is nothing to say")
 let markup
 if (input.ref && input.choices && input.choices.length) {
   const buttons = input.choices.map((c, n) => ({ text: c, callback_data: input.ref + ":" + n }))
@@ -196,21 +191,12 @@ if (input.answers) {
   const [answeredChat, message] = String(input.answers).split(":")
   if (answeredChat === chat && message) replyTo = { message_id: Number(message), allow_sending_without_reply: true }
 }
-const sent = []
+let sent
 for (let i = 0; i < parts.length; i++) {
   const message = { chat_id: chat, text: parts[i] }
   if (topic) message.message_thread_id = Number(topic)
   if (i === 0 && replyTo) message.reply_parameters = replyTo
   if (i === parts.length - 1 && markup) message.reply_markup = markup
-  const result = call("sendMessage", { json: message })
-  if (result.refused) return { refused: result.refused }
-  sent.push(chat + ":" + result.message_id)
-}
-for (const f of files) {
-  const upload = { chat_id: chat, document: { data: f.data, name: f.name } }
-  if (topic) upload.message_thread_id = topic
-  const result = call("sendDocument", { upload: upload })
-  if (result.refused) return { refused: result.refused }
-  sent.push(chat + ":" + result.message_id)
+  sent = chat + ":" + must("sendMessage", { json: message }).message_id
 }
 return { sent: sent }

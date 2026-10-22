@@ -1,21 +1,15 @@
-# The Slack bridge's out machine. It carries one thing to one place: a
-# thread, as channel/thread, or a person directly when direct is true, in
-# their conversation with the app, as Markdown, which Slack shows, with a
-# chart fence and an image alone on its line shown as Slack's own chart
-# and image. A decision, and a question that offers choices, is sent with
-# a button for each choice; a file is named in it, not sent. Given
-# working, which a team is doing in the thread, it says nothing, and sets
-# the status of the app's agent session there. It ends with { sent } or,
-# when Slack refuses it for good, { refused }. Bulldog gives the text, and
-# each file's data, as a blob of the run's input. The app's bot token is
-# the Corbie secret SLACK_TOKEN.
+# Slack's out. It sends one message to a thread, as channel/thread, or to
+# a person directly in their conversation with the app, as Markdown, with
+# a chart fence and an image alone on its line shown as Slack's own chart
+# and image. With ref, the message has a button for each choice. It gives
+# { sent }, the id of its last message, and throws when Slack refuses. The
+# app's bot token is the Corbie secret SLACK_TOKEN.
 flow: slack-out
-input: { settings: any, to: string, direct: boolean, text: blob, files: list, answers: any, choices: any, ref: any, working: "string?" }
+input: { settings: map, to: string, direct: boolean, text: string, choices: any, ref: any }
 stages:
   say:
     job:
       script: ./slack.js
-      input: { do: say, to: "${input.to}", direct: "${input.direct}", text: "${input.text}", files: "${input.files}", choices: "${input.choices}",
-        ref: "${input.ref}", working: "${input.working}" }
+      input: { do: say, to: "${input.to}", direct: "${input.direct}", text: "${input.text}", choices: "${input.choices}", ref: "${input.ref}" }
       allow: [net:slack.com, "secret:SLACK_TOKEN@net:slack.com"]
 output: ${stages.say.output}
