@@ -24,7 +24,7 @@ The word names the program; `.perch/` is named after it.
 - A machine is a YAML file in the directory. New copies a template, `pipeline.yaml`, `decide.yaml` or `routine.yaml`, into the directory under the name typed.
 - A run is one execution, found by its labels, kept for its definition's `keep:` after it ends.
 - A bridge is a shipped directory, `.perch/bridges/<name>/`, of the machines `in.yaml`, `out.yaml` and `ask.yaml`. The person's `bridges/<name>/settings.yaml` is the input of its `in` run: it names a machine per place; a place is one chat, channel or project the bridge reads. A thread is one conversation in a place, named by the bridge's own id for it, and carried as the label `thread`; a run of a thread starts with the last done run's `conversation`.
-- A held job waits until its ask, a `decide.yaml`, approves it; the ask's answer is a reply on a ticket, from the screen, or from a bridge by a person whose id is in the ask's `people`.
+- A held job waits until its ask, a `decide.yaml`, approves it; the ask's answer is a reply on the ticket, from the screen or from a bridge.
 - A model is written as Corbie writes it, with its key as a secret; the perch names no model.
 - A view is what a run emits, drawn by kind.
 - A perch is one client, or with `none` a viewer on a bucket or a directory that reads every run's status and no record. A client reads its own runs whole, and every run's status where the store lets a viewer read, as on a directory; work between perches goes over a bridge.
@@ -35,11 +35,15 @@ There are five screens, and one token opens them all. A screen is narrowed by th
 
 **Runs** `/runs`
 
-Top to bottom: the counts and the `now` panel, the timeline, the list; the waiting plane is the right column.
+From top to bottom it shows the counts and the `now` panel, the standing row, the newest failure line, the timeline and the list.
 
-- The list, timeline and `now` panel are corbie-ui's, narrowed by `status`, `label`, `client` and `window`, with lanes by machine, client or a label's name; lanes by `thread` list the threads.
+- The list and timeline are corbie-ui's, narrowed by `status`, `label`, `client` and `window`, with lanes by machine, client or a label's name; `failure` is added as a narrowing. The `now` panel is corbie-ui's, with a count per `failure` added and the running count in `--ink` and not the gradient.
+- The standing row holds one chip per bridge named in `bridges/<name>/settings.yaml`: the `in` run's status dot, machine and what it waits on, as a row prints them, or `telegram · no in run`. A chip opens the `in` run as a row does.
+- The newest failure line holds the latest run that failed in the window and whose parent did not fail, as its status dot, machine, `failed (denied)` and its labels as a path, then `+N` for the others; it opens the root as a row does, and is absent at zero.
 - A row carries the labels as a path: `slack / help / 1700000000.000200`.
-- The waiting plane is a plate raised by its shadow, beside the list at 1200px and wider and above it narrower, and lists every run that waits on a ticket. For `decided` it shows each held job: its `asked: { does, args, said }` for a tool call, else its name and input; with a note field, Approve and Deny. For any other ticket it shows a value typed as JSON.
+- The waiting plane lists every run that waits on a ticket, each card headed by the root's labels as a path, `telegram / direct / 4472`, and the chain from the root to the run that holds the job, `direct › steward › fixer`, read from the heads' `labels` and `parent`.
+- A `decided` card shows each held job as its `asked: { does, args, said }` for a tool call, else its name and input, then a note field, Approve and Deny, and under them the reply each sends, that a job not approved fails `denied`, and the time left on the ticket, `6d 23h`, read from the issuing run's `wake` ask whose `what` begins `timer.`.
+- Any other ticket's card shows a value typed as JSON.
 - Approve runs `corbie run reply <ask-run> <ticket> '{"approve":["refund"],"note":"Lee"}'`, with the note typed on the screen. The perch reads the ticket's value from the ask run's record, which it may read as the root's client.
 
 **Run** `/run/<id>`, top to bottom:
@@ -48,22 +52,24 @@ Top to bottom: the counts and the `now` panel, the timeline, the list; the waiti
   chain row     32px, help › bot › ledger
   parent band   36px, steward · answering · running
   drawing       at most 40% of the height, the current state highlighted, chips over job boxes
+  replay bar    24px, a range over the front run's steps
+  failure row   one line, on a failed run
   record        the rest, scrolling
   tabs          Output, Definition, Files, Children
+  actions       the chain row's right end: Cancel, Send, and Carry on on a done root with the label `thread`; the command and the receipt print under the pressed button, as What games teach says; Reply is the card on the waiting plane
   right column  360px, the waiting plane
 ```
 
 - The chain row has one chip per run from the root, rebuilt from each run's `parent` so a reload keeps it from one id.
-- The drawing is corbie-ui's at full width; a job whose child runs carries a chip in its box (status dot, name, step), and a held job a `held` chip from the record's `hold` entry.
-- The parent band is drawn by the page: the parent's name, status and highlighted state. Below the band the parent's drawing is the behind plane. The front drawing starts 24px lower, so the parent's top 24px shows above it, narrowed and dimmed, as one card under another.
-- The record is as corbie-ui prints it, the model's `text` streamed into the turn's row and views drawn in place.
+- The drawing is corbie-ui's at full width. Each job box's second line is the latest fact the record holds for the job, and the box is as wide as the longer of its name and that line; a job that is a child run carries a chip (status dot, name, and its last step's `state`, or `turn N` for an agent, read from the child's record) in its box instead. Pressing a box opens the job's sheet under the drawing. A timer's arrow is the only dashed stroke: `when:` is a label on its stage, and `skipped` a `--line` stroke.
+- The parent band is drawn by the page: the parent's name, status and highlighted state. Below the band the parent's drawing is the behind plane.
+- The record is as corbie-ui prints it, the model's `text` streamed into the turn's row and views drawn in place. At a step set by the replay bar it ends at that step with `12 more, to 09:14:01`.
 
 Actions on a root, each one Corbie command:
 
 ```
-  Approve, Deny   corbie run reply on the ask run
   Reply           corbie run reply
-  Send            corbie run send
+  Send            corbie run send, on a statechart root; a flow and an agent ignore events
   Cancel          corbie run cancel, which ends every run below
   Carry on        starts a run of the thread as step 2 of The loop does, with `said` typed on the screen in place of a heard message, and waits while a run of the thread runs
 ```
@@ -93,8 +99,8 @@ There are two planes, built with CSS alone, and each has one meaning.
 - A child is a chip, not a drawing: a quarter-size drawing is 3px text, and 1/64 at the third level.
 - Chips are HTML placed over the SVG by `getBBox()` of `g[data-job]`, an attribute added to each box in `drawing/`.
 - At 1200px and wider the waiting plane is a 360px right column; narrower, it is above the list on Runs and above the drawing on Run.
-- The waiting plane is the same column on Runs and Run; on Run it lists only the runs below the root shown.
-- When a child is opened from its chip, the drawing on top scales to .94 and dims over .32s with `--ease`, the child's drawing comes in from scale(1.04) and opacity 0 to its place, and a chip is added to the chain row; Back reverses it. Nothing else moves, and under `prefers-reduced-motion` nothing is animated.
+- On Run the waiting plane lists only the runs below the root shown.
+- When a child is opened from its chip, the drawing on top scales to .94 and dims over .32s with `--ease`, the child's drawing comes in from scale(1.04) and opacity 0 to its place, and a chip is added to the chain row; Back reverses it. A waiting card collapses by `grid-template-rows` from `1fr` to `0fr` over .24s, `place` keeping it until the collapse ends, and the cards below move up by layout. Under `prefers-reduced-motion` nothing is animated.
 
 ## The loop
 
@@ -122,7 +128,7 @@ After a restart the loop reads the store and continues.
 - The agents are without the talk and notes tools, and each names `ask: { machine: ./decide.yaml }`.
 - `direct.yaml` runs the steward, then Telegram's `out.yaml`, with `ask: { machine: ./decide.yaml }`.
 - In `decide.yaml`, `rule` runs `small-orders.js`, which reads `input.jobs[0].asked.args.pounds`, and `person` runs Telegram's `ask.yaml` with `people: [4471]`.
-- In `walk-round.yaml`, `due` is `mon 09:00` and `working` runs the steward.
+- In `walk-round.yaml`, `alarm` is `mon 09:00` and `working` runs the steward.
 
 Sam ran `corbie init --ceiling all`, `corbie controller secret set ANTHROPIC_KEY`, `corbie controller secret set TELEGRAM_TOKEN`, `corbie start` and `corbie perch --dir ~/house`, and pressed Start on `walk-round.yaml`, which runs until cancelled. Runs shows one row, `walk-round` running in the last lane, `1 timer, next mon 09:00`; Machines lists steward, fixer, sparks, clerk, builder, bins, direct, decide, walk-round, gardener and groundsman, `crew.yaml` under the steward's `tools_file:`, and `.perch/` read-only.
 
@@ -130,13 +136,13 @@ Sam ran `corbie init --ceiling all`, `corbie controller secret set ANTHROPIC_KEY
 2. The loop starts `direct.yaml` under `<client>/<stamp>-<id>`, labels `bridge=telegram place=direct thread=4472`; a row appears in lane `4472`.
 3. Run shows `answering` highlighted and a chip `steward · turn 1` in its box; the model's words stream into the record.
 4. The steward calls `fixer`, the fixer calls `sparks`; Sam opens the steward from its chip, then the fixer from the `fixer · turn 1` chip in the steward's tool box: the chain shows `direct › steward › fixer`, the steward dims behind, and `sparks · turn 2` is a chip in the fixer's tool box.
-5. The fixer calls `cut_power`, `approve: true`; the controller holds it and starts `decide.yaml` as a child; `rule` runs `small-orders.js`, which refers; `person` runs Telegram's `ask.yaml`, whose inner state `telling` posts Approve and Deny to `4471`, `ref` the fixer's run id. The fixer's drawing shows `cut_power` with a `held` chip and `decide · person` as a chip in its ask box; the chain shows `direct › steward › fixer › decide` when Sam opens it.
+5. The fixer calls `cut_power`, `approve: true`; the controller holds it and starts `decide.yaml` as a child; `rule` runs `small-orders.js`, which refers; `person` runs Telegram's `ask.yaml`, whose inner state `telling` posts Approve and Deny to `4471`, `ref` the fixer's run id. The fixer's drawing shows `cut_power` reading `held` and `decide · person` as a chip in its ask box; the chain shows `direct › steward › fixer › decide` when Sam opens it.
 6. The waiting plane shows `cut_power: Turn one circuit off · circuit: kitchen ring` with what the fixer said.
 7. Sam presses Approve on Telegram; `telegram-in` hears the press from `4471`; the loop replies, as step 3 of The loop says; the plane empties, `tools/cut-power.js` runs, and its `log` line appears in the fixer's record.
 8. `order_part` for 12 pounds is held; `small-orders.js` approves it, `decide` ends `done` with `Under £20.`, and no message goes out. The plane stays empty; the fixer's record shows `decide: done · Under £20.` and `tools/order.js` runs.
 9. The steward answers; `saying` runs `out.yaml`; `answered` ends with `conversation` in its output; the row shows `done`.
 10. Kit writes "And the hall?"; the loop starts `direct.yaml` with `conversation` from the thread's last done run; a second bar appears in lane `4472`.
-11. Monday 09:00: the timer `due` of `walk-round.yaml` is due, whether the perch runs or not; `working` runs the steward, `telling` posts the round to `4471`, and the row shows `next mon 09:00` from the step's timer entry.
+11. Monday 09:00: the timer `alarm` of `walk-round.yaml` is due, whether the perch runs or not; `working` runs the steward, `telling` posts the round to `4471`, and the row shows `next mon 09:00` from the step's `wake` ask.
 
 ## A day at work
 
@@ -192,10 +198,10 @@ At work:
 ```
 
 - On the server, whoever acts opens the page over SSH; everyone else acts through a bridge.
-- The admin runs `corbie perch none` on a bucket, with the viewer's key, or on a directory store; it reads every run's status and no record. A served directory has no viewers: there the admin runs the perch on the controller's computer with the controller's config, as `corbie ui controller` does, and reads every run's status and no record.
+- A served directory has no viewers, so there the admin's perch runs with the controller's config, as `corbie ui controller` does. Either way it reads every run's status and no record.
 - The page keeps corbie-ui's rule: a perch that acts listens on this computer only; `none` may listen on any address. There is no proxy and no TLS to set up.
 - Security is one sentence: whoever shows the token acts as the perch's client, and a press from a bridge is acted on only when its id is in the ask's `people`.
-- Each perch is one client, reads only its own runs whole, and its runs begin with the client's name. One config has one perch, since two would each start the `in` runs.
+- One config has one perch, since two would each start the `in` runs.
 
 ## Documents outside the system
 
@@ -249,9 +255,9 @@ A machine may add a part and replace one by its `id`. It may not carry markup or
 - In `ask.yaml`, the state `asking` issues the ticket `decided` for 7d; its inner state `telling` posts the held jobs over `out.yaml` with `ref` and `people`. When no answer comes in 7d, it approves nothing.
 - In `pipeline.yaml`, `answering` runs the agent the template names, with `said` and `conversation`, `saying` runs a bridge's `out.yaml`, and `answered` outputs the conversation.
 - In `decide.yaml`, `rule` runs a script given the held jobs, answering `{ approve, note }` or `{ refer, note }`; `person` runs a bridge's `ask.yaml` when it refers.
-- In `routine.yaml`, `waiting` is on `timers: { due }`, `working` runs a machine with `said`, and `telling` posts the answer.
+- In `routine.yaml`, `waiting` is on `timers: { alarm }`, `working` runs a machine with `said`, and `telling` posts the answer.
 
-A model runs only where a state runs an agent. A tool, an ask, a routine and a bridge are each machines, so composition is one mechanism, `job: { machine: … }`. No run waits on the perch: a run that waits on a person waits on a ticket.
+A model runs only where a state runs an agent. A tool, an ask, a routine and a bridge are each machines, so composition is one mechanism, `job: { machine: … }`.
 
 What a harness gives, in its controlled form here:
 
@@ -280,14 +286,15 @@ From corbie-ui, kept:
   metrics.Text                       /metrics
   the Runs list, timeline and now
   the Controller page
-  the ui.css tokens and motion, with --plate2 and --wait added
+  the ui.css tokens and motion, with --plate2 and --wait
 ```
 
 From corbie-ui, dropped:
 
 ```
-  the .split run page                the Run page is stacked
-  typed JSON as the only reply       a form from asked
+  the .split run page                    the Run page is stacked
+  typed JSON as the only reply           a form from asked
+  glow, the bar's end ring, ×3 on flow   motion with no change behind it
 ```
 
 From Bulldog, kept:
@@ -315,12 +322,52 @@ Given, and checked in the code:
 
 - An ask run is a child with `parent` set, and its input holds `asking.instance` and the ask's own `input:` (`controller/take.go`, `startAsk`), so `to` and `ref` need no table.
 - `conversation` is a filled value (`agent/step.go`), and a start resolves a blob that names its run (`client/client.go`), so thread memory is one input.
-- A timer's due time is in the step's timer entry, so a routine's row needs no change to the run's listing.
+- A timer's due time is the `at` of the step's `wake` ask whose `what` begins `timer.`, so a routine's row needs no change to the run's listing.
+- A step entry's `asks[]` carry a `hold` with the job and its `shown`, a `script` with `runner`, `attempt` and the due time `at`, and an `again` wake for a retry; a `failed from <job>` event's data carries `status`, `error`, `refused`, `layer` and `fix`; an answer to a ticket is an event with `answer: true`; the head carries `keep` (`instance.Ask`, `machine.Error.Value`, `machine.Event.Answer`, `instance.Head`).
 - A program names its own run (`Start.Run`), and a start for a run that exists is dropped (R-ctl-14), so a start sent twice is one.
 - A label value is not checked by Corbie. A named run is `<client>/<stamp>-<rest>` (`store.CheckInstance`), the stamp a UTC time to the millisecond and the rest free of `/`, `\` and control characters.
 - Labels, tickets, `asked`, `used`, `machine.Describe`, the check and `cli.Program` exist as the note uses them.
 
 Nothing is added to Corbie for the perch.
+
+## What games teach
+
+Perch takes from games what makes orchestrating many actors legible: the whole world on one screen, an order given from where the person looks and its consequence shown, attention drawn only to what needs the person, and nothing the store does not hold. It has no decoration and no cue with a second meaning: every cue below is read from a field of a head, a record entry, a definition or a receipt, except `store lost`, the stream's `store` message, and `hot`, the outline a hovered button adds to what its command changes.
+
+- Minecraft's F3 screen prints a block's id and every property as stored. On Run, a job's sheet is a row per field the record holds, absent until its entry exists. It reads the step's ask (`kind`, `name`, `attempt`, `runner`, `child`, `at`), the job's emits, the `done` or `failed` events whose `from` is the job's name or an attempt's full name, the `wake` ask whose `what` begins `again.`, and a held job's `job.shown`.
+- Dead Space draws health on the suit. On Run, a job box's second line, and the line above a state, read one of:
+
+  ```
+    turn 2/20 · tools         the agent's `turn` and `waiting`, and `limits.turns`
+    due in 2m                 a script ask's `at`
+    try 2/3                   a script ask's `attempt` and the job's `attempts`
+    5/10                      `progress`
+    held                      the `hold` ask
+    denied                    the `failed` event of a job not approved
+    done · 17s                each step's `time`
+    not run                   no entry for the job
+    ticket decided · 6d 23h   above a state: the head's `tickets` and the `wake` ask whose `what` begins `timer.`
+  ```
+
+  A countdown is from now, or from the replay step's `time` when `at=` is set.
+- RimWorld's colonist bar keeps every colonist on screen with their state. The standing row on Runs reads the heads of the roots whose `labels` hold `bridge` and no `place`, and `bridges/<name>/settings.yaml`.
+- Civilization's end-turn button reads `1 unit needs orders` and moves the view to the unit. The header of Run, Machines, Controller and Metrics carries `N wait on a person ›` in `--wait`, and the tab's title `(N) Perch`, for this client's runs whose `tickets` the screen's waiting plane does not list; a press opens the root of the oldest by `started`. It reads heads alone, only when the perch acts as a client, and is absent at zero.
+- StarCraft's alert says where the attack is, and space moves the view there. The newest failure line reads heads alone: `status`, `ended`, `parent` and `failure`.
+- Factorio's assembler reads `no ingredients` or `output full` on hover. The `now` panel adds a count per `failure`, and the failure row names the deepest job that failed, as chain chips, with `refused`, `layer` and `fix`. It reads the `failed from <job>` events and `fail` asks of every run below, deepest by `parent`.
+- FTL keeps the reticle on a room until the shot lands. Approve or Deny locks the card and prints the command and the receipt untouched: `refused: …` unlocks it, except `refused: the ticket was already answered`, which like `taken` keeps it locked until the issuing run's head no longer names the ticket, when the card collapses. A card that collapses with no press on the screen was answered through a bridge, or its ask run ended.
+- Mini Metro moves nothing but the trains. Nothing moves without a change behind it: a part `mark` finds new, ended or moved plays its keyframe once; a taken arrow, whose `data-key` is `taken:<from>:<to>` only while taken, runs an `--ink` dot along itself over .9s, its stroke solid; a child opened or closed, and a card collapsing, move as Depth says. The header's `live` dot is still, `--amber` with `store lost` while the stream reads `store: lost`.
+- StarCraft II's replay bar shows the match at the thumb's time. The replay bar sets `at=` in the address to a step's `time`, and every plane, chip, second line and sheet but the waiting plane is drawn from its run's step and emit entries at or before it. It reads the `time` of every entry, and `step`, `state`, `events`, `asks` and `status` of own runs; the left end reads `earlier steps removed` when the record's lowest step is not 1.
+- Into the Breach shows every tile a move changes before the move. An action button hovered or focused adds `hot`, a 2px `--ink` outline, to what its command changes, by `data-key` from its `data-hot`:
+
+  ```
+    Approve, Deny   each held job's box and the card; on Runs the root's row and bar
+    Cancel          every chip in the chain row and the job boxes
+    Carry on        nothing; the new run is a row the screen does not hold yet, and `run submit` prints its ID under the button
+    Reply           the state that waits on the ticket
+    Send            the arrow out of the current state whose event is the name typed, and the state it goes to
+  ```
+
+  It reads the `hold` ask's `job`, the step's `state` and the definition's `ticket:` and `on:` lines.
 
 ## Open questions
 
@@ -340,3 +387,5 @@ One day per step:
 3. Build the waiting plane from each run's ticket names and the reply form from `asked`, and approve `cut_power` on the screen.
 4. Write `.perch/` with `pipeline.yaml`, `routine.yaml` and the Telegram bridge, the loop's three steps, and `direct.yaml` and `decide.yaml` by New; reshape `small-orders.js` to read `input.jobs[0].asked.args.pounds` and answer `{ approve, note }` or `{ refer, note }`; test the `decide.yaml` shape.
 5. Add the `view` emits with `show.yaml`, and read the house's `notes/` through `docs/dir.yaml`.
+6. Give each job box its second line, computed in `drawing/` from the entries the Run page follows, and redraw the Run page's parts once a minute and on change, so `due in 2m` counts down through the one template. Done when, on the fixer's page with no child opened, the fixer's model box reads `turn 2/20 · tools` and the `cut_power` box reads `done · 17s`, the seconds from the record's step times.
+7. Build the lock on a pressed card, kept across a part swap while `.receipt` reads `taken`, and the card's collapse. Done when approving `cut_power` collapses its card and rewrites `cut_power`'s second line within one interval, and a press on Telegram collapses it with no press on the screen.

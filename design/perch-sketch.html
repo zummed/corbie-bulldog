@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Perch Depth Sketch</title>
+<title>Perch</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -15,7 +15,7 @@
 :root {
   --paper: #ECEFED; --plate: #F8F9F7; --plate2: #FFFFFF; --line: #D3D9D6; --hover: #E3E8E5;
   --ink: #12161C; --ink2: #5A646D; --ink3: #8A9399;
-  --petrol: #17606E; --moss: #3F6B35; --rowan: #AB3626; --wait: #B4471A; --wait-soft: #F7E4D9;
+  --petrol: #17606E; --moss: #3F6B35; --rowan: #AB3626; --amber: #B8860B; --wait: #B4471A; --wait-soft: #F7E4D9;
   --shadow: 0 8px 24px rgba(0, 0, 0, .18);
   --sans: "IBM Plex Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
@@ -26,17 +26,17 @@
   :root:not([data-theme="light"]) {
     --paper: #0C1014; --plate: #12181E; --plate2: #1A222A; --line: #232D35; --hover: #161E25;
     --ink: #E3E8E5; --ink2: #8B979B; --ink3: #5F6A70;
-    --petrol: #5FC0CF; --moss: #96C781; --rowan: #EC8470; --wait: #E88A5E; --wait-soft: #3A2419;
+    --petrol: #5FC0CF; --moss: #96C781; --rowan: #EC8470; --amber: #E0B64A; --wait: #E88A5E; --wait-soft: #3A2419;
     --shadow: none; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --paper: #0C1014; --plate: #12181E; --plate2: #1A222A; --line: #232D35; --hover: #161E25;
   --ink: #E3E8E5; --ink2: #8B979B; --ink3: #5F6A70;
-  --petrol: #5FC0CF; --moss: #96C781; --rowan: #EC8470; --wait: #E88A5E; --wait-soft: #3A2419;
+  --petrol: #5FC0CF; --moss: #96C781; --rowan: #EC8470; --amber: #E0B64A; --wait: #E88A5E; --wait-soft: #3A2419;
   --shadow: none; color-scheme: dark;
 }
-@media (prefers-reduced-motion: reduce) { :root { --t: 0s; } }
+@media (prefers-reduced-motion: reduce) { :root { --t: 0s; } *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -49,12 +49,9 @@ button { font: 500 12.5px var(--sans); color: var(--ink); background: var(--plat
 button:hover { background: var(--hover); }
 button.go { color: var(--paper); background: var(--ink); border-color: var(--ink); }
 button.no { color: var(--rowan); }
+button:disabled { cursor: default; opacity: .5; }
 :focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; border-radius: 4px; }
 [hidden] { display: none !important; }
-[data-cmd] { position: relative; }
-[data-cmd]::after { content: "$ " attr(data-cmd); position: absolute; top: calc(100% + 7px); right: 0; z-index: 9; white-space: nowrap; pointer-events: none; display: none;
-  font: 500 11.5px var(--mono); color: var(--ink2); background: var(--plate); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; }
-[data-cmd]:hover::after, [data-cmd]:focus-visible::after { display: block; }
 input, textarea { min-width: 0; font: 12.5px var(--mono); color: var(--ink); background: var(--plate2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; }
 input:focus { outline: none; border-color: var(--petrol); }
 h2 { margin: 0 0 8px; font: 500 11px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink2); }
@@ -70,8 +67,12 @@ h2 { margin: 0 0 8px; font: 500 11px/1 var(--sans); letter-spacing: .08em; text-
 .header nav a[aria-current] { color: var(--ink); background: var(--plate); box-shadow: inset 0 0 0 1px var(--line); }
 .as { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink2); }
 .as code { font-size: 12px; color: var(--ink); padding: 2px 7px; border: 1px solid var(--line); border-radius: 5px; }
-.live { width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--moss); --ring: var(--moss); animation: ring 2.4s infinite; }
-@keyframes ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ring) 55%, transparent); } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.live { width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--moss); }
+.live.lost { background: var(--amber); }
+/* the header's count: this client's runs that wait on a ticket the screen's waiting plane does not list */
+.waitcount { margin-left: auto; font: 500 12.5px var(--mono); color: var(--wait); padding: 4px 9px; border-radius: 6px; white-space: nowrap; }
+.waitcount:hover { background: var(--wait-soft); }
+.waitcount:not([hidden]) + .as { margin-left: 0; }
 
 main { padding: 16px var(--gutter-r) 40px var(--gutter-l); max-width: 1400px; margin: 0 auto; }
 .cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
@@ -85,13 +86,12 @@ main { padding: 16px var(--gutter-r) 40px var(--gutter-l); max-width: 1400px; ma
 /* a status: one dot and one word */
 .st { white-space: nowrap; font-family: var(--mono); font-size: 12.5px; }
 .st::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--c); vertical-align: 1px; }
-.st.running { --c: var(--petrol); --ring: var(--petrol); } .st.done { --c: var(--moss); } .st.failed { --c: var(--rowan); } .st.waiting { --c: var(--wait); color: var(--wait); }
-.st.running::before { animation: ring 2.4s infinite; }
+.st.running { --c: var(--petrol); } .st.done { --c: var(--moss); } .st.failed { --c: var(--rowan); } .st.waiting { --c: var(--wait); color: var(--wait); }
 .st.held { --c: var(--wait); }
 
 /* counts and the now panel */
 .now { display: grid; grid-template-columns: auto 1fr; gap: 6px 28px; align-items: center; padding: 14px 16px; }
-.hero b { display: block; font: 500 44px/.95 var(--mono); letter-spacing: -.03em; color: var(--petrol); }
+.hero b { display: block; font: 500 44px/.95 var(--mono); letter-spacing: -.03em; color: var(--ink); }
 .hero span { display: block; margin-top: 4px; font-size: 12px; color: var(--ink2); }
 .waits { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font: 12.5px var(--mono); }
 .waits b { font-weight: 500; text-align: right; }
@@ -99,6 +99,21 @@ main { padding: 16px var(--gutter-r) 40px var(--gutter-l); max-width: 1400px; ma
 .panel { background: var(--plate); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .panel > h2 { padding: 13px 16px 0; }
 .pad { padding: 14px 16px; }
+
+/* the standing row: one chip per bridge in bridges/<name>/settings.yaml, its in run as a row prints it */
+.stand { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.stand h2 { margin: 0 6px 0 2px; }
+.bridge { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; font: 500 12.5px var(--mono); padding: 6px 12px; background: var(--plate); border: 1px solid var(--line); border-radius: 999px; color: var(--ink); cursor: pointer; }
+.bridge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--ink3)); flex: none; }
+.bridge:hover { border-color: var(--ink); }
+.bridge .dim { font-weight: 400; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bridge.running { --c: var(--petrol); } .bridge.done { --c: var(--moss); } .bridge.failed { --c: var(--rowan); }
+.bridge.none { color: var(--ink2); cursor: default; } .bridge.none:hover { border-color: var(--line); }
+/* the newest failure line: the latest failed run in the window whose parent did not fail; absent at zero */
+.failline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 8px 14px; font: 12.5px var(--mono); border: 1px solid var(--line); border-left: 4px solid var(--rowan); border-radius: 8px; background: var(--plate); cursor: pointer; }
+.failline:hover { background: var(--hover); }
+.failline .path { color: var(--ink2); } .failline .path b { font-weight: 400; color: var(--ink); }
+.failline .more { margin-left: auto; color: var(--ink2); }
 
 /* the timeline: a lane per thread, the last lane the runs with no thread */
 .tl { padding: 12px 16px 8px; }
@@ -110,9 +125,8 @@ main { padding: 16px var(--gutter-r) 40px var(--gutter-l); max-width: 1400px; ma
 .track { position: relative; height: 100%; }
 .track::before { content: ""; position: absolute; left: 0; right: 0; top: 9.5px; border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 .runbar { position: absolute; top: 7px; height: 6px; min-width: 5px; border-radius: 3px; background: var(--c); opacity: var(--o, 1); cursor: pointer; }
-.runbar.done { --c: var(--moss); --o: .7; } .runbar.cancelled { --c: var(--ink2); --o: .45; }
+.runbar.done { --c: var(--moss); --o: .7; } .runbar.cancelled { --c: var(--ink2); --o: .45; } .runbar.failed { --c: var(--rowan); --o: .8; }
 .runbar.running { --c: var(--petrol); background: linear-gradient(90deg, color-mix(in srgb, var(--petrol) 40%, transparent), var(--petrol) 96%); }
-.runbar.running::after { content: ""; position: absolute; right: -4px; top: -2px; width: 10px; height: 10px; border-radius: 50%; background: var(--petrol); --ring: var(--petrol); animation: ring 2.4s infinite; }
 .runbar:hover, .runbar:focus-visible { --o: 1; box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 35%, transparent); }
 .axis { display: flex; justify-content: space-between; margin-left: 110px; padding-top: 6px; font: 11px var(--mono); color: var(--ink2); }
 @media (max-width: 640px) { .lane { grid-template-columns: 56px minmax(0, 1fr); } .axis { margin-left: 56px; } .header { position: static; backdrop-filter: none; } }
@@ -131,8 +145,11 @@ main { padding: 16px var(--gutter-r) 40px var(--gutter-l); max-width: 1400px; ma
 
 /* the waiting plane: in front, what waits on a person */
 .waiting .plane-wait { background: var(--plate2); border-radius: 10px; box-shadow: var(--shadow); border: 1px solid var(--line); padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; }
-.ask { border: 1px solid var(--line); border-left: 4px solid var(--wait); background: var(--plate); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
-.ask .where { font: 12px var(--mono); color: var(--ink2); display: flex; flex-wrap: wrap; gap: 4px 8px; cursor: pointer; }
+.ask { border: 1px solid var(--line); border-left: 4px solid var(--wait); background: var(--plate); display: grid; grid-template-rows: 1fr; transition: grid-template-rows .24s var(--ease), opacity .24s var(--ease); }
+.ask > div { min-height: 0; overflow: hidden; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.ask.gone { grid-template-rows: 0fr; opacity: 0; }
+.ask .where { font: 12px var(--mono); color: var(--ink2); display: grid; gap: 2px; cursor: pointer; }
+.ask .where .path b { font-weight: 400; color: var(--ink); }
 .ask .where:hover { color: var(--ink); }
 .ask .what { font-size: 17px; font-weight: 600; line-height: 1.25; }
 .ask .args { font: 12.5px var(--mono); display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; }
@@ -140,18 +157,31 @@ main { padding: 16px var(--gutter-r) 40px var(--gutter-l); max-width: 1400px; ma
 .ask .said { font-size: 13px; color: var(--ink2); border-left: 2px solid var(--line); padding-left: 10px; }
 .ask .act { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .ask .act input { flex: 1 1 120px; }
-.replied { font: 12px var(--mono); color: var(--moss); border-left: 3px solid var(--moss); padding: 4px 10px; }
-.replied:empty { display: none; }
+.ask .under { display: grid; gap: 2px; font: 11.5px/1.45 var(--mono); color: var(--ink2); }
+.ask .under code { overflow-wrap: anywhere; }
+/* a pressed card: locked, the command printed, then what the controller answered; it collapses when the ask run no longer waits on the ticket */
+.ask.locked .act { opacity: .6; }
+.ask .sent { display: grid; gap: 3px; font: 12px/1.45 var(--mono); color: var(--ink2); border-left: 3px solid var(--ink3); padding: 4px 10px; }
+.ask .sent:empty { display: none; }
+.ask .sent .cmd { overflow-wrap: anywhere; }
+.ask .sent .receipt { color: var(--moss); }
+.ask .sent .receipt.refused { color: var(--rowan); }
 .nothing { font: 12.5px var(--mono); color: var(--ink2); padding: 4px 2px; }
 
 /* the Run screen: the chain row, the parent band, the two planes */
 .chainrow { display: flex; align-items: center; gap: 8px; height: 32px; }
 .chainrow .back { padding: 4px 10px; }
-.chain { display: flex; align-items: center; gap: 4px; margin: 0; padding: 0; list-style: none; overflow-x: auto; min-width: 0; flex: 1; }
+.chainrow .actions { margin-left: auto; display: flex; align-items: center; gap: 6px; flex: none; }
+.chainrow .actions input { width: 96px; padding: 3px 8px; font-size: 12px; }
+.chainrow .actions button { padding: 4px 10px; }
+@media (max-width: 640px) { .chainrow { flex-wrap: wrap; height: auto; min-height: 32px; } .chainrow .actions { margin-left: 0; width: 100%; } }
+/* hot: what a hovered or focused action's command changes */
+.hot { outline: 2px solid var(--ink); outline-offset: 2px; }
+.chain { display: flex; align-items: center; gap: 4px; margin: 0 -4px; padding: 4px; list-style: none; overflow-x: auto; min-width: 0; flex: 1; }
 .chain li { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
 .chain li + li::before { content: "›"; color: var(--ink3); padding: 0 2px; }
 .chain button { font: 500 12px var(--mono); padding: 3px 9px; border-radius: 6px; }
-.chain li:last-child button { color: var(--paper); background: var(--ink); border-color: var(--ink); cursor: default; }
+.chain button[aria-current] { color: var(--ink); background: var(--plate); box-shadow: inset 0 0 0 1px var(--line); cursor: default; }
 .band { display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 14px; font: 12.5px var(--mono); color: var(--ink2); border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--plate) 60%, var(--paper)); cursor: pointer; }
 .band:hover { background: var(--hover); color: var(--ink); }
 .band b { font-weight: 500; color: var(--ink); }
@@ -170,7 +200,7 @@ main { padding: 16px var(--gutter-r) 40px var(--gutter-l); max-width: 1400px; ma
 .plane .phead b { font: 600 13px var(--sans); color: var(--ink); }
 .plane .phead > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .plane .phead .name { margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.plane .phead .st { margin-left: 0; }
+.plane .phead .st { margin-left: 0; flex: none; }
 .plane .body { flex: 1; min-height: 0; overflow: auto; padding: 10px 14px; }
 .plane.behind .body { overflow: hidden; }
 .plane.behind .body, .plane.behind .phead { pointer-events: none; }
@@ -179,40 +209,49 @@ main { padding: 16px var(--gutter-r) 40px var(--gutter-l); max-width: 1400px; ma
 .chips { position: absolute; inset: 0; pointer-events: none; }
 .chip { position: absolute; transform: translate(-100%, -100%); pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; font: 500 11px/1 var(--mono); letter-spacing: .02em; padding: 4px 7px;
   background: var(--plate2); border: 1px solid var(--line); border-radius: 5px; color: var(--ink); cursor: pointer; white-space: nowrap; }
-.chip:hover { border-color: var(--petrol); }
+.chip:hover { border-color: var(--ink); }
 .chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c, var(--ink2)); }
-.chip.running { --c: var(--petrol); } .chip.done { --c: var(--moss); } .chip.held { --c: var(--wait); color: var(--wait); border-color: var(--wait); }
-.chip.held::before { border-radius: 1px; }
-.chip.flat { cursor: default; }
+.chip.running { --c: var(--petrol); } .chip.done { --c: var(--moss); } .chip.failed { --c: var(--rowan); }
 
 /* the drawing of a machine */
 .machine .state rect, .machine .tool rect, .machine .model rect { fill: var(--paper); stroke: var(--ink2); stroke-width: 1.3; }
 .machine text { font: 500 13px var(--mono); fill: var(--ink); }
-.machine .kind { font: 400 10.5px var(--mono); fill: var(--ink2); }
+.machine .fact { font: 400 10.5px var(--mono); fill: var(--ink2); }
+.machine .on.at { font: 400 10.5px var(--mono); }
 .machine .never rect { stroke: var(--line); } .machine .never text { fill: var(--ink2); }
 .machine .now rect { stroke: var(--petrol); stroke-width: 2; fill: color-mix(in srgb, var(--petrol) 13%, var(--paper)); }
 .machine .done rect { stroke: var(--moss); }
+.machine .failed rect { stroke: var(--rowan); }
 .machine .held rect { stroke: var(--wait); stroke-width: 1.6; fill: color-mix(in srgb, var(--wait) 10%, var(--paper)); }
+.machine .held .fact { fill: var(--wait); }
 .machine .final rect.outer { fill: none; }
 .machine .model rect { stroke: var(--ink); }
 .machine .spark { fill: var(--petrol); }
 .machine .edge { fill: none; stroke: var(--ink2); stroke-width: 1.2; opacity: .75; }
 .machine .edge.timer { stroke-dasharray: 4 4; }
-.machine .edge.taken { stroke: var(--petrol); opacity: 1; stroke-width: 1.8; }
+.machine .edge.taken { stroke: var(--ink); opacity: 1; stroke-width: 1.8; }
 .machine .on { font: 400 11px var(--sans); fill: var(--ink2); }
-.machine .arrow { fill: var(--ink2); } .machine .arrow.taken { fill: var(--petrol); }
+.machine .arrow { fill: var(--ink2); } .machine .arrow.taken { fill: var(--ink); }
 .machine .start { fill: var(--ink2); }
 .machine .job { outline: none; }
 .machine .job[data-open], .machine .job[data-sheet] { cursor: pointer; }
-.machine .job[data-open]:hover rect, .machine .job[data-sheet]:hover rect, .machine .job:focus-visible rect { stroke: var(--petrol); stroke-width: 2; }
+.machine .job[data-open]:hover rect, .machine .job[data-sheet]:hover rect, .machine .job:focus-visible rect { stroke: var(--ink); stroke-width: 2; }
 .machine .job[aria-expanded="true"] > rect { stroke: var(--ink); stroke-width: 2; }
 .machine .inner rect { fill: var(--paper); stroke: var(--moss); stroke-width: 1.2; } .machine .inner text { font-size: 11.5px; }
+
+/* the replay bar: a range over the front run's steps; the failure row: one line on a failed run */
+.replayrow { display: flex; align-items: center; gap: 10px; height: 24px; font: 11px var(--mono); color: var(--ink2); }
+.replayrow input { flex: 1; margin: 0; height: 24px; accent-color: var(--ink); }
+.replayrow .at { white-space: nowrap; }
+.failrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 6px 12px; font: 12px var(--mono); color: var(--ink2); border: 1px solid var(--line); border-left: 4px solid var(--rowan); border-radius: 8px; background: var(--plate); }
+.failrow button { font: 500 12px var(--mono); padding: 3px 9px; border-radius: 6px; }
+.failrow .sep { color: var(--ink3); }
+.record .more .w { color: var(--ink2); }
 
 /* a job's sheet, under the drawing in the same plane */
 .plane .body .kv { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 16px; font: 12.5px/1.5 var(--mono); }
 .kv dt { color: var(--ink2); } .kv dd { margin: 0; overflow-wrap: anywhere; }
-.kv .held { color: var(--wait); }
 .kv .h { color: var(--ink); font-weight: 600; } .kv dd.h { color: var(--ink2); font-weight: 400; }
 
 /* tabs and the record, as corbie-ui prints it */
@@ -229,23 +268,22 @@ ol.record { list-style: none; margin: 0; padding: 6px 0; font: 12.5px/1.5 var(--
 .record .emit b { color: var(--ink); }
 .record .hold { color: var(--wait); }
 .record .end { color: var(--moss); }
+.record .fail { color: var(--rowan); }
 .record .child { color: var(--petrol); cursor: pointer; }
 .record .child:hover { text-decoration: underline; }
-.record .live { display: inline-block; }
 .view { margin: 4px 0 2px; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--paper); }
 .view .vh { display: flex; gap: 10px; padding: 4px 10px; font-size: 11px; color: var(--ink2); border-bottom: 1px solid var(--line); background: var(--plate); }
 .view { overflow-x: auto; }
 .view table { border-collapse: collapse; font: 12.5px var(--mono); width: 100%; min-width: 360px; }
 .view th { text-align: left; font-weight: 500; color: var(--ink2); padding: 4px 10px; border-bottom: 1px solid var(--line); }
 .view td { padding: 4px 10px; border-top: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
-.view td.tripped { color: var(--wait); }
 .view ul { margin: 0; padding: 6px 10px; list-style: none; display: grid; gap: 3px; }
 .view li { display: flex; gap: 12px; }
 .view li span { color: var(--ink2); margin-left: auto; }
 @media (max-width: 640px) {
   .record li { grid-template-columns: 62px minmax(0, 1fr); gap: 2px 8px; padding: 4px 10px; } .record .w { grid-column: 1 / -1; } .record .n { display: none; }
   .plane .phead { gap: 8px; padding: 0 10px; } .plane .body { padding: 8px; }
-  .plane.front .body { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
+  .plane.front .body { -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
 }
 
 /* machines, controller, metrics: as corbie-ui lists them */
@@ -267,8 +305,12 @@ pre { margin: 0; font: 12.5px/1.5 var(--mono); white-space: pre-wrap; overflow-w
 .legend .sw.b { transform: scale(.9); opacity: .55; }
 .legend .sw.f { background: var(--plate2); box-shadow: var(--shadow); }
 .legend .sw.c { width: auto; height: auto; font: 500 10px var(--mono); padding: 2px 5px; }
-.legend .sw.c.h { color: var(--wait); border-color: var(--wait); }
 .legend .sw.c.r { color: var(--petrol); }
+.legend .sw.c.w { color: var(--wait); }
+.legend .sw.c.s { border-radius: 999px; }
+.legend .sw.c.s::before { content: "● "; color: var(--petrol); }
+.legend .sw.c.l { color: var(--ink2); border-left: 3px solid var(--ink3); border-radius: 0; }
+.legend .sw.c.l b { color: var(--moss); font-weight: 400; }
 @media (max-width: 640px) { .legend dl { grid-template-columns: 1fr; gap: 2px; } .legend dd { margin-bottom: 8px; } }
 </style>
 </head>
@@ -281,17 +323,20 @@ pre { margin: 0; font: 12.5px/1.5 var(--mono); white-space: pre-wrap; overflow-w
     <a href="#controller" data-screen="controller">Controller</a>
     <a href="#metrics" data-screen="metrics">Metrics</a>
   </nav>
-  <span class="as">client <code>house</code> <i class="live" title="following the store"></i></span>
+  <a class="waitcount" id="waitcount" href="#runs" hidden></a>
+  <span class="as">client <code>house</code> <i class="live" id="live" title="following the store"></i></span>
 </header>
 <main>
 
-<section id="runs" class="screen" hidden>
+<section id="screen-runs" class="screen" hidden>
   <div class="cols">
     <div class="mainc">
       <div class="panel now">
         <div class="hero"><b id="count-running">7</b><span>running</span></div>
         <div class="waits" id="waits-grid"></div>
       </div>
+      <div class="stand" id="stand"></div>
+      <div class="failline" id="failline" role="link" tabindex="0" hidden></div>
       <div class="panel tl">
         <div class="tl-head"><h2>Lanes by thread</h2><span class="win">24h</span></div>
         <div id="lanes"></div>
@@ -303,12 +348,14 @@ pre { margin: 0; font: 12.5px/1.5 var(--mono); white-space: pre-wrap; overflow-w
   </div>
 </section>
 
-<section id="run" class="screen" hidden>
+<section id="screen-run" class="screen" hidden>
   <div class="cols">
     <div class="mainc">
-      <div class="chainrow"><button class="back" id="back" title="Escape">‹ Back</button><ol class="chain" id="chain"></ol></div>
+      <div class="chainrow"><button class="back" id="back" title="Escape">‹ Back</button><ol class="chain" id="chain"></ol><span class="actions" id="actions"></span></div>
       <div class="band" id="band"></div>
       <div class="planes" id="planes"></div>
+      <div class="replayrow"><input type="range" class="replay" id="replay" min="0" aria-label="replay"><span class="at" id="replay-at"></span></div>
+      <div class="failrow" id="failrow" hidden></div>
       <div class="panel">
         <div class="tabs" id="tabs"><a aria-current="page">Output</a><a>Definition</a><a>Files</a><a>Children</a></div>
         <ol class="record" id="record"></ol>
@@ -318,14 +365,14 @@ pre { margin: 0; font: 12.5px/1.5 var(--mono); white-space: pre-wrap; overflow-w
   </div>
 </section>
 
-<section id="machines" class="screen" hidden>
+<section id="screen-machines" class="screen" hidden>
   <div class="cols"><div class="mainc">
     <div class="panel"><h2>~/house</h2><div class="rows" id="machinelist"></div></div>
     <div class="panel"><h2>.perch/ (read-only, written at every start)</h2><div class="rows" id="shipped"></div></div>
   </div></div>
 </section>
 
-<section id="controller" class="screen" hidden>
+<section id="screen-controller" class="screen" hidden>
   <div class="cols"><div class="mainc">
     <div class="panel"><h2>Runners</h2><div class="rows"><div class="rowm"><span></span><span>laptop <span class="f">runner · last seen 2s ago · jobs 1</span></span><span class="st running">running</span></div></div></div>
     <div class="panel"><h2>Clients</h2><div class="rows"><div class="rowm"><span></span><span>house <span class="f">ceiling all · this perch</span></span><span class="k">enrolled</span></div></div></div>
@@ -333,32 +380,48 @@ pre { margin: 0; font: 12.5px/1.5 var(--mono); white-space: pre-wrap; overflow-w
   </div></div>
 </section>
 
-<section id="metrics" class="screen" hidden>
+<section id="screen-metrics" class="screen" hidden>
   <div class="cols"><div class="mainc"><div class="panel pad"><pre>corbie_runs{status="running",type="statechart",machine="direct"} 1
 corbie_runs{status="running",type="agent",machine="steward"} 1
 corbie_runs{status="running",type="agent",machine="fixer"} 1
 corbie_runs{status="done",type="agent",machine="sparks"} 1
 corbie_runs{status="running",type="statechart",machine="decide"} 1
-corbie_runs{status="running",type="statechart",machine="ask"} 1
+corbie_runs{status="running",type="statechart",machine="telegram/ask"} 1
 corbie_runs{status="running",type="statechart",machine="telegram/in"} 1
 corbie_runs{status="running",type="statechart",machine="walk-round"} 1
 corbie_runs{status="done",type="statechart",machine="direct"} 1
-corbie_waiting{on="tickets",type="statechart",machine="ask"} 1
+corbie_runs{status="failed",type="statechart",machine="direct"} 1
+corbie_runs{status="failed",type="agent",machine="steward"} 1
+corbie_runs{status="failed",type="agent",machine="fixer"} 1
+corbie_waiting{on="tickets",type="statechart",machine="telegram/ask"} 1
 corbie_waiting{on="timers",type="statechart",machine="walk-round"} 1
 corbie_waiting{on="jobs",type="statechart",machine="telegram/in"} 1
 corbie_oldest_running_seconds{type="statechart",machine="walk-round"} 261840</pre></div></div></div>
 </section>
 
 <footer class="legend" id="legend">
-  <h2>Depth cues, each with one meaning</h2>
+  <h2>Cues, each with one meaning</h2>
   <dl>
     <dt><i class="sw b"></i>behind</dt><dd>the run that started the one in front: scale(.94) from the top centre, opacity .55, its top 24px showing above the front drawing. Click it, or press Escape, to go back to it.</dd>
     <dt><i class="sw f"></i>in front</dt><dd>what waits on a person, from any run shown: the waiting plane on a lighter plate with a shadow. In the dark theme it has no shadow and its plate is two steps lighter than the page.</dd>
     <dt><i class="sw c r">● fixer · turn 1</i>chip</dt><dd>a child run in its job's box: status dot, name and step. Click it, or Tab to the box and press Enter, to open the child in front.</dd>
     <dt>sheet</dt><dd>a job's box with no child opens the job's sheet under the drawing, in the same plane. Click it again to close it.</dd>
-    <dt><i class="sw c h">■ held</i>held</dt><dd>the job waits for its ask to approve it; the same job is in the waiting plane.</dd>
+    <dt>held</dt><dd>a job box whose second line reads <code>held</code> waits for its ask to approve it; the same job is in the waiting plane.</dd>
     <dt>chain row</dt><dd>one chip per run from the root; the parent band is the parent's name, state and status.</dd>
-    <dt>motion</dt><dd>opening a child scales the drawing on top to .94 and dims it over .32s, and the child comes in from scale(1.04) and opacity 0. Back reverses it. Nothing else moves, and under prefers-reduced-motion nothing is animated.</dd>
+    <dt><i class="sw c">done · 17s</i>readout</dt><dd>a job box's second line is the latest fact the record holds for the job: <code>turn 2/20 · tools</code>, <code>due in 2m</code>, <code>try 2/3</code>, <code>5/10</code>, <code>held</code>, <code>denied</code>, <code>done · 17s</code> or <code>not run</code>; <code>ticket decided · 6d 23h</code> is the line above a state. A box with a chip reads it in the chip. A timer's arrow is labelled with its due time while the timer waits.</dd>
+    <dt><i class="sw c l">$ corbie run reply … <b>taken</b></i>locked</dt><dd>Approve or Deny locks the card and prints the command under the buttons, then what the controller answered (<code>taken</code>). <code>refused: …</code> unlocks the card, but <code>refused: the ticket was already answered</code> keeps it locked until the card collapses.</dd>
+    <dt>collapse</dt><dd>a card collapses when the ask run no longer waits on the ticket. A card that collapses with no press on this screen was answered through a bridge, or its ask run ended.</dd>
+    <dt><i class="sw c w">1 wait on a person ›</i>count</dt><dd>in the header of Run, Machines, Controller and Metrics: this client's runs that wait on a ticket this screen's waiting plane does not list, and the tab's title <code>(1) Perch</code>. Press it to open the root of the oldest. Absent at zero, so Runs, whose plane lists every one, never shows it.</dd>
+    <dt><i class="sw c s">telegram/in · listening</i>standing</dt><dd>on Runs, one chip per bridge in <code>bridges/&lt;name&gt;/settings.yaml</code>: its <code>in</code> run's status dot, machine and what it waits on, as a row prints them, or <code>telegram · no in run</code>. Click it to open the <code>in</code> run.</dd>
+    <dt>failure line</dt><dd>on Runs, under the standing row: the latest run that failed in the window and whose parent did not fail, as its status dot, machine, <code>failed (denied)</code> and its labels as a path, then <code>+N</code> for the others. Click it to open the root. Absent at zero, and the <code>now</code> panel's count per failure with it: at 09:14 one run has failed, <code>direct</code> for thread 4473, so both are drawn.</dd>
+    <dt>failure row</dt><dd>on a failed run, under the replay bar: the deepest run below it that failed with a refusal, as chain chips, then the job, <code>refused</code>, <code>layer</code> and <code>fix</code> from its <code>fail</code> entry.</dd>
+    <dt>replay</dt><dd>the range under the drawing: its thumb is a step of the front run, and sets <code>at=</code> to the step's time. Every plane but the waiting plane is drawn from the entries at or before it, a countdown is from it, and the record ends with <code>12 more, to 09:14:01</code>. Its right end is now.</dd>
+    <dt>hot</dt><dd>an action button hovered or focused adds a 2px <code>--ink</code> outline to what its command changes: Cancel, every chip in the chain row and every job box; Send, the arrow out of the current state named by the event typed and the state it goes to; Approve and Deny, the held job's box and the card.</dd>
+    <dt>live</dt><dd>the header's dot: <code>--moss</code> while the stream follows the store, <code>--amber</code> and <code>store lost</code> while it reads <code>store: lost</code>.</dd>
+    <dt>current</dt><dd>a state or job box in <code>--petrol</code>, fill and stroke, is the step the run is on; the band's state is the parent's.</dd>
+    <dt>taken</dt><dd>a solid arrow in <code>--ink</code> at full opacity is the transition the run took.</dd>
+    <dt>timer</dt><dd>the only dashed arrow is a timer's, labelled with its due time while the timer waits.</dd>
+    <dt>motion</dt><dd>opening a child scales the drawing on top to .94 and dims it over .32s, and the child comes in from scale(1.04) and opacity 0. Back reverses it. A card collapses over .24s. Nothing else moves, and under prefers-reduced-motion nothing is animated.</dd>
   </dl>
 </footer>
 </main>
@@ -366,7 +429,7 @@ corbie_oldest_running_seconds{type="statechart",machine="walk-round"} 261840</pr
 <script>
 'use strict';
 // The house, at 09:14 on Thursday 22 October. Kit has written "The kitchen sockets are dead."; the
-// steward asked the fixer, the fixer asked sparks, and cut_power waits on Sam.
+// steward asked the fixer, the fixer asked sparks, and cut_power waits on a person.
 const stamp = '20261022T091203.114';
 const R = {};
 function run(id, o) { R[id] = Object.assign({ id, parent: null, record: [] }, o); }
@@ -386,20 +449,20 @@ run('direct', { machine: 'direct', type: 'statechart', status: 'running', step: 
     ['09:13:31', 'fixer', '2', 'The kitchen ring has tripped. I will isolate it before anything is tested.', 'text'],
     ['09:13:32', 'fixer', '', 'hold cut_power for the ask', 'hold'],
     ['09:13:32', 'fixer', '', 'job decide: a machine, run <span class="child" data-open="decide">…-decide</span>', 'emit'],
-    ['', 'decide', '', 'waiting on ticket <b>decided</b> · 7d <i class="live"></i>', 'hold']] });
+    ['', 'decide', '', 'waiting on ticket <b>decided</b> · 7d', 'hold']] });
 
 run('steward', { machine: 'steward', type: 'agent', model: 'claude-sonnet-5-5', status: 'running', step: 1, state: 'turn 1', started: '09:12:04', parent: 'direct',
-  name: 'house/' + stamp + '-4472-61/steward',
+  name: 'house/' + stamp + '-4472-61/steward', turn: 1, waiting: 'tools', limits: { turns: 20 },
   drawing: () => agent('claude-sonnet-5-5', [
     { name: 'fixer', status: 'now', child: 'fixer' }, { name: 'clerk' }, { name: 'builder' }, { name: 'bins' }, { name: 'gardener' }], { name: 'decide' }),
   record: [
     ['09:12:04', 'steward', '', 'start · input <b>said:</b> "The kitchen sockets are dead." <b>context:</b> house · prompt from <code>${input.context}</code>', 'emit'],
     ['09:12:40', 'model', '1', 'Kitchen sockets dead is an electrical fault. I will ask the fixer to look at it.', 'text'],
     ['09:12:41', 'fixer', '1', 'job fixer: a machine, run <span class="child" data-open="fixer">…-fixer</span>', 'emit'],
-    ['', 'fixer', '', 'running · turn 2 · waiting on tools <i class="live"></i>', 'emit']] });
+    ['', 'fixer', '', 'running · turn 2 · waiting on tools', 'emit']] });
 
 run('fixer', { machine: 'fixer', type: 'agent', model: 'claude-sonnet-5-5', status: 'running', step: 2, state: 'turn 2', started: '09:12:41', parent: 'steward',
-  name: 'house/' + stamp + '-4472-61/steward/fixer',
+  name: 'house/' + stamp + '-4472-61/steward/fixer', turn: 2, waiting: 'tools', limits: { turns: 20 },
   drawing: () => agent('claude-sonnet-5-5', [
     { name: 'sparks', status: 'done', child: 'sparks' }, { name: 'cut_power', status: 'held', job: 'cut_power' }, { name: 'order_part', job: 'order_part' }],
     { name: 'decide', status: 'now', child: 'decide' }),
@@ -412,17 +475,17 @@ run('fixer', { machine: 'fixer', type: 'agent', model: 'claude-sonnet-5-5', stat
     ['09:13:31', 'model', '2', 'The kitchen ring has tripped. I will isolate it before anything is tested.', 'text'],
     ['09:13:32', 'cut_power', '2', 'hold cut_power for the ask', 'hold'],
     ['09:13:32', 'decide', '2', 'job decide: a machine, run <span class="child" data-open="decide">…-decide</span>', 'emit'],
-    ['', 'decide', '', 'running · person · waiting on ticket <b>decided</b> <i class="live"></i>', 'hold']] });
+    ['', 'decide', '', 'running · person · waiting on ticket <b>decided</b>', 'hold']] });
 
-run('sparks', { machine: 'sparks', type: 'agent', model: 'claude-sonnet-5-5', status: 'done', step: 2, state: 'done', started: '09:12:53', parent: 'fixer',
-  name: 'house/' + stamp + '-4472-61/steward/fixer/sparks',
+run('sparks', { machine: 'sparks', type: 'agent', model: 'claude-sonnet-5-5', status: 'done', step: 2, state: 'turn 2', started: '09:12:53', parent: 'fixer',
+  name: 'house/' + stamp + '-4472-61/steward/fixer/sparks', turn: 2, limits: { turns: 20 },
   drawing: () => agent('claude-sonnet-5-5', [{ name: 'read_board', status: 'done', job: 'read_board' }, { name: 'test_circuit', status: 'done', job: 'test_circuit' }], { name: 'decide' }),
   record: [
     ['09:12:53', 'sparks', '', 'start · input <b>said:</b> "Which circuit has gone? The kitchen sockets are dead."', 'emit'],
     ['09:13:02', 'model', '1', 'Reading the consumer unit first.', 'text'],
     ['09:13:03', 'read_board', '1', 'job read_board: a script, tools/read-board.js, on laptop', 'emit'],
     ['09:13:20', 'read_board', '', { kind: 'table', id: 'circuits', columns: ['circuit', 'breaker', 'state'], rows: [['kitchen ring', 'B32', 'tripped'], ['cooker', 'B40', 'ok'], ['hall ring', 'B32', 'ok'], ['lights', 'B6', 'ok']] }, 'view'],
-    ['09:13:21', 'read_board', '', 'done · used fs.read:/dev/board', 'end'],
+    ['09:13:20', 'read_board', '', 'done · used fs.read:/dev/board', 'end'],
     ['09:13:24', 'model', '2', 'The kitchen ring has tripped at the board; the other circuits are live.', 'text'],
     ['09:13:24', 'sparks', '', 'done', 'end']] });
 
@@ -436,28 +499,28 @@ run('decide', { machine: 'decide', type: 'statechart', status: 'running', step: 
   record: [
     ['09:13:32', 'decide', '', 'start · input <b>jobs:</b> [ cut_power ] <b>asking:</b> fixer', 'emit'],
     ['09:13:33', 'rule', '', 'job small-orders.js: a script, on laptop', 'emit'],
-    ['09:13:33', 'rule', '', 'done · { refer: true, note: "not an order" }', 'end'],
+    ['09:13:34', 'rule', '', 'done · { refer: true, note: "not an order" }', 'end'],
     ['09:13:34', 'person', '', 'job ask.yaml: a machine, run <span class="child" data-open="ask">…-ask</span> · people: [ 4471 ]', 'emit'],
     ['09:13:35', 'ask', '', 'telling · out.yaml posted Approve and Deny to 4471, ref …-fixer', 'emit'],
-    ['', 'ask', '', 'waiting on ticket <b>decided</b> · 7d <i class="live"></i>', 'hold']] });
+    ['', 'ask', '', 'waiting on ticket <b>decided</b> · 7d', 'hold']] });
 
-run('ask', { machine: 'ask', type: 'statechart · telegram', status: 'running', step: 1, state: 'asking', started: '09:13:34', parent: 'decide',
-  name: 'house/' + stamp + '-4472-61/steward/fixer/decide/ask', shipped: true,
+run('ask', { machine: 'telegram/ask', type: 'statechart', status: 'running', step: 1, state: 'asking', started: '09:13:34', parent: 'decide',
+  name: 'house/' + stamp + '-4472-61/steward/fixer/decide/ask', shipped: true, tickets: ['decided'], asks: [{ kind: 'wake', what: 'ticket.decided', at: '2026-10-29T09:13:34' }],
   drawing: () => chart([{ name: 'asking', status: 'now', job: 'ticket decided', inner: { name: 'telling', status: 'done' } }, { name: 'answered', status: 'never', final: true }],
     [{ from: 0, to: 1, on: 'decided' }]),
   record: [
     ['09:13:34', 'ask', '', 'start · input <b>jobs:</b> [ cut_power ] <b>people:</b> [ 4471 ] <b>ref:</b> …-fixer', 'emit'],
     ['09:13:34', 'asking', '', 'ticket <b>decided</b> issued · 7d', 'emit'],
     ['09:13:35', 'telling', '', 'job out.yaml: a machine · posted "cut_power: Turn one circuit off · circuit: kitchen ring" with Approve, Deny to 4471', 'emit'],
-    ['', 'asking', '', 'waiting on ticket <b>decided</b> <i class="live"></i>', 'hold']] });
+    ['', 'asking', '', 'waiting on ticket <b>decided</b>', 'hold']] });
 
 run('telegram-in', { machine: 'telegram/in', type: 'statechart', status: 'running', step: 7, state: 'listening', started: '08:00:00', shipped: true,
-  name: 'house/20261022T080000.000-telegram-in', labels: { bridge: 'telegram' },
+  name: 'house/20261022T080000.000-telegram-in', labels: { bridge: 'telegram' }, asks: [{ kind: 'script', job: 'poll.js', runner: 'laptop', attempt: 1, attempts: 3, at: '08:00:00' }],
   drawing: () => chart([{ name: 'listening', status: 'now', job: 'poll.js' }, { name: 'heard', status: 'done' }], [{ from: 0, to: 1, on: 'message', taken: true }, { from: 1, to: 0, on: 'emitted', below: true }]),
-  record: [['08:00:00', 'in', '', 'start · input <b>settings:</b> places { direct } <b>cursor:</b> 1192', 'emit'], ['09:12:02', 'heard', '', 'emit heard { from: 4472, text: "The kitchen sockets are dead.", thread: 4472 }', 'emit'], ['', 'listening', '', 'polling · cursor 1193 <i class="live"></i>', 'emit']] });
+  record: [['08:00:00', 'in', '', 'start · input <b>settings:</b> places { direct } <b>cursor:</b> 1192', 'emit'], ['09:12:02', 'heard', '', 'emit heard { from: 4472, text: "The kitchen sockets are dead.", thread: 4472 }', 'emit'], ['', 'listening', '', 'polling · cursor 1193', 'emit']] });
 
-run('walk-round', { machine: 'walk-round', type: 'statechart', status: 'running', step: 4, state: 'waiting', started: 'mon 09:00', timer: 'next mon 09:00',
-  name: 'house/20261019T083000.000-walk-round', labels: {},
+run('walk-round', { machine: 'walk-round', type: 'statechart', status: 'running', step: 4, state: 'waiting', started: 'mon 09:00',
+  name: 'house/20261019T083000.000-walk-round', labels: {}, asks: [{ kind: 'wake', what: 'timer.due', at: '2026-10-26T09:00:00' }],
   drawing: () => chart([{ name: 'waiting', status: 'now', job: 'timer due' }, { name: 'working', status: 'done', job: 'steward' }, { name: 'telling', status: 'done', job: 'out.yaml' }],
     [{ from: 0, to: 1, on: 'due', timer: true }, { from: 1, to: 2, on: 'answered' }, { from: 2, to: 0, on: 'said', below: true }]),
   record: [['mon 09:00', 'waiting', '', 'timer <b>due</b> · mon 09:00', 'emit'], ['mon 09:00', 'working', '', 'job steward: a machine, run …-steward · said "Walk the house."', 'emit'],
@@ -472,23 +535,59 @@ run('bins', { machine: 'direct', type: 'statechart', status: 'done', step: 3, st
     ['18:02:30', 'bins', '1', { kind: 'list', id: 'bins', items: [{ text: 'Recycling (blue)', status: 'tonight' }, { text: 'General (black)', status: 'next week' }, { text: 'Garden (brown)', status: 'next week' }] }, 'view'],
     ['18:02:34', 'steward', '2', 'Blue bin tonight, and the garden bin is next week.', 'text'], ['18:02:36', 'saying', '', 'job out.yaml: posted to 4471', 'emit'], ['18:02:37', 'answered', '', 'done · output conversation: 2 turns', 'end']] });
 
+// At 08:41 Kit asked for a socket to be ordered. The fixer's order_part was refused by the steward's
+// allow list for its fixer job, so the fixer, the steward and the root failed.
+const refusal = { from: 'order_part', refused: 'net:parts.example.com:443', layer: 'the job "fixer" in the definition of "steward"', fix: 'add the line net:parts.example.com:443 to the allow list of the job "fixer" in the definition of "steward"' };
+run('direct-4473', { machine: 'direct', type: 'statechart', status: 'failed', failure: 'denied', step: 2, state: 'answering', started: '08:41:10', ended: '08:41:40',
+  name: 'house/20261022T084110.772-4473-59', labels: { bridge: 'telegram', place: 'direct', thread: '4473' },
+  drawing: () => chart([
+    { name: 'answering', status: 'failed', job: 'steward', child: 'steward-4473' },
+    { name: 'saying', status: 'never', job: 'out.yaml' },
+    { name: 'answered', status: 'never', final: true }], [
+    { from: 0, to: 1, on: 'answered' }, { from: 1, to: 2, on: 'said' }]),
+  record: [
+    ['08:41:10', 'direct', '', 'start · input <b>said:</b> "Order a new double socket for the kitchen." <b>thread:</b> 4473 <b>conversation:</b> none', 'emit'],
+    ['08:41:11', 'answering', '', 'job steward: a machine, run <span class="child" data-open="steward-4473">…-steward</span>', 'emit'],
+    ['08:41:40', 'answering', '', 'denied · steward failed', 'fail']] });
+run('steward-4473', { machine: 'steward', type: 'agent', model: 'claude-sonnet-5-5', status: 'failed', failure: 'denied', step: 1, state: 'turn 1', started: '08:41:11', ended: '08:41:40', parent: 'direct-4473',
+  name: 'house/20261022T084110.772-4473-59/steward', turn: 1, waiting: 'tools', limits: { turns: 20 },
+  drawing: () => agent('claude-sonnet-5-5', [
+    { name: 'fixer', status: 'failed', child: 'fixer-4473' }, { name: 'clerk' }, { name: 'builder' }, { name: 'bins' }, { name: 'gardener' }], { name: 'decide' }),
+  record: [
+    ['08:41:11', 'steward', '', 'start · input <b>said:</b> "Order a new double socket for the kitchen." <b>context:</b> house', 'emit'],
+    ['08:41:19', 'model', '1', 'A socket is the fixer\'s. Asking the fixer to order one.', 'text'],
+    ['08:41:20', 'fixer', '1', 'job fixer: a machine, run <span class="child" data-open="fixer-4473">…-fixer</span>', 'emit'],
+    ['08:41:40', 'fixer', '1', 'denied · fixer failed', 'fail']] });
+run('fixer-4473', { machine: 'fixer', type: 'agent', model: 'claude-sonnet-5-5', status: 'failed', failure: 'denied', step: 1, state: 'turn 1', started: '08:41:20', ended: '08:41:40', parent: 'steward-4473',
+  name: 'house/20261022T084110.772-4473-59/steward/fixer', turn: 1, waiting: 'tools', limits: { turns: 20 },
+  drawing: () => agent('claude-sonnet-5-5', [
+    { name: 'sparks', child: null }, { name: 'cut_power', job: 'cut_power' }, { name: 'order_part', status: 'failed', job: 'order_part' }], { name: 'decide' }),
+  record: [
+    ['08:41:20', 'fixer', '', 'start · input <b>said:</b> "Order a new double socket for the kitchen." <b>allow:</b> fs.run:tools/*.js', 'emit'],
+    ['08:41:33', 'model', '1', 'Ordering a double socket from the parts shop.', 'text'],
+    ['08:41:34', 'order_part', '1', 'job order_part: a script, tools/order.js, on laptop', 'emit'],
+    ['08:41:40', 'order_part', '1', refusal, 'fail']] });
+
 // A job's sheet, toggled under the drawing from the job's box. Keyed by run and box.
 const J = {};
 function sheet(parent, name, type, kv) { J[parent + '/' + name] = { name, type, kv }; }
 sheet('fixer', 'cut_power', 'script · held', [
-  ['job', 'tools/cut-power.js, on laptop'], ['does', 'Turn one circuit off'], ['args', '{ circuit: "kitchen ring" }'],
-  ['said', '"The kitchen ring has tripped. I will isolate it before anything is tested."'], ['allow', 'fs.run:tools/cut-power.js · net:none'],
-  ['approve', 'true · ask decide'], ['status', 'held · waiting on the ticket decided of …-decide/ask']]);
-sheet('fixer', 'order_part', 'script · not yet run', [
-  ['job', 'tools/order.js, on laptop'], ['does', 'Order one part from the usual supplier'], ['allow', 'net:parts.example.com:443 · secret:PARTS_KEY@net:parts.example.com'], ['approve', 'true · ask decide; small-orders.js approves under £20'], ['status', 'not yet called']]);
-sheet('sparks', 'read_board', 'script · done', [['job', 'tools/read-board.js, on laptop'], ['input', '{}'], ['output', '4 circuits, one tripped'], ['emits', 'view circuits (table)'], ['used', 'fs.read:/dev/board'], ['took', '17s']]);
-sheet('sparks', 'test_circuit', 'script · not yet run', [['job', 'tools/test-circuit.js'], ['allow', 'fs.read:/dev/board'], ['status', 'not called this turn']]);
-sheet('decide', 'small-orders.js', 'script · done', [['job', 'small-orders.js, on laptop'], ['input', '{ jobs: [ { name: cut_power, asked: { does, args: { circuit } } } ] }'], ['output', '{ refer: true, note: "not an order" }'], ['took', '0.3s']]);
-sheet('direct', 'out.yaml', 'machine · not yet run', [['job', 'machine: .perch/bridges/telegram/out.yaml'], ['input', '{ thread: 4472, text: ${answering.output.text} }'], ['status', 'runs when answering ends']]);
-sheet('walk-round', 'timer due', 'timer · waiting', [['timers', '{ due: "mon 09:00" }'], ['next', 'mon 09:00, whether the perch runs or not'], ['last', 'mon 19 oct 09:00']]);
-sheet('walk-round', 'steward', 'machine · done', [['job', 'machine: ./steward.yaml'], ['input', '{ said: "Walk the house." }'], ['output', 'the round, 3 items']]);
-sheet('telegram-in', 'poll.js', 'script · polling', [['job', 'poll.js, on laptop'], ['allow', 'net:api.telegram.org:443 · secret:TELEGRAM_TOKEN@net:api.telegram.org'], ['cursor', '1193']]);
-sheet('ask', 'ticket decided', 'ticket · waiting', [['ticket', 'decided · issued 09:13:34 · 7d'], ['reply', 'corbie run reply …-ask decided \'{"approve":[...],"note":"…"}\''], ['from', 'the screen, or a press from 4471 on Telegram']]);
+  ['kind', 'hold'], ['script', 'tools/cut-power.js'], ['does', 'Turn one circuit off'], ['args', '{ circuit: "kitchen ring" }'],
+  ['said', '"The kitchen ring has tripped. I will isolate it before anything is tested."'], ['allow', 'fs.run:tools/cut-power.js · net:none'], ['approve', 'true · ask decide']]);
+sheet('fixer', 'order_part', 'script · not run', [
+  ['script', 'tools/order.js'], ['allow', 'net:parts.example.com:443 · secret:PARTS_KEY@net:parts.example.com'], ['approve', 'true · ask decide']]);
+sheet('sparks', 'read_board', 'script · done', [['kind', 'script'], ['script', 'tools/read-board.js'], ['runner', 'laptop'], ['attempt', '1'], ['at', '09:13:03'], ['output', '4 circuits, one tripped'], ['used', 'fs.read:/dev/board']]);
+sheet('sparks', 'test_circuit', 'script · not run', [['script', 'tools/test-circuit.js'], ['allow', 'fs.read:/dev/board']]);
+sheet('decide', 'small-orders.js', 'script · done', [['kind', 'script'], ['script', 'small-orders.js'], ['runner', 'laptop'], ['attempt', '1'], ['at', '09:13:33'], ['output', '{ refer: true, note: "not an order" }']]);
+sheet('direct', 'out.yaml', 'machine · not run', [['machine', '.perch/bridges/telegram/out.yaml']]);
+sheet('walk-round', 'timer due', 'timer · waiting', [['kind', 'wake'], ['at', '2026-10-26T09:00:00']]);
+sheet('walk-round', 'steward', 'machine · done', [['kind', 'machine'], ['machine', './steward.yaml'], ['at', 'mon 09:00'], ['output', 'the round, 3 items']]);
+sheet('telegram-in', 'poll.js', 'script · running', [['kind', 'script'], ['script', 'poll.js'], ['runner', 'laptop'], ['attempt', '1'], ['at', '08:00:00'], ['allow', 'net:api.telegram.org:443 · secret:TELEGRAM_TOKEN@net:api.telegram.org']]);
+sheet('ask', 'ticket decided', 'ticket · waiting', [['kind', 'wake'], ['at', '2026-10-29T09:13:34']]);
+sheet('fixer-4473', 'order_part', 'script · denied', [['kind', 'script'], ['script', 'tools/order.js'], ['runner', 'laptop'], ['attempt', '1'], ['at', '08:41:34'], ['refused', refusal.refused], ['layer', refusal.layer], ['fix', refusal.fix]]);
+
+// bridges/<name>/settings.yaml, one per bridge.
+const BRIDGES = { telegram: { places: { direct: { machine: './direct.yaml' } } } };
 
 // What waits on a person, read from each run's ticket.
 const WAITS = [{ run: 'ask', root: 'direct', from: 'fixer', ticket: 'decided', since: '09:13:34', job: { name: 'cut_power', does: 'Turn one circuit off', args: { circuit: 'kitchen ring' }, said: 'The kitchen ring has tripped. I will isolate it before anything is tested.' } }];
@@ -496,12 +595,51 @@ const WAITS = [{ run: 'ask', root: 'direct', from: 'fixer', ticket: 'decided', s
 // Drawings. Boxes are returned with their coordinates, so chips can be placed over them.
 const W = 760;
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
-let drawn = null; // the run being drawn, so a box finds its sheet
-function box(x, y, w, h, b, extra) {
-  const cls = ['job', b.status === 'now' ? 'now' : b.status === 'done' ? 'done' : b.status === 'held' ? 'held' : b.status === 'never' || !b.status ? 'never' : '', b.final ? 'final' : '', b.kind].join(' ');
+let drawn = null; // the run being drawn, so a box finds its sheet and its readout
+
+// The readout: a job box's second line is the latest fact the record holds for the job. The clock is
+// the sketch's, stopped at 09:14. A duration is read from the entries' times, a due time from a wake ask.
+const NOW = '2026-10-22T09:14:00';
+let AT = null; // the replay step's time from `at=` in the address, or null for now
+function secs(t) { const m = /^(\d\d):(\d\d):(\d\d)$/.exec(t || ''); return m ? +m[1] * 3600 + +m[2] * 60 + +m[3] : null; }
+function until(at, from) { return (Date.parse(at) - Date.parse(from || (AT && secs(AT) !== null ? '2026-10-22T' + AT : NOW))) / 1000; }
+// a record at the replay step: the entries at or before it; an entry with no time is the run's now
+function before(t) { if (!AT) return true; if (!t) return false; const a = secs(t), b = secs(AT); return a !== null && b !== null ? a <= b : t <= AT; }
+function recordOf(r) { return AT ? r.record.filter(e => before(e[0])) : r.record; }
+// a box's status at the replay step, from its last entry at or before it
+function statusAt(r, b) {
+  if (!AT || b.kind === 'model') return b.status;
+  const es = recordOf(r).filter(e => e[1] === b.name);
+  if (!es.length) return 'never';
+  const k = es[es.length - 1][4];
+  return k === 'end' ? 'done' : k === 'fail' ? 'failed' : k === 'hold' ? 'held' : 'now';
+}
+function span(s) { s = Math.max(0, Math.round(s)); return s < 60 ? s + 's' : s < 3600 ? Math.round(s / 60) + 'm' : s < 86400 ? Math.round(s / 3600) + 'h' : Math.floor(s / 86400) + 'd ' + Math.floor(s % 86400 / 3600) + 'h'; }
+function when(at) { const d = new Date(at); return `next ${['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][d.getDay()]} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
+function fact(r, b) {
+  if (b.kind === 'model') return `turn ${r.turn}/${r.limits.turns} · ${r.status === 'done' ? 'done' : r.waiting}`;
+  const wake = b.status === 'now' && (r.asks || []).find(a => a.kind === 'wake');
+  if (wake) return wake.what.startsWith('timer.') ? `due in ${span(until(wake.at))}` : `${wake.what.replace('.', ' ')} · ${span(until(wake.at))}`;
+  const es = recordOf(r).filter(e => e[1] === b.name);
+  if (!es.length) return b.job ? 'not run' : '';
+  const first = es.find(e => e[4] !== 'hold') || es[0], last = es[es.length - 1], kind = last[4];
+  const took = last !== first && secs(first[0]) !== null && secs(last[0]) !== null ? ' · ' + span(secs(last[0]) - secs(first[0])) : '';
+  if (kind === 'hold') return 'held';
+  if (kind === 'fail') return typeof last[3] === 'object' ? 'denied' : String(last[3]).split(' ')[0];
+  if (kind === 'end' || b.status === 'done') return 'done' + (kind === 'end' ? took : '');
+  const p = r.progress && r.progress[b.name];
+  if (p) return `${p.done}/${p.of}`;
+  const s = (r.asks || []).find(a => a.kind === 'script' && a.job === b.name);
+  if (s && s.attempt > 1) return `try ${s.attempt}/${s.attempts}`;
+  return 'running';
+}
+// a box is as wide as the longer of its name and its readout
+function wide(min, b, line) { return Math.max(min, 24 + Math.ceil(Math.max(b.name.length * 7.8, (line || '').length * 6.3))); }
+function box(x, y, w, h, b, line, extra) {
+  const cls = ['job', b.status === 'now' ? 'now' : b.status === 'done' ? 'done' : b.status === 'held' ? 'held' : b.status === 'failed' ? 'failed' : b.status === 'never' || !b.status ? 'never' : '', b.final ? 'final' : '', b.kind].join(' ');
   const act = b.child ? `data-open="${esc(b.child)}"` : b.job && J[drawn + '/' + b.job] ? `data-sheet="${esc(b.job)}" aria-expanded="false"` : '';
   const inner = b.final ? `<rect class="outer" x="${x - 4}" y="${y - 4}" width="${w + 8}" height="${h + 8}" rx="8"/>` : '';
-  return `<g class="${cls}" data-job="${esc(b.name)}" ${act ? `${act} tabindex="0" role="button" aria-label="${esc(b.name)}"` : ''}>${inner}<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6"/><text x="${x + 12}" y="${y + 21}">${esc(b.name)}</text>${b.sub && !b.child && b.status !== 'held' ? `<text class="kind" x="${x + 12}" y="${y + 38}">${esc(b.sub)}</text>` : ''}${extra || ''}</g>`;
+  return `<g class="${cls}" data-job="${esc(b.name)}" data-key="job:${drawn}/${esc(b.name)}" ${act ? `${act} tabindex="0" role="button" aria-label="${esc(b.name)}"` : ''}>${inner}<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6"/><text x="${x + 12}" y="${y + 21}">${esc(b.name)}</text>${line && !b.child ? `<text class="fact" x="${x + 12}" y="${y + 38}">${esc(line)}</text>` : ''}${extra || ''}</g>`;
 }
 function arrow(x1, y1, x2, y2, label, o, viaY) {
   const taken = o.taken ? ' taken' : '', timer = o.timer ? ' timer' : '';
@@ -510,44 +648,56 @@ function arrow(x1, y1, x2, y2, label, o, viaY) {
   else { d = `M${x1},${y1} L${x2},${y2}`; lx = (x1 + x2) / 2; ly = y1 - 8; }
   const a = Math.atan2(y2 - (viaY !== undefined ? viaY : y1), x2 - (viaY !== undefined ? x2 - 40 : x1));
   const p = (dx, dy) => `${x2 - Math.cos(a) * dx + Math.sin(a) * dy},${y2 - Math.sin(a) * dx - Math.cos(a) * dy}`;
-  return `<path class="edge${taken}${timer}" d="${d}"/><polygon class="arrow${taken}" points="${x2},${y2} ${p(9, 4)} ${p(9, -4)}"/><text class="on" x="${lx}" y="${ly}" text-anchor="middle">${esc(label)}</text>`;
+  const at = o.at && viaY === undefined ? `<text class="on at" x="${lx}" y="${y1 + 18}" text-anchor="middle">${esc(o.at)}</text>` : '';
+  return `<g data-key="${esc(o.key || '')}" data-target="${esc(o.target || '')}"><path class="edge${taken}${timer}" d="${d}"/><polygon class="arrow${taken}" points="${x2},${y2} ${p(9, 4)} ${p(9, -4)}"/><text class="on" x="${lx}" y="${ly}" text-anchor="middle">${esc(label)}</text>${at}</g>`;
 }
 function chart(states, edges) {
-  const bw = 150, bh = 52, gap = 70, y = 56, x0 = 44, boxes = [];
+  const r = R[drawn], bw = 150, bh = 52, gap = 112, y = 56, x0 = 44, boxes = [];
   const H = edges.some(e => e.below) ? 180 : states.some(s => s.inner) ? 160 : 140;
   let svg = `<circle class="start" cx="${x0 - 22}" cy="${y + bh / 2}" r="4"/><path class="edge taken" d="M${x0 - 18},${y + bh / 2} L${x0 - 2},${y + bh / 2}"/>`;
-  states.forEach((s, i) => {
-    const x = x0 + i * (bw + gap), h = s.inner ? bh + 34 : bh;
-    const inner = s.inner ? `<g class="inner ${s.inner.status}"><rect x="${x + 12}" y="${y + 46}" width="${bw - 24}" height="24" rx="4"/><text x="${x + 22}" y="${y + 62}">${esc(s.inner.name)}</text></g>` : '';
-    boxes.push({ name: s.name, x, y, w: bw, h, child: s.child, status: s.status });
-    svg += box(x, y, bw, h, Object.assign({ sub: s.job, kind: 'state' }, s), inner);
+  let x = x0;
+  states.forEach(s => {
+    const b = Object.assign({ kind: 'state' }, s); b.status = statusAt(r, b);
+    const line = fact(r, b), above = /^ticket/.test(line), w = wide(bw, b, above ? '' : line), h = s.inner ? bh + 34 : bh;
+    const inner = s.inner ? `<g class="inner ${s.inner.status}"><rect x="${x + 12}" y="${y + 46}" width="${w - 24}" height="24" rx="4"/><text x="${x + 22}" y="${y + 62}">${esc(s.inner.name)}</text></g>` : '';
+    boxes.push({ name: s.name, x, y, w, h, child: s.child, status: b.status, final: s.final });
+    if (above) svg += `<text class="fact" x="${x}" y="${y - 8}">${esc(line)}</text>`;
+    svg += box(x, y, w, h, b, above ? '' : line, inner);
+    x += w + gap;
   });
   edges.forEach(e => {
     const a = boxes[e.from], b = boxes[e.to];
-    if (e.below) svg += arrow(a.x + bw / 2, a.y + bh + (a.final ? 4 : 0), b.x + bw / 2, b.y + bh + 1, e.on, e, y + bh + 54);
-    else svg += arrow(a.x + bw + (a.final ? 4 : 0), y + bh / 2, b.x - 1, y + bh / 2, e.on, e);
+    const wake = e.timer && (r.asks || []).find(k => k.kind === 'wake' && k.what === 'timer.' + e.on);
+    const o = Object.assign({ at: wake ? when(wake.at) : '', key: `on:${drawn}/${states[e.from].name}/${e.on}`, target: `job:${drawn}/${states[e.to].name}` }, e);
+    if (e.below) svg += arrow(a.x + a.w / 2, a.y + bh + (a.final ? 4 : 0), b.x + b.w / 2, b.y + bh + 1, e.on, o, y + bh + 54);
+    else svg += arrow(a.x + a.w + (a.final ? 4 : 0), y + bh / 2, b.x - 1, y + bh / 2, e.on, o);
   });
-  const need = x0 + states.length * (bw + gap) - gap + 40;
+  const need = x - gap + 40;
   return { svg: `<svg class="machine" viewBox="0 0 ${Math.max(W, need)} ${H}" preserveAspectRatio="xMidYMin meet">${svg}</svg>`, boxes, W: Math.max(W, need), H };
 }
 function agent(model, tools, ask) {
-  const bw = 160, bh = 52, gx = 14, gy = 16, mw = 186, x0 = 20 + mw + 32, y0 = 20, per = 3, boxes = [];
+  const r = R[drawn], bw = 160, bh = 52, gx = 14, gy = 16, mw = 186, x0 = 20 + mw + 32, y0 = 20, per = 3, boxes = [];
   const rows = Math.ceil(tools.length / per);
   const H = Math.max(140, y0 + rows * (bh + gy) + 4, ask ? y0 + 2 * bh + 42 : 0);
-  let svg = `<g class="model"><rect x="20" y="${y0}" width="${mw}" height="${bh}" rx="6"/><path class="spark" d="M38,${y0 + 26} l6,-9 l2,7 l8,-10 l-3,11 l6,-2 l-9,12 l-2,-7 l-8,8 l3,-10 z"/><text x="62" y="${y0 + 21}">${esc(model)}</text><text class="kind" x="62" y="${y0 + 38}">ANTHROPIC_KEY</text></g>`;
+  let svg = `<g class="model"><rect x="20" y="${y0}" width="${mw}" height="${bh}" rx="6"/><path class="spark" d="M38,${y0 + 26} l6,-9 l2,7 l8,-10 l-3,11 l6,-2 l-9,12 l-2,-7 l-8,8 l3,-10 z"/><text x="62" y="${y0 + 21}">${esc(model)}</text><text class="fact" x="62" y="${y0 + 38}">${esc(fact(r, { kind: 'model' }))}</text></g>`;
   const mx = 20 + mw + 10;
   svg += `<path class="edge" d="M${20 + mw},${y0 + bh / 2} L${mx},${y0 + bh / 2} L${mx},${y0 + (rows - 1) * (bh + gy) + bh / 2}"/>`;
+  let x = x0;
   tools.forEach((t, i) => {
-    const x = x0 + (i % per) * (bw + gx), y = y0 + Math.floor(i / per) * (bh + gy);
-    if (i % per === 0) svg += `<path class="edge" d="M${mx},${y + bh / 2} L${x},${y + bh / 2}"/>`;
-    boxes.push({ name: t.name, x, y, w: bw, h: bh, child: t.child, status: t.status });
-    svg += box(x, y, bw, bh, Object.assign({ sub: t.child ? 'tool · machine' : 'tool · script', kind: 'tool' }, t, { job: t.job || t.child }));
+    const y = y0 + Math.floor(i / per) * (bh + gy);
+    if (i % per === 0) { x = x0; svg += `<path class="edge" d="M${mx},${y + bh / 2} L${x},${y + bh / 2}"/>`; }
+    const b = Object.assign({ kind: 'tool' }, t, { job: t.job || t.child }); b.status = statusAt(r, b);
+    const line = fact(r, b), w = wide(bw, b, line);
+    boxes.push({ name: t.name, x, y, w, h: bh, child: t.child, status: b.status });
+    svg += box(x, y, w, bh, b, line);
+    x += w + gx;
   });
   if (ask) {
-    const y = y0 + bh + 30;
+    const y = y0 + bh + 30, b = Object.assign({ kind: 'tool' }, ask, { job: ask.child || 'decide' }); b.status = statusAt(r, b);
+    const line = fact(r, b);
     svg += `<path class="edge" d="M100,${y0 + bh} L100,${y}"/>`;
-    boxes.push({ name: ask.name, x: 20, y, w: mw, h: bh, child: ask.child, status: ask.status });
-    svg += box(20, y, mw, bh, Object.assign({ sub: 'ask · machine', kind: 'tool' }, ask, { job: ask.child || 'decide' }));
+    boxes.push({ name: ask.name, x: 20, y, w: mw, h: bh, child: ask.child, status: b.status });
+    svg += box(20, y, mw, bh, b, line);
   }
   return { svg: `<svg class="machine" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMin meet">${svg}</svg>`, boxes, W, H };
 }
@@ -560,70 +710,177 @@ function rootOf(id) { return chainOf(id)[0]; }
 function stLabel(s) { return s === 'now' ? 'running' : s === 'never' ? 'not run' : s; }
 function stClass(s) { return s === 'held' ? 'waiting' : s === 'now' ? 'running' : s === 'never' ? 'cancelled' : s; }
 
-function renderWait(el, root) {
-  const ws = WAITS.filter(w => !root || rootOf(w.run) === root);
-  if (!ws.length) { el.innerHTML = '<div class="nothing">nothing waits on you</div>'; return; }
-  el.innerHTML = ws.map(w => `<div class="ask">
-    <div class="where" data-open="${w.run}" tabindex="0" role="button">${chainOf(w.run).map(i => R[i].machine).join(' › ')} <span>· ticket ${w.ticket} · since ${w.since}</span></div>
+// A card is shown while the run that issued the ticket waits on it. A press locks the card and prints
+// the command; what the controller answered is printed when the store has it; a card whose ticket is
+// no longer waited on collapses, whoever answered it.
+function live(w) { return (R[w.run].tickets || []).includes(w.ticket); }
+function keyOf(w) { return `card:${w.run}/${w.ticket}`; }
+function cardHTML(w, locked) {
+  const dis = locked ? ' disabled' : '', s = w.sent, wake = (R[w.run].asks || []).find(a => a.kind === 'wake' && a.what === 'ticket.' + w.ticket), hot = `job:${w.from}/${w.job.name} ${keyOf(w)}`;
+  return `<div><div class="where" data-open="${w.run}" tabindex="0" role="button"><div class="path">${pathOf(R[rootOf(w.run)].labels || {})}</div><span>${chainOf(w.from).map(i => R[i].machine).join(' › ')} · ticket ${w.ticket} · since ${w.since}</span></div>
     <div class="what">${esc(w.job.name)}: ${esc(w.job.does)}</div>
     <div class="args">${Object.entries(w.job.args).map(([k, v]) => `<span>${esc(k)}</span><div>${esc(v)}</div>`).join('')}</div>
     <div class="said">the ${R[w.from].machine} said: ${esc(w.job.said)}</div>
-    <div class="act"><input id="note-${el.id}" placeholder="note" aria-label="note">
-      <button class="go" data-cmd="corbie run reply …-ask ${w.ticket} '{&quot;approve&quot;:[&quot;${w.job.name}&quot;],&quot;note&quot;:&quot;…&quot;}'" data-reply="approve">Approve</button>
-      <button class="no" data-cmd="corbie run reply …-ask ${w.ticket} '{&quot;approve&quot;:[],&quot;note&quot;:&quot;…&quot;}'" data-reply="deny">Deny</button></div>
-    <div class="replied" id="replied-${el.id}"></div></div>`).join('');
+    <div class="act"><input placeholder="note" aria-label="note" value="${s ? esc(s.note).replace(/"/g, '&quot;') : ''}"${dis}>
+      <button class="go" data-reply="approve" data-hot="${hot}"${dis}>Approve</button>
+      <button class="no" data-reply="deny" data-hot="${hot}"${dis}>Deny</button></div>
+    <div class="under"><span>Approve replies <code>${esc(JSON.stringify({ approve: [w.job.name], note: '…' }))}</code></span>
+      <span>Deny replies <code>${esc(JSON.stringify({ approve: [], note: '…' }))}</code> · ${esc(w.job.name)} is denied</span>
+      ${wake ? `<span>no answer in ${span(until(wake.at, NOW))} · approves nothing</span>` : ''}</div>
+    <div class="sent" aria-live="polite">${s ? `<span class="cmd">$ ${esc(s.cmd)}</span>${s.receipt ? `<span class="receipt${/^refused/.test(s.receipt) ? ' refused' : ''}">${esc(s.receipt)}</span>` : ''}` : ''}</div></div>`;
+}
+function collapse(c) {
+  const el = c.parentElement;
+  c.classList.add('gone');
+  setTimeout(() => { c.remove(); nothing(el); }, reduced ? 0 : 240);
+}
+function nothing(el) {
+  let n = el.querySelector('.nothing');
+  if (el.querySelector('.ask:not(.gone)')) { if (n) n.remove(); }
+  else if (!n) { n = document.createElement('div'); n.className = 'nothing'; n.textContent = 'nothing waits on a person'; el.appendChild(n); }
+}
+function renderWait(el, root) {
+  const keep = new Set();
+  WAITS.filter(w => (!root || rootOf(w.run) === root) && live(w)).forEach(w => {
+    const key = keyOf(w), r = w.sent && w.sent.receipt || '', locked = !!w.sent && (!/^refused/.test(r) || r === 'refused: the ticket was already answered');
+    keep.add(key);
+    let c = el.querySelector(`.ask[data-key="${key}"]`);
+    if (!c) { c = document.createElement('div'); c.className = 'ask'; c.dataset.key = key; el.appendChild(c); }
+    c.classList.toggle('locked', locked);
+    c.innerHTML = cardHTML(w, locked);
+  });
+  el.querySelectorAll('.ask:not(.gone)').forEach(c => { if (!keep.has(c.dataset.key)) collapse(c); });
+  nothing(el);
+}
+// Approve or Deny. The command is sent and printed at once. In the sketch two timers stand in for the
+// store: the controller's answer, then the ask run's status, which no longer waits on the ticket.
+function reply(w, what, note) {
+  const answer = { approve: what === 'approve' ? [w.job.name] : [], note: note || '' };
+  w.sent = { note: answer.note, cmd: `corbie run reply ${R[w.run].name} ${w.ticket} '${JSON.stringify(answer)}'` };
+  route();
+  setTimeout(() => { w.sent.receipt = 'taken'; route(); }, 700);
+  setTimeout(() => { answered(w, answer); route(); }, 2200);
+}
+// What the store holds once the ticket is answered: the ask run and decide end, and the held job runs or is denied.
+function answered(w, answer) {
+  const ask = R[w.run], decide = R[ask.parent], fixer = R[decide.parent], root = R[rootOf(w.run)];
+  const ok = answer.approve.includes(w.job.name), raw = `{ approve: [ ${answer.approve.join(', ')} ], note: "${answer.note}" }`, out = esc(raw);
+  [ask, decide, fixer, root].forEach(r => { r.record = r.record.filter(e => e[0] !== ''); });
+  Object.assign(ask, { status: 'done', state: 'answered', step: 2, tickets: [], asks: [] });
+  ask.record.push(['09:14:21', 'asking', '', `answer <b>decided</b> · ${out} · from the screen`, 'emit'], ['09:14:21', 'answered', '', 'done · output ' + out, 'end']);
+  ask.drawing = () => chart([{ name: 'asking', status: 'done', job: 'ticket decided', inner: { name: 'telling', status: 'done' } }, { name: 'answered', status: 'done', final: true }], [{ from: 0, to: 1, on: 'decided', taken: true }]);
+  Object.assign(decide, { status: 'done', state: 'done', step: 3 });
+  decide.record.push(['09:14:21', 'person', '', 'done · ' + out, 'end'], ['09:14:21', 'done', '', 'done · output ' + out, 'end']);
+  decide.drawing = () => chart([{ name: 'rule', status: 'done', job: 'small-orders.js' }, { name: 'person', status: 'done', job: 'ask.yaml', child: 'ask' }, { name: 'done', status: 'done', final: true }],
+    [{ from: 0, to: 1, on: 'refer', taken: true }, { from: 1, to: 2, on: 'decided', taken: true }, { from: 0, to: 2, on: 'approve', below: true }]);
+  fixer.record.push(['09:14:21', 'decide', '2', 'done · ' + out, 'end']);
+  if (ok) fixer.record.push(['09:14:22', 'cut_power', '2', 'job cut_power: a script, tools/cut-power.js, on laptop', 'emit'], ['09:14:26', 'cut_power', '2', 'done · "kitchen ring off at B32" · used fs.run:tools/cut-power.js', 'end']);
+  else fixer.record.push(['09:14:21', 'cut_power', '2', `denied · not approved · note "${esc(answer.note)}"`, 'fail']);
+  fixer.record.push(['', 'model', '3', 'running · turn 3 · waiting on the model', 'emit']);
+  Object.assign(fixer, { turn: 3, waiting: 'model', state: 'turn 3', step: 3 });
+  fixer.drawing = () => agent('claude-sonnet-5-5', [{ name: 'sparks', status: 'done', child: 'sparks' }, { name: 'cut_power', status: ok ? 'done' : 'failed', job: 'cut_power' }, { name: 'order_part', job: 'order_part' }], { name: 'decide', status: 'done', child: 'decide' });
+  root.record.push(['09:14:21', 'decide', '', 'done · ' + out, 'end'], ['', 'fixer', '', 'running · turn 3', 'emit']);
+  sheet('fixer', 'cut_power', ok ? 'script · done' : 'script · denied', (ok ? [['kind', 'script'], ['script', 'tools/cut-power.js'], ['runner', 'laptop'], ['attempt', '1'], ['at', '09:14:22']] : [['kind', 'hold'], ['script', 'tools/cut-power.js']])
+    .concat([['does', 'Turn one circuit off'], ['args', '{ circuit: "kitchen ring" }'], ['approve', 'true · ask decide · ' + raw]], ok ? [['output', '"kitchen ring off at B32"'], ['used', 'fs.run:tools/cut-power.js']] : []));
 }
 
+// The labels as a path, and what a run waits on as a row prints it: a timer's due time, the job it runs
+// and the ticket below it, or a script on its runner.
+function pathOf(l) { return [l.bridge, l.place, l.thread].filter(Boolean).map((v, i, a) => i === a.length - 1 ? `<b>${esc(v)}</b>` : esc(v)).join(' / ') || '<span class="dim">—</span>'; }
+function stepOf(r) {
+  const wake = (r.asks || []).find(a => a.kind === 'wake' && a.what.startsWith('timer.'));
+  if (wake) return `1 timer, ${when(wake.at)}`;
+  const tickets = WAITS.filter(w => rootOf(w.run) === r.id && live(w)).map(w => ' · ticket ' + w.ticket).join('');
+  if (r.id === 'direct') return 'agent steward' + tickets;
+  const s = (r.asks || []).find(a => a.kind === 'script');
+  return r.state + (s ? ` · job ${s.job} on ${s.runner}` : '');
+}
+// The header's count and the tab's title: this client's runs that wait on a ticket the screen's waiting
+// plane does not list; `listed` is what the plane lists. A press opens the root of the oldest by `started`.
+function renderCount(listed) {
+  const ws = WAITS.filter(live).filter(w => !listed(w)), a = $('#waitcount');
+  a.hidden = !ws.length;
+  document.title = (ws.length ? `(${ws.length}) ` : '') + 'Perch';
+  if (!ws.length) return;
+  const oldest = ws.map(w => R[rootOf(w.run)]).sort((x, y) => x.started.localeCompare(y.started))[0];
+  a.textContent = `${ws.length} wait on a person ›`; a.href = '#run-' + oldest.id;
+}
 function renderRuns() {
-  const list = ['direct', 'walk-round', 'telegram-in', 'bins'];
-  $('#runlist').innerHTML = list.map(id => { const r = R[id]; const l = r.labels || {};
-    const path = [l.bridge, l.place, l.thread].filter(Boolean).map((v, i, a) => i === a.length - 1 ? `<b>${esc(v)}</b>` : esc(v)).join(' / ') || '<span class="dim">—</span>';
-    const step = r.id === 'direct' ? 'agent steward · ticket decided' : r.timer ? `1 timer, ${r.timer}` : r.state;
-    return `<tr tabindex="0" data-open="${id}" role="link"><td><span class="st ${r.status}">${r.status}</span></td><td>${esc(r.machine)}<span class="dim hide"> ${r.type}</span></td><td class="hide dim">${esc(r.name)}</td><td class="path">${path}</td><td class="step hide">${r.step} · ${esc(step)}</td></tr>`; }).join('');
-  const lanes = [['4472', [{ id: 'direct', st: 'running', l: 99.5, w: .5 }]], ['4471', [{ id: 'bins', st: 'done', l: 37, w: 1.2 }]], ['—', [{ id: 'walk-round', st: 'running', l: 0, w: 100 }, { id: 'telegram-in', st: 'running', l: 95, w: 5 }]]];
+  const list = ['direct', 'direct-4473', 'walk-round', 'telegram-in', 'bins'];
+  $('#runlist').innerHTML = list.map(id => { const r = R[id];
+    return `<tr tabindex="0" data-open="${id}" role="link"><td><span class="st ${r.status}">${r.status}</span></td><td>${esc(r.machine)}<span class="dim hide"> ${r.type}</span></td><td class="hide dim">${esc(r.name)}</td><td class="path">${pathOf(r.labels || {})}</td><td class="step hide">${r.step} · ${esc(stepOf(r))}</td></tr>`; }).join('');
+  // the standing row: the root whose labels hold the bridge and no place is its in run
+  $('#stand').innerHTML = '<h2>Bridges</h2>' + Object.keys(BRIDGES).map(name => {
+    const r = Object.values(R).find(x => !x.parent && x.labels && x.labels.bridge === name && !x.labels.place);
+    return r ? `<button class="bridge ${r.status}" data-open="${r.id}">${esc(r.machine)} <span class="dim">· ${esc(stepOf(r))}</span></button>` : `<span class="bridge none">${esc(name)} · no in run</span>`;
+  }).join('');
+  // the newest failure line: the latest failed run whose parent did not fail, then +N for the others
+  const failed = Object.values(R).filter(r => r.status === 'failed' && !(r.parent && R[r.parent].status === 'failed')).sort((x, y) => (y.ended || '').localeCompare(x.ended || ''));
+  const fl = $('#failline');
+  fl.hidden = !failed.length;
+  if (failed.length) { const f = failed[0]; fl.dataset.open = rootOf(f.id); fl.innerHTML = `<span class="st failed">failed${f.failure ? ` (${esc(f.failure)})` : ''}</span><span>${esc(f.machine)}</span><span class="path">${pathOf(f.labels || {})}</span>${failed.length > 1 ? `<span class="more">+${failed.length - 1}</span>` : ''}`; }
+  const perFailure = {};
+  failed.forEach(r => { perFailure[r.failure || 'failed'] = (perFailure[r.failure || 'failed'] || 0) + 1; });
+  const lanes = [['4472', [{ id: 'direct', st: 'running', l: 99.5, w: .5 }]], ['4473', [{ id: 'direct-4473', st: 'failed', l: 97.7, w: .5 }]], ['4471', [{ id: 'bins', st: 'done', l: 37, w: 1.2 }]], ['—', [{ id: 'walk-round', st: 'running', l: 0, w: 100 }, { id: 'telegram-in', st: 'running', l: 95, w: 5 }]]];
   $('#lanes').innerHTML = lanes.map(([who, bars]) => `<div class="lane"><span class="who" title="thread ${who}">${who}</span><div class="track">${bars.map(b => `<span class="runbar ${b.st}" tabindex="0" role="link" data-open="${b.id}" title="${R[b.id].machine}" style="left:${b.l}%;width:${b.w}%"></span>`).join('')}</div></div>`).join('');
-  $('#waits-grid').innerHTML = '<b>1</b><span>waits on Sam · cut_power, since 09:13</span><b>1</b><span>timer · walk-round, next mon 09:00</span><b>1</b><span>job on laptop · poll.js</span>';
+  const ws = WAITS.filter(live);
+  $('#count-running').textContent = Object.values(R).filter(r => r.status === 'running').length;
+  $('#waits-grid').innerHTML = `<b>${ws.length}</b><span>${ws.length ? 'waits on a person · ' + ws.map(w => `${w.job.name}, since ${w.since.slice(0, 5)}`).join('; ') : 'wait on a person'}</span><b>1</b><span>timer · walk-round, ${when(R['walk-round'].asks[0].at)}</span><b>1</b><span>job on laptop · poll.js</span>`
+    + Object.entries(perFailure).map(([f, n]) => `<b>${n}</b><span>failed (${esc(f)})</span>`).join('');
   renderWait($('#wait-runs'), null);
+  renderCount(() => true);
 }
 
 function drawingOf(r) {
   drawn = r.id;
   const d = r.drawing();
-  const chips = d.boxes.filter(b => b.child || b.status === 'held').map(b => {
-    const c = b.child ? R[b.child] : null;
+  const chips = d.boxes.filter(b => b.child && b.status !== 'never').map(b => {
+    const c = R[b.child];
     const l = ((b.x + b.w - 6) / d.W * 100).toFixed(2), t = ((b.y + b.h - 6) / d.H * 100).toFixed(2);
-    if (!c) return `<span class="chip held flat" style="left:${l}%;top:${t}%">held</span>`;
     return `<button class="chip ${c.status}" data-open="${c.id}" style="left:${l}%;top:${t}%">${esc(c.machine)} · ${esc(c.state)}</button>`;
   }).join('');
   return `<div class="draw">${d.svg}<div class="chips">${chips}</div></div>`;
 }
+// A plane is redrawn from its run on every change, and an open sheet is kept.
+function refresh(el, r) {
+  el.querySelector('.phead').innerHTML = `<b>${esc(r.machine)}</b><span>${esc(r.type)}${r.model ? ' · ' + esc(r.model) : ''} · ${esc(r.state)}</span><span class="st ${stClass(r.status)}">${stLabel(r.status)}</span><span class="name">${esc(r.name || '')}</span>`;
+  const body = el.querySelector('.body'), dl = body.querySelector('.kv');
+  body.querySelector('.draw').outerHTML = drawingOf(r);
+  if (dl) { const g = body.querySelector(`[data-sheet="${dl.dataset.key.split('/')[1]}"]`); if (g) { fillSheet(dl, dl.dataset.key); g.setAttribute('aria-expanded', 'true'); } else dl.remove(); }
+}
 function planeEl(r) {
   const el = document.createElement('div');
   el.className = 'plane'; el.dataset.id = r.id;
-  el.innerHTML = `<div class="phead"><b>${esc(r.machine)}</b><span>${esc(r.type)}${r.model ? ' · ' + esc(r.model) : ''} · ${esc(r.state)}</span><span class="st ${stClass(r.status)}">${stLabel(r.status)}</span><span class="name">${esc(r.name || '')}</span></div><div class="body">${drawingOf(r)}</div>`;
+  el.innerHTML = '<div class="phead"></div><div class="body"><div class="draw"></div></div>';
+  refresh(el, r);
   return el;
 }
 function cell(w, kind) {
   if (kind === 'view') {
-    if (w.kind === 'table') return `<div class="view"><div class="vh"><span>view</span><b>${w.id}</b><span>table</span></div><table><thead><tr>${w.columns.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${w.rows.map(r => `<tr>${r.map(c => `<td class="${c}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    if (w.kind === 'table') return `<div class="view"><div class="vh"><span>view</span><b>${w.id}</b><span>table</span></div><table><thead><tr>${w.columns.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${w.rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
     return `<div class="view"><div class="vh"><span>view</span><b>${w.id}</b><span>list</span></div><ul>${w.items.map(i => `<li>${esc(i.text)}<span>${esc(i.status)}</span></li>`).join('')}</ul></div>`;
   }
+  if (kind === 'fail' && typeof w === 'object') return `failed from ${esc(w.from)} · refused ${esc(w.refused)} · layer ${esc(w.layer)} · fix ${esc(w.fix)}`;
   return w;
 }
 let stack = [];
 function fitPlanes() {
   const planes = $('#planes'), front = planes.querySelector('.plane.front');
-  planes.style.height = Math.min(Math.max(front.querySelector('.body').scrollHeight + 24 + 24 + 2, 200), Math.round(innerHeight * .5)) + 'px';
+  planes.style.height = Math.min(Math.max(front.querySelector('.body').scrollHeight + 24 + 24 + 2, 200), Math.round(innerHeight * .4)) + 'px';
+}
+function fillSheet(dl, key) {
+  const j = J[key];
+  dl.dataset.key = key;
+  dl.innerHTML = `<dt class="h">${esc(j.name)}</dt><dd class="h">${esc(j.type)}</dd>` + j.kv.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
 }
 function toggleSheet(g) {
-  const plane = g.closest('.plane'), body = plane.querySelector('.body'), key = plane.dataset.id + '/' + g.dataset.sheet, j = J[key];
+  const plane = g.closest('.plane'), body = plane.querySelector('.body'), key = plane.dataset.id + '/' + g.dataset.sheet;
   let dl = body.querySelector('.kv');
   plane.querySelectorAll('[aria-expanded="true"]').forEach(o => o.setAttribute('aria-expanded', 'false'));
   if (dl && dl.dataset.key === key) dl.remove();
   else {
     if (!dl) { dl = document.createElement('dl'); dl.className = 'kv'; body.appendChild(dl); }
-    dl.dataset.key = key;
-    dl.innerHTML = `<dt class="h">${esc(j.name)}</dt><dd class="h">${esc(j.type)}</dd>` + j.kv.map(([k, v]) => `<dt>${esc(k)}</dt><dd class="${k === 'status' && j.type.endsWith('held') ? 'held' : ''}">${esc(v)}</dd>`).join('');
+    fillSheet(dl, key);
     g.setAttribute('aria-expanded', 'true');
   }
   fitPlanes();
@@ -636,12 +893,14 @@ function renderRun(id) {
   next.forEach((pid, i) => {
     let el = planes.querySelector(`.plane[data-id="${pid}"]:not(.leave)`);
     if (!el) { el = planeEl(R[pid]); el.classList.add(i === next.length - 1 ? 'enter' : 'deep'); planes.appendChild(el); void el.offsetWidth; }
+    else refresh(el, R[pid]);
     el.classList.remove('enter', 'deep', 'behind', 'front');
     el.classList.add(i === next.length - 1 ? 'front' : i === next.length - 2 ? 'behind' : 'deep');
     el.setAttribute('aria-hidden', i === next.length - 1 ? 'false' : 'true');
   });
   [...planes.querySelectorAll('.plane')].forEach(el => { if (el.classList.contains('behind')) el.dataset.open = next[next.length - 2]; else delete el.dataset.open; });
-  $('#chain').innerHTML = next.map((pid, i) => `<li><button data-open="${pid}" ${i === next.length - 1 ? 'aria-current="page"' : ''}>${esc(R[pid].machine)}</button></li>`).join('');
+  $('#chain').innerHTML = next.map((pid, i) => `<li><button data-open="${pid}" data-key="run:${pid}" ${i === next.length - 1 ? 'aria-current="page"' : ''}>${esc(R[pid].machine)}</button></li>`).join('');
+  renderActions(R[next[0]]);
   const p = top.parent ? R[top.parent] : null;
   const band = $('#band');
   band.className = 'band' + (p ? '' : ' none');
@@ -650,11 +909,50 @@ function renderRun(id) {
   fitPlanes();
   const body = planes.querySelector('.plane.front .body');
   if (body.scrollWidth > body.clientWidth) { const b = body.querySelector('.machine .held, .machine .now'); if (b) b.scrollIntoView({ inline: 'center', block: 'nearest' }); }
-  const rec = top;
-  $('#record').innerHTML = rec.record.map(([t, i, n, w, kind]) => `<li class="${kind}"><span class="t">${t}</span><span class="i">${esc(i)}</span><span class="n">${n}</span><span class="w ${kind}">${cell(w, kind)}</span></li>`).join('');
+  renderReplay(top);
+  renderFail(top);
+  const rec = top, shown = recordOf(rec), more = rec.record.length - shown.length, last = rec.record.map(e => e[0]).filter(Boolean).pop();
+  $('#record').innerHTML = shown.map(([t, i, n, w, kind]) => `<li class="${kind}"><span class="t">${t}</span><span class="i">${esc(i)}</span><span class="n">${n}</span><span class="w ${kind}">${cell(w, kind)}</span></li>`).join('')
+    + (more ? `<li class="more"><span class="t"></span><span class="i"></span><span class="n"></span><span class="w">${more} more, to ${last}</span></li>` : '');
   $('#tabs').innerHTML = `<a aria-current="page">Output</a><a>Definition</a><a>Files</a><a>Children <span class="dim">${Object.values(R).filter(x => x.parent === rec.id).length}</span></a>`;
   renderWait($('#wait-run'), next[0]);
+  renderCount(w => rootOf(w.run) === next[0]);
   stack = next;
+}
+
+// The actions, on the root: Cancel, Send with the event typed, and Carry on on a done root whose labels
+// hold `thread`. Each carries in `data-hot` the keys of what its command changes.
+function renderActions(root) {
+  const el = $('#actions'), planes = $('#planes');
+  const boxes = [...planes.querySelectorAll('.machine .job[data-key]')].map(g => g.dataset.key).join(' ');
+  const cancel = `<button data-hot="${stack.map(id => 'run:' + id).join(' ')} ${boxes}"${root.status === 'running' ? '' : ' disabled'}>Cancel</button>`;
+  const send = root.type === 'statechart' && root.status === 'running' ? `<input id="event" placeholder="event" aria-label="event"><button id="send" data-hot="">Send</button>` : '';
+  const carry = root.status === 'done' && root.labels && root.labels.thread ? `<button data-hot="">Carry on</button>` : '';
+  el.innerHTML = cancel + send + carry;
+  const ev = $('#event');
+  if (ev) ev.addEventListener('input', () => {
+    const g = planes.querySelector(`[data-key="on:${root.id}/${root.state}/${ev.value}"]`);
+    $('#send').dataset.hot = g ? `${g.dataset.key} ${g.dataset.target}` : '';
+  });
+}
+// The replay bar: a range over the times of the front run's record; its end is now.
+function renderReplay(top) {
+  const times = [...new Set(top.record.map(e => e[0]).filter(Boolean))], range = $('#replay');
+  range.max = times.length;
+  range.value = AT ? Math.max(0, times.findIndex(t => !before(t)) === -1 ? times.length - 1 : times.findIndex(t => !before(t)) - 1) : times.length;
+  $('#replay-at').textContent = AT ? `at ${AT}` : 'now 09:14';
+  range.oninput = () => { const i = +range.value; location.hash = 'run-' + top.id + (i < times.length ? '?at=' + times[i] : ''); };
+}
+// The failure row: on a failed run, the deepest run below it that failed with a refusal, by `parent`.
+function renderFail(top) {
+  const el = $('#failrow');
+  const below = Object.values(R).filter(r => r.status === 'failed' && chainOf(r.id).includes(top.id) && r.record.some(e => e[4] === 'fail' && typeof e[3] === 'object'));
+  const deepest = below.sort((a, b) => chainOf(b.id).length - chainOf(a.id).length)[0];
+  el.hidden = top.status !== 'failed' || !deepest;
+  if (el.hidden) return;
+  const f = deepest.record.filter(e => e[4] === 'fail' && typeof e[3] === 'object').pop()[3];
+  el.innerHTML = chainOf(deepest.id).map(pid => `<button data-open="${pid}">${esc(R[pid].machine)}</button>`).join('<span class="sep">›</span>')
+    + `<span>· ${esc(f.from)} · refused ${esc(f.refused)} · layer ${esc(f.layer)} · fix ${esc(f.fix)}</span>`;
 }
 
 function renderMachines() {
@@ -668,31 +966,39 @@ function renderMachines() {
 }
 
 function show(screen) {
-  document.querySelectorAll('.screen').forEach(s => s.hidden = s.id !== screen);
+  document.querySelectorAll('.screen').forEach(s => s.hidden = s.id !== 'screen-' + screen);
   document.querySelectorAll('#nav a').forEach(a => { if (a.dataset.screen === (screen === 'run' ? 'runs' : screen)) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
 }
 function open(id) { location.hash = 'run-' + id; }
+const store = { lost: /(^|&)lost(&|$)/.test(location.search.slice(1)) }; // the stream's `store` message; in the sketch, `?lost` in the address
+function renderLive() { const i = $('#live'); i.classList.toggle('lost', store.lost); i.title = store.lost ? 'store lost' : 'following the store'; }
 function route() {
-  const h = location.hash.slice(1) || 'runs';
+  renderLive();
+  const [h, q] = (location.hash.slice(1) || 'runs').split('?');
+  AT = (q && /^at=(.+)$/.exec(q) || [])[1] || null;
   if (h.startsWith('run-') && R[h.slice(4)]) { show('run'); renderRun(h.slice(4)); }
-  else { if (h !== 'run') $('#planes').innerHTML = ''; show(['runs', 'machines', 'controller', 'metrics'].includes(h) ? h : 'runs'); }
+  else { if (h !== 'run') $('#planes').innerHTML = ''; const s = ['runs', 'machines', 'controller', 'metrics'].includes(h) ? h : 'runs'; if (s === 'runs') renderRuns(); else renderCount(() => false); show(s); }
 }
-function back() { if ($('#run').hidden) return; if (stack.length > 1) open(stack[stack.length - 2]); else location.hash = 'runs'; }
+function back() { if ($('#screen-run').hidden) return; if (stack.length > 1) open(stack[stack.length - 2]); else location.hash = 'runs'; }
 
 document.addEventListener('click', e => {
   const o = e.target.closest('[data-open]'); if (o) { e.preventDefault(); open(o.dataset.open); return; }
   const g = e.target.closest('[data-sheet]'); if (g) { toggleSheet(g); return; }
-  const rp = e.target.closest('[data-reply]'); if (rp) { const box = rp.closest('.ask'); const note = box.querySelector('input').value || 'Sam';
-    box.querySelector('.replied').textContent = `$ corbie run reply …-ask decided '{"approve":[${rp.dataset.reply === 'approve' ? '"cut_power"' : ''}],"note":"${note}"}'  → in the sketch nothing runs`; }
+  const rp = e.target.closest('[data-reply]'); if (rp) { const c = rp.closest('.ask'); reply(WAITS.find(w => keyOf(w) === c.dataset.key), rp.dataset.reply, c.querySelector('input').value); }
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { back(); return; }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-open]:not(button):not(a)')) { e.preventDefault(); open(e.target.dataset.open); }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-sheet]')) { e.preventDefault(); toggleSheet(e.target); }
 });
+function hot(b, on) { (b.dataset.hot || '').split(' ').filter(Boolean).forEach(k => document.querySelectorAll(`[data-key="${k}"]`).forEach(x => x.classList.toggle('hot', on))); }
+document.addEventListener('mouseover', e => { const b = e.target.closest('[data-hot]'); if (b) hot(b, true); });
+document.addEventListener('mouseout', e => { const b = e.target.closest('[data-hot]'); if (b) hot(b, false); });
+document.addEventListener('focusin', e => { const b = e.target.closest('[data-hot]'); if (b) hot(b, true); });
+document.addEventListener('focusout', e => { const b = e.target.closest('[data-hot]'); if (b) hot(b, false); });
 $('#back').addEventListener('click', back);
 addEventListener('hashchange', route);
-renderRuns(); renderMachines(); route();
+renderMachines(); route();
 </script>
 </body>
 </html>
