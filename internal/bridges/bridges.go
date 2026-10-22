@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -188,7 +187,7 @@ func (b *Bridges) start(ctx context.Context, id string, br *office.Bridge, d *de
 	if err != nil {
 		return err
 	}
-	name, err := b.corbie.Start(ctx, d.in, client.Start{
+	name, err := b.corbie.Start(ctx, br.In, client.Start{
 		Input:  map[string]any{"settings": br.Settings, "cursor": cursor},
 		Labels: map[string]string{"bulldog": id, "kind": "bridge", "bridge": br.Name, "made": d.made}})
 	if err != nil {
@@ -214,7 +213,7 @@ func (b *Bridges) cursor(ctx context.Context, last string) (any, error) {
 	b.mu.Unlock()
 	var heard *client.Entry
 	run, err := b.corbie.Record(ctx, last, func(e client.Entry) {
-		if e.Job != "" && e.Name == "heard" && (heard == nil || !before(e, *heard)) {
+		if e.Job != "" && e.Name == "heard" {
 			heard = &e
 		}
 	})
@@ -415,31 +414,4 @@ func (b *Bridges) State(bridge string) State {
 		}
 	}
 	return State{Status: "stopped"}
-}
-
-// before says whether one emit of a run was written before another: by its
-// time, then by its job, a job of a state asked again coming after the
-// one asked before it.
-func before(a, b client.Entry) bool {
-	if !a.Time.Equal(b.Time) {
-		return a.Time.Before(b.Time)
-	}
-	aAsked, aAttempt := sequence(a.Job)
-	bAsked, bAttempt := sequence(b.Job)
-	return aAsked < bAsked || aAsked == bAsked && aAttempt < bAttempt
-}
-
-// sequence gives where a job comes among the jobs of its state, from its
-// name: how many times the state asked for it, as hearing#2, and its
-// attempt, as hearing#2@3.
-func sequence(job string) (asked, attempt int) {
-	asked, attempt = 1, 1
-	if name, n, ok := strings.Cut(job, "@"); ok {
-		attempt, _ = strconv.Atoi(n)
-		job = name
-	}
-	if _, n, ok := strings.Cut(job, "#"); ok {
-		asked, _ = strconv.Atoi(n)
-	}
-	return asked, attempt
 }

@@ -4,7 +4,7 @@ Bulldog serves three screens to the office's people, and the API behind them. A 
 
 ## Signing in
 
-A person's key is the office secret's signature over their name and a hash of their entry in `everyone`. A person signs in with a link, which opens a page whose button signs them in:
+A person's key is the office secret's signature over their id and a hash of their entry in `everyone`. A person signs in with a link, which opens a page whose button signs them in:
 
 | Link | Where it comes from |
 |---|---|
@@ -19,7 +19,7 @@ The sign-in page works like this:
 
 - Opening a link signs nobody in, since a service may open it to show a preview.
 - A person is sent at most one link in each minute.
-- The name given is a person's key in `everyone` or their `name`, in any case.
+- The name given is a person's id in `everyone` or their `name`, in any case.
 - The key is kept only in an HttpOnly, SameSite=Strict cookie, Secure when the screens are reached at an `https://` address, and compared in constant time.
 - Changing or removing a person's entry signs them out. Replacing the office's secret signs everyone out.
 
@@ -36,14 +36,14 @@ The sign-in page works like this:
 
 ## The look
 
-The screens are paper and ink, with plan blue for structure and work, wait orange for what waits on someone, hatched areas for what is sealed, and teams drawn as rooms with walls. Every colour and size is a token of `style.css`: `--paper`, `--sheet`, `--ink`, `--ink2`, `--ink3`, `--line`, `--faint`, `--plan`, `--plan-soft`, `--plan-deep`, `--wait`, `--wait-soft`, `--bad`, `--good`, `--hatch-a`, `--hatch-b` and `--wall`, set in IBM Plex Sans and IBM Plex Mono.
+The screens are paper and ink, with plan blue for structure and work, wait orange for what waits on someone, hatched areas for what is sealed, and teams drawn as rooms with walls. Every colour and size is a token of `style.css`: `--paper`, `--sheet`, `--ink`, `--ink2`, `--ink3`, `--line`, `--faint`, `--plan`, `--plan-soft`, `--plan-deep`, `--wait`, `--wait-soft`, `--bad`, `--good`, `--hatch-a`, `--hatch-b` and `--wall`, set in IBM Plex Sans and IBM Plex Mono. A rule is named by its file's name without its ending, such as `small-orders`.
 
 ## Requests
 
 The home screen, from the top:
 
 1. A box to ask any team: choose the team, say something, attach files.
-2. The questions and decisions waiting on you, as cards with their choices.
+2. The questions and decisions waiting on you, as cards with their choices. A decision's card shows its held jobs, each with what it does and what it was given, and what each decider before you said.
 3. The requests you may see, newest first, at most 200. Each row has its flow as small dots on a line, its team, who asked, its first line, and when.
 
 ## A request
@@ -55,6 +55,7 @@ The home screen, from the top:
 - A node not reached has a `--paper` fill and a `--line` border. A node passed has a `--plan` border, with the line behind it `--plan`.
 - A working node is filled `--plan` and breathes. A waiting node is filled `--wait` and rings.
 - A heed's no is dashed `--ink3`, and the line ends there. A check's no is hollow `--bad`, with a dashed `--bad` line to REPLY. A failed node is a `--bad` square.
+- A stage running when the request was stopped is filled `--ink3`, with `stopped` under it.
 - Forks drop from the bottom of WORK through a gap in the bottom wall. Each is a plain 1.5px `--ink3` line ending in a row: a chip (TEAM, PERSON or DECISION), the party, the question and the answer, and a status dot.
 - A DECISION row is a decision on held jobs: the jobs, who decided, the answer, and folded, what each decider said. One that said no has a hollow `--bad` dot.
 - To those outside the team, a fork's row shows who, when and how it ended, and a decision that came to no person is not shown. A waiting fork is `--wait`, and when it waits on the viewer, its answer card sits under the row. A TEAM row links to that team's request when the viewer may see it.
@@ -69,7 +70,7 @@ A team's page draws the same room with no run. Each node shows what is written f
 
 | Node | What it shows |
 |---|---|
-| SOURCE | the places that ask the team: the bridge, the place, and whether guests may ask |
+| SOURCE | the places that ask the team, each with its bridge and whether guests may ask, then the screens and other teams |
 | HEED | the heed's deciders |
 | WORK | the lead, its colleagues each with what it uses, and the tools the office writes, those held for approval marked |
 | CHECK | the check's deciders |

@@ -3,14 +3,14 @@
 # only read, and write_doc may only write. write_doc is marked for
 # approval, so the team's decide is shown the new text first.
 read_doc:
-  does: Read one of your team's docs by its name, or, with no name, list the names of your team's docs
+  does: Read one of your team's docs by its name, or list their names when given none.
   args: { name: "string?" }
   job:
     script: ../../docs/docs.js
     input: { place: "${input.request.docs}", do: "${args.name ? 'read' : 'list'}", name: "${args.name ?? null}" }
     allow: ["kept.read:${input.request.docs}/**"]
 write_doc:
-  does: Write one of your team's docs, whole, in place of what it held. A name is small letters, digits, ., - and _, such as refunds.md. Your team's deciders are shown the new text, and it is written once they say yes
+  does: Write one of your team's docs, such as refunds.md, whole, once your team's deciders say yes to the new text.
   args: { name: string, text: string }
   job:
     script: ../../docs/docs.js

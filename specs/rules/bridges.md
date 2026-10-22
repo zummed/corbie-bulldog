@@ -60,7 +60,7 @@ The rules behind the [Bridges overview](../bridges.md). Area code: `bridges`. A 
 
 Uses:
 
-- **Office.** The bridges with their settings, each person's identities, the loader that serves a bridge's files, and the office's secret, which keys the fingerprint of a bridge.
+- **Office.** The bridges with their settings, on which Check keeps each bridge's in and out as the parser fills them out, each person's identities, the loader that serves a bridge's files, and the office's secret, which keys the fingerprint of a bridge.
 - **Requests.** Hands it each thing: a new request with Ask, or an answer to a wait, found with WaitOf, Replied or Latest, with Answer. Reads the office from its reading.
 - **Corbie.** Its parser, to check each bridge's in and out; its client, to start, follow and cancel in runs, and to start out runs.
 

@@ -108,10 +108,8 @@ type Call struct {
 	Calls  []Call // for a colleague that is an agent, the tools it called
 }
 
-// A Reply is a run that carried a request's answer out.
+// A Reply is how a run that carried a request's answer out went.
 type Reply struct {
-	Run    string
-	Bridge string
 	Status string // waiting, running, done or failed
 	Error  string
 }
@@ -301,10 +299,6 @@ func (e *Engine) Newest(ctx context.Context, keep func(*Request) bool, limit int
 	return requests, nil
 }
 
-// Requests gives every request of the office, newest first, each with the
-// state of its stages.
-func (e *Engine) Requests(ctx context.Context) ([]*Request, error) { return e.Newest(ctx, nil, 0) }
-
 // Request gives one request of the office as its run shows it, without
 // the state of its stages; ErrNoRequest when there is none.
 func (e *Engine) Request(ctx context.Context, id string) (*Request, error) {
@@ -453,7 +447,7 @@ func (e *Engine) Look(ctx context.Context, id string) (*Look, error) {
 		if err != nil {
 			return nil, err
 		}
-		look.Replies = append(look.Replies, &Reply{Run: out.ID, Bridge: out.Labels["bridge"], Status: shown.Status, Error: shown.Error})
+		look.Replies = append(look.Replies, &Reply{Status: shown.Status, Error: shown.Error})
 	}
 
 	if look.Thread, err = e.threadOf(ctx, run.Labels["thread"]); err != nil {

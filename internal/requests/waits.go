@@ -30,9 +30,11 @@ type Wait struct {
 	Team     string    // the asking team
 	ToTeam   string    // the team asked, for a question to a team
 	People   []string  // the people asked
-	Said     string    // the question, or what is decided and the notes before
+	Said     string    // the question, or what is decided and the notes before, as text
 	Choices  []string  // offered as buttons
 	Decision string    // heed, check or decide for a decision; empty for a question
+	Notes    []Word    // for a decision, what each decider before the people said
+	Jobs     []Job     // for decide, the held jobs
 	Status   string    // waiting, answered, refused, timed-out or stopped
 	Answer   *string   // the answer given, if any
 	By       string    // the person who answered
@@ -40,6 +42,13 @@ type Wait struct {
 	Asked    string    // for a question to a team, not refused: the run of the request it asks
 	Started  time.Time //
 	Ended    time.Time //
+}
+
+// A Job is a held job as a decision's people are given it.
+type Job struct {
+	Name string `json:"name"` // as Corbie names it, such as order_part
+	Does string `json:"does"` // what its tool does; empty for a job no tool asked for
+	Args any    `json:"args"` // the tool's arguments, or the job's input
 }
 
 // ErrNoQuestion is an answer to a wait that is not waiting on the one who
@@ -59,6 +68,8 @@ func (e *Engine) waitOf(run *client.Run) *Wait {
 		Said     string   `json:"said"`
 		Choices  []string `json:"choices"`
 		Decision string   `json:"decision"`
+		Notes    []Word   `json:"notes"`
+		Jobs     []Job    `json:"jobs"`
 	}
 	decode(run.Input, &in)
 	var out struct {
@@ -69,7 +80,7 @@ func (e *Engine) waitOf(run *client.Run) *Wait {
 	}
 	decode(run.Output, &out)
 	w := &Wait{ID: run.ID, Ref: e.hash("ref", run.ID), Team: run.Labels["team"], ToTeam: in.To.Team, People: in.To.People,
-		Said: in.Said, Choices: in.Choices, Decision: in.Decision, Answer: out.Answer, By: out.By, Refused: out.Refused,
+		Said: in.Said, Choices: in.Choices, Decision: in.Decision, Notes: in.Notes, Jobs: in.Jobs, Answer: out.Answer, By: out.By, Refused: out.Refused,
 		Started: run.Started, Ended: run.Ended}
 	if w.ToTeam != "" && w.Refused == "" {
 		w.Asked = e.name(named(run.ID), "team", run.ID)

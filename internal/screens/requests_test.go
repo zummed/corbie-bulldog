@@ -219,7 +219,8 @@ func TestScreensDecisionAnsweredFromTheScreens(t *testing.T) {
 	asked := lee.ask("payments", "Refund ch_1.")
 	c := lee.card()
 	if c["kind"] != "decision" || c["request"] != asked || c["team"] != "payments" || c["teamName"] != "Payments" ||
-		jsonOf(c["choices"]) != `["yes","no"]` || !strings.Contains(c["said"].(string), `refund: {"charge":"ch_1"}`) {
+		jsonOf(c["choices"]) != `["yes","no"]` || c["said"] != "May these run?" ||
+		jsonOf(c["jobs"]) != `[{"args":{"charge":"ch_1"},"does":"Refund one charge, whole, by its id","name":"refund"}]` {
 		t.Errorf("Lee's card is %s", jsonOf(c))
 	}
 	if other := priya.card(); other["ref"] != c["ref"] {
@@ -251,7 +252,7 @@ func TestScreensDecisionAnsweredFromTheScreens(t *testing.T) {
 	}
 	f := lee.get("/api/requests/" + asked)["forks"].([]any)[0].(map[string]any)
 	if f["status"] != "answered" || f["answer"] != "yes (Lee)" || jsonOf(f["party"]) != `{"id":"lee","kind":"person","name":"Lee"}` || f["card"] != nil ||
-		jsonOf(f["jobs"]) != `["refund"]` || jsonOf(f["deciders"]) != `[{"kind":"person","name":"Lee","says":"yes"}]` {
+		jsonOf(f["jobs"]) != jsonOf(c["jobs"]) || jsonOf(f["deciders"]) != `[{"kind":"person","name":"Lee","says":"yes"}]` {
 		t.Errorf("the decision is %s", jsonOf(f))
 	}
 
@@ -375,14 +376,14 @@ func TestScreensFilesServedHarmlessly(t *testing.T) {
 func TestScreensStop(t *testing.T) {
 	t.Parallel()
 	w := newWorld(t, examples.Work, says, nil)
-	lee, dana := w.as("lee"), w.as("dana")
-	asked := lee.ask("payments", "Refund ch_2.")
+	lee, dana, al := w.as("lee"), w.as("dana"), w.as("al")
+	asked := dana.ask("payments", "Refund ch_2.")
 	lee.card()
 	if v := lee.get("/api/requests/" + asked); v["canStop"] != true {
 		t.Errorf("Lee may not stop the request: %s", jsonOf(v))
 	}
-	if status, _ := dana.api("POST", "/api/requests/"+asked+"/stop", nil); status != http.StatusNotFound {
-		t.Errorf("Dana stopping Lee's request is answered %d", status)
+	if status, _ := al.api("POST", "/api/requests/"+asked+"/stop", nil); status != http.StatusNotFound {
+		t.Errorf("Al stopping Dana's request is answered %d", status)
 	}
 	if status, out := lee.api("POST", "/api/requests/"+asked+"/stop", nil); status != http.StatusOK {
 		t.Fatalf("Lee stopping it is answered %d %v", status, out)
@@ -393,8 +394,13 @@ func TestScreensStop(t *testing.T) {
 	v := lee.until("the stopped request's wait has ended", "/api/requests/"+asked, func(v map[string]any) bool {
 		return v["forks"].([]any)[0].(map[string]any)["status"] == "stopped"
 	})
-	if v["status"] != "stopped" || v["canStop"] != false || nodeOf(v, "reply")["state"] != "waiting-to-start" {
+	work := nodeOf(v, "work")
+	if line, _ := work["line"].(string); v["status"] != "stopped" || v["canStop"] != false || nodeOf(v, "reply")["state"] != "waiting-to-start" ||
+		work["state"] != "stopped" || !strings.HasPrefix(line, "ledger · stopped after ") {
 		t.Errorf("the stopped request is %s", jsonOf(v))
+	}
+	if sealed := dana.get("/api/requests/" + asked); nodeOf(sealed, "work")["state"] != "stopped" || nodeOf(sealed, "work")["line"] != "stopped" {
+		t.Errorf("Dana sees the stopped request as %s", jsonOf(sealed["nodes"]))
 	}
 	if status, out := lee.api("POST", "/api/requests/"+asked+"/stop", nil); status != http.StatusConflict {
 		t.Errorf("stopping it again is answered %d %v", status, out)
@@ -420,6 +426,20 @@ func house(turn testkit.Turn) testkit.Reply {
 	return testkit.Say("The fixer has ordered a socket, and fits it on Thursday.")
 }
 
+// A check that asks the team's people shows them the answer as a card,
+// with the rule's note on its own.
+func TestScreensCheckShowsItsNotes(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t, examples.Work, func(testkit.Turn) testkit.Reply { return testkit.Say("Charge 1234567 was refunded.") }, nil)
+	dana, lee := w.as("dana"), w.as("lee")
+	asked := dana.ask("payments", "Was charge 1234567 refunded?")
+	c := lee.card()
+	if c["kind"] != "decision" || c["request"] != asked || c["said"] != "May Payments give this answer?\n\nCharge 1234567 was refunded." || c["jobs"] != nil ||
+		jsonOf(c["notes"]) != `[{"kind":"rule","name":"./payments/no-account-numbers.js","note":"It holds a long number.","says":"pass"}]` {
+		t.Errorf("Lee's card is %s", jsonOf(c))
+	}
+}
+
 // Sam is shown the fixer's order as a card, with the notes of the deciders
 // before him, above yes and no, and Kit's request waiting on it.
 func TestScreensDecisionShowsItsNotes(t *testing.T) {
@@ -428,11 +448,10 @@ func TestScreensDecisionShowsItsNotes(t *testing.T) {
 	kit, sam := w.as("kit"), w.as("sam")
 	asked := kit.ask("office", "The socket by the boiler sparks.")
 	c := sam.card()
-	said := c["said"].(string)
-	for _, shown := range []string{`order_part: {"part":"a 13A socket","pounds":35}`, "./small-orders.js passed: More than I order alone.", "clerk passed: The house has the money for it."} {
-		if !strings.Contains(said, shown) {
-			t.Errorf("Sam's card does not show %q:\n%s", shown, said)
-		}
+	if c["said"] != "May these run?" ||
+		jsonOf(c["jobs"]) != `[{"args":{"part":"a 13A socket","pounds":35},"does":"Order a part for a repair, at its price in pounds","name":"order_part"}]` ||
+		jsonOf(c["notes"]) != `[{"kind":"rule","name":"./small-orders.js","note":"More than I order alone.","says":"pass"},{"kind":"worker","name":"clerk","note":"The house has the money for it.","says":"pass"}]` {
+		t.Errorf("Sam's card is %s", jsonOf(c))
 	}
 	list := sam.get("/api/requests")
 	row := list["requests"].([]any)[0].(map[string]any)
@@ -457,7 +476,7 @@ func TestScreensDecisionShowsItsNotes(t *testing.T) {
 	forks := v["forks"].([]any)
 	f := forks[len(forks)-1].(map[string]any)
 	deciders := jsonOf(f["deciders"])
-	if f["kind"] != "decision" || jsonOf(f["jobs"]) != `["order_part"]` || f["answer"] != "yes (Sam)" ||
+	if f["kind"] != "decision" || jsonOf(f["jobs"]) != jsonOf(c["jobs"]) || f["answer"] != "yes (Sam)" ||
 		!strings.Contains(deciders, `{"kind":"rule","name":"./small-orders.js","note":"More than I order alone.","says":"pass"}`) ||
 		!strings.Contains(deciders, `{"kind":"worker","name":"clerk","note":"The house has the money for it.","says":"pass"}`) {
 		t.Errorf("Kit sees the decision as %s", jsonOf(f))

@@ -1,6 +1,6 @@
 // Command corbie-bulldog is Bulldog, which corbie bulldog runs: it serves
-// an office of teams on Corbie, checks an office, and prints a person's
-// key link.
+// an office of teams on Corbie, checks an office, prints a person's key
+// link, and prints its version.
 package main
 
 import (
@@ -56,7 +56,15 @@ the person's entry in office.yaml signs them out.
 
 With --json it prints { link }. It uses no Corbie, and takes no --config or
 --store.`},
+	{Name: "version", Usage: "", Summary: "print which Bulldog this is", Run: printVersion, Help: `
+It prints corbie bulldog and the version, as corbie bulldog 0.1.0. A build
+that is not a release has the version dev. With --json it prints
+{ version }.`},
 }
+
+// version is which Bulldog this is. A release build is given it with
+// -X main.version.
+var version = "dev"
 
 func main() {
 	os.Exit(cli.Program("bulldog", commands, os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
@@ -178,6 +186,14 @@ func key(e *cli.Env, args []string) error {
 		return err
 	}
 	return e.Print(map[string]string{"link": link}, func() string { return link + "\n" })
+}
+
+// printVersion prints which Bulldog this is.
+func printVersion(e *cli.Env, args []string) error {
+	if _, err := named(e, args, "nothing", 0); err != nil {
+		return err
+	}
+	return e.Print(map[string]string{"version": version}, func() string { return "corbie bulldog " + version + "\n" })
 }
 
 // named reads a command's line, which names as many words as it takes.

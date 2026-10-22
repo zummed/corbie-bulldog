@@ -4,7 +4,7 @@ The rules behind the [Screens overview](../screens.md). Area code: `screens`. A 
 
 ## Signing in
 
-**R-screens-01** A person's key is the office secret's signature over their name and a hash of their entry in `everyone`, and `corbie bulldog key <directory> <person>` prints a key link, whose page's button signs them in.
+**R-screens-01** A person's key is the office secret's signature over their id and a hash of their entry in `everyone`, and `corbie bulldog key <directory> <person>` prints a key link, whose page's button signs them in.
 *Accept:* `corbie bulldog key house sam` prints a link. Opening it shows a page with a button, and pressing it gives the browser Sam's key; Sam's Requests screen then loads.
 
 **C-screens-01** A key ends with the entry it was signed over: changing or removing a person's entry signs them out, and replacing the office's secret signs everyone out. A key that outlived its entry would sign in a stranger written later under the same name, and a lost browser could never be signed out. *Test:* `screens_key_ends_with_entry`
@@ -30,7 +30,7 @@ The rules behind the [Screens overview](../screens.md). Area code: `screens`. A 
 **C-screens-06** To someone not of the team, a request shows only its source, what was said there, whom it waits on, the outcome as sent, and each fork as who, when and how it ended; questions, answers, notes, held jobs, the lead's conversation and every stage's output are shown only to the team's people, and a question or a decision to the people it is put to; a question Bulldog refused is put to no one. The check exists to hold back what the team read, and a question to someone the team may not ask can carry it. *Test:* `screens_outsider_sees_nothing_the_team_read`
 
 **R-screens-04** A question or a decision is shown, with its notes and the held jobs, to the people it is put to.
-*Accept:* Sam's card for the fixer's order shows the order with `pounds: 35`, and the notes of `small-orders.js` and the clerk, above `yes` and `no`.
+*Accept:* Sam's card for the fixer's order shows the order with `pounds: 35`, and the notes of `small-orders` and the clerk, above `yes` and `no`.
 
 **C-screens-07** A request, a doc or a file the one looking may not see is answered 404, with the same sentence as one that is not there. A refusal that differs tells them it exists. *Test:* `screens_unseen_is_not_there`
 
@@ -42,10 +42,10 @@ The rules behind the [Screens overview](../screens.md). Area code: `screens`. A 
 *Accept:* signed in as Sam during Kit's request, the screen shows the order's card with `yes` and `no`, then Kit's request, with its WORK dot waiting.
 
 **R-screens-06** A request is drawn as its team's room, with SOURCE, HEED, WORK, CHECK and REPLY on one line, forks dropping from WORK, and the thread below, each node and state as the overview's list says.
-*Accept:* Dana's answered request in #refunds draws every node passed. A noted one ends the line at a dashed HEED. A withheld one draws CHECK hollow `--bad` with a dashed line to REPLY. The bot's request draws a TEAM fork to payments, which links to payments' request for Al, of the office, and does not for Dana, who asked the bot.
+*Accept:* Dana's answered request in #refunds draws every node passed. A noted one ends the line at a dashed HEED. A withheld one draws CHECK hollow `--bad` with a dashed line to REPLY. A stopped one draws the stage that was running filled `--ink3`, with `stopped` under it. The bot's request draws a TEAM fork to payments, which links to payments' request for Al, of the office, and does not for Dana, who asked the bot.
 
 **R-screens-07** A team's page draws its room with no run, each node showing what is written for it, and beside it the team's people, workers as sent to Corbie, routines with their next time, docs, problems, and request machine as sent to Corbie; the office's page draws the teams inside its room and each bridge's in run, running, failing with Corbie's error, or stopped.
-*Accept:* payments' page shows #refunds at SOURCE, `mentioned` at HEED, the ledger at WORK, `no-account-numbers.js`, Lee and Priya at CHECK, and `decide` as a fork line. The work office's page shows Slack running; with the stand-in Slack refusing its token, it shows Slack failing with Corbie's error.
+*Accept:* payments' page shows #refunds and the screens at SOURCE, `mentioned` at HEED, the ledger at WORK, `no-account-numbers`, Lee and Priya at CHECK, and `decide` as a fork line. The work office's page shows Slack running; with the stand-in Slack refusing its token, it shows Slack failing with Corbie's error.
 
 **R-screens-08** A signed-in person may ask any team on the screens, with files; the person who asked a request, and its team's people, may say more in its thread and stop it.
 *Accept:* Dana asks payments with a screenshot. Payments' request is given the file as a blob, and Dana's next message from that request's screen is the next request of its thread. Lee may say more there; Al is answered as if it were not there.

@@ -24,7 +24,7 @@ func (b *Bridges) Carry(ctx context.Context, m requests.Message) error {
 		labels = map[string]string{}
 	}
 	labels["bulldog"], labels["kind"], labels["bridge"] = r.Office.ID, "out", m.Bridge
-	_, err := b.corbie.Start(ctx, d.out, client.Start{Run: m.Run, Labels: labels, Input: map[string]any{
+	_, err := b.corbie.Start(ctx, br.Out, client.Start{Run: m.Run, Labels: labels, Input: map[string]any{
 		"settings": br.Settings, "to": m.To, "direct": m.Direct, "text": m.Text, "choices": m.Choices,
 		"ref": orNull(m.Ref), "answers": orNull(m.Answers)}})
 	return err

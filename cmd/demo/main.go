@@ -134,7 +134,7 @@ var models = regexp.MustCompile(`\{ name: claude-[a-z0-9-]+, secret: ANTHROPIC_K
 // id of the one it is to.
 var telegram = map[string]string{
 	"bridges/telegram/in.yaml": `statechart: telegram-in
-keep: 12h
+keep: 1d
 input: { settings: map, cursor: any }
 initial: listening
 states:

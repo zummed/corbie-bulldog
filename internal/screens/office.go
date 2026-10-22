@@ -15,6 +15,7 @@ import (
 	"github.com/zummed/corbie/agent"
 	"github.com/zummed/corbie/client"
 	"github.com/zummed/corbie/machine"
+	"github.com/zummed/corbie/statechart"
 )
 
 // me gives who is looking, and the office.
@@ -155,10 +156,6 @@ func (s *Screens) team(r *http.Request, me string) (any, error) {
 			}
 		}
 	}
-	decide := writtenOf(t.Decide)
-	if t.Decide == nil {
-		decide = writtenOf(peopleOf(t.People))
-	}
 	colleagues, tools := []colleague{}, []tool{}
 	if m := rd.Machines[t.ID]; m.Draft != nil && t.Lead.Worker != "" {
 		colleagues, tools = uses(o, t, m.Draft.Children["./"+o.Worker(t.Lead.Worker).File])
@@ -170,7 +167,12 @@ func (s *Screens) team(r *http.Request, me string) (any, error) {
 	}
 	routines := []map[string]any{}
 	for _, routine := range t.Routines {
-		routines = append(routines, map[string]any{"at": routine.At, "say": routine.Say, "next": next(routine.At, o.Zone, s.corbie.Now())})
+		// A routine whose at is not a time has no next; the team's problems say why.
+		var next *time.Time
+		if due, err := statechart.Next(routine.At+" "+o.Zone.String(), s.corbie.Now()); err == nil {
+			next = &due
+		}
+		routines = append(routines, map[string]any{"at": routine.At, "say": routine.Say, "next": next})
 	}
 	var docs any
 	if slices.Contains(t.People, me) {
@@ -187,19 +189,10 @@ func (s *Screens) team(r *http.Request, me string) (any, error) {
 		docs = list(listed.Names)
 	}
 	return map[string]any{"id": t.ID, "name": t.Name, "about": t.About, "people": people,
-		"flow": map[string]any{"source": source, "heed": writtenOf(t.Heed), "check": writtenOf(t.Check), "decide": decide,
+		"flow": map[string]any{"source": source, "heed": writtenOf(t.Heed), "check": writtenOf(t.Check), "decide": writtenOf(t.Decide),
 			"work": map[string]any{"lead": leadOf(t), "colleagues": colleagues, "tools": tools}},
 		"workers": workers, "routines": routines, "problems": list(t.Problems),
 		"machine": rd.Machines[t.ID].YAML, "docs": docs}, nil
-}
-
-// peopleOf gives people as deciders.
-func peopleOf(people []string) []office.Decider {
-	var deciders []office.Decider
-	for _, p := range people {
-		deciders = append(deciders, office.Decider{Person: p})
-	}
-	return deciders
 }
 
 // uses gives the colleagues and the other tools of a worker of a team,
@@ -236,26 +229,6 @@ func asksTeam(input any) bool {
 	in, _ := input.(map[string]any)
 	to, _ := in["to"].(map[string]any)
 	return to["team"] != nil
-}
-
-// next gives when a routine is next due: its time of day, after its
-// weekday if it gives one, strictly after now, in the office's zone.
-func next(at string, zone *time.Location, now time.Time) time.Time {
-	weekday := -1
-	days := map[string]int{"sun": 0, "mon": 1, "tue": 2, "wed": 3, "thu": 4, "fri": 5, "sat": 6}
-	if day, clock, ok := strings.Cut(at, " "); ok {
-		weekday, at = days[day], clock
-	}
-	var hour, minute int
-	fmt.Sscanf(at, "%d:%d", &hour, &minute)
-	local := now.In(zone)
-	for d := 0; d <= 8; d++ {
-		due := time.Date(local.Year(), local.Month(), local.Day()+d, hour, minute, 0, 0, zone)
-		if (weekday < 0 || int(due.Weekday()) == weekday) && due.After(now) {
-			return due.UTC()
-		}
-	}
-	return time.Time{}
 }
 
 // docs runs the shipped docs.yaml for a team, started with the team's

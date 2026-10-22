@@ -134,7 +134,7 @@ A text longer than 32 KiB is cut at 32 KiB, with a line that says so, since a jo
 | `to` | the `where` to send to, or, with `direct`, a person's lasting id |
 | `direct` | `true` when `to` is a person |
 | `text` | the message |
-| `choices` | up to 8 short answers, offered as buttons |
+| `choices` | up to 8 short answers of up to 75 characters each, offered as buttons |
 | `ref` | for a question, a short keyed hash of the wait run, which a press gives back |
 | `answers` | the id of the thing the message replies to |
 

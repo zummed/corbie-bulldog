@@ -243,9 +243,8 @@ func TestBridgesSecondInRunCancelled(t *testing.T) {
 	w := newWorld(t, nil)
 	first := w.resting("pager")
 	o := w.engine.Reading().Office
-	in, _, _ := parse(o, o.Bridge("pager"))
 	w.corbie.Clock.Move(time.Millisecond)
-	second, err := w.corbie.Start(ctx, in, client.Start{Input: w.input(first.ID), Labels: first.Labels})
+	second, err := w.corbie.Start(ctx, o.Bridge("pager").In, client.Start{Input: w.input(first.ID), Labels: first.Labels})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,31 +359,6 @@ func TestPauseGrowsToAMinute(t *testing.T) {
 		if got := pause(ended); got != want {
 			t.Errorf("after %d runs ended, the pause is %v, not %v", ended, got, want)
 		}
-	}
-}
-
-// The last cursor of a run is the one its last job emitted: a job asked
-// again comes after the one asked before it, whatever order a record
-// gives them in.
-func TestBridgesLastCursorByJob(t *testing.T) {
-	t.Parallel()
-	at := time.Date(2026, 10, 5, 9, 0, 0, 0, time.UTC)
-	for _, c := range []struct {
-		a, b   string
-		before bool
-	}{
-		{"hearing", "hearing#2", true},
-		{"hearing#2", "hearing", false},
-		{"hearing#9", "hearing#10", true},
-		{"hearing#2", "hearing#2@2", true},
-		{"hearing#3", "hearing#2@2", false},
-	} {
-		if got := before(client.Entry{Time: at, Job: c.a}, client.Entry{Time: at, Job: c.b}); got != c.before {
-			t.Errorf("%s before %s is %v", c.a, c.b, got)
-		}
-	}
-	if !before(client.Entry{Time: at, Job: "hearing#2"}, client.Entry{Time: at.Add(time.Millisecond), Job: "hearing"}) {
-		t.Error("an emit written later does not come later")
 	}
 }
 

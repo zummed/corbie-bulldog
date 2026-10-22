@@ -111,6 +111,7 @@ A team is sealed: what it read is shown only to its people. These are the limits
 | `corbie bulldog <directory> [--listen <address>] [--url <url>]` | serves the office: its requests, bridges, routines and screens |
 | `corbie bulldog check <directory>` | prints every problem of the office, and starts nothing |
 | `corbie bulldog key <directory> <person> [--url <url>]` | prints a person's key link, which signs them in |
+| `corbie bulldog version` | prints `corbie bulldog` and the version, `dev` outside a release |
 | `corbie bulldog manual [page]` | prints a page of the manual: Corbie's, or the `README.md` of a directory Bulldog ships, named by its path under `./.bulldog/`, as `bridges/slack` |
 | `mise run demo` | serves the house at `127.0.0.1:8485` on a stand-in model and a Corbie in the same process, with nothing to set up |
 
@@ -119,7 +120,7 @@ A team is sealed: what it read is shown only to its people. These are the limits
 | `--listen <address>` | where the screens listen; default `127.0.0.1:8484` |
 | `--url <url>` | where people reach the screens, which every link starts with; default `http://` and the `--listen` address |
 
-`corbie bulldog` runs the program `corbie-bulldog` on PATH, a client of the Corbie its config names. After a restart it finds everything again in the store, and doing a thing twice changes nothing.
+`corbie bulldog` runs the program `corbie-bulldog` on PATH, a client of the Corbie its config names. Restarted with the same office id and secret, it finds everything again in the store, and doing a thing twice changes nothing. It carries an answer only within a day of its request's end.
 
 ## Areas
 
@@ -139,7 +140,7 @@ Beside them, with no area of their own:
 |---|---|
 | `internal/testkit` | a whole Corbie in the test's process, a stand-in model and a clock the test moves |
 | `shipped` | what Bulldog ships, served at `./.bulldog/` |
-| `cmd/corbie-bulldog` | the program: serve, `check`, `key` and the manual |
+| `cmd/corbie-bulldog` | the program: serve, `check`, `key`, `version` and the manual |
 | `cmd/demo` | the house on a stand-in model |
 | `cmd/internal/serve` | serves an office for both programs, and reads it again when a file changes |
 | `examples` | the house and the work office, embedded for the tests and the demo |
@@ -157,7 +158,7 @@ One word for one thing, the same in the specs, the code and the screens.
 | worker | a Corbie definition directly in a team's directory |
 | lead | the worker, or the person, that takes every request to a team |
 | colleague | a worker another worker of its team uses as a tool |
-| rule | a decider named by its path: a script, or a shipped definition |
+| rule | a decider named by its path: a script, or a definition that is not a worker |
 | decider | a rule, a worker or a person in a decision's list |
 | decision | `heed`, `check` or `decide`: a yes or a no from an ordered list of deciders |
 | bridge | a directory with `in.yaml` and `out.yaml` |
@@ -179,5 +180,5 @@ One word for one thing, the same in the specs, the code and the screens.
 ## What Corbie should gain
 
 - **A start keyed by the caller's own id.** Bulldog names a request from the thing's own time and a keyed hash of its id, looks for that name before it starts, and lets go of a thing more than a day old. Corbie reads the time in a run's name as when the start was sent: a start not yet taken and named more than 15 minutes ago is reported as never taken up, and one named more than a day ago loses its uploads to housekeeping. A start keyed by the caller's id, with no time in the run's name, would need none of this.
-- **A record's emits in the order they were written.** A record gives a state's emits by time, then by name, so `hearing#2` comes before `hearing` when their times are equal. Bulldog orders an in run's emits by job number to find its last cursor.
-- **Corbie's time of day, exported.** The screens compute a routine's next time themselves, and show a time other than Corbie's on a day the zone's clock skips it.
+- **A child kept as long as its parent.** A child is kept as its own definition says. Until then, Bulldog keeps a request 30 days, but its decisions and its waits only Corbie's default of 7 days. A request's lead is kept as its worker says, 7 days by default.
+- **A job that can wait before trying again.** A script cannot wait, so when Slack or Telegram answers a bridge's out with 429, too many calls, the out cannot wait and send again. Until then, the out run fails, and the part of a long message that was refused and the parts after it are not sent.

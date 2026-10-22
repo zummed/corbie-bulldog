@@ -3,14 +3,14 @@
 # marked for approval, so the team's check is asked about the question
 # first.
 ask_team:
-  does: Ask another team of the office, and wait for its answer. The teams you may ask are in what you were given, each with what it looks after. Never your own team; your colleagues are your tools
+  does: Ask another team of the office, and wait for its answer. The teams you may ask are in what you were given, each with what it looks after. Never ask your own team, whose workers are your tools.
   args: { team: string, question: string }
   job:
     machine: ../../wait/wait.yaml
     input: { to: { team: "${args.team}" }, said: "${args.question}" }
     approve: true
 ask_person:
-  does: Ask a person by their id, as sam for Sam (sam), and wait for the answer. You may ask a person of your team, or one your team file names. Only for what a person alone can answer or choose. Where the likely answers are few and short, give them as choices, up to 8 of up to 75 characters each, which the person picks with a press; they may still answer anything else
+  does: Ask a person of your team, by their id, and wait for the answer. A person's id is in brackets after their name, as sam in Sam (sam). You may ask one your team file names too. Ask only what a person alone can answer or choose. Where the likely answers are few and short, give them as choices, up to 8 of up to 75 characters each, which the person picks with a press. The person may still answer anything else.
   args: { who: string, question: string, choices: "list?" }
   job:
     machine: ../../wait/wait.yaml

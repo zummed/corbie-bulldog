@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"go.yaml.in/yaml/v3"
+
+	"github.com/zummed/corbie/machine"
 )
 
 // An Office is one reading of an office directory. Read makes it, and
@@ -109,6 +111,9 @@ type Bridge struct {
 	Settings map[string]any // its entry but from: what its in and its out are given
 	Places   []Place        // in the order written
 	Problems []Problem      // what stops it: a bridge with a problem hears nothing and sends nothing
+	// In and Out are in.yaml and out.yaml as Corbie's parser fills them
+	// out. bridges.Check sets them on a bridge with no problem.
+	In, Out *machine.Draft
 }
 
 // A Place is where a bridge takes requests.

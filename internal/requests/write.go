@@ -144,6 +144,9 @@ type decision struct {
 	// asked is what the people are asked, text with expressions in it,
 	// above the notes.
 	asked string
+	// jobs is an expression of the held jobs as the people are given them,
+	// each { name, does, args }; empty but for decide.
+	jobs string
 	// own says a worker passes on a job its own machine holds: the chart
 	// is given asking, the machine that holds the jobs.
 	own bool
@@ -185,6 +188,7 @@ func decide(t *office.Team) decision {
 		input: inline{{"request", "map"}, {"asking", "map"}, {"jobs", "list"}},
 		given: inline{{"request", "${input.request}"}, {"jobs", "${input.jobs}"}},
 		asked: "May these run?\n\n${input.jobs.map(j => j.name + ': ' + JSON.stringify(j.asked?.args ?? j.input)).join(`\n`)}",
+		jobs:  "${input.jobs.map(j => ({ name: j.name, does: j.asked?.does ?? null, args: j.asked?.args ?? j.input }))}",
 	}
 }
 
@@ -192,8 +196,9 @@ func decide(t *office.Team) decision {
 // before the people, d1, d2 and on, then people, then the final states
 // said_yes, said_no and passed. The first yes or no is the answer, and when
 // every decider passes, the answer is no. A decider that fails fails the
-// chart. Each decider is given the notes of those before it, and the people
-// are shown them above yes and no.
+// chart. Each decider is given the notes of those before it. The people's
+// wait is given the notes, and decide's held jobs, as data; its said holds
+// the same as text, for a bridge.
 func (d decision) chart(o *office.Office) mapping {
 	var before []office.Decider // the deciders before the people
 	var people []any
@@ -241,16 +246,18 @@ func (d decision) chart(o *office.Office) mapping {
 		}})
 	}
 	if len(people) > 0 {
+		input := mapping{
+			{"to", inline{{"people", people}}},
+			{"said", d.asked + d.noted(before)},
+			{"choices", list{"yes", "no"}},
+			{"decision", d.name},
+			{"notes", d.notes(before)},
+		}
+		if d.jobs != "" {
+			input = append(input, entry{"jobs", d.jobs})
+		}
 		states = append(states, entry{"people", mapping{
-			{"job", mapping{
-				{"machine", wait},
-				{"input", mapping{
-					{"to", inline{{"people", people}}},
-					{"said", d.asked + d.noted(before)},
-					{"choices", list{"yes", "no"}},
-					{"decision", d.name},
-				}},
-			}},
+			{"job", mapping{{"machine", wait}, {"input", input}}},
 			{"on", mapping{{"done", []any{inline{{"go", "said_yes"}, {"when", "${event.data.answer == 'yes'}"}}, "said_no"}}}},
 		}})
 	}

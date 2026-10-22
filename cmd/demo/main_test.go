@@ -119,6 +119,8 @@ func TestDemoPlaysKitsRequest(t *testing.T) {
 	type card struct {
 		Ref, Kind, Said string
 		Choices         []string
+		Jobs            []struct{ Name string }
+		Notes           []struct{ Note string }
 	}
 	type row struct{ ID, Team, Status string }
 	var list struct {
@@ -130,7 +132,8 @@ func TestDemoPlaysKitsRequest(t *testing.T) {
 		return len(list.Waiting) > 0
 	})
 	cut := list.Waiting[0]
-	if cut.Kind != "decision" || !strings.Contains(cut.Said, "cut_power") || !strings.Contains(cut.Said, "It costs nothing, so Sam decides.") {
+	if cut.Kind != "decision" || len(cut.Jobs) != 1 || cut.Jobs[0].Name != "cut_power" ||
+		len(cut.Notes) != 2 || cut.Notes[1].Note != "It costs nothing, so Sam decides." {
 		t.Fatalf("Sam is asked %+v", cut)
 	}
 	sam.do(http.MethodPost, "/api/waits/"+cut.Ref+"/answer", map[string]string{"answer": "yes"}, &struct{}{})

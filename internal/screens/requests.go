@@ -30,7 +30,7 @@ type party struct {
 // A node is one stage of a request's line, from SOURCE to REPLY.
 type node struct {
 	Stage    string    `json:"stage"` // source, heed, work, check or reply
-	State    string    `json:"state"` // waiting-to-start, passed, working, waiting, no, failed or skipped
+	State    string    `json:"state"` // waiting-to-start, passed, working, waiting, no, failed, stopped or skipped
 	Line     string    `json:"line,omitzero"`
 	Deciders []decider `json:"deciders,omitzero"`
 }
@@ -55,18 +55,20 @@ type row struct {
 	Nodes    []node    `json:"nodes"`
 }
 
-// A card is a question or a decision put to the one looking. A
-// decision's said holds its held jobs and what each decider before said,
-// as a bridge carries it.
+// A card is a question or a decision put to the one looking: for a
+// decision, what each decider before the people said, and decide's held
+// jobs.
 type card struct {
-	Ref      string    `json:"ref"`
-	Request  string    `json:"request"`
-	Team     string    `json:"team"`
-	TeamName string    `json:"teamName"`
-	Kind     string    `json:"kind"` // question or decision
-	Said     string    `json:"said"`
-	Choices  []string  `json:"choices"`
-	At       time.Time `json:"at"`
+	Ref      string         `json:"ref"`
+	Request  string         `json:"request"`
+	Team     string         `json:"team"`
+	TeamName string         `json:"teamName"`
+	Kind     string         `json:"kind"` // question or decision
+	Said     string         `json:"said"`
+	Choices  []string       `json:"choices"`
+	Notes    []decider      `json:"notes,omitzero"`
+	Jobs     []requests.Job `json:"jobs,omitzero"`
+	At       time.Time      `json:"at"`
 }
 
 // A view is one request as the one looking may see it.
@@ -106,17 +108,17 @@ type fileLink struct {
 // A fork is a question of a request, or a decision on its held jobs,
 // drawn as a line off WORK.
 type fork struct {
-	Kind     string    `json:"kind"`   // team, person or decision
-	Party    party     `json:"party"`  // whom it went to; for a decision, who decided
-	Status   string    `json:"status"` // waiting, working, answered, no (a decision that said no), refused, timed-out, failed or stopped
-	At       time.Time `json:"at"`
-	Ended    time.Time `json:"ended,omitzero"`
-	Question string    `json:"question,omitzero"`
-	Answer   string    `json:"answer,omitzero"`
-	Jobs     []string  `json:"jobs,omitzero"`     // a decision's held jobs
-	Deciders []decider `json:"deciders,omitzero"` // what each decider of a decision said
-	Request  string    `json:"request,omitzero"`
-	Card     *card     `json:"card,omitzero"`
+	Kind     string         `json:"kind"`   // team, person or decision
+	Party    party          `json:"party"`  // whom it went to; for a decision, who decided
+	Status   string         `json:"status"` // waiting, working, answered, no (a decision that said no), refused, timed-out, failed or stopped
+	At       time.Time      `json:"at"`
+	Ended    time.Time      `json:"ended,omitzero"`
+	Question string         `json:"question,omitzero"`
+	Answer   string         `json:"answer,omitzero"`
+	Jobs     []requests.Job `json:"jobs,omitzero"`     // a decision's held jobs
+	Deciders []decider      `json:"deciders,omitzero"` // what each decider of a decision said
+	Request  string         `json:"request,omitzero"`
+	Card     *card          `json:"card,omitzero"`
 }
 
 // read is what the team read: sealed to everyone but its people.
@@ -230,7 +232,28 @@ func (s *Screens) cardOf(o *office.Office, w *requests.Wait) *card {
 		kind = "decision"
 	}
 	return &card{Ref: w.Ref, Request: s.id(w.Request), Team: w.Team, TeamName: teamName(o, w.Team), Kind: kind,
-		Said: w.Said, Choices: w.Choices, At: w.Started}
+		Said: asks(w), Choices: w.Choices, Notes: decidersOf(o, w.Notes), Jobs: w.Jobs, At: w.Started}
+}
+
+// asks gives what a wait asks, as a card shows it. A decision's said
+// holds its notes, and decide's held jobs, as text for a bridge, and the
+// card shows them on their own.
+func asks(w *requests.Wait) string {
+	if w.Decision == "decide" {
+		first, _, _ := strings.Cut(w.Said, "\n")
+		return first
+	}
+	if len(w.Notes) == 0 {
+		return w.Said
+	}
+	lines := make([]string, len(w.Notes))
+	for i, n := range w.Notes {
+		lines[i] = n.Name + " passed."
+		if n.Note != "" {
+			lines[i] = n.Name + " passed: " + n.Note
+		}
+	}
+	return strings.TrimSuffix(w.Said, "\n\n"+strings.Join(lines, "\n"))
 }
 
 // putTo says whether a question or a decision is put to a person: it
@@ -294,6 +317,13 @@ func (s *Screens) request(r *http.Request, me string) (any, error) {
 	v.Nodes = nodesOf(q, carried)
 	v.Nodes[0].Line = sourceLine(o, q)
 	v.Nodes[4].Line = replyLine(o, q, carried)
+	// A stage running when the request was stopped says so to everyone;
+	// to the team's people, WORK's line gives the lead and the time too.
+	for i, n := range v.Nodes {
+		if n.State == "stopped" {
+			v.Nodes[i].Line = "stopped"
+		}
+	}
 	if how == whole {
 		if v.Nodes[4].State == "failed" && failed != "" {
 			v.Nodes[4].Line += ": " + failed
@@ -396,19 +426,28 @@ func (s *Screens) decisionFork(o *office.Office, me string, d *requests.Decision
 	}
 	put := w != nil && putTo(w, me)
 	if how == whole || put {
-		f.Jobs, f.Answer = d.Jobs, d.Says
+		f.Jobs, f.Answer, f.Deciders = jobsOf(d), d.Says, decidersOf(o, d.Words)
 		if w != nil && w.By != "" && d.Says != "" {
 			f.Answer += " (" + personName(o, w.By) + ")"
-		}
-		for _, word := range d.Words {
-			says := word.Says
-			f.Deciders = append(f.Deciders, decider{Kind: word.Kind, Name: deciderName(o, word.Kind, word.Name), Says: &says, Note: word.Note})
 		}
 	}
 	if put && w.Status == "waiting" {
 		f.Card = s.cardOf(o, w)
 	}
 	return f
+}
+
+// jobsOf gives a decision's held jobs: as its people were given them, or
+// by name alone when it came to no person.
+func jobsOf(d *requests.Decision) []requests.Job {
+	if d.Wait != nil {
+		return d.Wait.Jobs
+	}
+	jobs := make([]requests.Job, len(d.Jobs))
+	for i, name := range d.Jobs {
+		jobs[i] = requests.Job{Name: name}
+	}
+	return jobs
 }
 
 // waitedOn gives whom a wait waits on: the team, the person who answered,
@@ -532,10 +571,7 @@ func lines(o *office.Office, q *requests.Request, waits []*requests.Wait, nodes 
 			continue
 		}
 		var asked []string
-		for _, w := range st.Words {
-			says := w.Says
-			n.Deciders = append(n.Deciders, decider{Kind: w.Kind, Name: deciderName(o, w.Kind, w.Name), Says: &says, Note: w.Note})
-		}
+		n.Deciders = decidersOf(o, st.Words)
 		for _, w := range waits {
 			if w.Decision == st.Name && w.Status == "waiting" {
 				for _, p := range w.People {
@@ -569,6 +605,8 @@ func workLine(o *office.Office, q *requests.Request, st requests.Stage, waits []
 		return lead + " · " + took(st.Ended.Sub(st.Started))
 	case "failed":
 		return lead + " · failed after " + took(st.Ended.Sub(st.Started))
+	case "stopped":
+		return lead + " · stopped after " + took(q.Ended.Sub(st.Started))
 	case "working":
 		return lead + " · working"
 	case "waiting":
@@ -614,6 +652,16 @@ func partyOf(o *office.Office, q *requests.Request) party {
 		return party{Kind: "team", ID: by.Team, Name: teamName(o, by.Team)}
 	}
 	return party{Kind: "routine", ID: q.By.Routine, Name: q.By.Routine}
+}
+
+// decidersOf gives what each decider said.
+func decidersOf(o *office.Office, words []requests.Word) []decider {
+	var out []decider
+	for _, w := range words {
+		says := w.Says
+		out = append(out, decider{Kind: w.Kind, Name: deciderName(o, w.Kind, w.Name), Says: &says, Note: w.Note})
+	}
+	return out
 }
 
 // deciderName gives a decider by the name the screens show it by: a

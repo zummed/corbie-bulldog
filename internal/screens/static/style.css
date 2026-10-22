@@ -196,6 +196,12 @@ input[type="file"].in::file-selector-button { margin-right: 10px; padding: 4px 1
 .notes .note { flex: 1 1 100%; color: var(--ink2); font-style: italic; overflow-wrap: anywhere; }
 .says { font: 600 var(--small) var(--mono); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink2); }
 .says.yes { color: var(--good); } .says.no { color: var(--bad); }
+.jobs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.jobs > li { padding: 8px 10px; border: 1.5px solid var(--line); background: var(--field); min-width: 0; }
+.jobs .does { color: var(--ink2); font-size: 14px; }
+.args { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 12px; margin: 6px 0 0; font: var(--data)/1.5 var(--mono); }
+.args dt { color: var(--ink2); }
+.args dd { margin: 0; overflow-wrap: anywhere; }
 .card-act { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
 .card-act > .field { flex: 1 1 220px; }
 .card-act textarea.in { min-height: 44px; }
@@ -274,6 +280,7 @@ time { font: var(--small) var(--mono); color: var(--ink3); white-space: nowrap; 
 .check.st-no .mark { border-style: solid; border-color: var(--bad); }
 .reply.st-no .mark { border-style: solid; }
 .st-failed .mark { border-color: var(--bad); background: var(--bad); border-radius: 1px; transform: none; }
+.st-stopped .mark { border-color: var(--ink3); background: var(--ink3); }
 .st-waiting > .text > .word { color: var(--wait); }
 .st-failed > .text > .word, .check.st-no > .text > .word { color: var(--bad); }
 @keyframes breathe { 0%, 100% { opacity: 0.5; scale: 0.8; } 50% { opacity: 1; scale: 1; } }

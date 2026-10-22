@@ -10,7 +10,7 @@ Each tool runs `./.bulldog/wait/wait.yaml`, and its result is the wait's output:
 - `ask_team` is marked for approval, so the asking team's `check` is asked about the question before it leaves. Without a `check`, the question leaves at once.
 - `ask_team` is refused for the asking team itself, a team already in the request's chain, and a name that is no team.
 - `ask_person` may ask a person of the worker's team, or one its team file names. Anyone else is refused, and nobody is asked.
-- `choices`, up to 8 short answers, are offered as buttons. The person may still answer anything else.
+- `choices`, up to 8 short answers of up to 75 characters each, are offered as buttons. The person may still answer anything else.
 
 ## Needs
 

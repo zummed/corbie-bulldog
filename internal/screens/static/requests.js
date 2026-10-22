@@ -15,10 +15,24 @@ B.decided = function (deciders) {
   return B.notes(deciders.map((d) => ({by: {kind: d.kind, id: d.name, name: d.name}, says: d.says, note: d.note})));
 };
 
+// jobs gives held jobs: each its name, what it does, and what it was
+// given.
+B.jobs = function (jobs) {
+  const args = (a) => {
+    if (a === undefined || a === null) return null;
+    if (typeof a !== "object") return el("pre", {}, JSON.stringify(a));
+    return el("dl", {class: "args"}, Object.entries(a).map(([k, v]) =>
+      [el("dt", {}, k), el("dd", {}, typeof v === "string" ? v : JSON.stringify(v))]));
+  };
+  return el("ul", {class: "jobs", "aria-label": "Held jobs"}, jobs.map((j) => el("li", {},
+    el("div", {class: "line"}, el("strong", {class: "mono"}, j.name), j.does ? el("span", {class: "does"}, j.does) : null),
+    args(j.args))));
+};
+
 // card gives a question or a decision put to the one looking, with its
 // choices as buttons; a question may also be answered in words. A
-// decision's words hold its held jobs and the notes of the deciders
-// before. Under a fork's row it leaves out its head, which the row says.
+// decision shows its held jobs and what each decider before said. Under
+// a fork's row it leaves out its head, which the row says.
 B.card = function (c, within) {
   const answer = (value, form) => B.act(B.send("POST", "/api/waits/" + enc(c.ref) + "/answer", {answer: value}), form)
     .then((out) => { if (out) B.show(true); });
@@ -37,6 +51,8 @@ B.card = function (c, within) {
       el("a", {href: "#/requests/" + enc(c.request)}, c.teamName),
       B.time(c.at)),
     el("p", {class: "card-said"}, c.said),
+    c.jobs ? B.jobs(c.jobs) : null,
+    c.notes ? B.decided(c.notes) : null,
     form);
 };
 

@@ -37,6 +37,10 @@ func TestLookGivesTheWholeRequest(t *testing.T) {
 	if err != nil || len(waiting) != 1 || waiting[0].ID != asked.ID || waiting[0].Request != run || waiting[0].Status != "waiting" {
 		t.Fatalf("Lee is waited on by %+v (%v)", waiting, err)
 	}
+	if w := waiting[0]; w.Decision != "decide" || fmt.Sprint(w.Notes) != "[{rule ./payments/small-orders.js pass More than I order alone.}]" ||
+		fmt.Sprint(w.Jobs) != "[{order_part Order a part map[pounds:35]}]" {
+		t.Errorf("Lee is shown the notes %+v and the jobs %+v", w.Notes, w.Jobs)
+	}
 	if others, err := e.Waiting(ctx, "dana"); err != nil || len(others) != 0 {
 		t.Errorf("Dana is waited on by %+v (%v)", others, err)
 	}
@@ -62,7 +66,8 @@ func TestLookGivesTheWholeRequest(t *testing.T) {
 	if err := e.Answer(ctx, asked.ID, "lee", "yes", "U0LEE:7"); err != nil {
 		t.Fatal(err)
 	}
-	o.ended(o.until(3)[2].Run)
+	answer := o.until(3)[2]
+	o.ended(answer.Run)
 	look, err := e.Look(ctx, run)
 	if err != nil {
 		t.Fatal(err)
@@ -93,8 +98,8 @@ func TestLookGivesTheWholeRequest(t *testing.T) {
 	if f := look.Forks[0]; f.ID != asked.ID || f.Decision != "decide" || f.Status != "answered" || *f.Answer != "yes" || f.By != "lee" || f.Request != run || f.Team != "payments" {
 		t.Errorf("the decision is %+v", f)
 	}
-	if len(look.Replies) != 1 || look.Replies[0].Bridge != "slack" || look.Replies[0].Status != "done" {
-		t.Errorf("the answer was carried by %+v", look.Replies)
+	if len(look.Replies) != 1 || look.Replies[0].Status != "done" || answer.Bridge != "slack" {
+		t.Errorf("the answer was carried on %s by %+v", answer.Bridge, look.Replies)
 	}
 	if len(look.Thread) != 1 || look.Thread[0].ID != run {
 		t.Errorf("the thread is %+v", look.Thread)
@@ -111,7 +116,7 @@ func TestLookGivesTheWholeRequest(t *testing.T) {
 		t.Error("a second file is given")
 	}
 
-	all, err := e.Requests(ctx)
+	all, err := e.Newest(ctx, nil, 0)
 	if err != nil || len(all) != 1 || all[0].ID != run || all[0].Status != "answered" ||
 		fmt.Sprint(all[0].Stages) != fmt.Sprint([]Stage{{Name: "heed", State: "passed"}, {Name: "work", State: "passed"}, {Name: "check", State: "passed"}}) {
 		t.Errorf("the requests are %+v (%v)", all, err)
@@ -225,7 +230,7 @@ func TestNewestKeepsAndStops(t *testing.T) {
 	if err != nil || len(newest) != 2 || newest[0].ID != office[2] || newest[1].ID != office[1] || states(newest[0].Stages) != "work:passed" {
 		t.Errorf("the newest of the office are %+v (%v)", newest, err)
 	}
-	if all, err := e.Requests(ctx); err != nil || len(all) != 5 {
+	if all, err := e.Newest(ctx, nil, 0); err != nil || len(all) != 5 {
 		t.Errorf("the requests are %+v (%v)", all, err)
 	}
 }

@@ -1,6 +1,7 @@
 package requests
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -47,6 +48,15 @@ order_part: {"pounds":35}
 ./payments/second.js passed: I was given [{"kind":"rule","name":"./payments/small-orders.js","note":"More than I order alone.","says":"pass"}]`
 	if fmt.Sprint(input["to"]) != "map[people:[lee]]" || input["said"] != want || fmt.Sprint(input["choices"]) != "[yes no]" || input["decision"] != "decide" {
 		t.Errorf("Lee is asked %#v", input)
+	}
+	// Lee's wait is given the same notes and the held job as data.
+	notes, _ := json.Marshal(input["notes"])
+	if want := `[{"kind":"rule","name":"./payments/small-orders.js","note":"More than I order alone.","says":"pass"},` +
+		`{"kind":"rule","name":"./payments/second.js","note":"I was given [{\"kind\":\"rule\",\"name\":\"./payments/small-orders.js\",\"note\":\"More than I order alone.\",\"says\":\"pass\"}]","says":"pass"}]`; string(notes) != want {
+		t.Errorf("Lee's wait is given the notes %s", notes)
+	}
+	if jobs, _ := json.Marshal(input["jobs"]); string(jobs) != `[{"args":{"pounds":35},"does":"Order a part","name":"order_part"}]` {
+		t.Errorf("Lee's wait is given the jobs %s", jobs)
 	}
 	w.answer(asked, "yes", "lee")
 	if out := w.output(run); out["outcome"] != "answered" || !strings.Contains(fmt.Sprint(out["answer"]), `"ordered":35`) {

@@ -6,7 +6,7 @@
 // flow in the list of requests.
 "use strict";
 
-const REACHED = new Set(["passed", "working", "waiting", "no", "failed"]);
+const REACHED = new Set(["passed", "working", "waiting", "no", "failed", "stopped"]);
 const STAGE = {source: "Source", heed: "Heed", work: "Work", check: "Check", reply: "Reply"};
 const STATE = {"waiting-to-start": "not reached", passed: "passed", working: "working", waiting: "waiting", no: "said no", failed: "failed"};
 
@@ -115,7 +115,7 @@ B.forkEl = function (f, i) {
       el("span", {class: "faint"}, B.span(f.at, f.ended)),
       B.status(f.status)),
     f.card ? B.card(f.card, true) : [
-      f.jobs ? el("p", {class: "fork-q mono"}, f.jobs.join(", ")) : null,
+      f.jobs ? B.jobs(f.jobs) : null,
       f.question ? el("p", {class: "fork-q"}, f.question) : null,
       f.answer ? el("p", {class: "fork-a"}, f.answer) : null,
       f.deciders ? el("details", {class: "fork-more", "data-key": "fork-" + i},

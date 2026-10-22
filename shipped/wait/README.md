@@ -19,9 +19,9 @@ Its input:
 
 | Input | What it is |
 |---|---|
-| `to` | `{ team }`, or `{ people: [...] }` by their names in `everyone` |
+| `to` | `{ team }`, or `{ people: [...] }` by their ids in `everyone` |
 | `said` | the question |
-| `choices` | up to 8 short answers, offered as buttons; optional |
+| `choices` | up to 8 short answers of up to 75 characters each, offered as buttons; optional |
 
 ## Example
 

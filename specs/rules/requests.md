@@ -49,8 +49,8 @@ The rules behind the [Requests overview](../requests.md). Area code: `requests`.
 **R-requests-59** A decider that fails fails its decision: a failed heed or check fails the request, and a failed `decide` approves nothing.
 *Accept:* a check rule that throws ends Dana's request `failed`. A `decide` rule that throws denies the fixer's `order_part`, and the fixer is told it was denied.
 
-**R-requests-60** Each decider is given the notes of those before it, and people are shown them above `yes` and `no`.
-*Accept:* the clerk is given `small-orders.js`'s note. Sam's question on Telegram holds both notes above its buttons.
+**R-requests-60** Each decider is given the notes of those before it. The people's wait is given them as `notes`, and for `decide` the held jobs as `jobs`, each `{ name, does, args }`. Its `said` holds the same as text, above `yes` and `no`.
+*Accept:* the clerk is given `small-orders.js`'s note. Sam's wait is given both notes, and the fixer's job as `{ name: order_part, does: "Order a part for a repair, at its price in pounds", args: { pounds: 35 } }`. Sam's question on Telegram holds both notes above its buttons.
 
 **R-requests-61** The people at the end of a list are asked together, and the first of them to answer gives the answer.
 *Accept:* Lee and Priya are both asked about the ledger's refund. Lee's `yes` is the answer, and Priya's press afterwards changes nothing.
@@ -68,14 +68,14 @@ The rules behind the [Requests overview](../requests.md). Area code: `requests`.
 **R-requests-64** The request machine's `ask:` is a flow written in place. A held job that asks a team goes to the check decision, on its question, and is approved at once without a check; every other held job goes to the `decide` decision, or to the team's people without one; the flow approves each part that said yes.
 *Accept:* the ledger's `ask_team` to platform runs payments' check on the question, and on yes the wait starts. The ledger's `refund` waits for Lee or Priya. A held job of the garden is put to Sam, and the bot's `ask_team` to payments starts at once.
 
-**C-requests-36** Everything a team sends to another team passes its check: a question asked with `ask_team` does, as an answer does. A question the check refuses gives the tool "Payments did not let its question out." and reaches no other team. A question can carry what the team read, such as a card number. *Test:* `requests_question_to_a_team_passes_check`
+**C-requests-36** A question asked with `ask_team` passes the asking team's check, as an answer to another team does. Bulldog acts on every run of a machine named `wait`, so a definition of the team's own that runs `wait.yaml` without approval asks without the check. A question the check refuses gives the tool "Payments did not let its question out." and reaches no other team. A question can carry what the team read, such as a card number. *Test:* `requests_question_to_a_team_passes_check`
 
 ## Waiting on a person or a team
 
 **R-requests-65** `wait.yaml`, given `{ to, said, choices }`, waits on its ticket `answer` and ends with the answer, or after 7 days with `{ answer: null, note: "No answer came within 7 days." }`.
 *Accept:* a wait answered with `{ answer: "yes", by: "lee" }` ends with that. A wait nobody answers ends, when the test clock has moved 7 days, with the note.
 
-**R-requests-66** `ask_team(team, question)` runs `wait.yaml` to the team, marked for approval, and `ask_person(who, question, choices)` runs it to the person, with up to 8 choices of up to 75 characters each; a question offering more is refused.
+**R-requests-66** `ask_team(team, question)` runs `wait.yaml` to the team, marked for approval, and `ask_person(who, question, choices)` runs it to the person by their id in `everyone`, with up to 8 choices of up to 75 characters each; a question offering more is refused.
 *Accept:* the ledger's `ask_team` makes a wait with `to: { team: platform }`, held for the ask. The steward's `ask_person` to Sam with the choices `today` and `tomorrow` makes a wait with those choices. One with 9 choices, or with a choice of 76 characters, is refused, and nobody is sent it.
 
 **R-requests-67** For a wait to a team, Bulldog starts a request of that team, named from the wait run, and answers the ticket with `{ answer }` when the sub-request ends, the answer null when it gave none; when the wait ends first, Bulldog cancels the sub-request.

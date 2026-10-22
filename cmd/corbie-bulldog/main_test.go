@@ -146,6 +146,16 @@ func TestKeyNamesAPersonOfTheOffice(t *testing.T) {
 	}
 }
 
+func TestVersionIsDevOutsideARelease(t *testing.T) {
+	t.Parallel()
+	if status, out, _ := bulldog("version"); status != 0 || out != "corbie bulldog dev\n" {
+		t.Fatalf("version ended %d, and printed %q", status, out)
+	}
+	if status, out, _ := bulldog("version", "--json"); status != 0 || !strings.Contains(out, `"version":"dev"`) {
+		t.Fatalf("version --json ended %d, and printed %q", status, out)
+	}
+}
+
 func TestManualHasEachShippedPage(t *testing.T) {
 	t.Parallel()
 	status, list, _ := bulldog("manual")

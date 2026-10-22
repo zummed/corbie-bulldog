@@ -91,6 +91,7 @@ stages:
                 said: "May Payments give this answer?\n\n${input.answer}\n\n./payments/no-account-numbers.js passed${states.d1.output?.note ? ': ' + states.d1.output?.note : '.'}"
                 choices: ["yes", "no"]
                 decision: check
+                notes: [{kind: rule, name: ./payments/no-account-numbers.js, says: pass, note: "${states.d1.output?.note ?? null}"}]
             on:
               done:
                 - {go: said_yes, when: "${event.data.answer == 'yes'}"}
@@ -217,7 +218,18 @@ return { says: "pass", note: "More than I order alone." }
 
 Bulldog writes each decision as a statechart in place, as payments' heed and check above: one state for each decider before the people, `d1`, `d2` and on, then `people`, then the final states `said_yes`, `said_no` and `passed`. The charts are named `<team>-heed`, `<team>-check`, `<team>-question` for the check on a question, and `<team>-decide`. A rule that is a script runs with no permissions.
 
-The people are asked with `wait.yaml`, given `decision`, the name of the decision, and the choices `yes` and `no`. Its `said` is what is decided, then a line for each decider before them, such as `./small-orders.js passed: More than I order alone.`
+The people are asked with `wait.yaml`, given:
+
+| Input | What it is |
+|---|---|
+| `to` | `{ people: [...] }` |
+| `said` | what is decided, then a line for each decider before them, such as `./small-orders.js passed: More than I order alone.` |
+| `choices` | `yes` and `no` |
+| `decision` | `heed`, `check` or `decide` |
+| `notes` | the notes of the deciders before them, as a decider is given them |
+| `jobs` | for `decide`, each held job as `{ name, does, args }`: `does` what its tool does, `args` its `asked.args` or its input |
+
+A bridge carries `said`. `notes` and `jobs` give the same as data.
 
 The heed rules Bulldog ships, `mentioned` and `for-us`, answer `yes` or `no`, never `pass`.
 
@@ -268,6 +280,7 @@ ask:
                     said: "May Payments ask ${input.question.team} this?\n\n${input.question.said}\n\n./payments/no-account-numbers.js passed${states.d1.output?.note ? ': ' + states.d1.output?.note : '.'}"
                     choices: ["yes", "no"]
                     decision: check
+                    notes: [{kind: rule, name: ./payments/no-account-numbers.js, says: pass, note: "${states.d1.output?.note ?? null}"}]
                 on:
                   done:
                     - {go: said_yes, when: "${event.data.answer == 'yes'}"}
@@ -291,6 +304,8 @@ ask:
                     said: "May these run?\n\n${input.jobs.map(j => j.name + ': ' + JSON.stringify(j.asked?.args ?? j.input)).join(`\n`)}"
                     choices: ["yes", "no"]
                     decision: decide
+                    notes: []
+                    jobs: "${input.jobs.map(j => ({ name: j.name, does: j.asked?.does ?? null, args: j.asked?.args ?? j.input }))}"
                 on:
                   done:
                     - {go: said_yes, when: "${event.data.answer == 'yes'}"}
@@ -321,12 +336,14 @@ states:
   unanswered: { end: done, output: { answer: null, note: "No answer came within 7 days." } }
 ```
 
-`to` is `{ team }` or `{ people: [...] }`, and a decision's people are given `decision` too. A worker uses it through the talk tools, by naming `./.bulldog/tools/talk/talk.yaml` in `tools_file`:
+`to` is `{ team }` or `{ people: [...] }`, and a decision's people are given `decision`, `notes` and `jobs` too. A worker uses it through the talk tools, by naming `./.bulldog/tools/talk/talk.yaml` in `tools_file`:
 
 | Tool | What it does |
 |---|---|
 | `ask_team(team, question)` | asks another team and waits for its answer; marked for approval, so it passes the team's `check` first |
-| `ask_person(who, question, choices)` | asks a person and waits for the answer; `choices`, up to 8 answers of up to 75 characters each, are offered as buttons |
+| `ask_person(who, question, choices)` | asks a person, by their id in `everyone`, and waits for the answer; `choices`, up to 8 answers of up to 75 characters each, are offered as buttons |
+
+Bulldog acts on every run of a machine named `wait`, held for approval or not. A definition of the team's own that runs `wait.yaml` without `approve: true` asks another team without the check.
 
 The same `wait.yaml` asks the people at the end of a decision, and is the work of a team whose lead is a person. A person who leads is asked what was said, a blank line, and the context, as a worker is given them.
 

@@ -74,16 +74,17 @@ B.officeView = async function () {
         B.sect("Problems", o.problems.length || undefined, problemsOf(o.problems)))));
 };
 
-// The team's room with no run: the places that ask it as doors at SOURCE,
-// the heed's deciders, the lead and what it uses, the check's deciders,
-// and decide as a fork from WORK.
+// The team's room with no run: at SOURCE the places that ask it as doors,
+// then the screens and other teams, which ask every team; the heed's
+// deciders, the lead and what it uses, the check's deciders, and decide
+// as a fork from WORK.
 function teamDrawing(t) {
   const f = t.flow;
   const names = Object.fromEntries([B.me.person, ...t.people].map((p) => [p.id, p.name]));
-  const doors = f.source.length
-    ? el("ul", {class: "doors", "aria-label": "Places that ask " + t.name}, f.source.map((p) => el("li", {class: "door"},
-      B.door(), el("span", {}, p.bridge + " › " + p.place), p.guests ? el("span", {class: "tag"}, "guests") : null)))
-    : el("span", {class: "faint"}, "the screens and other teams");
+  const doors = el("ul", {class: "doors", "aria-label": "Places that ask " + t.name},
+    f.source.map((p) => el("li", {class: "door"},
+      B.door(), el("span", {}, p.bridge + " › " + p.place), p.guests ? el("span", {class: "tag"}, "guests") : null)),
+    el("li", {class: "door faint"}, "the screens and other teams"));
   const lead = f.work.lead.kind === "person"
     ? B.party({kind: "person", id: f.work.lead.name, name: names[f.work.lead.name] || f.work.lead.name})
     : B.party({kind: "worker", name: f.work.lead.name});
@@ -135,7 +136,7 @@ B.teamView = async function ([id]) {
           : B.empty("None; the office's people see its requests.")),
         B.sect("Routines", t.routines.length, t.routines.length ? el("ul", {class: "rows"}, t.routines.map((r) => el("li", {class: "routine"},
           el("span", {class: "who"}, B.icon("clock"), el("span", {class: "mono"}, r.at)),
-          el("span", {class: "small faint"}, "next ", B.time(r.next)),
+          r.next ? el("span", {class: "small faint"}, "next ", B.time(r.next)) : null,
           el("span", {class: "say"}, r.say)))) : B.empty("None.")),
         B.sect("Problems", t.problems.length || undefined, problemsOf(t.problems)))));
 };
