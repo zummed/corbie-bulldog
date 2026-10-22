@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Perch Depth Sketch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a 48px header, one screen at a time. Run stacks the chain row, the parent band,
+   the planes, the tabs and the record; the waiting plane is a 360px right column at 1200px
+   and wider, and above the drawing or the list narrower. Colour: corbie-ui's tokens, which
+   the note keeps, with bulldog's --wait for what waits on a person. */
+:root {
+  --paper: #ECEFED; --plate: #F8F9F7; --plate2: #FFFFFF; --line: #D3D9D6; --hover: #E3E8E5;
+  --ink: #12161C; --ink2: #5A646D; --ink3: #8A9399;
+  --petrol: #17606E; --moss: #3F6B35; --rowan: #AB3626; --wait: #B4471A; --wait-soft: #F7E4D9;
+  --shadow: 0 8px 24px rgba(0, 0, 0, .18);
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --ease: cubic-bezier(.2, .75, .2, 1); --t: .32s;
+  --gutter-l: max(16px, env(safe-area-inset-left, 0px)); --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0C1014; --plate: #12181E; --plate2: #1A222A; --line: #232D35; --hover: #161E25;
+    --ink: #E3E8E5; --ink2: #8B979B; --ink3: #5F6A70;
+    --petrol: #5FC0CF; --moss: #96C781; --rowan: #EC8470; --wait: #E88A5E; --wait-soft: #3A2419;
+    --shadow: none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0C1014; --plate: #12181E; --plate2: #1A222A; --line: #232D35; --hover: #161E25;
+  --ink: #E3E8E5; --ink2: #8B979B; --ink3: #5F6A70;
+  --petrol: #5FC0CF; --moss: #96C781; --rowan: #EC8470; --wait: #E88A5E; --wait-soft: #3A2419;
+  --shadow: none; color-scheme: dark;
+}
+@media (prefers-reduced-motion: reduce) { :root { --t: 0s; } }
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--paper); color: var(--ink); font: 400 14px/1.45 var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+code, .mono { font-family: var(--mono); }
+.dim { color: var(--ink2); }
+b { font-weight: 600; }
+button { font: 500 12.5px var(--sans); color: var(--ink); background: var(--plate); border: 1px solid var(--line); border-radius: 7px; padding: 6px 13px; cursor: pointer; transition: background .15s, border-color .15s; }
+button:hover { background: var(--hover); }
+button.go { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+button.no { color: var(--rowan); }
+:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; border-radius: 4px; }
+[hidden] { display: none !important; }
+[data-cmd] { position: relative; }
+[data-cmd]::after { content: "$ " attr(data-cmd); position: absolute; top: calc(100% + 7px); right: 0; z-index: 9; white-space: nowrap; pointer-events: none; display: none;
+  font: 500 11.5px var(--mono); color: var(--ink2); background: var(--plate); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; }
+[data-cmd]:hover::after, [data-cmd]:focus-visible::after { display: block; }
+input, textarea { min-width: 0; font: 12.5px var(--mono); color: var(--ink); background: var(--plate2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; }
+input:focus { outline: none; border-color: var(--petrol); }
+h2 { margin: 0 0 8px; font: 500 11px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink2); }
+
+/* the header */
+.header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; min-height: 48px;
+  padding: 4px var(--gutter-r) 4px var(--gutter-l); background: color-mix(in srgb, var(--paper) 90%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.logo { display: flex; align-items: baseline; gap: 8px; font-weight: 600; font-size: 15px; }
+.logo small { font: 12px var(--mono); color: var(--ink2); }
+.header nav { display: flex; gap: 2px; }
+.header nav a { padding: 5px 11px; border-radius: 6px; font-size: 13.5px; color: var(--ink2); cursor: pointer; }
+.header nav a:hover { color: var(--ink); background: var(--hover); }
+.header nav a[aria-current] { color: var(--ink); background: var(--plate); box-shadow: inset 0 0 0 1px var(--line); }
+.as { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink2); }
+.as code { font-size: 12px; color: var(--ink); padding: 2px 7px; border: 1px solid var(--line); border-radius: 5px; }
+.live { width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--moss); --ring: var(--moss); animation: ring 2.4s infinite; }
+@keyframes ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ring) 55%, transparent); } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+main { padding: 16px var(--gutter-r) 40px var(--gutter-l); max-width: 1400px; margin: 0 auto; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+.cols > .mainc { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.cols > .waiting { order: -1; min-width: 0; }
+@media (min-width: 1200px) {
+  .cols { grid-template-columns: minmax(0, 1fr) 360px; }
+  .cols > .waiting { order: 0; position: sticky; top: 64px; }
+}
+
+/* a status: one dot and one word */
+.st { white-space: nowrap; font-family: var(--mono); font-size: 12.5px; }
+.st::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--c); vertical-align: 1px; }
+.st.running { --c: var(--petrol); --ring: var(--petrol); } .st.done { --c: var(--moss); } .st.failed { --c: var(--rowan); } .st.waiting { --c: var(--wait); color: var(--wait); }
+.st.running::before { animation: ring 2.4s infinite; }
+.st.held { --c: var(--wait); }
+
+/* counts and the now panel */
+.now { display: grid; grid-template-columns: auto 1fr; gap: 6px 28px; align-items: center; padding: 14px 16px; }
+.hero b { display: block; font: 500 44px/.95 var(--mono); letter-spacing: -.03em; color: var(--petrol); }
+.hero span { display: block; margin-top: 4px; font-size: 12px; color: var(--ink2); }
+.waits { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font: 12.5px var(--mono); }
+.waits b { font-weight: 500; text-align: right; }
+.waits span { color: var(--ink2); }
+.panel { background: var(--plate); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.panel > h2 { padding: 13px 16px 0; }
+.pad { padding: 14px 16px; }
+
+/* the timeline: a lane per thread, the last lane the runs with no thread */
+.tl { padding: 12px 16px 8px; }
+.tl-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.tl-head h2 { margin: 0; }
+.tl-head .win { margin-left: auto; font: 11px var(--mono); color: var(--ink2); }
+.lane { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: center; height: 20px; }
+.lane .who { font: 12px var(--mono); color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track { position: relative; height: 100%; }
+.track::before { content: ""; position: absolute; left: 0; right: 0; top: 9.5px; border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.runbar { position: absolute; top: 7px; height: 6px; min-width: 5px; border-radius: 3px; background: var(--c); opacity: var(--o, 1); cursor: pointer; }
+.runbar.done { --c: var(--moss); --o: .7; } .runbar.cancelled { --c: var(--ink2); --o: .45; }
+.runbar.running { --c: var(--petrol); background: linear-gradient(90deg, color-mix(in srgb, var(--petrol) 40%, transparent), var(--petrol) 96%); }
+.runbar.running::after { content: ""; position: absolute; right: -4px; top: -2px; width: 10px; height: 10px; border-radius: 50%; background: var(--petrol); --ring: var(--petrol); animation: ring 2.4s infinite; }
+.runbar:hover, .runbar:focus-visible { --o: 1; box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 35%, transparent); }
+.axis { display: flex; justify-content: space-between; margin-left: 110px; padding-top: 6px; font: 11px var(--mono); color: var(--ink2); }
+@media (max-width: 640px) { .lane { grid-template-columns: 56px minmax(0, 1fr); } .axis { margin-left: 56px; } .header { position: static; backdrop-filter: none; } }
+
+/* the list: one line per run, the labels as a path */
+.list { width: 100%; border-collapse: collapse; font: 400 13px/1.3 var(--mono); }
+.list th { padding: 0 14px 8px 0; text-align: left; font: 500 11px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); }
+.list td { padding: 7px 14px 7px 0; border-top: 1px solid var(--line); vertical-align: top; }
+.list td:first-child, .list th:first-child { padding-left: 12px; }
+.list tbody tr { cursor: pointer; }
+.list tbody tr:hover, .list tbody tr:focus-visible { background: var(--hover); outline: none; }
+.list .path { color: var(--ink2); }
+.list .path b { font-weight: 400; color: var(--ink); }
+.list .step { color: var(--ink2); }
+@media (max-width: 720px) { .list .hide { display: none; } }
+
+/* the waiting plane: in front, what waits on a person */
+.waiting .plane-wait { background: var(--plate2); border-radius: 10px; box-shadow: var(--shadow); border: 1px solid var(--line); padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; }
+.ask { border: 1px solid var(--line); border-left: 4px solid var(--wait); background: var(--plate); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.ask .where { font: 12px var(--mono); color: var(--ink2); display: flex; flex-wrap: wrap; gap: 4px 8px; cursor: pointer; }
+.ask .where:hover { color: var(--ink); }
+.ask .what { font-size: 17px; font-weight: 600; line-height: 1.25; }
+.ask .args { font: 12.5px var(--mono); display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; }
+.ask .args span { color: var(--ink2); }
+.ask .said { font-size: 13px; color: var(--ink2); border-left: 2px solid var(--line); padding-left: 10px; }
+.ask .act { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ask .act input { flex: 1 1 120px; }
+.replied { font: 12px var(--mono); color: var(--moss); border-left: 3px solid var(--moss); padding: 4px 10px; }
+.replied:empty { display: none; }
+.nothing { font: 12.5px var(--mono); color: var(--ink2); padding: 4px 2px; }
+
+/* the Run screen: the chain row, the parent band, the two planes */
+.chainrow { display: flex; align-items: center; gap: 8px; height: 32px; }
+.chainrow .back { padding: 4px 10px; }
+.chain { display: flex; align-items: center; gap: 4px; margin: 0; padding: 0; list-style: none; overflow-x: auto; min-width: 0; flex: 1; }
+.chain li { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.chain li + li::before { content: "›"; color: var(--ink3); padding: 0 2px; }
+.chain button { font: 500 12px var(--mono); padding: 3px 9px; border-radius: 6px; }
+.chain li:last-child button { color: var(--paper); background: var(--ink); border-color: var(--ink); cursor: default; }
+.band { display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 14px; font: 12.5px var(--mono); color: var(--ink2); border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--plate) 60%, var(--paper)); cursor: pointer; }
+.band:hover { background: var(--hover); color: var(--ink); }
+.band b { font-weight: 500; color: var(--ink); }
+.band .name { margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+@media (max-width: 720px) { .band .name, .plane .phead .name { display: none; } }
+.band .state { color: var(--petrol); }
+.band.none { cursor: default; color: var(--ink3); }
+.band.none:hover { background: color-mix(in srgb, var(--plate) 60%, var(--paper)); }
+.planes { position: relative; height: 240px; transition: height var(--t) var(--ease); }
+.plane { position: absolute; left: 0; right: 0; top: 24px; bottom: 0; transform-origin: 50% 0; background: var(--plate); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  transition: transform var(--t) var(--ease), opacity var(--t) var(--ease), top var(--t) var(--ease); display: flex; flex-direction: column; }
+.plane.behind { top: 0; transform: scale(.94); opacity: .55; }
+.plane.deep { top: 0; transform: scale(.88); opacity: 0; pointer-events: none; }
+.plane.enter, .plane.leave { transform: scale(1.04); opacity: 0; pointer-events: none; }
+.plane .phead { display: flex; align-items: center; gap: 10px; height: 24px; padding: 0 14px; font: 12px var(--mono); color: var(--ink2); border-bottom: 1px solid var(--line); flex: none; }
+.plane .phead b { font: 600 13px var(--sans); color: var(--ink); }
+.plane .phead > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.plane .phead .name { margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.plane .phead .st { margin-left: 0; }
+.plane .body { flex: 1; min-height: 0; overflow: auto; padding: 10px 14px; }
+.plane.behind .body { overflow: hidden; }
+.plane.behind .body, .plane.behind .phead { pointer-events: none; }
+.draw { position: relative; max-width: 820px; min-width: 760px; margin: 0 auto; }
+.draw svg { display: block; width: 100%; height: auto; }
+.chips { position: absolute; inset: 0; pointer-events: none; }
+.chip { position: absolute; transform: translate(-100%, -100%); pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; font: 500 11px/1 var(--mono); letter-spacing: .02em; padding: 4px 7px;
+  background: var(--plate2); border: 1px solid var(--line); border-radius: 5px; color: var(--ink); cursor: pointer; white-space: nowrap; }
+.chip:hover { border-color: var(--petrol); }
+.chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c, var(--ink2)); }
+.chip.running { --c: var(--petrol); } .chip.done { --c: var(--moss); } .chip.held { --c: var(--wait); color: var(--wait); border-color: var(--wait); }
+.chip.held::before { border-radius: 1px; }
+.chip.flat { cursor: default; }
+
+/* the drawing of a machine */
+.machine .state rect, .machine .tool rect, .machine .model rect { fill: var(--paper); stroke: var(--ink2); stroke-width: 1.3; }
+.machine text { font: 500 13px var(--mono); fill: var(--ink); }
+.machine .kind { font: 400 10.5px var(--mono); fill: var(--ink2); }
+.machine .never rect { stroke: var(--line); } .machine .never text { fill: var(--ink2); }
+.machine .now rect { stroke: var(--petrol); stroke-width: 2; fill: color-mix(in srgb, var(--petrol) 13%, var(--paper)); }
+.machine .done rect { stroke: var(--moss); }
+.machine .held rect { stroke: var(--wait); stroke-width: 1.6; fill: color-mix(in srgb, var(--wait) 10%, var(--paper)); }
+.machine .final rect.outer { fill: none; }
+.machine .model rect { stroke: var(--ink); }
+.machine .spark { fill: var(--petrol); }
+.machine .edge { fill: none; stroke: var(--ink2); stroke-width: 1.2; opacity: .75; }
+.machine .edge.timer { stroke-dasharray: 4 4; }
+.machine .edge.taken { stroke: var(--petrol); opacity: 1; stroke-width: 1.8; }
+.machine .on { font: 400 11px var(--sans); fill: var(--ink2); }
+.machine .arrow { fill: var(--ink2); } .machine .arrow.taken { fill: var(--petrol); }
+.machine .start { fill: var(--ink2); }
+.machine .job { outline: none; }
+.machine .job[data-open], .machine .job[data-sheet] { cursor: pointer; }
+.machine .job[data-open]:hover rect, .machine .job[data-sheet]:hover rect, .machine .job:focus-visible rect { stroke: var(--petrol); stroke-width: 2; }
+.machine .job[aria-expanded="true"] > rect { stroke: var(--ink); stroke-width: 2; }
+.machine .inner rect { fill: var(--paper); stroke: var(--moss); stroke-width: 1.2; } .machine .inner text { font-size: 11.5px; }
+
+/* a job's sheet, under the drawing in the same plane */
+.plane .body .kv { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 16px; font: 12.5px/1.5 var(--mono); }
+.kv dt { color: var(--ink2); } .kv dd { margin: 0; overflow-wrap: anywhere; }
+.kv .held { color: var(--wait); }
+.kv .h { color: var(--ink); font-weight: 600; } .kv dd.h { color: var(--ink2); font-weight: 400; }
+
+/* tabs and the record, as corbie-ui prints it */
+.tabs { display: flex; gap: 2px; padding: 8px 8px 0; border-bottom: 1px solid var(--line); }
+.tabs a { padding: 7px 11px 9px; font-size: 13px; color: var(--ink2); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; }
+.tabs a[aria-current] { color: var(--ink); border-color: var(--ink); }
+ol.record { list-style: none; margin: 0; padding: 6px 0; font: 12.5px/1.5 var(--mono); max-height: 46vh; overflow: auto; }
+.record li { display: grid; grid-template-columns: 72px 88px 22px minmax(0, 1fr); gap: 10px; padding: 3px 16px; }
+.record li:hover { background: var(--hover); }
+.record .t, .record .i, .record .n { color: var(--ink2); } .record .n { text-align: right; }
+.record .w { overflow-wrap: anywhere; }
+.record .w.text { font-family: var(--sans); font-size: 13.5px; }
+.record .w b { font-weight: 400; color: var(--ink2); }
+.record .emit b { color: var(--ink); }
+.record .hold { color: var(--wait); }
+.record .end { color: var(--moss); }
+.record .child { color: var(--petrol); cursor: pointer; }
+.record .child:hover { text-decoration: underline; }
+.record .live { display: inline-block; }
+.view { margin: 4px 0 2px; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--paper); }
+.view .vh { display: flex; gap: 10px; padding: 4px 10px; font-size: 11px; color: var(--ink2); border-bottom: 1px solid var(--line); background: var(--plate); }
+.view { overflow-x: auto; }
+.view table { border-collapse: collapse; font: 12.5px var(--mono); width: 100%; min-width: 360px; }
+.view th { text-align: left; font-weight: 500; color: var(--ink2); padding: 4px 10px; border-bottom: 1px solid var(--line); }
+.view td { padding: 4px 10px; border-top: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+.view td.tripped { color: var(--wait); }
+.view ul { margin: 0; padding: 6px 10px; list-style: none; display: grid; gap: 3px; }
+.view li { display: flex; gap: 12px; }
+.view li span { color: var(--ink2); margin-left: auto; }
+@media (max-width: 640px) {
+  .record li { grid-template-columns: 62px minmax(0, 1fr); gap: 2px 8px; padding: 4px 10px; } .record .w { grid-column: 1 / -1; } .record .n { display: none; }
+  .plane .phead { gap: 8px; padding: 0 10px; } .plane .body { padding: 8px; }
+  .plane.front .body { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
+}
+
+/* machines, controller, metrics: as corbie-ui lists them */
+.rows { display: grid; gap: 0; }
+.rowm { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 12px; border-top: 1px solid var(--line); font: 13px var(--mono); }
+.rowm:first-child { border-top: 0; }
+.rowm .k { font-size: 11px; color: var(--ink2); }
+.rowm .f { color: var(--ink2); font-size: 12px; }
+.rowm.ro { color: var(--ink2); }
+svg.g { width: 20px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.25; stroke-linecap: round; stroke-linejoin: round; }
+pre { margin: 0; font: 12.5px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* the legend of the depth cues */
+.legend { margin-top: 28px; padding: 14px 16px; border-top: 1px solid var(--line); }
+.legend dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-size: 13px; }
+.legend dt { font: 500 12px var(--mono); color: var(--ink); white-space: nowrap; }
+.legend dd { margin: 0; color: var(--ink2); }
+.legend .sw { display: inline-block; width: 26px; height: 14px; vertical-align: -2px; margin-right: 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--plate); }
+.legend .sw.b { transform: scale(.9); opacity: .55; }
+.legend .sw.f { background: var(--plate2); box-shadow: var(--shadow); }
+.legend .sw.c { width: auto; height: auto; font: 500 10px var(--mono); padding: 2px 5px; }
+.legend .sw.c.h { color: var(--wait); border-color: var(--wait); }
+.legend .sw.c.r { color: var(--petrol); }
+@media (max-width: 640px) { .legend dl { grid-template-columns: 1fr; gap: 2px; } .legend dd { margin-bottom: 8px; } }
+</style>
+</head>
+<body>
+<header class="header">
+  <a class="logo" href="#runs">Perch <small>~/house</small></a>
+  <nav id="nav">
+    <a href="#runs" data-screen="runs">Runs</a>
+    <a href="#machines" data-screen="machines">Machines</a>
+    <a href="#controller" data-screen="controller">Controller</a>
+    <a href="#metrics" data-screen="metrics">Metrics</a>
+  </nav>
+  <span class="as">client <code>house</code> <i class="live" title="following the store"></i></span>
+</header>
+<main>
+
+<section id="runs" class="screen" hidden>
+  <div class="cols">
+    <div class="mainc">
+      <div class="panel now">
+        <div class="hero"><b id="count-running">7</b><span>running</span></div>
+        <div class="waits" id="waits-grid"></div>
+      </div>
+      <div class="panel tl">
+        <div class="tl-head"><h2>Lanes by thread</h2><span class="win">24h</span></div>
+        <div id="lanes"></div>
+        <div class="axis"><span>yesterday 09:14</span><span>now 09:14</span></div>
+      </div>
+      <div class="panel"><table class="list"><thead><tr><th>Status</th><th>Machine</th><th class="hide">Run</th><th>Labels</th><th class="hide">Step</th></tr></thead><tbody id="runlist"></tbody></table></div>
+    </div>
+    <aside class="waiting"><h2>Waits on a person</h2><div class="plane-wait" id="wait-runs"></div></aside>
+  </div>
+</section>
+
+<section id="run" class="screen" hidden>
+  <div class="cols">
+    <div class="mainc">
+      <div class="chainrow"><button class="back" id="back" title="Escape">‹ Back</button><ol class="chain" id="chain"></ol></div>
+      <div class="band" id="band"></div>
+      <div class="planes" id="planes"></div>
+      <div class="panel">
+        <div class="tabs" id="tabs"><a aria-current="page">Output</a><a>Definition</a><a>Files</a><a>Children</a></div>
+        <ol class="record" id="record"></ol>
+      </div>
+    </div>
+    <aside class="waiting"><h2>Waits on a person</h2><div class="plane-wait" id="wait-run"></div></aside>
+  </div>
+</section>
+
+<section id="machines" class="screen" hidden>
+  <div class="cols"><div class="mainc">
+    <div class="panel"><h2>~/house</h2><div class="rows" id="machinelist"></div></div>
+    <div class="panel"><h2>.perch/ (read-only, written at every start)</h2><div class="rows" id="shipped"></div></div>
+  </div></div>
+</section>
+
+<section id="controller" class="screen" hidden>
+  <div class="cols"><div class="mainc">
+    <div class="panel"><h2>Runners</h2><div class="rows"><div class="rowm"><span></span><span>laptop <span class="f">runner · last seen 2s ago · jobs 1</span></span><span class="st running">running</span></div></div></div>
+    <div class="panel"><h2>Clients</h2><div class="rows"><div class="rowm"><span></span><span>house <span class="f">ceiling all · this perch</span></span><span class="k">enrolled</span></div></div></div>
+    <div class="panel"><h2>Secrets</h2><div class="rows"><div class="rowm"><span></span><span>ANTHROPIC_KEY</span><span class="k">set</span></div><div class="rowm"><span></span><span>TELEGRAM_TOKEN</span><span class="k">set</span></div></div></div>
+  </div></div>
+</section>
+
+<section id="metrics" class="screen" hidden>
+  <div class="cols"><div class="mainc"><div class="panel pad"><pre>corbie_runs{status="running",type="statechart",machine="direct"} 1
+corbie_runs{status="running",type="agent",machine="steward"} 1
+corbie_runs{status="running",type="agent",machine="fixer"} 1
+corbie_runs{status="done",type="agent",machine="sparks"} 1
+corbie_runs{status="running",type="statechart",machine="decide"} 1
+corbie_runs{status="running",type="statechart",machine="ask"} 1
+corbie_runs{status="running",type="statechart",machine="telegram/in"} 1
+corbie_runs{status="running",type="statechart",machine="walk-round"} 1
+corbie_runs{status="done",type="statechart",machine="direct"} 1
+corbie_waiting{on="tickets",type="statechart",machine="ask"} 1
+corbie_waiting{on="timers",type="statechart",machine="walk-round"} 1
+corbie_waiting{on="jobs",type="statechart",machine="telegram/in"} 1
+corbie_oldest_running_seconds{type="statechart",machine="walk-round"} 261840</pre></div></div></div>
+</section>
+
+<footer class="legend" id="legend">
+  <h2>Depth cues, each with one meaning</h2>
+  <dl>
+    <dt><i class="sw b"></i>behind</dt><dd>the run that started the one in front: scale(.94) from the top centre, opacity .55, its top 24px showing above the front drawing. Click it, or press Escape, to go back to it.</dd>
+    <dt><i class="sw f"></i>in front</dt><dd>what waits on a person, from any run shown: the waiting plane on a lighter plate with a shadow. In the dark theme it has no shadow and its plate is two steps lighter than the page.</dd>
+    <dt><i class="sw c r">● fixer · turn 1</i>chip</dt><dd>a child run in its job's box: status dot, name and step. Click it, or Tab to the box and press Enter, to open the child in front.</dd>
+    <dt>sheet</dt><dd>a job's box with no child opens the job's sheet under the drawing, in the same plane. Click it again to close it.</dd>
+    <dt><i class="sw c h">■ held</i>held</dt><dd>the job waits for its ask to approve it; the same job is in the waiting plane.</dd>
+    <dt>chain row</dt><dd>one chip per run from the root; the parent band is the parent's name, state and status.</dd>
+    <dt>motion</dt><dd>opening a child scales the drawing on top to .94 and dims it over .32s, and the child comes in from scale(1.04) and opacity 0. Back reverses it. Nothing else moves, and under prefers-reduced-motion nothing is animated.</dd>
+  </dl>
+</footer>
+</main>
+
+<script>
+'use strict';
+// The house, at 09:14 on Thursday 22 October. Kit has written "The kitchen sockets are dead."; the
+// steward asked the fixer, the fixer asked sparks, and cut_power waits on Sam.
+const stamp = '20261022T091203.114';
+const R = {};
+function run(id, o) { R[id] = Object.assign({ id, parent: null, record: [] }, o); }
+
+run('direct', { machine: 'direct', type: 'statechart', status: 'running', step: 2, state: 'answering', started: '09:12:03',
+  name: 'house/' + stamp + '-4472-61', labels: { bridge: 'telegram', place: 'direct', thread: '4472' },
+  drawing: () => chart([
+    { name: 'answering', status: 'now', job: 'steward', child: 'steward' },
+    { name: 'saying', status: 'never', job: 'out.yaml' },
+    { name: 'answered', status: 'never', final: true }], [
+    { from: 0, to: 1, on: 'answered' }, { from: 1, to: 2, on: 'said' }]),
+  record: [
+    ['09:12:03', 'direct', '', 'start · input <b>said:</b> "The kitchen sockets are dead." <b>thread:</b> 4472 <b>conversation:</b> none', 'emit'],
+    ['09:12:04', 'answering', '', 'job steward: a machine, run <span class="child" data-open="steward">…-steward</span>', 'emit'],
+    ['09:12:40', 'steward', '1', 'Kitchen sockets dead is an electrical fault. I will ask the fixer to look at it.', 'text'],
+    ['09:12:52', 'fixer', '1', 'First I need to know which circuit has gone. Asking sparks.', 'text'],
+    ['09:13:31', 'fixer', '2', 'The kitchen ring has tripped. I will isolate it before anything is tested.', 'text'],
+    ['09:13:32', 'fixer', '', 'hold cut_power for the ask', 'hold'],
+    ['09:13:32', 'fixer', '', 'job decide: a machine, run <span class="child" data-open="decide">…-decide</span>', 'emit'],
+    ['', 'decide', '', 'waiting on ticket <b>decided</b> · 7d <i class="live"></i>', 'hold']] });
+
+run('steward', { machine: 'steward', type: 'agent', model: 'claude-sonnet-5-5', status: 'running', step: 1, state: 'turn 1', started: '09:12:04', parent: 'direct',
+  name: 'house/' + stamp + '-4472-61/steward',
+  drawing: () => agent('claude-sonnet-5-5', [
+    { name: 'fixer', status: 'now', child: 'fixer' }, { name: 'clerk' }, { name: 'builder' }, { name: 'bins' }, { name: 'gardener' }], { name: 'decide' }),
+  record: [
+    ['09:12:04', 'steward', '', 'start · input <b>said:</b> "The kitchen sockets are dead." <b>context:</b> house · prompt from <code>${input.context}</code>', 'emit'],
+    ['09:12:40', 'model', '1', 'Kitchen sockets dead is an electrical fault. I will ask the fixer to look at it.', 'text'],
+    ['09:12:41', 'fixer', '1', 'job fixer: a machine, run <span class="child" data-open="fixer">…-fixer</span>', 'emit'],
+    ['', 'fixer', '', 'running · turn 2 · waiting on tools <i class="live"></i>', 'emit']] });
+
+run('fixer', { machine: 'fixer', type: 'agent', model: 'claude-sonnet-5-5', status: 'running', step: 2, state: 'turn 2', started: '09:12:41', parent: 'steward',
+  name: 'house/' + stamp + '-4472-61/steward/fixer',
+  drawing: () => agent('claude-sonnet-5-5', [
+    { name: 'sparks', status: 'done', child: 'sparks' }, { name: 'cut_power', status: 'held', job: 'cut_power' }, { name: 'order_part', job: 'order_part' }],
+    { name: 'decide', status: 'now', child: 'decide' }),
+  record: [
+    ['09:12:41', 'fixer', '', 'start · input <b>said:</b> "The kitchen sockets are dead." <b>allow:</b> fs.run:tools/*.js', 'emit'],
+    ['09:12:52', 'model', '1', 'First I need to know which circuit has gone. Asking sparks.', 'text'],
+    ['09:12:53', 'sparks', '1', 'job sparks: a machine, run <span class="child" data-open="sparks">…-sparks</span>', 'emit'],
+    ['09:13:20', 'sparks', '', { kind: 'table', id: 'circuits', columns: ['circuit', 'breaker', 'state'], rows: [['kitchen ring', 'B32', 'tripped'], ['cooker', 'B40', 'ok'], ['hall ring', 'B32', 'ok'], ['lights', 'B6', 'ok']] }, 'view'],
+    ['09:13:24', 'sparks', '', 'done · "The kitchen ring has tripped at the board; the other circuits are live."', 'end'],
+    ['09:13:31', 'model', '2', 'The kitchen ring has tripped. I will isolate it before anything is tested.', 'text'],
+    ['09:13:32', 'cut_power', '2', 'hold cut_power for the ask', 'hold'],
+    ['09:13:32', 'decide', '2', 'job decide: a machine, run <span class="child" data-open="decide">…-decide</span>', 'emit'],
+    ['', 'decide', '', 'running · person · waiting on ticket <b>decided</b> <i class="live"></i>', 'hold']] });
+
+run('sparks', { machine: 'sparks', type: 'agent', model: 'claude-sonnet-5-5', status: 'done', step: 2, state: 'done', started: '09:12:53', parent: 'fixer',
+  name: 'house/' + stamp + '-4472-61/steward/fixer/sparks',
+  drawing: () => agent('claude-sonnet-5-5', [{ name: 'read_board', status: 'done', job: 'read_board' }, { name: 'test_circuit', status: 'done', job: 'test_circuit' }], { name: 'decide' }),
+  record: [
+    ['09:12:53', 'sparks', '', 'start · input <b>said:</b> "Which circuit has gone? The kitchen sockets are dead."', 'emit'],
+    ['09:13:02', 'model', '1', 'Reading the consumer unit first.', 'text'],
+    ['09:13:03', 'read_board', '1', 'job read_board: a script, tools/read-board.js, on laptop', 'emit'],
+    ['09:13:20', 'read_board', '', { kind: 'table', id: 'circuits', columns: ['circuit', 'breaker', 'state'], rows: [['kitchen ring', 'B32', 'tripped'], ['cooker', 'B40', 'ok'], ['hall ring', 'B32', 'ok'], ['lights', 'B6', 'ok']] }, 'view'],
+    ['09:13:21', 'read_board', '', 'done · used fs.read:/dev/board', 'end'],
+    ['09:13:24', 'model', '2', 'The kitchen ring has tripped at the board; the other circuits are live.', 'text'],
+    ['09:13:24', 'sparks', '', 'done', 'end']] });
+
+run('decide', { machine: 'decide', type: 'statechart', status: 'running', step: 2, state: 'person', started: '09:13:32', parent: 'fixer',
+  name: 'house/' + stamp + '-4472-61/steward/fixer/decide',
+  drawing: () => chart([
+    { name: 'rule', status: 'done', job: 'small-orders.js' },
+    { name: 'person', status: 'now', job: 'ask.yaml', child: 'ask' },
+    { name: 'done', status: 'never', final: true }], [
+    { from: 0, to: 1, on: 'refer', taken: true }, { from: 1, to: 2, on: 'decided' }, { from: 0, to: 2, on: 'approve', below: true }]),
+  record: [
+    ['09:13:32', 'decide', '', 'start · input <b>jobs:</b> [ cut_power ] <b>asking:</b> fixer', 'emit'],
+    ['09:13:33', 'rule', '', 'job small-orders.js: a script, on laptop', 'emit'],
+    ['09:13:33', 'rule', '', 'done · { refer: true, note: "not an order" }', 'end'],
+    ['09:13:34', 'person', '', 'job ask.yaml: a machine, run <span class="child" data-open="ask">…-ask</span> · people: [ 4471 ]', 'emit'],
+    ['09:13:35', 'ask', '', 'telling · out.yaml posted Approve and Deny to 4471, ref …-fixer', 'emit'],
+    ['', 'ask', '', 'waiting on ticket <b>decided</b> · 7d <i class="live"></i>', 'hold']] });
+
+run('ask', { machine: 'ask', type: 'statechart · telegram', status: 'running', step: 1, state: 'asking', started: '09:13:34', parent: 'decide',
+  name: 'house/' + stamp + '-4472-61/steward/fixer/decide/ask', shipped: true,
+  drawing: () => chart([{ name: 'asking', status: 'now', job: 'ticket decided', inner: { name: 'telling', status: 'done' } }, { name: 'answered', status: 'never', final: true }],
+    [{ from: 0, to: 1, on: 'decided' }]),
+  record: [
+    ['09:13:34', 'ask', '', 'start · input <b>jobs:</b> [ cut_power ] <b>people:</b> [ 4471 ] <b>ref:</b> …-fixer', 'emit'],
+    ['09:13:34', 'asking', '', 'ticket <b>decided</b> issued · 7d', 'emit'],
+    ['09:13:35', 'telling', '', 'job out.yaml: a machine · posted "cut_power: Turn one circuit off · circuit: kitchen ring" with Approve, Deny to 4471', 'emit'],
+    ['', 'asking', '', 'waiting on ticket <b>decided</b> <i class="live"></i>', 'hold']] });
+
+run('telegram-in', { machine: 'telegram/in', type: 'statechart', status: 'running', step: 7, state: 'listening', started: '08:00:00', shipped: true,
+  name: 'house/20261022T080000.000-telegram-in', labels: { bridge: 'telegram' },
+  drawing: () => chart([{ name: 'listening', status: 'now', job: 'poll.js' }, { name: 'heard', status: 'done' }], [{ from: 0, to: 1, on: 'message', taken: true }, { from: 1, to: 0, on: 'emitted', below: true }]),
+  record: [['08:00:00', 'in', '', 'start · input <b>settings:</b> places { direct } <b>cursor:</b> 1192', 'emit'], ['09:12:02', 'heard', '', 'emit heard { from: 4472, text: "The kitchen sockets are dead.", thread: 4472 }', 'emit'], ['', 'listening', '', 'polling · cursor 1193 <i class="live"></i>', 'emit']] });
+
+run('walk-round', { machine: 'walk-round', type: 'statechart', status: 'running', step: 4, state: 'waiting', started: 'mon 09:00', timer: 'next mon 09:00',
+  name: 'house/20261019T083000.000-walk-round', labels: {},
+  drawing: () => chart([{ name: 'waiting', status: 'now', job: 'timer due' }, { name: 'working', status: 'done', job: 'steward' }, { name: 'telling', status: 'done', job: 'out.yaml' }],
+    [{ from: 0, to: 1, on: 'due', timer: true }, { from: 1, to: 2, on: 'answered' }, { from: 2, to: 0, on: 'said', below: true }]),
+  record: [['mon 09:00', 'waiting', '', 'timer <b>due</b> · mon 09:00', 'emit'], ['mon 09:00', 'working', '', 'job steward: a machine, run …-steward · said "Walk the house."', 'emit'],
+    ['mon 09:06', 'steward', '', { kind: 'list', id: 'round', items: [{ text: 'Boiler pressure 1.4 bar', status: 'ok' }, { text: 'Garden tap dripping', status: 'noted' }, { text: 'Smoke alarm, landing', status: 'tested' }] }, 'view'],
+    ['mon 09:07', 'telling', '', 'job out.yaml: posted the round to 4471', 'emit'], ['', 'waiting', '', 'timer <b>due</b> · next mon 09:00', 'emit']] });
+
+run('bins', { machine: 'direct', type: 'statechart', status: 'done', step: 3, state: 'answered', started: 'yesterday 18:02',
+  name: 'house/20261021T180212.401-4471-58', labels: { bridge: 'telegram', place: 'direct', thread: '4471' },
+  drawing: () => chart([{ name: 'answering', status: 'done', job: 'steward' }, { name: 'saying', status: 'done', job: 'out.yaml' }, { name: 'answered', status: 'done', final: true }],
+    [{ from: 0, to: 1, on: 'answered', taken: true }, { from: 1, to: 2, on: 'said', taken: true }]),
+  record: [['18:02:12', 'direct', '', 'start · input <b>said:</b> "Which bin tonight?" <b>thread:</b> 4471', 'emit'], ['18:02:13', 'answering', '', 'job steward: a machine, run …-steward', 'emit'],
+    ['18:02:30', 'bins', '1', { kind: 'list', id: 'bins', items: [{ text: 'Recycling (blue)', status: 'tonight' }, { text: 'General (black)', status: 'next week' }, { text: 'Garden (brown)', status: 'next week' }] }, 'view'],
+    ['18:02:34', 'steward', '2', 'Blue bin tonight, and the garden bin is next week.', 'text'], ['18:02:36', 'saying', '', 'job out.yaml: posted to 4471', 'emit'], ['18:02:37', 'answered', '', 'done · output conversation: 2 turns', 'end']] });
+
+// A job's sheet, toggled under the drawing from the job's box. Keyed by run and box.
+const J = {};
+function sheet(parent, name, type, kv) { J[parent + '/' + name] = { name, type, kv }; }
+sheet('fixer', 'cut_power', 'script · held', [
+  ['job', 'tools/cut-power.js, on laptop'], ['does', 'Turn one circuit off'], ['args', '{ circuit: "kitchen ring" }'],
+  ['said', '"The kitchen ring has tripped. I will isolate it before anything is tested."'], ['allow', 'fs.run:tools/cut-power.js · net:none'],
+  ['approve', 'true · ask decide'], ['status', 'held · waiting on the ticket decided of …-decide/ask']]);
+sheet('fixer', 'order_part', 'script · not yet run', [
+  ['job', 'tools/order.js, on laptop'], ['does', 'Order one part from the usual supplier'], ['allow', 'net:parts.example.com:443 · secret:PARTS_KEY@net:parts.example.com'], ['approve', 'true · ask decide; small-orders.js approves under £20'], ['status', 'not yet called']]);
+sheet('sparks', 'read_board', 'script · done', [['job', 'tools/read-board.js, on laptop'], ['input', '{}'], ['output', '4 circuits, one tripped'], ['emits', 'view circuits (table)'], ['used', 'fs.read:/dev/board'], ['took', '17s']]);
+sheet('sparks', 'test_circuit', 'script · not yet run', [['job', 'tools/test-circuit.js'], ['allow', 'fs.read:/dev/board'], ['status', 'not called this turn']]);
+sheet('decide', 'small-orders.js', 'script · done', [['job', 'small-orders.js, on laptop'], ['input', '{ jobs: [ { name: cut_power, asked: { does, args: { circuit } } } ] }'], ['output', '{ refer: true, note: "not an order" }'], ['took', '0.3s']]);
+sheet('direct', 'out.yaml', 'machine · not yet run', [['job', 'machine: .perch/bridges/telegram/out.yaml'], ['input', '{ thread: 4472, text: ${answering.output.text} }'], ['status', 'runs when answering ends']]);
+sheet('walk-round', 'timer due', 'timer · waiting', [['timers', '{ due: "mon 09:00" }'], ['next', 'mon 09:00, whether the perch runs or not'], ['last', 'mon 19 oct 09:00']]);
+sheet('walk-round', 'steward', 'machine · done', [['job', 'machine: ./steward.yaml'], ['input', '{ said: "Walk the house." }'], ['output', 'the round, 3 items']]);
+sheet('telegram-in', 'poll.js', 'script · polling', [['job', 'poll.js, on laptop'], ['allow', 'net:api.telegram.org:443 · secret:TELEGRAM_TOKEN@net:api.telegram.org'], ['cursor', '1193']]);
+sheet('ask', 'ticket decided', 'ticket · waiting', [['ticket', 'decided · issued 09:13:34 · 7d'], ['reply', 'corbie run reply …-ask decided \'{"approve":[...],"note":"…"}\''], ['from', 'the screen, or a press from 4471 on Telegram']]);
+
+// What waits on a person, read from each run's ticket.
+const WAITS = [{ run: 'ask', root: 'direct', from: 'fixer', ticket: 'decided', since: '09:13:34', job: { name: 'cut_power', does: 'Turn one circuit off', args: { circuit: 'kitchen ring' }, said: 'The kitchen ring has tripped. I will isolate it before anything is tested.' } }];
+
+// Drawings. Boxes are returned with their coordinates, so chips can be placed over them.
+const W = 760;
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+let drawn = null; // the run being drawn, so a box finds its sheet
+function box(x, y, w, h, b, extra) {
+  const cls = ['job', b.status === 'now' ? 'now' : b.status === 'done' ? 'done' : b.status === 'held' ? 'held' : b.status === 'never' || !b.status ? 'never' : '', b.final ? 'final' : '', b.kind].join(' ');
+  const act = b.child ? `data-open="${esc(b.child)}"` : b.job && J[drawn + '/' + b.job] ? `data-sheet="${esc(b.job)}" aria-expanded="false"` : '';
+  const inner = b.final ? `<rect class="outer" x="${x - 4}" y="${y - 4}" width="${w + 8}" height="${h + 8}" rx="8"/>` : '';
+  return `<g class="${cls}" data-job="${esc(b.name)}" ${act ? `${act} tabindex="0" role="button" aria-label="${esc(b.name)}"` : ''}>${inner}<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6"/><text x="${x + 12}" y="${y + 21}">${esc(b.name)}</text>${b.sub && !b.child && b.status !== 'held' ? `<text class="kind" x="${x + 12}" y="${y + 38}">${esc(b.sub)}</text>` : ''}${extra || ''}</g>`;
+}
+function arrow(x1, y1, x2, y2, label, o, viaY) {
+  const taken = o.taken ? ' taken' : '', timer = o.timer ? ' timer' : '';
+  let d, lx, ly;
+  if (viaY !== undefined) { d = `M${x1},${y1} C${x1 + 40},${viaY} ${x2 - 40},${viaY} ${x2},${y2}`; lx = (x1 + x2) / 2; ly = viaY - 6; }
+  else { d = `M${x1},${y1} L${x2},${y2}`; lx = (x1 + x2) / 2; ly = y1 - 8; }
+  const a = Math.atan2(y2 - (viaY !== undefined ? viaY : y1), x2 - (viaY !== undefined ? x2 - 40 : x1));
+  const p = (dx, dy) => `${x2 - Math.cos(a) * dx + Math.sin(a) * dy},${y2 - Math.sin(a) * dx - Math.cos(a) * dy}`;
+  return `<path class="edge${taken}${timer}" d="${d}"/><polygon class="arrow${taken}" points="${x2},${y2} ${p(9, 4)} ${p(9, -4)}"/><text class="on" x="${lx}" y="${ly}" text-anchor="middle">${esc(label)}</text>`;
+}
+function chart(states, edges) {
+  const bw = 150, bh = 52, gap = 70, y = 56, x0 = 44, boxes = [];
+  const H = edges.some(e => e.below) ? 180 : states.some(s => s.inner) ? 160 : 140;
+  let svg = `<circle class="start" cx="${x0 - 22}" cy="${y + bh / 2}" r="4"/><path class="edge taken" d="M${x0 - 18},${y + bh / 2} L${x0 - 2},${y + bh / 2}"/>`;
+  states.forEach((s, i) => {
+    const x = x0 + i * (bw + gap), h = s.inner ? bh + 34 : bh;
+    const inner = s.inner ? `<g class="inner ${s.inner.status}"><rect x="${x + 12}" y="${y + 46}" width="${bw - 24}" height="24" rx="4"/><text x="${x + 22}" y="${y + 62}">${esc(s.inner.name)}</text></g>` : '';
+    boxes.push({ name: s.name, x, y, w: bw, h, child: s.child, status: s.status });
+    svg += box(x, y, bw, h, Object.assign({ sub: s.job, kind: 'state' }, s), inner);
+  });
+  edges.forEach(e => {
+    const a = boxes[e.from], b = boxes[e.to];
+    if (e.below) svg += arrow(a.x + bw / 2, a.y + bh + (a.final ? 4 : 0), b.x + bw / 2, b.y + bh + 1, e.on, e, y + bh + 54);
+    else svg += arrow(a.x + bw + (a.final ? 4 : 0), y + bh / 2, b.x - 1, y + bh / 2, e.on, e);
+  });
+  const need = x0 + states.length * (bw + gap) - gap + 40;
+  return { svg: `<svg class="machine" viewBox="0 0 ${Math.max(W, need)} ${H}" preserveAspectRatio="xMidYMin meet">${svg}</svg>`, boxes, W: Math.max(W, need), H };
+}
+function agent(model, tools, ask) {
+  const bw = 160, bh = 52, gx = 14, gy = 16, mw = 186, x0 = 20 + mw + 32, y0 = 20, per = 3, boxes = [];
+  const rows = Math.ceil(tools.length / per);
+  const H = Math.max(140, y0 + rows * (bh + gy) + 4, ask ? y0 + 2 * bh + 42 : 0);
+  let svg = `<g class="model"><rect x="20" y="${y0}" width="${mw}" height="${bh}" rx="6"/><path class="spark" d="M38,${y0 + 26} l6,-9 l2,7 l8,-10 l-3,11 l6,-2 l-9,12 l-2,-7 l-8,8 l3,-10 z"/><text x="62" y="${y0 + 21}">${esc(model)}</text><text class="kind" x="62" y="${y0 + 38}">ANTHROPIC_KEY</text></g>`;
+  const mx = 20 + mw + 10;
+  svg += `<path class="edge" d="M${20 + mw},${y0 + bh / 2} L${mx},${y0 + bh / 2} L${mx},${y0 + (rows - 1) * (bh + gy) + bh / 2}"/>`;
+  tools.forEach((t, i) => {
+    const x = x0 + (i % per) * (bw + gx), y = y0 + Math.floor(i / per) * (bh + gy);
+    if (i % per === 0) svg += `<path class="edge" d="M${mx},${y + bh / 2} L${x},${y + bh / 2}"/>`;
+    boxes.push({ name: t.name, x, y, w: bw, h: bh, child: t.child, status: t.status });
+    svg += box(x, y, bw, bh, Object.assign({ sub: t.child ? 'tool · machine' : 'tool · script', kind: 'tool' }, t, { job: t.job || t.child }));
+  });
+  if (ask) {
+    const y = y0 + bh + 30;
+    svg += `<path class="edge" d="M100,${y0 + bh} L100,${y}"/>`;
+    boxes.push({ name: ask.name, x: 20, y, w: mw, h: bh, child: ask.child, status: ask.status });
+    svg += box(20, y, mw, bh, Object.assign({ sub: 'ask · machine', kind: 'tool' }, ask, { job: ask.child || 'decide' }));
+  }
+  return { svg: `<svg class="machine" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMin meet">${svg}</svg>`, boxes, W, H };
+}
+
+// Rendering.
+const $ = s => document.querySelector(s);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function chainOf(id) { const c = []; for (let r = R[id]; r; r = r.parent ? R[r.parent] : null) c.unshift(r.id); return c; }
+function rootOf(id) { return chainOf(id)[0]; }
+function stLabel(s) { return s === 'now' ? 'running' : s === 'never' ? 'not run' : s; }
+function stClass(s) { return s === 'held' ? 'waiting' : s === 'now' ? 'running' : s === 'never' ? 'cancelled' : s; }
+
+function renderWait(el, root) {
+  const ws = WAITS.filter(w => !root || rootOf(w.run) === root);
+  if (!ws.length) { el.innerHTML = '<div class="nothing">nothing waits on you</div>'; return; }
+  el.innerHTML = ws.map(w => `<div class="ask">
+    <div class="where" data-open="${w.run}" tabindex="0" role="button">${chainOf(w.run).map(i => R[i].machine).join(' › ')} <span>· ticket ${w.ticket} · since ${w.since}</span></div>
+    <div class="what">${esc(w.job.name)}: ${esc(w.job.does)}</div>
+    <div class="args">${Object.entries(w.job.args).map(([k, v]) => `<span>${esc(k)}</span><div>${esc(v)}</div>`).join('')}</div>
+    <div class="said">the ${R[w.from].machine} said: ${esc(w.job.said)}</div>
+    <div class="act"><input id="note-${el.id}" placeholder="note" aria-label="note">
+      <button class="go" data-cmd="corbie run reply …-ask ${w.ticket} '{&quot;approve&quot;:[&quot;${w.job.name}&quot;],&quot;note&quot;:&quot;…&quot;}'" data-reply="approve">Approve</button>
+      <button class="no" data-cmd="corbie run reply …-ask ${w.ticket} '{&quot;approve&quot;:[],&quot;note&quot;:&quot;…&quot;}'" data-reply="deny">Deny</button></div>
+    <div class="replied" id="replied-${el.id}"></div></div>`).join('');
+}
+
+function renderRuns() {
+  const list = ['direct', 'walk-round', 'telegram-in', 'bins'];
+  $('#runlist').innerHTML = list.map(id => { const r = R[id]; const l = r.labels || {};
+    const path = [l.bridge, l.place, l.thread].filter(Boolean).map((v, i, a) => i === a.length - 1 ? `<b>${esc(v)}</b>` : esc(v)).join(' / ') || '<span class="dim">—</span>';
+    const step = r.id === 'direct' ? 'agent steward · ticket decided' : r.timer ? `1 timer, ${r.timer}` : r.state;
+    return `<tr tabindex="0" data-open="${id}" role="link"><td><span class="st ${r.status}">${r.status}</span></td><td>${esc(r.machine)}<span class="dim hide"> ${r.type}</span></td><td class="hide dim">${esc(r.name)}</td><td class="path">${path}</td><td class="step hide">${r.step} · ${esc(step)}</td></tr>`; }).join('');
+  const lanes = [['4472', [{ id: 'direct', st: 'running', l: 99.5, w: .5 }]], ['4471', [{ id: 'bins', st: 'done', l: 37, w: 1.2 }]], ['—', [{ id: 'walk-round', st: 'running', l: 0, w: 100 }, { id: 'telegram-in', st: 'running', l: 95, w: 5 }]]];
+  $('#lanes').innerHTML = lanes.map(([who, bars]) => `<div class="lane"><span class="who" title="thread ${who}">${who}</span><div class="track">${bars.map(b => `<span class="runbar ${b.st}" tabindex="0" role="link" data-open="${b.id}" title="${R[b.id].machine}" style="left:${b.l}%;width:${b.w}%"></span>`).join('')}</div></div>`).join('');
+  $('#waits-grid').innerHTML = '<b>1</b><span>waits on Sam · cut_power, since 09:13</span><b>1</b><span>timer · walk-round, next mon 09:00</span><b>1</b><span>job on laptop · poll.js</span>';
+  renderWait($('#wait-runs'), null);
+}
+
+function drawingOf(r) {
+  drawn = r.id;
+  const d = r.drawing();
+  const chips = d.boxes.filter(b => b.child || b.status === 'held').map(b => {
+    const c = b.child ? R[b.child] : null;
+    const l = ((b.x + b.w - 6) / d.W * 100).toFixed(2), t = ((b.y + b.h - 6) / d.H * 100).toFixed(2);
+    if (!c) return `<span class="chip held flat" style="left:${l}%;top:${t}%">held</span>`;
+    return `<button class="chip ${c.status}" data-open="${c.id}" style="left:${l}%;top:${t}%">${esc(c.machine)} · ${esc(c.state)}</button>`;
+  }).join('');
+  return `<div class="draw">${d.svg}<div class="chips">${chips}</div></div>`;
+}
+function planeEl(r) {
+  const el = document.createElement('div');
+  el.className = 'plane'; el.dataset.id = r.id;
+  el.innerHTML = `<div class="phead"><b>${esc(r.machine)}</b><span>${esc(r.type)}${r.model ? ' · ' + esc(r.model) : ''} · ${esc(r.state)}</span><span class="st ${stClass(r.status)}">${stLabel(r.status)}</span><span class="name">${esc(r.name || '')}</span></div><div class="body">${drawingOf(r)}</div>`;
+  return el;
+}
+function cell(w, kind) {
+  if (kind === 'view') {
+    if (w.kind === 'table') return `<div class="view"><div class="vh"><span>view</span><b>${w.id}</b><span>table</span></div><table><thead><tr>${w.columns.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${w.rows.map(r => `<tr>${r.map(c => `<td class="${c}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    return `<div class="view"><div class="vh"><span>view</span><b>${w.id}</b><span>list</span></div><ul>${w.items.map(i => `<li>${esc(i.text)}<span>${esc(i.status)}</span></li>`).join('')}</ul></div>`;
+  }
+  return w;
+}
+let stack = [];
+function fitPlanes() {
+  const planes = $('#planes'), front = planes.querySelector('.plane.front');
+  planes.style.height = Math.min(Math.max(front.querySelector('.body').scrollHeight + 24 + 24 + 2, 200), Math.round(innerHeight * .5)) + 'px';
+}
+function toggleSheet(g) {
+  const plane = g.closest('.plane'), body = plane.querySelector('.body'), key = plane.dataset.id + '/' + g.dataset.sheet, j = J[key];
+  let dl = body.querySelector('.kv');
+  plane.querySelectorAll('[aria-expanded="true"]').forEach(o => o.setAttribute('aria-expanded', 'false'));
+  if (dl && dl.dataset.key === key) dl.remove();
+  else {
+    if (!dl) { dl = document.createElement('dl'); dl.className = 'kv'; body.appendChild(dl); }
+    dl.dataset.key = key;
+    dl.innerHTML = `<dt class="h">${esc(j.name)}</dt><dd class="h">${esc(j.type)}</dd>` + j.kv.map(([k, v]) => `<dt>${esc(k)}</dt><dd class="${k === 'status' && j.type.endsWith('held') ? 'held' : ''}">${esc(v)}</dd>`).join('');
+    g.setAttribute('aria-expanded', 'true');
+  }
+  fitPlanes();
+}
+function renderRun(id) {
+  const next = chainOf(id), top = R[id];
+  const planes = $('#planes');
+  // planes that are no longer in the chain leave; new ones enter
+  [...planes.children].forEach(el => { if (!next.includes(el.dataset.id)) { el.classList.add('leave'); el.classList.remove('front', 'behind', 'deep'); setTimeout(() => el.remove(), reduced ? 0 : 340); } });
+  next.forEach((pid, i) => {
+    let el = planes.querySelector(`.plane[data-id="${pid}"]:not(.leave)`);
+    if (!el) { el = planeEl(R[pid]); el.classList.add(i === next.length - 1 ? 'enter' : 'deep'); planes.appendChild(el); void el.offsetWidth; }
+    el.classList.remove('enter', 'deep', 'behind', 'front');
+    el.classList.add(i === next.length - 1 ? 'front' : i === next.length - 2 ? 'behind' : 'deep');
+    el.setAttribute('aria-hidden', i === next.length - 1 ? 'false' : 'true');
+  });
+  [...planes.querySelectorAll('.plane')].forEach(el => { if (el.classList.contains('behind')) el.dataset.open = next[next.length - 2]; else delete el.dataset.open; });
+  $('#chain').innerHTML = next.map((pid, i) => `<li><button data-open="${pid}" ${i === next.length - 1 ? 'aria-current="page"' : ''}>${esc(R[pid].machine)}</button></li>`).join('');
+  const p = top.parent ? R[top.parent] : null;
+  const band = $('#band');
+  band.className = 'band' + (p ? '' : ' none');
+  band.innerHTML = p ? `<span class="dim">behind</span><b>${esc(p.machine)}</b><span>·</span><span class="state">${esc(p.state)}</span><span>·</span><span class="st ${stClass(p.status)}">${stLabel(p.status)}</span><span class="dim name">${esc(p.name || '')}</span>` : `<span>root · ${esc(top.name || '')}</span><span style="margin-left:auto">${Object.entries(top.labels || {}).map(([k, v]) => `${k}=${v}`).join(' ') || 'no labels'}</span>`;
+  if (p) { band.dataset.open = p.id; band.tabIndex = 0; band.setAttribute('role', 'button'); } else { delete band.dataset.open; band.tabIndex = -1; band.removeAttribute('role'); }
+  fitPlanes();
+  const body = planes.querySelector('.plane.front .body');
+  if (body.scrollWidth > body.clientWidth) { const b = body.querySelector('.machine .held, .machine .now'); if (b) b.scrollIntoView({ inline: 'center', block: 'nearest' }); }
+  const rec = top;
+  $('#record').innerHTML = rec.record.map(([t, i, n, w, kind]) => `<li class="${kind}"><span class="t">${t}</span><span class="i">${esc(i)}</span><span class="n">${n}</span><span class="w ${kind}">${cell(w, kind)}</span></li>`).join('');
+  $('#tabs').innerHTML = `<a aria-current="page">Output</a><a>Definition</a><a>Files</a><a>Children <span class="dim">${Object.values(R).filter(x => x.parent === rec.id).length}</span></a>`;
+  renderWait($('#wait-run'), next[0]);
+  stack = next;
+}
+
+function renderMachines() {
+  const g = { agent: '<svg class="g" viewBox="0 0 20 14"><path d="M3 11 7 3l2 5 4-6-1 7 3-2-4 5"/></svg>', statechart: '<svg class="g" viewBox="0 0 20 14"><rect x="1" y="4" width="6" height="6" rx="1"/><rect x="13" y="4" width="6" height="6" rx="1"/><path d="M7 7h6"/></svg>', file: '<svg class="g" viewBox="0 0 20 14"><path d="M5 1h7l3 3v9H5z"/></svg>' };
+  const rows = [['steward.yaml', 'agent', 'tools_file: crew.yaml · ask: ./decide.yaml'], ['crew.yaml', 'file', 'the steward\'s tools: fixer, clerk, builder, bins, gardener'], ['fixer.yaml', 'agent', 'tools: sparks, cut_power, order_part · used fs.run:tools/cut-power.js'], ['sparks.yaml', 'agent', 'tools: read_board, test_circuit'],
+    ['clerk.yaml', 'agent', ''], ['builder.yaml', 'agent', ''], ['bins.yaml', 'agent', ''], ['garden/gardener.yaml', 'agent', 'docs: notes/garden'], ['garden/groundsman.yaml', 'agent', ''],
+    ['direct.yaml', 'statechart', 'New from pipeline.yaml · answering runs steward, saying runs telegram/out.yaml'], ['decide.yaml', 'statechart', 'New from decide.yaml · rule small-orders.js, person telegram/ask.yaml, people [4471]'], ['walk-round.yaml', 'statechart', 'New from routine.yaml · due mon 09:00 · running'],
+    ['bridges/telegram/settings.yaml', 'file', 'places: { direct: { machine: ./direct.yaml } }'], ['tools/', 'file', 'cut-power.js, order.js, small-orders.js, read-board.js'], ['notes/', 'file', 'read through .perch/docs/dir.yaml']];
+  $('#machinelist').innerHTML = rows.map(([n, t, f]) => `<div class="rowm"><span>${g[t]}</span><span>${esc(n)} <span class="f">${esc(f)}</span></span><span class="k">${t === 'file' ? '' : t}</span></div>`).join('');
+  $('#shipped').innerHTML = [['bridges/telegram/', 'in.yaml, out.yaml, ask.yaml'], ['docs/', 'gitlab.yaml, dir.yaml'], ['show.yaml', 'show_table, show_chart, show_list'], ['pipeline.yaml, decide.yaml, routine.yaml', 'templates New copies']].map(([n, f]) => `<div class="rowm ro"><span>${g.file}</span><span>${esc(n)} <span class="f">${esc(f)}</span></span><span class="k">read-only</span></div>`).join('');
+}
+
+function show(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.hidden = s.id !== screen);
+  document.querySelectorAll('#nav a').forEach(a => { if (a.dataset.screen === (screen === 'run' ? 'runs' : screen)) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+}
+function open(id) { location.hash = 'run-' + id; }
+function route() {
+  const h = location.hash.slice(1) || 'runs';
+  if (h.startsWith('run-') && R[h.slice(4)]) { show('run'); renderRun(h.slice(4)); }
+  else { if (h !== 'run') $('#planes').innerHTML = ''; show(['runs', 'machines', 'controller', 'metrics'].includes(h) ? h : 'runs'); }
+}
+function back() { if ($('#run').hidden) return; if (stack.length > 1) open(stack[stack.length - 2]); else location.hash = 'runs'; }
+
+document.addEventListener('click', e => {
+  const o = e.target.closest('[data-open]'); if (o) { e.preventDefault(); open(o.dataset.open); return; }
+  const g = e.target.closest('[data-sheet]'); if (g) { toggleSheet(g); return; }
+  const rp = e.target.closest('[data-reply]'); if (rp) { const box = rp.closest('.ask'); const note = box.querySelector('input').value || 'Sam';
+    box.querySelector('.replied').textContent = `$ corbie run reply …-ask decided '{"approve":[${rp.dataset.reply === 'approve' ? '"cut_power"' : ''}],"note":"${note}"}'  → in the sketch nothing runs`; }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { back(); return; }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-open]:not(button):not(a)')) { e.preventDefault(); open(e.target.dataset.open); }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-sheet]')) { e.preventDefault(); toggleSheet(e.target); }
+});
+$('#back').addEventListener('click', back);
+addEventListener('hashchange', route);
+renderRuns(); renderMachines(); route();
+</script>
+</body>
+</html>
