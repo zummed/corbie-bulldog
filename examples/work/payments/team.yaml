@@ -1,0 +1,7 @@
+name: Payments
+about: Charges, refunds and the ledger. Holds customer data.
+people: [lee, priya]
+lead: ledger
+heed: [./.bulldog/rules/mentioned/mentioned.js]  # in #refunds, only what names the bot
+check: [./no-account-numbers.js, lee, priya]     # may this leave payments?
+decide: [lee, priya]                              # may this held job run?

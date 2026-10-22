@@ -1,0 +1,25 @@
+name: Platform support
+about: "Help with the platform and with payments, asked in #help."
+zone: Europe/London
+everyone:
+  al:    { name: Al, slack: U0AL0000, gitlab: "1041" }
+  dana:  { name: Dana, slack: U0DANA00 }
+  lee:   { name: Lee, slack: U0LEE000 }
+  priya: { name: Priya, slack: U0PRI000 }
+bridges:
+  slack:
+    from: ./.bulldog/bridges/slack
+    places:
+      "#help": { guests: true }        # anyone in #help may ask the office
+      "#refunds": { team: payments }   # people in everyone ask payments
+      direct: {}                       # people ask the office in a direct message
+  gitlab:
+    from: ./.bulldog/bridges/gitlab
+    site: gitlab.com
+    places:
+      platform/api: { team: platform } # an issue or a comment in platform/api asks platform
+models:
+  usual: { name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }
+people: [al]
+lead: bot
+heed: [./.bulldog/rules/for-us/for-us.yaml]    # in #help, only what is for the office

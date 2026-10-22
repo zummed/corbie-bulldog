@@ -1,0 +1,23 @@
+# Ops leads platform. It reads GitLab, and running a pipeline again waits for Al.
+agent: ops
+model: usual
+system: |
+  You look after GitLab, the pipelines and deploys. Find what changed, and say so plainly.
+  ${input.context}
+prompt: ${input.said}
+tools:
+  gitlab:
+    does: Read GitLab's API by its path, such as projects/42/pipelines?status=failed
+    args: { path: string }
+    job:
+      script: ./tools/gitlab.js
+      input: { method: GET, path: "${args.path}" }
+      allow: [net:gitlab.com, "secret:GITLAB_TOKEN@net:gitlab.com"]
+  retry:
+    does: Run a failed pipeline again
+    args: { project: number, pipeline: number }
+    job:
+      script: ./tools/gitlab.js
+      input: { method: POST, path: "projects/${args.project}/pipelines/${args.pipeline}/retry" }
+      allow: [net:gitlab.com, "secret:GITLAB_TOKEN@net:gitlab.com"]
+      approve: true

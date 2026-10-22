@@ -1,0 +1,13 @@
+# The steward leads the house, and uses the fixer, its colleague, as a tool.
+agent: steward
+model: usual
+system: |
+  You look after the house for Sam and Kit. Hand repairs to the fixer, and ask the garden about the garden.
+  ${input.context}
+prompt: ${input.said}
+tools_file: [./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/docs/docs.yaml]
+tools:
+  fixer:
+    does: Repairs about the house
+    args: { repair: string }
+    job: { machine: ./fixer.yaml, input: { said: "${args.repair}", context: "${input.context}", request: "${input.request}" } }

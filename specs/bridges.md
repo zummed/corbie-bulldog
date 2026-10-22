@@ -15,39 +15,64 @@ bridges:
       direct: {}                       # people ask the office in a direct message
 ```
 
-- `from` names the bridge's directory: one Bulldog ships, such as `./.bulldog/bridges/slack`, or the office's own, such as `./bridges/pager`.
+- `from` names the bridge's directory: one Bulldog ships, such as `./.bulldog/bridges/slack`, or the office's own. Without `from`, it is `./bridges/<name>`.
 - The bridge's settings are its entry but `from`, and its in and out are given them.
 - `places` lists where requests are taken. Each place names the team asked there, the office without one, and whether `guests` may ask.
 - `direct` is any person's direct messages to the bot.
 - The bridge's name is the key that people's identities on it are written under in `everyone`.
+- Bulldog checks `in.yaml` and `out.yaml` with Corbie's parser when it reads the office. What the parser refuses is a problem of that file, and stops the bridge alone.
 
 ## In
 
 `in.yaml` is a statechart that runs for as long as the bridge is on, with `keep: 12h` and the input `{ settings, cursor }`.
 
 1. A job hears for up to 5 minutes, and emits `heard`, `{ things: [...], cursor }`, for what it hears.
-2. When the job ends, the chart hears again, from the cursor the job returned.
+2. When the job ends, the chart hears again, from the cursor the job returned. A bridge whose service cannot be asked to wait, such as GitLab, rests 30 seconds first.
 3. When the job fails, the chart rests 30 seconds, then hears again.
 
 ```yaml
+# ./.bulldog/bridges/telegram/in.yaml
 statechart: telegram-in
 keep: 12h
-input: { settings: map, cursor: any }
+input:
+  type: object
+  required: [settings, cursor]
+  properties:
+    settings:
+      type: object
+      additionalProperties: false
+      properties:
+        places: { type: object }
+    cursor: {}
 initial: hearing
 states:
   hearing:
     job:
       script: ./telegram.js
-      input: { settings: "${input.settings}", cursor: "${states.hearing.output?.cursor ?? input.cursor}" }
-      timeout: 6m
+      input: { do: hear, settings: "${input.settings}", cursor: "${states.hearing.output?.cursor ?? input.cursor}" }
       allow: [net:api.telegram.org, "secret:TELEGRAM_TOKEN@net:api.telegram.org"]
+      timeout: 5m
     on: { done: hearing, failed: resting }
   resting:
     timers: { again: 30s }
     on: { again: hearing }
 ```
 
-Bulldog keeps one in run for each bridge, labelled `made=<fingerprint>` of the bridge's definitions and settings. When the fingerprint changes, or the run ends, Bulldog starts a new one, given the last cursor the old one emitted, and cancels the old. A new bridge's first in run is given no cursor.
+Bulldog keeps one in run for each bridge with no problem, labelled `kind=bridge`, `bridge=<name>` and `made=<fingerprint>` of the bridge's definitions, the files they name, and its settings.
+
+1. Bulldog keeps the bridge's newest run while its fingerprint is the bridge's, and cancels every other run of the bridge.
+2. Once no run of the bridge is going, Bulldog starts a new one.
+3. The new run is given the last cursor the old one emitted, or the cursor the old one was given when it emitted none. A new bridge's first in run is given no cursor.
+
+A run that ends of itself is started again after a pause of 1 second, which doubles with each run that ends in a row, up to a minute.
+
+The office's page shows each bridge as one of these:
+
+| Status | When |
+|---|---|
+| `running` | an in run is going, and its last job did not fail |
+| `failing` | a job or a run failed, until a job of the newest run ends well or hands something over; with Corbie's error |
+| `stopped` | the bridge has a problem, or no in run is going |
 
 ## A thing heard
 
@@ -66,24 +91,33 @@ A thing is `{ id, at, kind, from, place, where, text, files, mentioned, answers,
 | `answers` | the id of the message it replies to, if any |
 | `ref`, `choice` | for a press: the out message's `ref`, and the choice pressed |
 
-A shipped in hands over nothing its own bot or another bot sent.
+An in hands over nothing its own bot or another bot sent. Bulldog cannot tell a bot from a person, so the in is the one place where this is done.
 
 ## What Bulldog does with a thing
 
-Bulldog reads what each in run emits, and acts on each thing in this order:
+Bulldog reads what each in run emits, in the order it was emitted, one thing at a time. It acts on each thing by the first of these that fits:
 
-1. A press answers the wait whose `ref` it carries.
-2. Something said at `direct` whose `answers` is the `sent` of a carried question answers that question. One that replies to nothing answers the latest question carried to its sender on that bridge before it was heard, while that question still waits.
-3. Something said at a listed place starts a request of the place's team. Its asker is the person whose entry gives that identity on that bridge, or a guest where the place lets guests ask.
+1. A press answers the wait whose `ref` it carries, for the person whose identity pressed it.
+2. Something a person says at `direct` that replies to a carried question, its `answers` the question's `sent`, answers that question. One that replies to nothing answers the latest question carried to them on that bridge before it was heard, while that question waits.
+3. Something said at a listed place, `direct` among them, starts a request of the place's team. Its asker is the person whose entry gives that identity on that bridge, or a guest where the place lets guests ask.
 4. Anything else is let go.
 
-Requests answers a wait only when its rules for who may answer hold.
+Requests answers a wait only when its rules for who may answer hold. An answer it refuses is let go.
+
+```
+Sam is asked "May the fixer order a part for £35?" on Telegram, and the message is sent as 4471:120.
+Sam replies to 4471:120 with "yes"          the reply answers that question
+Sam says "yes", replying to nothing         it answers the latest question carried to Sam, while it waits
+Sam says "Is the boiler on?" after that     the latest question no longer waits: a request of the house
+```
 
 Each thing is taken once:
 
 - A request heard is named `<client>/<stamp of at>-<keyed hash of the bridge and id>`. Bulldog looks for that name first, and starts only when there is no such run.
 - A thing that answered a wait is known from the wait's answer, which holds the thing's id.
 - A thing more than a day old when Bulldog reads it is let go.
+
+A text longer than 32 KiB is cut at 32 KiB, with a line that says so, since a job's input is limited in size. A thing with no `id` or no `at`, or one Bulldog cannot read, is let go, and Bulldog reports why.
 
 ## Out
 
@@ -102,8 +136,9 @@ Each thing is taken once:
 - An out whose input does not take `direct` sends to no person directly.
 - A question, a decision and a sign-in link go to a person only in their direct messages, never to a channel. A person no bridge can message directly is asked on the screens alone, and is sent no sign-in link.
 - The ticket's value never leaves Bulldog. A message carries `ref`, which names the wait run and nothing else.
-- Each out run has the labels `kind=out` and `bridge=<name>`, and is named from what it carries: the request it answers, or the wait and the person it asks. So a message is sent once.
+- Each out run has the labels `kind=out` and `bridge=<name>`, and is named from what it carries: the request it answers, or the wait and the person it asks. Bulldog looks for that name first, and starts the run only when there is none. So a message is sent once.
 - An out run that fails is shown on its request with Corbie's error, and is not tried again.
+- A bridge with a problem carries nothing.
 
 ## The bridges Bulldog ships
 

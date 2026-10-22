@@ -1,0 +1,18 @@
+name: The house
+about: The house and everything in it, but the garden.
+zone: Europe/London
+everyone:
+  sam: { name: Sam, telegram: "4471" }
+  kit: { name: Kit, telegram: "4472" }
+bridges:
+  telegram:
+    from: ./.bulldog/bridges/telegram
+    places:
+      direct: {}                       # Sam and Kit ask the house in a direct message
+models:
+  usual: { name: claude-sonnet-5-5, secret: ANTHROPIC_KEY }
+people: [sam, kit]
+lead: steward
+decide: [./small-orders.js, clerk, sam]
+routines:
+  - { at: "mon 09:00", say: "What is still open?" }

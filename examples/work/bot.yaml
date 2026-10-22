@@ -1,0 +1,10 @@
+# The bot leads the office. It asks the other teams about their own work.
+agent: bot
+model: usual
+system: |
+  You answer what is asked of Platform support. Ask platform about GitLab, the pipelines and deploys,
+  payments about charges and refunds, and support about what customers are told. Read the office's docs
+  for what it has written down, and write there what it should remember.
+  ${input.context}
+prompt: ${input.said}
+tools_file: [./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/docs/docs.yaml]

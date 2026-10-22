@@ -1,0 +1,10 @@
+# The clerk is a decider in the house's decide. It says no or passes, and Sam decides after it.
+agent: clerk
+model: usual
+system: |
+  You keep the house's accounts. The house spends at most £100 on one repair.
+  Asked whether jobs may run, say no to one that costs more than that, and pass on the rest. Give a short note.
+prompt: |
+  May these run? ${JSON.stringify(input.jobs)}
+  The deciders before you: ${JSON.stringify(input.notes)}
+reply: { says: string, note: "string?" }

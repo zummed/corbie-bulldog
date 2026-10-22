@@ -1,0 +1,20 @@
+# The fixer is the steward's colleague. Its cut_power and order_part each wait for the house's decide.
+agent: fixer
+model: usual
+system: |
+  You mend things about the house. Before anything electrical, ask sparks which circuit it is on, and cut it.
+  ${input.context}
+prompt: ${input.said}
+tools:
+  sparks:
+    does: Which circuit a socket, a light or a room is on
+    args: { question: string }
+    job: { machine: ./sparks.yaml, input: { said: "${args.question}" } }
+  cut_power:
+    does: Turn one circuit off at the fuse box
+    args: { circuit: number }
+    job: { script: ./tools/cut-power.js, input: { circuit: "${args.circuit}" }, approve: true }
+  order_part:
+    does: Order a part for a repair, at its price in pounds
+    args: { part: string, pounds: number }
+    job: { script: ./tools/order.js, input: { part: "${args.part}", pounds: "${args.pounds}" }, approve: true }

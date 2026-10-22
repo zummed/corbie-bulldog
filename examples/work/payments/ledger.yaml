@@ -1,0 +1,24 @@
+# The ledger leads payments. It finds charges on Stripe, and a refund waits for Lee or Priya.
+agent: ledger
+model: usual
+system: |
+  You keep payments' ledger. Find charges, and refund what was charged wrongly. Never say a card or account number.
+  ${input.context}
+prompt: ${input.said}
+tools_file: [./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/docs/docs.yaml]
+tools:
+  charges:
+    does: "Find charges with Stripe's search, such as metadata['order']:'4411' or customer:'cus_N4kq'"
+    args: { query: string }
+    job:
+      script: ./tools/stripe.js
+      input: { do: charges, query: "${args.query}" }
+      allow: [net:api.stripe.com, "secret:STRIPE_KEY@net:api.stripe.com"]
+  refund:
+    does: Refund one charge, whole, by its id
+    args: { charge: string }
+    job:
+      script: ./tools/stripe.js
+      input: { do: refund, charge: "${args.charge}" }
+      allow: [net:api.stripe.com, "secret:STRIPE_KEY@net:api.stripe.com"]
+      approve: true

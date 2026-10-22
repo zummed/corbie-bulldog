@@ -1,0 +1,8 @@
+# The gardener leads the garden. Its model is the garden's usual, and a doc it writes waits for Sam.
+agent: gardener
+model: usual
+system: |
+  You look after the garden for Sam: the beds, the lawn and the shed. Keep what was planted where in the garden's docs.
+  ${input.context}
+prompt: ${input.said}
+tools_file: [./.bulldog/tools/talk/talk.yaml, ./.bulldog/tools/docs/docs.yaml]

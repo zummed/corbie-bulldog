@@ -31,7 +31,7 @@ The rules behind the [Requests overview](../requests.md). Area code: `requests`.
 ## What the lead is given
 
 **R-requests-55** The lead is given `said`, `context`, `request` and `files`. `request` holds `team`, `by`, `heard`, `place`, `thread`, `teams`, `open`, `chain`, `docs` and `mentioned`, and `context` says the same as text, with the date and time in the office's zone and the team's people and workers.
-*Accept:* Dana's request in #refunds gives the ledger `by: { person: dana }`, `heard: channel`, `place` with `bridge: slack`, `place: "#refunds"` and `guests: false`, `teams` naming `office` and `platform` each with its `about`, `chain: []` and `docs: <office id>/payments/docs`. Its `context` names Dana, #refunds, and the time in Europe/London.
+*Accept:* Dana's request in #refunds gives the ledger `by: { person: dana }`, `heard: channel`, `place` with `bridge: slack`, `place: "#refunds"`, `guests: false`, its `where` and the id of the thing heard, `teams` naming `office` and `platform` each with its `about`, `chain: []` and `docs: <office id>/payments/docs`. Its `context` names Dana, #refunds, and the time in Europe/London.
 
 **R-requests-56** `thread` is the requests before this one in its thread, each with what it said and answered, the newest within 20,000 characters, and `context` says how many are left out.
 *Accept:* in a Telegram chat of 40 requests of 1,000 characters each, the 41st is given the newest that fit within 20,000 characters, and its `context` says how many are left out.
@@ -55,8 +55,8 @@ The rules behind the [Requests overview](../requests.md). Area code: `requests`.
 **R-requests-61** The people at the end of a list are asked together, and the first of them to answer gives the answer.
 *Accept:* Lee and Priya are both asked about the ledger's refund. Lee's `yes` is the answer, and Priya's press afterwards changes nothing.
 
-**R-requests-62** A decider is given `request` and `notes`, with an `answer`, a `question` or `jobs` as its decision has them; a rule gives `{ says, note }`, a worker its `reply`, and people the `yes` or `no` of whoever answered first.
-*Accept:* payments' check rule is given the ledger's answer to Dana, and `{ team: platform, said }` for the ledger's question to platform. The house's `small-orders.js` is given the fixer's `order_part` job, with `asked.args` holding `pounds: 35`.
+**R-requests-62** A decider is given `request` and `notes`, with `said`, an `answer`, a `question` or `jobs` as its decision has them; a rule gives `{ says, note }`, a worker its `reply`, and people the `yes` or `no` of whoever answered first.
+*Accept:* payments' heed rule is given Dana's message as `said`. Payments' check rule is given the ledger's answer to Dana, and `{ team: platform, said }` for the ledger's question to platform. The house's `small-orders.js` is given the fixer's `order_part` job, with `asked.args` holding `pounds: 35`, and the clerk is given `small-orders.js`'s note as `{ kind: rule, name: ./small-orders.js, says: pass, note }`.
 
 **C-requests-35** A worker passes on a job its own machine holds. An action's author cannot be the check on it. *Test:* `requests_worker_never_decides_own_job`
 
@@ -78,12 +78,12 @@ The rules behind the [Requests overview](../requests.md). Area code: `requests`.
 **R-requests-66** `ask_team(team, question)` runs `wait.yaml` to the team, marked for approval, and `ask_person(who, question, choices)` runs it to the person, with up to 8 choices.
 *Accept:* the ledger's `ask_team` makes a wait with `to: { team: platform }`, held for the ask. The steward's `ask_person` to Sam with the choices `today` and `tomorrow` makes a wait with those choices.
 
-**R-requests-67** For a wait to a team, Bulldog starts a request of that team, named from the wait run, and answers the ticket with `{ answer }` when the sub-request ends; when the wait ends first, Bulldog cancels the sub-request.
+**R-requests-67** For a wait to a team, Bulldog starts a request of that team, named from the wait run, and answers the ticket with `{ answer }` when the sub-request ends, the answer null when it gave none; when the wait ends first, Bulldog cancels the sub-request.
 *Accept:* the bot's question to payments starts one request of payments; when it ends `answered`, the bot's tool gets payments' answer. Dana's request in #help stopped while payments works cancels payments' request.
 
 **C-requests-37** The asking team is the wait run's `team=` label and the chain the request's `chain`, both written by Bulldog, never anything a worker wrote. A model fills the tool's arguments. *Test:* `requests_asking_team_from_label`
 
-**C-requests-38** An ask to the asking team itself, to a team in the chain or to no team is refused with `{ answer: null, refused }`, naming the teams it may ask, and starts nothing. A sub-request is a new root, which Corbie's limit on levels does not count, so this is the only bound on a loop between teams. *Test:* `requests_ask_in_a_loop_refused`
+**C-requests-38** An ask to the asking team itself, to a team in the chain or to a team that takes no requests is refused with `{ answer: null, refused }`, naming the teams it may ask, and starts nothing. A sub-request is a new root, which Corbie's limit on levels does not count, so this is the only bound on a loop between teams. *Test:* `requests_ask_in_a_loop_refused`
 
 **R-requests-68** For a wait to people, Bulldog carries the question to each person in their direct messages, on each bridge whose out takes `direct`, with the choices as buttons, and shows it on the screens.
 *Accept:* Sam's question about the order goes to Telegram chat `4471`, with the buttons `yes` and `no`, and is a card on Sam's Requests screen. A question to Al in the work office goes to Slack, never to GitLab.
@@ -99,16 +99,16 @@ The rules behind the [Requests overview](../requests.md). Area code: `requests`.
 
 ## Routines
 
-**R-requests-70** Bulldog keeps one clock run for each routine. When the clock waits on `came`, Bulldog starts a request of the team, named from the clock run and its step, and answers `came`; a time that came while Bulldog was stopped is acted on once.
+**R-requests-70** Bulldog keeps one clock run for each routine. When the clock waits on `came`, Bulldog answers `came`, and starts a request of the team named from the clock run and the step that took `came`; a time that came while Bulldog was stopped is acted on once.
 *Accept:* with the test clock moved from Monday 08:59 to 09:00, one request of `office` starts with `said: "What is still open?"`. With Bulldog stopped over two Mondays and started again, one more starts.
 
-**R-requests-71** When a routine changes or is removed, Bulldog cancels its clock, and starts a new one for a changed routine.
-*Accept:* changing the house's routine to `"tue 09:00"` cancels the Monday clock and starts one for Tuesday. Removing it cancels the clock, and starts none.
+**R-requests-71** When a routine changes or is removed, Bulldog cancels its clock, and starts a new one for a changed routine. A second clock of one routine is cancelled.
+*Accept:* changing the house's routine to `"tue 09:00"` cancels the Monday clock and starts one for Tuesday. Removing it cancels the clock, and starts none. Two clocks were started in all.
 
 ## Carrying the answer back
 
-**R-requests-72** When a request ends, Bulldog carries its answer to its source: by an out run to its `where` for a place on a bridge, to the screens for the chat, to the asking wait's ticket for another team, and to the team's people in their direct messages for a routine. An empty answer, and a noted request, say nothing.
-*Accept:* the guest's question in #help is answered in its thread. Kit's request is answered in Kit's Telegram chat. The Monday routine's answer goes to Sam and Kit. A noted message in #refunds is answered with nothing.
+**R-requests-72** When a request ends, Bulldog carries its answer to its source: by an out run to its `where` for a place on a bridge, to the screens for the chat, to the asking wait's ticket for another team, and to the team's people in their direct messages for a routine. An empty answer, a noted request and a stopped one say nothing.
+*Accept:* the guest's question in #help is answered in its thread, replying to the guest's message. Kit's request is answered in Kit's Telegram chat. The Monday routine's answer goes to Sam and Kit. A noted message in #refunds is answered with nothing, and so is a question in the chat.
 
 ## Stopping a request
 
@@ -117,7 +117,7 @@ The rules behind the [Requests overview](../requests.md). Area code: `requests`.
 
 ## Labels and names
 
-**R-requests-74** Every run Bulldog starts carries `bulldog=<office id>` and `kind`; a request, `team` and `thread`; a clock and a docs run `team`; a bridge's in run and a clock `made`; and a bridge's in and out runs `bridge`.
+**R-requests-74** Every run Bulldog starts carries `bulldog=<office id>` and `kind`; a request, `team` and `thread`; a sub-request, `wait`; a clock and a docs run `team`; a bridge's in run and a clock `made`; a bridge's in and out runs `bridge`; an out run carrying a question, `wait` and `to`; and an out run carrying an answer, `request`.
 *Accept:* listing the runs of a running work office by `bulldog=<office id>` gives every run Bulldog started, and `kind=request,team=payments` gives payments' requests alone.
 
 **C-requests-41** Labels and run names hold no words of a request and no plain id of a person, and what comes from a service is hashed with the office's secret. Corbie shows labels and run names to anyone who may read heads. *Test:* `requests_labels_hold_no_words`
@@ -132,10 +132,10 @@ The rules behind the [Requests overview](../requests.md). Area code: `requests`.
 Uses:
 
 - **Office.** The reading of the office, the loader, the start list of a team's runs, and the office's id and secret.
-- **Corbie.** Its parser for each request machine; its client, to start, list, show, follow and cancel runs and to answer tickets.
-- **Bridges.** Through an interface the program fills: carrying a message to a place or to a person directly.
+- **Corbie.** Its parser for each request machine; its client, to start, list, show, follow and cancel runs, to read their records, and to answer tickets.
+- **Bridges.** Through an interface the program fills: carrying a message to a place or to a person directly, by an out run under the name and labels Requests gives, and saying which bridges reach people directly.
 
 Used by:
 
-- **Bridges.** Hands over each thing heard: a new request, or an answer to a wait.
-- **Screens.** What a request is, who may see it, asking, answering, and stopping.
+- **Bridges.** Hands over each thing heard: a new request, or an answer to a wait, found by its `ref`, by the message it replies to, or as the latest question carried to the sender.
+- **Screens.** The requests, each in full; the waits on a person; asking, answering, stopping, and the files said with a request.

@@ -13,22 +13,25 @@ A person's key is the office secret's signature over their name and a hash of th
 
 The sign-in page works like this:
 
-1. The person gives their name. The page sets a random cookie in the browser, and answers the same whatever the name.
+1. The person gives their name. The page sets a random cookie in the browser, and answers the same, and at once, whatever the name.
 2. Bulldog sends them a link, signed over that cookie, in their direct messages on the first bridge in `bridges:` that can message them directly.
-3. The person opens the link in the same browser and presses the button on its page. That press, a POST, signs them in.
+3. The person opens the link in the same browser and presses the button on its page. That press, a POST to the link's own address, signs them in.
 
 - Opening a link signs nobody in, since a service may open it to show a preview.
-- A person is sent at most one link a minute.
+- A person is sent at most one link in each minute.
+- The name given is a person's key in `everyone` or their `name`, in any case.
 - The key is kept only in an HttpOnly, SameSite=Strict cookie, and compared in constant time.
 - Changing or removing a person's entry signs them out. Replacing the office's secret signs everyone out.
 
 ## Who sees what
 
-- A person sees a request if they asked it or are a person of its team. A team with no people is seen by the office's people.
-- To someone not of the team, a request shows its source, what was said there, whom it waits on, the outcome as sent, and each fork as who, when and how it ended.
+- A person of a request's team sees it whole. A team with no people has the office's people as its people.
+- The person who asked a request sees it sealed, and so do the people of the team that asked a sub-request, and the people a question or a decision of it waits on.
+- Sealed, a request shows its source, what was said there, whom it waits on, the outcome as sent, and each fork as who, when and how it ended.
 - Questions, answers, notes, held jobs, the lead's conversation and every stage's output are what the team read. They are drawn hatched, and shown only to its people.
 - A question or a decision is shown, with its notes and the held jobs, to the people it is put to.
 - A request one may not see is answered as one that is not there.
+- The person who asked a request, and its team's people, may say more in its thread and stop it.
 
 ## The look
 
@@ -40,7 +43,7 @@ The home screen, from the top:
 
 1. A box to ask any team: choose the team, say something, attach files.
 2. The questions and decisions waiting on you, as cards with their choices.
-3. The requests you may see, newest first. Each row has its flow as small dots on a line, its team, who asked, its first line, and when.
+3. The requests you may see, newest first, at most 200. Each row has its flow as small dots on a line, its team, who asked, its first line, and when.
 
 ## A request
 
@@ -53,11 +56,10 @@ The home screen, from the top:
 - A heed's no is dashed `--ink3`, and the line ends there. A check's no is hollow `--bad`, with a dashed `--bad` line to REPLY. A failed node is a `--bad` square.
 - Forks drop from the bottom of WORK through a gap in the bottom wall. Each is a plain 1.5px `--ink3` line ending in a row: a chip (TEAM, PERSON or DECISION), the party, the question and the answer, and a status dot.
 - To those outside the team, a fork's row shows who, when and how it ended. A waiting fork is `--wait`, and when it waits on the viewer, its answer card sits under the row. A TEAM row links to that team's request when the viewer may see it.
+- A team whose lead is a person shows the work's wait as a PERSON fork. A question that a heed or a check puts to people is no fork: it is a card on the Requests screen, and under the room on this one.
 - For the team's people, the tools and colleagues the lead used are a small tree under WORK, and a folded hatched panel, "what the team read", follows the run as it goes. Others see that area hatched and empty.
 - Below the room is the thread: the earlier requests in it as rows, each linking to its request, and a box to say more.
 - Under 640px the line runs downward, and the forks indent under WORK.
-
-A person who may see a request may stop it from this screen.
 
 ## A team
 
@@ -67,43 +69,49 @@ A team's page draws the same room with no run. Each node shows what is written f
 |---|---|
 | SOURCE | the places that ask the team: the bridge, the place, and whether guests may ask |
 | HEED | the heed's deciders |
-| WORK | the lead, with its colleagues and tools |
+| WORK | the lead, with its colleagues and the tools the office writes for it |
 | CHECK | the check's deciders |
-| a fork line from WORK | `decide`, with its deciders |
+| a fork line from WORK | `decide`, with its deciders, or the team's people without one |
 
 Beside the room are the team's people; its workers, each with its definition as sent to Corbie; its routines, with their next time; its docs, which its people read and edit; its problems; and its request machine as sent to Corbie.
 
 The office's page draws the office's room with its teams inside as rooms. It shows each bridge with its in run running or failing, and Corbie's error when it fails.
 
-A team's people read and edit its docs on its page. Bulldog does it through a run of `./.bulldog/docs/docs.yaml`, started with the team's start list (Office), so Bulldog holds no key to kept values.
+A team's people read and edit its docs on its page. Bulldog does it through a run of `./.bulldog/docs/docs.yaml`, labelled `kind=docs` and started with the team's start list (Office), so Bulldog holds no key to kept values.
 
 ## The API
 
-The screens use this API, JSON in and out. A request is named by its run's name after the client's name, such as `20261022T100204.000Z-3c9e1a0b7d`.
+The screens use this API, JSON in and out. A request is named by its run's name after the client's name, such as `20261022T100204.000Z-3c9e1a0b7d`. Times are RFC 3339 in UTC, and the screens show them in the office's zone.
 
 | Request | What it gives or does |
 |---|---|
-| `GET /api/me` | who is looking, the office's teams, and what waits on them |
-| `GET /api/requests` | the requests the one looking may see, newest first |
+| `GET /api/me` | who is looking, with their teams, and the office's name and zone |
+| `GET /api/requests` | the questions and decisions waiting on the one looking, oldest first, and the requests they may see, newest first |
+| `POST /api/requests` | asks a team in the chat, `{ team, said, files }`, each file `{ name, data }` with `data` in base64 |
 | `GET /api/requests/{id}` | one request, as the one looking may see it |
 | `GET /api/requests/{id}/files/{n}` | a file said with the request |
-| `POST /api/requests` | asks a team, `{ team, said }`, with files as a form of several parts; with `after`, a request of a chat, says more in its thread |
-| `POST /api/requests/{id}/stop` | stops the request |
-| `POST /api/waits/{ref}` | answers a question or a decision waiting on the one looking, `{ answer }` |
-| `GET /api/teams/{team}` | one team, `office` among them, as its page shows it |
+| `POST /api/requests/{id}/say` | says more in the request's thread, `{ said }`: a new request of the same team |
+| `POST /api/requests/{id}/stop` | stops the request and everything below it |
+| `POST /api/waits/{ref}/answer` | answers a question or a decision waiting on the one looking, `{ answer }`; a decision takes one of its choices |
+| `GET /api/office` | the office: its teams as rooms, its people, its bridges and its problems |
+| `GET /api/teams/{team}` | one team, `office` among them, as its page shows it; its docs only to its people |
 | `GET /api/teams/{team}/docs/{name}` | one doc of the team, to its people |
 | `PUT /api/teams/{team}/docs/{name}` | writes one doc of the team, `{ text }`, by its people |
-| `GET /api/events` | a stream naming each request that changes, of those the one looking may see |
+| `GET /api/events` | a stream of `changed` events: `{ request }` for each request that changes, of those the one looking may see, and `{ office: true }` when the office is read again or a bridge's in run changes |
 
-These need no key:
+These need no key, and answer pages:
 
 | Request | What it gives or does |
 |---|---|
-| `POST /signin` | sends a sign-in link, `{ name }`; answered the same whatever the name |
-| `GET /signin/{link}` | the link's page, with its button; signs nobody in |
-| `POST /signin/{link}` | signs in: by a key link, and by a sign-in link when the browser's cookie is the one it was signed over |
+| `GET /signin` | the sign-in page: a box for one's name |
+| `POST /signin` | sends a sign-in link to the person a form's `name` names; answered the same whatever the name |
+| `GET /signin/link?p=<person>&t=<time>&s=<signature>` | the sign-in link's page, with its button; signs nobody in |
+| `POST /signin/link?p=<person>&t=<time>&s=<signature>` | signs the person in when the browser's cookie is the one the link was signed over, within 15 minutes |
+| `GET /key?p=<person>&k=<key>` | the key link's page, with its button; signs nobody in |
+| `POST /key?p=<person>&k=<key>` | signs the person in while the key is theirs |
+| `POST /signout` | takes the key from the browser |
 
-- An answer that is not a success is JSON, `{ error }`, with a sentence a person can read.
+- An answer of the API that is not a success is JSON, `{ error }`, with a sentence a person can read. Without a key, it is 401.
 - A request, a team, a doc or a file the one looking may not see is answered 404, with the same sentence as one that is not there.
 - A file is served with its type told from what it holds, never from its name, and with a sandbox that lets it run nothing. Only a picture other than SVG, or a PDF, is shown; anything else is downloaded.
-- The screens load nothing from any other site, and every page is served with a policy that allows nothing else.
+- The screens load nothing from any other site, and every answer is served with the policy `default-src 'self'`.

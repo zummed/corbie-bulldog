@@ -1,0 +1,8 @@
+name: The garden
+about: The beds, the lawn and the shed.
+people: [sam]
+lead: gardener
+models:
+  usual: { name: claude-opus-5-5, secret: ANTHROPIC_KEY }   # the garden's own
+routines:
+  - { at: "fri 16:00", say: "What needs doing before the weekend?" }
