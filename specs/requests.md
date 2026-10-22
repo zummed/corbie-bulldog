@@ -88,6 +88,7 @@ stages:
               machine: ./.bulldog/wait/wait.yaml
               input:
                 to: {people: [lee, priya]}
+                question: "May Payments give this answer?\n\n${input.answer}"
                 said: "May Payments give this answer?\n\n${input.answer}\n\n./payments/no-account-numbers.js passed${states.d1.output?.note ? ': ' + states.d1.output?.note : '.'}"
                 choices: ["yes", "no"]
                 decision: check
@@ -223,13 +224,14 @@ The people are asked with `wait.yaml`, given:
 | Input | What it is |
 |---|---|
 | `to` | `{ people: [...] }` |
-| `said` | what is decided, then a line for each decider before them, such as `./small-orders.js passed: More than I order alone.` |
+| `question` | what the people are asked, such as "May Payments give this answer?" and the answer |
+| `said` | `question`, then for `decide` a line for each held job, then a line for each decider before them, such as `./small-orders.js passed: More than I order alone.` |
 | `choices` | `yes` and `no` |
 | `decision` | `heed`, `check` or `decide` |
 | `notes` | the notes of the deciders before them, as a decider is given them |
 | `jobs` | for `decide`, each held job as `{ name, does, args }`: `does` what its tool does, `args` its `asked.args` or its input |
 
-A bridge carries `said`. `notes` and `jobs` give the same as data.
+A bridge carries `said`. `question`, `notes` and `jobs` give the same apart, as data.
 
 The heed rules Bulldog ships, `mentioned` and `for-us`, answer `yes` or `no`, never `pass`.
 
@@ -277,6 +279,7 @@ ask:
                   machine: ./.bulldog/wait/wait.yaml
                   input:
                     to: {people: [lee, priya]}
+                    question: "May Payments ask ${input.question.team} this?\n\n${input.question.said}"
                     said: "May Payments ask ${input.question.team} this?\n\n${input.question.said}\n\n./payments/no-account-numbers.js passed${states.d1.output?.note ? ': ' + states.d1.output?.note : '.'}"
                     choices: ["yes", "no"]
                     decision: check
@@ -301,6 +304,7 @@ ask:
                   machine: ./.bulldog/wait/wait.yaml
                   input:
                     to: {people: [lee, priya]}
+                    question: "May these run?"
                     said: "May these run?\n\n${input.jobs.map(j => j.name + ': ' + JSON.stringify(j.asked?.args ?? j.input)).join(`\n`)}"
                     choices: ["yes", "no"]
                     decision: decide
@@ -336,7 +340,7 @@ states:
   unanswered: { end: done, output: { answer: null, note: "No answer came within 7 days." } }
 ```
 
-`to` is `{ team }` or `{ people: [...] }`, and a decision's people are given `decision`, `notes` and `jobs` too. A worker uses it through the talk tools, by naming `./.bulldog/tools/talk/talk.yaml` in `tools_file`:
+`to` is `{ team }` or `{ people: [...] }`, and a decision's people are given `question`, `decision`, `notes` and `jobs` too. Without `decision`, a wait has no `question`: its `said` is the question. A worker uses it through the talk tools, by naming `./.bulldog/tools/talk/talk.yaml` in `tools_file`:
 
 | Tool | What it does |
 |---|---|
@@ -353,7 +357,7 @@ Bulldog follows every run labelled `bulldog=<office id>`, those that have ended 
 - **To a team**, Bulldog starts a request of that team, named from the wait run. When the sub-request ends, Bulldog answers the ticket with `{ answer }`, the sub-request's answer, or null when it gave none. When the wait run ends first, because its request was stopped or 7 days passed, Bulldog cancels the sub-request.
 - A question to the asking team itself, to a team in the chain, or to a team that takes no requests is refused: Bulldog answers `{ answer: null, refused }`, and starts nothing. `refused` says why, then the teams it may ask, if any: "Platform support asked this request, so it is not asked again. It may ask platform, support."
 - A question that names no team and no people is refused the same way.
-- **To people**, Bulldog carries the question to each person, in their direct messages on each bridge whose out takes `direct`, with the choices as buttons, and shows it on the screens. The message is "Payments asks:", a blank line, and the question. A question or a decision is never carried to a channel.
+- **To people**, Bulldog carries the question to each person, in their direct messages on each bridge whose out takes `direct`, with the choices as buttons, and shows it on the screens. The message is "Payments asks:", a blank line, and the wait's `said`. A question or a decision is never carried to a channel.
 - A person may be asked only when they are of the asking team or named in its team file. Otherwise the question is refused as above, naming the people it may ask, and nobody is asked. Until Bulldog refuses it, no screen shows it and no answer to it is taken.
 - A question offers at most 8 choices, each of at most 75 characters. One that offers more is refused.
 

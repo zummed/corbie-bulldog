@@ -141,12 +141,12 @@ type decision struct {
 	deciders []office.Decider
 	input    inline // the chart's input
 	given    inline // what each decider is given, but the notes
-	// asked is what the people are asked, text with expressions in it,
-	// above the notes.
-	asked string
+	// question is what the people are asked, text with expressions in it.
+	question string
 	// jobs is an expression of the held jobs as the people are given them,
-	// each { name, does, args }; empty but for decide.
-	jobs string
+	// each { name, does, args }, and listed the same as text, a line for
+	// each after a blank line; both empty but for decide.
+	jobs, listed string
 	// own says a worker passes on a job its own machine holds: the chart
 	// is given asking, the machine that holds the jobs.
 	own bool
@@ -155,18 +155,18 @@ type decision struct {
 func heed(t *office.Team) decision {
 	return decision{
 		name: "heed", named: t.ID + "-heed", deciders: t.Heed,
-		input: inline{{"request", "map"}, {"said", "string"}},
-		given: inline{{"request", "${input.request}"}, {"said", "${input.said}"}},
-		asked: "Is this for " + t.Name + "?\n\n${input.said}",
+		input:    inline{{"request", "map"}, {"said", "string"}},
+		given:    inline{{"request", "${input.request}"}, {"said", "${input.said}"}},
+		question: "Is this for " + t.Name + "?\n\n${input.said}",
 	}
 }
 
 func check(t *office.Team) decision {
 	return decision{
 		name: "check", named: t.ID + "-check", deciders: t.Check,
-		input: inline{{"request", "map"}, {"answer", "string"}},
-		given: inline{{"request", "${input.request}"}, {"answer", "${input.answer}"}},
-		asked: "May " + t.Name + " give this answer?\n\n${input.answer}",
+		input:    inline{{"request", "map"}, {"answer", "string"}},
+		given:    inline{{"request", "${input.request}"}, {"answer", "${input.answer}"}},
+		question: "May " + t.Name + " give this answer?\n\n${input.answer}",
 	}
 }
 
@@ -174,9 +174,9 @@ func check(t *office.Team) decision {
 func question(t *office.Team) decision {
 	return decision{
 		name: "check", named: t.ID + "-question", deciders: t.Check, own: true,
-		input: inline{{"request", "map"}, {"asking", "map"}, {"question", "map"}},
-		given: inline{{"request", "${input.request}"}, {"question", "${input.question}"}},
-		asked: "May " + t.Name + " ask ${input.question.team} this?\n\n${input.question.said}",
+		input:    inline{{"request", "map"}, {"asking", "map"}, {"question", "map"}},
+		given:    inline{{"request", "${input.request}"}, {"question", "${input.question}"}},
+		question: "May " + t.Name + " ask ${input.question.team} this?\n\n${input.question.said}",
 	}
 }
 
@@ -185,10 +185,11 @@ func question(t *office.Team) decision {
 func decide(t *office.Team) decision {
 	return decision{
 		name: "decide", named: t.ID + "-decide", deciders: t.Decide, own: true,
-		input: inline{{"request", "map"}, {"asking", "map"}, {"jobs", "list"}},
-		given: inline{{"request", "${input.request}"}, {"jobs", "${input.jobs}"}},
-		asked: "May these run?\n\n${input.jobs.map(j => j.name + ': ' + JSON.stringify(j.asked?.args ?? j.input)).join(`\n`)}",
-		jobs:  "${input.jobs.map(j => ({ name: j.name, does: j.asked?.does ?? null, args: j.asked?.args ?? j.input }))}",
+		input:    inline{{"request", "map"}, {"asking", "map"}, {"jobs", "list"}},
+		given:    inline{{"request", "${input.request}"}, {"jobs", "${input.jobs}"}},
+		question: "May these run?",
+		jobs:     "${input.jobs.map(j => ({ name: j.name, does: j.asked?.does ?? null, args: j.asked?.args ?? j.input }))}",
+		listed:   "\n\n${input.jobs.map(j => j.name + ': ' + JSON.stringify(j.asked?.args ?? j.input)).join(`\n`)}",
 	}
 }
 
@@ -197,8 +198,8 @@ func decide(t *office.Team) decision {
 // said_yes, said_no and passed. The first yes or no is the answer, and when
 // every decider passes, the answer is no. A decider that fails fails the
 // chart. Each decider is given the notes of those before it. The people's
-// wait is given the notes, and decide's held jobs, as data; its said holds
-// the same as text, for a bridge.
+// wait is given the question, the notes, and decide's held jobs; its said
+// holds all three as text, for a bridge.
 func (d decision) chart(o *office.Office) mapping {
 	var before []office.Decider // the deciders before the people
 	var people []any
@@ -248,7 +249,8 @@ func (d decision) chart(o *office.Office) mapping {
 	if len(people) > 0 {
 		input := mapping{
 			{"to", inline{{"people", people}}},
-			{"said", d.asked + d.noted(before)},
+			{"question", d.question},
+			{"said", d.question + d.listed + d.noted(before)},
 			{"choices", list{"yes", "no"}},
 			{"decision", d.name},
 			{"notes", d.notes(before)},

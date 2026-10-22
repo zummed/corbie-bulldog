@@ -46,10 +46,12 @@ order_part: {"pounds":35}
 
 ./payments/small-orders.js passed: More than I order alone.
 ./payments/second.js passed: I was given [{"kind":"rule","name":"./payments/small-orders.js","note":"More than I order alone.","says":"pass"}]`
-	if fmt.Sprint(input["to"]) != "map[people:[lee]]" || input["said"] != want || fmt.Sprint(input["choices"]) != "[yes no]" || input["decision"] != "decide" {
+	if fmt.Sprint(input["to"]) != "map[people:[lee]]" || input["question"] != "May these run?" || input["said"] != want ||
+		fmt.Sprint(input["choices"]) != "[yes no]" || input["decision"] != "decide" {
 		t.Errorf("Lee is asked %#v", input)
 	}
-	// Lee's wait is given the same notes and the held job as data.
+	// Lee's wait is given the same notes and the held job as data, and the
+	// question without them.
 	notes, _ := json.Marshal(input["notes"])
 	if want := `[{"kind":"rule","name":"./payments/small-orders.js","note":"More than I order alone.","says":"pass"},` +
 		`{"kind":"rule","name":"./payments/second.js","note":"I was given [{\"kind\":\"rule\",\"name\":\"./payments/small-orders.js\",\"note\":\"More than I order alone.\",\"says\":\"pass\"}]","says":"pass"}]`; string(notes) != want {

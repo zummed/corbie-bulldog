@@ -100,5 +100,5 @@ Uses:
 Used by:
 
 - **Requests.** The reading: teams, people, workers, deciders, routines, models and the loader; the start list of a team's runs; the office's id and secret.
-- **Bridges.** The bridges with their settings, and each person's identities.
+- **Bridges.** The bridges with their settings, and each person's identities. `bridges.Check` sets `In` and `Out` on each `office.Bridge` with no problem: its `in.yaml` and `out.yaml` as Corbie's parser fills them out.
 - **Screens.** The teams, people, problems and docs' place; the start list; the office's secret.

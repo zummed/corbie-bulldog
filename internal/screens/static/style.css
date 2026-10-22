@@ -129,7 +129,7 @@ main:focus { outline: none; }
 .ic.person.you { background: var(--ink); color: var(--paper); }
 .ic.guest { border-radius: 50%; border: 1.5px dashed var(--ink2); color: var(--ink2); }
 .ic.worker { border-radius: 3px; border: 1.5px solid var(--plan); background: var(--plan-soft); color: var(--plan-deep); }
-.ic.rule::before { content: ""; width: 9px; height: 9px; border: 1.5px solid var(--ink); border-radius: 2px; background: var(--sheet); }
+.ic.rule::before { content: ""; width: 11px; height: 11px; transform: rotate(45deg); border: 1.5px solid var(--ink); background: var(--sheet); }
 .ic.team { width: 18px; height: 14px; border: 2px solid var(--ink); }
 .ic svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .tag { font: var(--small) var(--mono); color: var(--ink2); border: 1px solid var(--line); padding: 1px 5px; border-radius: 2px; white-space: nowrap; }
@@ -315,7 +315,6 @@ time { font: var(--small) var(--mono); color: var(--ink3); white-space: nowrap; 
 .calls .arg { color: var(--ink2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .calls .ok { color: var(--good); }
 .calls .bad { color: var(--bad); }
-.calls .on { color: var(--plan); }
 .calls .does { color: var(--ink2); font-family: var(--sans); font-size: 14px; }
 .calls .tag { justify-self: start; }
 .calls .calls { grid-column: 1 / -1; margin-top: 2px; }

@@ -80,10 +80,10 @@ type Look struct {
 // when it came to them.
 type Decision struct {
 	ID      string
-	Jobs    []string // the names of the held jobs
-	Words   []Word   // what each decider said, in order
-	Status  string   // waiting, answered, failed or stopped
-	Says    string   // yes or no, once answered
+	Jobs    []Job  // the held jobs it decides on
+	Words   []Word // what each decider said, in order
+	Status  string // waiting, answered, failed or stopped
+	Says    string // yes or no, once answered
 	Note    string
 	Wait    *Wait // the wait that put it to people; nil when it did not come to them
 	Started time.Time
@@ -470,7 +470,12 @@ func decisionOf(run *client.Run, words []Word) *Decision {
 			Machine string `json:"machine"`
 		} `json:"asking"`
 		Jobs []struct {
-			Name string `json:"name"`
+			Name  string `json:"name"`
+			Input any    `json:"input"`
+			Asked struct {
+				Does string `json:"does"`
+				Args any    `json:"args"`
+			} `json:"asked"`
 		} `json:"jobs"`
 	}
 	decode(run.Input, &in)
@@ -481,7 +486,11 @@ func decisionOf(run *client.Run, words []Word) *Decision {
 	decode(run.Output, &out)
 	d := &Decision{ID: run.ID, Words: words, Started: run.Started, Ended: run.Ended}
 	for _, j := range in.Jobs {
-		d.Jobs = append(d.Jobs, j.Name)
+		job := Job{Name: j.Name, Does: j.Asked.Does, Args: j.Asked.Args}
+		if job.Args == nil {
+			job.Args = j.Input // a job no tool asked for
+		}
+		d.Jobs = append(d.Jobs, job)
 	}
 	for i, w := range d.Words {
 		if w.Kind == "worker" && w.Name == in.Asking.Machine && w.Says != "failed" {

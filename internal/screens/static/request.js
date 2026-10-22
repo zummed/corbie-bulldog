@@ -10,21 +10,24 @@ function argLine(args) {
 }
 
 // calledList gives calls as a small tree: each call, what it was given,
-// how it ended, and under a colleague the tools it called.
-function calledList(calls) {
+// how it stands, and under a colleague the tools it called. A call with
+// no result yet is working, a dot, while the request is, and was stopped
+// when the request ended.
+function calledList(calls, live) {
   return el("ul", {class: "calls"}, calls.map((c) => el("li", {},
     el("span", {class: "tool"}, c.tool),
     el("span", {class: "arg"}, argLine(c.args)),
     c.error ? el("span", {class: "bad", title: c.error}, "✗ failed")
       : c.result !== undefined && c.result !== null ? el("span", {class: "ok"}, "✓")
-        : el("span", {class: "on"}, "…"),
-    c.calls ? calledList(c.calls) : null)));
+        : live ? el("span", {class: "status working", title: "working"}, el("span", {class: "vh"}, "working"))
+          : B.status("stopped"),
+    c.calls ? calledList(c.calls, live) : null)));
 }
 
 // used gives the tools and colleagues the lead used.
 function used(calls, live) {
   if (!calls.length) return B.empty(live ? "Nothing used yet." : "No tools used.");
-  return el("div", {}, el("div", {class: "k"}, "Used"), calledList(calls));
+  return el("div", {}, el("div", {class: "k"}, "Used"), calledList(calls, live));
 }
 
 // readPanel gives what the team read, folded: each decider's word and

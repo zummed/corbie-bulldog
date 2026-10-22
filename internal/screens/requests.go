@@ -232,28 +232,7 @@ func (s *Screens) cardOf(o *office.Office, w *requests.Wait) *card {
 		kind = "decision"
 	}
 	return &card{Ref: w.Ref, Request: s.id(w.Request), Team: w.Team, TeamName: teamName(o, w.Team), Kind: kind,
-		Said: asks(w), Choices: w.Choices, Notes: decidersOf(o, w.Notes), Jobs: w.Jobs, At: w.Started}
-}
-
-// asks gives what a wait asks, as a card shows it. A decision's said
-// holds its notes, and decide's held jobs, as text for a bridge, and the
-// card shows them on their own.
-func asks(w *requests.Wait) string {
-	if w.Decision == "decide" {
-		first, _, _ := strings.Cut(w.Said, "\n")
-		return first
-	}
-	if len(w.Notes) == 0 {
-		return w.Said
-	}
-	lines := make([]string, len(w.Notes))
-	for i, n := range w.Notes {
-		lines[i] = n.Name + " passed."
-		if n.Note != "" {
-			lines[i] = n.Name + " passed: " + n.Note
-		}
-	}
-	return strings.TrimSuffix(w.Said, "\n\n"+strings.Join(lines, "\n"))
+		Said: w.Question, Choices: w.Choices, Notes: decidersOf(o, w.Notes), Jobs: w.Jobs, At: w.Started}
 }
 
 // putTo says whether a question or a decision is put to a person: it
@@ -396,7 +375,7 @@ func (s *Screens) forkOf(o *office.Office, me string, q *requests.Request, w *re
 	}
 	put := putTo(w, me)
 	if how == whole || put {
-		f.Question, f.Answer = w.Said, answerOf(w)
+		f.Question, f.Answer = w.Question, answerOf(w)
 	}
 	if put && w.Status == "waiting" {
 		f.Card = s.cardOf(o, w)
@@ -426,7 +405,7 @@ func (s *Screens) decisionFork(o *office.Office, me string, d *requests.Decision
 	}
 	put := w != nil && putTo(w, me)
 	if how == whole || put {
-		f.Jobs, f.Answer, f.Deciders = jobsOf(d), d.Says, decidersOf(o, d.Words)
+		f.Jobs, f.Answer, f.Deciders = d.Jobs, d.Says, decidersOf(o, d.Words)
 		if w != nil && w.By != "" && d.Says != "" {
 			f.Answer += " (" + personName(o, w.By) + ")"
 		}
@@ -435,19 +414,6 @@ func (s *Screens) decisionFork(o *office.Office, me string, d *requests.Decision
 		f.Card = s.cardOf(o, w)
 	}
 	return f
-}
-
-// jobsOf gives a decision's held jobs: as its people were given them, or
-// by name alone when it came to no person.
-func jobsOf(d *requests.Decision) []requests.Job {
-	if d.Wait != nil {
-		return d.Wait.Jobs
-	}
-	jobs := make([]requests.Job, len(d.Jobs))
-	for i, name := range d.Jobs {
-		jobs[i] = requests.Job{Name: name}
-	}
-	return jobs
 }
 
 // waitedOn gives whom a wait waits on: the team, the person who answered,

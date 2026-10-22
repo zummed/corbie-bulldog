@@ -30,7 +30,7 @@ The rules behind the [Screens overview](../screens.md). Area code: `screens`. A 
 **C-screens-06** To someone not of the team, a request shows only its source, what was said there, whom it waits on, the outcome as sent, and each fork as who, when and how it ended; questions, answers, notes, held jobs, the lead's conversation and every stage's output are shown only to the team's people, and a question or a decision to the people it is put to; a question Bulldog refused is put to no one. The check exists to hold back what the team read, and a question to someone the team may not ask can carry it. *Test:* `screens_outsider_sees_nothing_the_team_read`
 
 **R-screens-04** A question or a decision is shown, with its notes and the held jobs, to the people it is put to.
-*Accept:* Sam's card for the fixer's order shows the order with `pounds: 35`, and the notes of `small-orders` and the clerk, above `yes` and `no`.
+*Accept:* Sam's card for the fixer's order asks `May these run?`, and shows the order with `pounds: 35`, and the notes of `small-orders` and the clerk, above `yes` and `no`.
 
 **C-screens-07** A request, a doc or a file the one looking may not see is answered 404, with the same sentence as one that is not there. A refusal that differs tells them it exists. *Test:* `screens_unseen_is_not_there`
 

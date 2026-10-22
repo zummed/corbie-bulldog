@@ -23,6 +23,15 @@ Its input:
 | `said` | the question |
 | `choices` | up to 8 short answers of up to 75 characters each, offered as buttons; optional |
 
+A decision's people are given four more, which Bulldog writes into the request machine:
+
+| Input | What it is |
+|---|---|
+| `decision` | `heed`, `check` or `decide`; only `yes` or `no` answers it |
+| `question` | what they are asked, without the notes; `said` holds the question, the held jobs and the notes, as a bridge carries them |
+| `notes` | `[{ kind, name, says, note }]`: each decider before them, which passed |
+| `jobs` | for `decide`, `[{ name, does, args }]`: the jobs Corbie holds |
+
 ## Example
 
 The talk tools run it. A machine runs it as a job:

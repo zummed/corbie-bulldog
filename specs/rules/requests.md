@@ -49,8 +49,8 @@ The rules behind the [Requests overview](../requests.md). Area code: `requests`.
 **R-requests-59** A decider that fails fails its decision: a failed heed or check fails the request, and a failed `decide` approves nothing.
 *Accept:* a check rule that throws ends Dana's request `failed`. A `decide` rule that throws denies the fixer's `order_part`, and the fixer is told it was denied.
 
-**R-requests-60** Each decider is given the notes of those before it. The people's wait is given them as `notes`, and for `decide` the held jobs as `jobs`, each `{ name, does, args }`. Its `said` holds the same as text, above `yes` and `no`.
-*Accept:* the clerk is given `small-orders.js`'s note. Sam's wait is given both notes, and the fixer's job as `{ name: order_part, does: "Order a part for a repair, at its price in pounds", args: { pounds: 35 } }`. Sam's question on Telegram holds both notes above its buttons.
+**R-requests-60** Each decider is given the notes of those before it. The people's wait is given what they are asked as `question`, the notes as `notes`, and for `decide` the held jobs as `jobs`, each `{ name, does, args }`. Its `said` holds the same as text, above `yes` and `no`.
+*Accept:* the clerk is given `small-orders.js`'s note. Sam's wait is given `question: "May these run?"`, both notes, and the fixer's job as `{ name: order_part, does: "Order a part for a repair, at its price in pounds", args: { pounds: 35 } }`. Sam's question on Telegram holds the job and both notes above its buttons.
 
 **R-requests-61** The people at the end of a list are asked together, and the first of them to answer gives the answer.
 *Accept:* Lee and Priya are both asked about the ledger's refund. Lee's `yes` is the answer, and Priya's press afterwards changes nothing.
@@ -138,4 +138,4 @@ Uses:
 Used by:
 
 - **Bridges.** Hands over each thing heard: a new request, or an answer to a wait, found by its `ref`, by the message it replies to, or as the latest question carried to the sender; and asks whether a team takes requests.
-- **Screens.** The newest requests a person may see, up to a limit; each request in full, with its decisions and the calls each colleague made; the waits on a person; asking, answering, stopping, and the files said with a request.
+- **Screens.** The newest requests a person may see, up to a limit; each request in full, with its decisions, each with its held jobs as `{ name, does, args }` whether or not it came to people, and the calls each colleague made; the waits on a person, each with its `question`, `notes` and `jobs`; asking, answering, stopping, and the files said with a request.

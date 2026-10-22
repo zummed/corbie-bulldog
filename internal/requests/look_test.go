@@ -37,9 +37,9 @@ func TestLookGivesTheWholeRequest(t *testing.T) {
 	if err != nil || len(waiting) != 1 || waiting[0].ID != asked.ID || waiting[0].Request != run || waiting[0].Status != "waiting" {
 		t.Fatalf("Lee is waited on by %+v (%v)", waiting, err)
 	}
-	if w := waiting[0]; w.Decision != "decide" || fmt.Sprint(w.Notes) != "[{rule ./payments/small-orders.js pass More than I order alone.}]" ||
+	if w := waiting[0]; w.Decision != "decide" || w.Question != "May these run?" || fmt.Sprint(w.Notes) != "[{rule ./payments/small-orders.js pass More than I order alone.}]" ||
 		fmt.Sprint(w.Jobs) != "[{order_part Order a part map[pounds:35]}]" {
-		t.Errorf("Lee is shown the notes %+v and the jobs %+v", w.Notes, w.Jobs)
+		t.Errorf("Lee is asked %q, shown the notes %+v and the jobs %+v", w.Question, w.Notes, w.Jobs)
 	}
 	if others, err := e.Waiting(ctx, "dana"); err != nil || len(others) != 0 {
 		t.Errorf("Dana is waited on by %+v (%v)", others, err)
@@ -235,8 +235,9 @@ func TestNewestKeepsAndStops(t *testing.T) {
 	}
 }
 
-// Look gives each decision on held jobs: a rule's yes, which put nothing
-// to people, and Lee's no, with the wait that put it to him. The call Lee
+// Look gives each decision on held jobs, with the jobs as its people are
+// given them: a rule's yes, which put nothing to people, and Lee's no,
+// with the wait that put it to him. The call Lee
 // denied gives no result, and its error.
 func TestLookGivesDecisions(t *testing.T) {
 	t.Parallel()
@@ -248,7 +249,7 @@ func TestLookGivesDecisions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d := look.Decisions; len(d) != 1 || fmt.Sprint(d[0].Jobs) != "[order_part]" || d[0].Status != "answered" || d[0].Says != "yes" || d[0].Wait != nil ||
+	if d := look.Decisions; len(d) != 1 || fmt.Sprint(d[0].Jobs) != "[{order_part Order a part map[pounds:12]}]" || d[0].Status != "answered" || d[0].Says != "yes" || d[0].Wait != nil ||
 		fmt.Sprint(d[0].Words) != "[{rule ./payments/small-orders.js yes Under £20.}]" || len(look.Forks) != 0 {
 		t.Errorf("the small order's decisions are %+v, its forks %+v", d, look.Forks)
 	}
@@ -262,7 +263,7 @@ func TestLookGivesDecisions(t *testing.T) {
 	if look, err = e.Look(ctx, big); err != nil {
 		t.Fatal(err)
 	}
-	if d := look.Decisions; len(d) != 1 || d[0].Says != "no" || d[0].Wait == nil || d[0].Wait.ID != asked.ID ||
+	if d := look.Decisions; len(d) != 1 || d[0].Says != "no" || d[0].Wait == nil || d[0].Wait.ID != asked.ID || fmt.Sprint(d[0].Jobs) != fmt.Sprint(d[0].Wait.Jobs) ||
 		fmt.Sprint(d[0].Words) != "[{rule ./payments/small-orders.js pass More than I order alone.} {person lee no }]" {
 		t.Errorf("the big order's decisions are %+v", d)
 	}

@@ -132,7 +132,7 @@ func TestDemoPlaysKitsRequest(t *testing.T) {
 		return len(list.Waiting) > 0
 	})
 	cut := list.Waiting[0]
-	if cut.Kind != "decision" || len(cut.Jobs) != 1 || cut.Jobs[0].Name != "cut_power" ||
+	if cut.Kind != "decision" || cut.Said != "May these run?" || len(cut.Jobs) != 1 || cut.Jobs[0].Name != "cut_power" ||
 		len(cut.Notes) != 2 || cut.Notes[1].Note != "It costs nothing, so Sam decides." {
 		t.Fatalf("Sam is asked %+v", cut)
 	}
@@ -154,17 +154,27 @@ func TestDemoPlaysKitsRequest(t *testing.T) {
 		Status string
 		Source struct{ Said string }
 		Answer string
-		Forks  []struct{ Kind, Status, Answer string }
+		Forks  []struct {
+			Kind, Status, Answer string
+			Jobs                 []struct {
+				Name, Does string
+				Args       map[string]any
+			}
+		}
 	}
 	sam.do(http.MethodGet, "/api/requests/"+kits.ID, nil, &view)
 	if view.Status != "answered" || view.Source.Said != socket || !strings.Contains(view.Answer, "ordered a new socket for £12") || len(list.Waiting) > 0 {
 		t.Fatalf("Kit's request: %+v, and Sam is asked %+v", view, list.Waiting)
 	}
 	// Sam, of the house, sees the garden's answer and both decisions: his
-	// yes to cut_power, and small-orders.js's to the order.
+	// yes to cut_power, and small-orders.js's to the order, with what the
+	// order does and its price.
 	var forks []string
 	for _, f := range view.Forks {
 		forks = append(forks, f.Kind+" "+f.Status+" "+f.Answer)
+		if f.Kind == "decision" && f.Answer == "yes" && (len(f.Jobs) != 1 || f.Jobs[0].Name != "order_part" || f.Jobs[0].Does == "" || f.Jobs[0].Args["pounds"] != 12.0) {
+			t.Errorf("small-orders.js's decision shows the jobs %+v", f.Jobs)
+		}
 	}
 	slices.Sort(forks)
 	if len(forks) != 3 || forks[0] != "decision answered yes" || forks[1] != "decision answered yes (Sam)" || !strings.HasPrefix(forks[2], "team answered") {

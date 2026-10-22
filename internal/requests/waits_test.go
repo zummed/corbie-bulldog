@@ -53,6 +53,9 @@ func TestRequestsAskOnlyTheTeamsOwnPeople(t *testing.T) {
 	asked := o.waitFor("When is the refund?")
 	sent := o.until(2)
 	ref := e.hash("ref", asked.ID)
+	if w, err := e.WaitOf(ctx, ref); err != nil || w == nil || w.Question != "When is the refund?" || w.Said != w.Question {
+		t.Errorf("Lee is asked %+v (%v)", w, err)
+	}
 	for i, to := range map[int]string{0: "4402", 1: "U0LEE"} {
 		m := sent[i]
 		bridge := map[int]string{0: "telegram", 1: "slack"}[i]

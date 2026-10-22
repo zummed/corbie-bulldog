@@ -43,7 +43,7 @@ The screens are paper and ink, with plan blue for structure and work, wait orang
 The home screen, from the top:
 
 1. A box to ask any team: choose the team, say something, attach files.
-2. The questions and decisions waiting on you, as cards with their choices. A decision's card shows its held jobs, each with what it does and what it was given, and what each decider before you said.
+2. The questions and decisions waiting on you, as cards with their choices. A decision's card shows its question, then its held jobs, each with what it does and what it was given, and what each decider before you said.
 3. The requests you may see, newest first, at most 200. Each row has its flow as small dots on a line, its team, who asked, its first line, and when.
 
 ## A request
@@ -57,10 +57,11 @@ The home screen, from the top:
 - A heed's no is dashed `--ink3`, and the line ends there. A check's no is hollow `--bad`, with a dashed `--bad` line to REPLY. A failed node is a `--bad` square.
 - A stage running when the request was stopped is filled `--ink3`, with `stopped` under it.
 - Forks drop from the bottom of WORK through a gap in the bottom wall. Each is a plain 1.5px `--ink3` line ending in a row: a chip (TEAM, PERSON or DECISION), the party, the question and the answer, and a status dot.
-- A DECISION row is a decision on held jobs: the jobs, who decided, the answer, and folded, what each decider said. One that said no has a hollow `--bad` dot.
+- A DECISION row is a decision on held jobs: the jobs, each with what it does and what it was given, who decided, the answer, and folded, what each decider said. One that said no has a hollow `--bad` dot.
 - To those outside the team, a fork's row shows who, when and how it ended, and a decision that came to no person is not shown. A waiting fork is `--wait`, and when it waits on the viewer, its answer card sits under the row. A TEAM row links to that team's request when the viewer may see it.
 - A team whose lead is a person shows the work's wait as a PERSON fork. A question that a heed or a check puts to people is no fork: it is a card on the Requests screen, and under the room on this one.
 - For the team's people, the tools and colleagues the lead used are a small tree under WORK, and a folded hatched panel, "what the team read", follows the run as it goes. Others see that area hatched and empty.
+- Each call in the tree is marked done or failed, and a call with no result is marked working while the request runs and stopped after it ends.
 - Below the room is the thread: every request in it as rows, this one marked, each linking to its request, and a box to say more.
 - Under 640px the line runs downward, and the forks indent under WORK.
 

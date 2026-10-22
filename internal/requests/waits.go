@@ -1,6 +1,7 @@
 package requests
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -30,7 +31,8 @@ type Wait struct {
 	Team     string    // the asking team
 	ToTeam   string    // the team asked, for a question to a team
 	People   []string  // the people asked
-	Said     string    // the question, or what is decided and the notes before, as text
+	Question string    // what is asked, without the held jobs and the notes a decision's said adds
+	Said     string    // what a bridge carries: the question, and for a decision the held jobs and the notes as text
 	Choices  []string  // offered as buttons
 	Decision string    // heed, check or decide for a decision; empty for a question
 	Notes    []Word    // for a decision, what each decider before the people said
@@ -65,6 +67,7 @@ func (e *Engine) waitOf(run *client.Run) *Wait {
 			Team   string   `json:"team"`
 			People []string `json:"people"`
 		} `json:"to"`
+		Question string   `json:"question"`
 		Said     string   `json:"said"`
 		Choices  []string `json:"choices"`
 		Decision string   `json:"decision"`
@@ -79,9 +82,10 @@ func (e *Engine) waitOf(run *client.Run) *Wait {
 		Note    string  `json:"note"`
 	}
 	decode(run.Output, &out)
+	// A plain question's said is its question.
 	w := &Wait{ID: run.ID, Ref: e.hash("ref", run.ID), Team: run.Labels["team"], ToTeam: in.To.Team, People: in.To.People,
-		Said: in.Said, Choices: in.Choices, Decision: in.Decision, Notes: in.Notes, Jobs: in.Jobs, Answer: out.Answer, By: out.By, Refused: out.Refused,
-		Started: run.Started, Ended: run.Ended}
+		Question: cmp.Or(in.Question, in.Said), Said: in.Said, Choices: in.Choices, Decision: in.Decision, Notes: in.Notes, Jobs: in.Jobs,
+		Answer: out.Answer, By: out.By, Refused: out.Refused, Started: run.Started, Ended: run.Ended}
 	if w.ToTeam != "" && w.Refused == "" {
 		w.Asked = e.name(named(run.ID), "team", run.ID)
 	}
