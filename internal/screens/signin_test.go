@@ -63,7 +63,8 @@ func TestScreensKeyLinkSignsIn(t *testing.T) {
 	}
 	page := b.do("GET", link, nil)
 	text, _ := io.ReadAll(page.Body)
-	if page.StatusCode != http.StatusOK || !strings.Contains(string(text), `<form method="post"><button>Sign in</button></form>`) || cookie(page, keyCookie) != nil {
+	if page.StatusCode != http.StatusOK || !strings.Contains(string(text), "Sign in as Sam, in this browser.") ||
+		!strings.Contains(string(text), `<form method="post"><button>Sign in</button></form>`) || cookie(page, keyCookie) != nil {
 		t.Errorf("the key link's page is %s, %s", page.Status, text)
 	}
 	if status, _ := b.api("GET", "/api/me", nil); status != http.StatusUnauthorized {
@@ -86,13 +87,16 @@ func TestScreensKeyLinkSignsIn(t *testing.T) {
 }
 
 // The office is read again with office.yaml changed, as the program does.
-func (w *world) reread(change func(string) string) {
+func (w *world) reread(change func(string) string) { w.rewrite("office.yaml", change) }
+
+// The office is read again with one of its files changed.
+func (w *world) rewrite(name string, change func(string) string) {
 	w.t.Helper()
-	data, err := os.ReadFile(filepath.Join(w.office.Dir, "office.yaml"))
+	data, err := os.ReadFile(filepath.Join(w.office.Dir, name))
 	if err != nil {
 		w.t.Fatal(err)
 	}
-	testkit.Write(w.t, w.office.Dir, map[string]string{"office.yaml": change(string(data))})
+	testkit.Write(w.t, w.office.Dir, map[string]string{name: change(string(data))})
 	o, err := office.Read(w.office.Dir, shipped.Files)
 	if err != nil {
 		w.t.Fatal(err)
@@ -258,5 +262,62 @@ func TestScreensKeyOnlyInCookie(t *testing.T) {
 	}
 	if status, _ := b.api("GET", "/api/me", nil); status != http.StatusUnauthorized {
 		t.Errorf("signed out, the browser is answered %d", status)
+	}
+
+	// Reached at an https:// address, behind whatever ends TLS, the
+	// screens' cookies are sent only over https.
+	at := New(w.corbie.Client, w.engine, w.bridges, secret, "https://bulldog.example")
+	for _, req := range []*http.Request{httptest.NewRequest("POST", strings.TrimPrefix(link, w.server.URL), nil),
+		httptest.NewRequest("POST", "/signin", strings.NewReader("name=kit"))} {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		answered := httptest.NewRecorder()
+		at.ServeHTTP(answered, req)
+		if cookies := answered.Result().Cookies(); len(cookies) != 1 || !cookies[0].Secure {
+			t.Errorf("%s at an https address sets %v", req.URL.Path, cookies)
+		}
+	}
+	at.sending.Wait()
+}
+
+// A POST or a PUT that a page of another site sends is refused, and so is
+// one from a page of a sibling site; one from the screens' own pages, and
+// one from outside a browser, is taken.
+func TestScreensOtherSitesRefused(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t, examples.Work, says, nil)
+	link, _ := KeyLink(w.server.URL, secret, w.office, "al")
+	dana := w.as("dana")
+	sent := func(b *browser, method, address, body string, header map[string]string) *http.Response {
+		t.Helper()
+		req, _ := http.NewRequest(method, w.server.URL+strings.TrimPrefix(address, w.server.URL), strings.NewReader(body))
+		for k, v := range header {
+			req.Header.Set(k, v)
+		}
+		res, err := b.client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		return res
+	}
+	crossSite := map[string]string{"Origin": "https://elsewhere.example", "Sec-Fetch-Site": "cross-site"}
+	if res := sent(w.browser(), "POST", link, "", crossSite); res.StatusCode != http.StatusForbidden || cookie(res, keyCookie) != nil {
+		t.Errorf("another site's press on Al's key link answered %s", res.Status)
+	}
+	if res := sent(dana, "POST", "/signout", "", crossSite); res.StatusCode != http.StatusForbidden || cookie(res, keyCookie) != nil {
+		t.Errorf("another site signing Dana out answered %s", res.Status)
+	}
+	sibling := map[string]string{"Content-Type": "text/plain", "Sec-Fetch-Site": "same-site"}
+	if res := sent(dana, "POST", "/api/requests", `{"team":"payments","said":"x = y"}`, sibling); res.StatusCode != http.StatusForbidden {
+		t.Errorf("a sibling site asking as Dana answered %s", res.Status)
+	}
+	if res := sent(dana, "PUT", "/api/teams/support/docs/x.md", `{"text":"x"}`, map[string]string{"Origin": "https://elsewhere.example"}); res.StatusCode != http.StatusForbidden {
+		t.Errorf("another site writing a doc as Dana answered %s", res.Status)
+	}
+	if list := dana.get("/api/requests"); len(list["requests"].([]any)) != 0 {
+		t.Errorf("another site asked as Dana: %s", jsonOf(list))
+	}
+	if res := sent(w.browser(), "POST", link, "", map[string]string{"Origin": w.server.URL, "Sec-Fetch-Site": "same-origin"}); res.StatusCode != http.StatusSeeOther || cookie(res, keyCookie) == nil {
+		t.Errorf("the press on Al's key link's own page answered %s", res.Status)
 	}
 }

@@ -20,6 +20,15 @@ func TestBridgesBotsNotHeard(t *testing.T) {
 	t.Run("jira", func(t *testing.T) { t.Parallel(); jiraBotsNotHeard(t) })
 }
 
+// The GitLab and Jira bridges hand over nothing only some may read: an
+// internal note, and a comment restricted to a role or internal to Jira
+// Service Management. Slack and Telegram have no such message.
+func TestBridgesRestrictedNotHeard(t *testing.T) {
+	t.Parallel()
+	t.Run("gitlab", func(t *testing.T) { t.Parallel(); gitlabRestrictedNotHeard(t) })
+	t.Run("jira", func(t *testing.T) { t.Parallel(); jiraRestrictedNotHeard(t) })
+}
+
 // The Slack and Telegram outs take direct, and can send to a person; the
 // GitLab and Jira outs do not take it.
 func TestBridgesOutTakesDirectWhereItCan(t *testing.T) {

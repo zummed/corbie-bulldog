@@ -10,22 +10,15 @@ B.notes = function (notes) {
     n.note ? el("span", {class: "note"}, n.note) : null)));
 };
 
-// jobs gives the jobs Corbie holds for a yes: each its name, what it
-// does, and what it was given.
-B.jobs = function (jobs) {
-  const args = (a) => {
-    if (!a || typeof a !== "object") return a === undefined ? null : el("pre", {}, JSON.stringify(a));
-    return el("dl", {class: "args"}, Object.entries(a).map(([k, v]) =>
-      [el("dt", {}, k), el("dd", {}, typeof v === "string" ? v : JSON.stringify(v))]));
-  };
-  return el("ul", {class: "jobs", "aria-label": "Held jobs"}, jobs.map((j) => el("li", {},
-    el("div", {class: "line"}, el("strong", {class: "mono"}, j.name), j.does ? el("span", {class: "does"}, j.does) : null),
-    args(j.args))));
+// decided gives what each decider of a heed, a check or a decision said.
+B.decided = function (deciders) {
+  return B.notes(deciders.map((d) => ({by: {kind: d.kind, id: d.name, name: d.name}, says: d.says, note: d.note})));
 };
 
 // card gives a question or a decision put to the one looking, with its
-// choices as buttons; a question may also be answered in words. Under a
-// fork's row it leaves out its head, which the row says.
+// choices as buttons; a question may also be answered in words. A
+// decision's words hold its held jobs and the notes of the deciders
+// before. Under a fork's row it leaves out its head, which the row says.
 B.card = function (c, within) {
   const answer = (value, form) => B.act(B.send("POST", "/api/waits/" + enc(c.ref) + "/answer", {answer: value}), form)
     .then((out) => { if (out) B.show(true); });
@@ -44,8 +37,6 @@ B.card = function (c, within) {
       el("a", {href: "#/requests/" + enc(c.request)}, c.teamName),
       B.time(c.at)),
     el("p", {class: "card-said"}, c.said),
-    c.notes && c.notes.length ? B.notes(c.notes) : null,
-    c.jobs && c.jobs.length ? B.jobs(c.jobs) : null,
     form);
 };
 
@@ -88,7 +79,7 @@ function askBox(office) {
     e.preventDefault();
     const out = await B.act(readFiles(files).then((fs) =>
       B.send("POST", "/api/requests", {team: team.value, said: said.value.trim(), files: fs})), form);
-    if (out) location.hash = "#/requests/" + enc(out.id);
+    if (out) { B.starting.add(out.id); location.hash = "#/requests/" + enc(out.id); }
   }},
   B.field("Ask", team, "team"),
   B.field("Say", said, "say"),

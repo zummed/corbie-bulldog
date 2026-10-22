@@ -24,7 +24,8 @@ The in run asks GitLab what happened on each project, then rests 30 seconds, sin
 
 ## Leaves out
 
-- What the bridge's own account did, and GitLab's system notes.
+- What the bridge's own account or another bot did, as a project's or a group's token.
+- GitLab's system notes, and internal notes.
 - Anything else that happens: a push, a close, a merge, and what happens to anything but an issue or a merge request.
 
 Each is logged in the in run's record, with its id, its project and why, never its words.

@@ -119,7 +119,6 @@ main:focus { outline: none; }
 /* Rows: one line for each thing */
 .rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
 .rows > li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 36px; padding: 6px 0; border-bottom: 1px solid var(--faint); min-width: 0; }
-.rows > li > .grow { flex: 1 1 160px; min-width: 0; }
 
 /* Kinds: a person, a guest, a worker, a rule, a team, a routine. The icon
    goes with the name; it never stands alone. */
@@ -130,7 +129,7 @@ main:focus { outline: none; }
 .ic.person.you { background: var(--ink); color: var(--paper); }
 .ic.guest { border-radius: 50%; border: 1.5px dashed var(--ink2); color: var(--ink2); }
 .ic.worker { border-radius: 3px; border: 1.5px solid var(--plan); background: var(--plan-soft); color: var(--plan-deep); }
-.ic.rule::before { content: ""; width: 10px; height: 10px; transform: rotate(45deg); border: 1.5px solid var(--ink); background: var(--sheet); }
+.ic.rule::before { content: ""; width: 9px; height: 9px; border: 1.5px solid var(--ink); border-radius: 2px; background: var(--sheet); }
 .ic.team { width: 18px; height: 14px; border: 2px solid var(--ink); }
 .ic svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .tag { font: var(--small) var(--mono); color: var(--ink2); border: 1px solid var(--line); padding: 1px 5px; border-radius: 2px; white-space: nowrap; }
@@ -148,7 +147,7 @@ main:focus { outline: none; }
 .status.waiting { color: var(--wait); } .status.waiting::before { background: var(--wait); }
 .status.answered { color: var(--ink); } .status.answered::before { background: var(--ink); }
 .status.noted, .status.timed-out { color: var(--ink3); } .status.noted::before, .status.timed-out::before { background: transparent; border: 1.5px dashed var(--ink3); }
-.status.withheld, .status.refused { color: var(--bad); } .status.withheld::before, .status.refused::before { background: transparent; border: 1.5px solid var(--bad); }
+.status.withheld, .status.refused, .status.no { color: var(--bad); } .status.withheld::before, .status.refused::before, .status.no::before { background: transparent; border: 1.5px solid var(--bad); }
 .status.failed, .status.failing { color: var(--bad); } .status.failed::before, .status.failing::before { background: var(--bad); border-radius: 1px; }
 .status.stopped { color: var(--ink3); } .status.stopped::before { background: transparent; border: 1.5px solid var(--ink3); }
 .status.running { color: var(--good); } .status.running::before { background: var(--good); }
@@ -197,12 +196,6 @@ input[type="file"].in::file-selector-button { margin-right: 10px; padding: 4px 1
 .notes .note { flex: 1 1 100%; color: var(--ink2); font-style: italic; overflow-wrap: anywhere; }
 .says { font: 600 var(--small) var(--mono); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink2); }
 .says.yes { color: var(--good); } .says.no { color: var(--bad); }
-.jobs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.jobs > li { padding: 8px 10px; border: 1.5px dashed var(--wait); background: var(--field); min-width: 0; }
-.jobs .does { color: var(--ink2); font-size: 14px; }
-.args { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 12px; margin: 6px 0 0; font: var(--data)/1.5 var(--mono); }
-.args dt { color: var(--ink2); }
-.args dd { margin: 0; overflow-wrap: anywhere; }
 .card-act { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
 .card-act > .field { flex: 1 1 220px; }
 .card-act textarea.in { min-height: 44px; }
@@ -279,6 +272,7 @@ time { font: var(--small) var(--mono); color: var(--ink3); white-space: nowrap; 
 .st-waiting .mark { border-color: var(--wait); background: var(--wait); animation: ring var(--breathe) ease-out infinite; }
 .st-no .mark { border-style: dashed; border-color: var(--ink3); }
 .check.st-no .mark { border-style: solid; border-color: var(--bad); }
+.reply.st-no .mark { border-style: solid; }
 .st-failed .mark { border-color: var(--bad); background: var(--bad); border-radius: 1px; transform: none; }
 .st-waiting > .text > .word { color: var(--wait); }
 .st-failed > .text > .word, .check.st-no > .text > .word { color: var(--bad); }
@@ -317,6 +311,7 @@ time { font: var(--small) var(--mono); color: var(--ink3); white-space: nowrap; 
 .calls .on { color: var(--plan); }
 .calls .does { color: var(--ink2); font-family: var(--sans); font-size: 14px; }
 .calls .tag { justify-self: start; }
+.calls .calls { grid-column: 1 / -1; margin-top: 2px; }
 
 /* What the team read: a folded hatched panel */
 .read { background: var(--hatch); border: 1px solid var(--ink3); }
@@ -345,7 +340,7 @@ time { font: var(--small) var(--mono); color: var(--ink3); white-space: nowrap; 
 .fork-a { color: var(--ink2); overflow-wrap: anywhere; white-space: pre-wrap; }
 .fork-a::before { content: "→ "; color: var(--ink3); }
 .fork-more > summary { font: var(--small) var(--mono); color: var(--ink2); padding: 2px 0; }
-.fork-more > .stack { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.fork-more > .notes { margin-top: 6px; }
 .fork > .card { margin-top: 6px; max-width: 600px; }
 
 /* A team's room with no run: its doors, its deciders, its lead */

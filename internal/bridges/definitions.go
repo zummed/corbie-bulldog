@@ -20,7 +20,7 @@ type defs struct {
 	in, out *machine.Draft
 	made    string // the fingerprint of in, out and the settings
 	direct  bool   // whether out takes direct
-	err     error  // what Corbie's parser refuses
+	err     error  // why the fingerprint cannot be made
 }
 
 // usable says whether a bridge has definitions to run.
@@ -71,7 +71,9 @@ func parse(o *office.Office, br *office.Bridge) (in, out *machine.Draft, problem
 }
 
 // definitions gives the definitions of each bridge of a reading that has
-// no problem, by its name. They are made once for each reading.
+// no problem, by its name. They are made once for each reading. Check has
+// made what the parser refuses the bridge's problems, so a bridge whose
+// files changed since it was checked waits for the next reading.
 func (b *Bridges) definitions(r *requests.Reading) map[string]*defs {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -84,14 +86,13 @@ func (b *Bridges) definitions(r *requests.Reading) map[string]*defs {
 			continue
 		}
 		in, out, problems := parse(r.Office, br)
-		d := &defs{in: in, out: out}
 		if len(problems) > 0 {
-			d.err = office.Problems(problems)
-		} else {
-			d.made, d.err = b.fingerprint(in, out, br.Settings)
-			properties, _ := out.Definition.Input["properties"].(map[string]any)
-			_, d.direct = properties["direct"]
+			continue
 		}
+		d := &defs{in: in, out: out}
+		d.made, d.err = b.fingerprint(in, out, br.Settings)
+		properties, _ := out.Definition.Input["properties"].(map[string]any)
+		_, d.direct = properties["direct"]
 		all[br.Name] = d
 	}
 	b.reading, b.defs = r, all

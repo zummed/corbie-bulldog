@@ -5,7 +5,7 @@ An office of teams on Corbie (`../corbie`): people and workers in teams, asked t
 ## Where to start
 
 - `specs/README.md`: the whole of it in a page, the words, and the map of the other pages. Each area has an overview page and a rules page (`specs/rules/<area>.md`) of requirements `R-<area>-nn` and constraints `C-<area>-nn`. The specs describe how things are now, and are the authority.
-- Each area is one package: `internal/office`, `internal/requests`, `internal/bridges` and `internal/screens`. Beside them are `internal/testkit`, `shipped` (what Bulldog ships, served at `./.bulldog/`), the program in `cmd/corbie-bulldog`, and `cmd/demo`.
+- Each area is one package: `internal/office`, `internal/requests`, `internal/bridges` and `internal/screens`. Beside them are `internal/testkit`, `shipped` (what Bulldog ships, served at `./.bulldog/`), the program in `cmd/corbie-bulldog`, `cmd/demo`, `cmd/internal/serve` (serving an office, for both programs) and `examples` (the two offices, embedded).
 - `examples/house`: an office, as a person writes one. `examples/work`: one Slack bot over many teams.
 - `go.mod` builds against the Corbie beside it, `../corbie`.
 - The Bulldog before this design is in the history of `main`. It is a reference for how something was done, never a source to copy from.
@@ -17,7 +17,7 @@ An office of teams on Corbie (`../corbie`): people and workers in teams, asked t
 - **Inside a team, workers use each other as Corbie tools. Between teams, work goes as a request.**
 - **Bulldog keeps nothing but the office's id and secret.** Every request, question, routine and bridge is a Corbie run, found again in the store after a restart. A team's docs are values kept in Corbie's store. There is no database, and doing a thing twice changes nothing.
 - **Bulldog drives, and nothing in Corbie calls Bulldog.** Bulldog starts runs and answers their tickets. A question to a person or a team is a run that waits.
-- **Teams are sealed**: what a team read is seen only by its own people. Only a request machine's output leaves a team, and everything a team sends to another team passes its `check`.
+- **Teams are sealed**: what a team read is seen only by its own people. Bulldog carries only a team's answers and its questions out of it. Its answers, and what it asks with `ask_team`, pass its `check`.
 - **Every way in and out is a bridge**, a directory of Corbie definitions. Bulldog talks to no outside service itself, and its own screens are the one way in that is not a bridge.
 - **Every run Bulldog starts carries labels**, `bulldog=<office id>` and `kind` among them, and is found by them. Labels and run names hold no words of a request and no plain id of a person.
 - Corbie's ideals come first. A workaround names what Corbie lacks: add it to the list in `specs/README.md`.

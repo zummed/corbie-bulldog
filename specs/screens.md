@@ -20,7 +20,7 @@ The sign-in page works like this:
 - Opening a link signs nobody in, since a service may open it to show a preview.
 - A person is sent at most one link in each minute.
 - The name given is a person's key in `everyone` or their `name`, in any case.
-- The key is kept only in an HttpOnly, SameSite=Strict cookie, and compared in constant time.
+- The key is kept only in an HttpOnly, SameSite=Strict cookie, Secure when the screens are reached at an `https://` address, and compared in constant time.
 - Changing or removing a person's entry signs them out. Replacing the office's secret signs everyone out.
 
 ## Who sees what
@@ -29,8 +29,9 @@ The sign-in page works like this:
 - The person who asked a request sees it sealed, and so do the people of the team that asked a sub-request, and the people a question or a decision of it waits on.
 - Sealed, a request shows its source, what was said there, whom it waits on, the outcome as sent, and each fork as who, when and how it ended.
 - Questions, answers, notes, held jobs, the lead's conversation and every stage's output are what the team read. They are drawn hatched, and shown only to its people.
-- A question or a decision is shown, with its notes and the held jobs, to the people it is put to.
+- A question or a decision is shown, with its notes and the held jobs, to the people it is put to: those it waits on, and the one who answered it. A question Bulldog refused is put to no one.
 - A request one may not see is answered as one that is not there.
+- Every person sees every team's page and the office's. A team's docs are shown only to its people.
 - The person who asked a request, and its team's people, may say more in its thread and stop it.
 
 ## The look
@@ -50,15 +51,16 @@ The home screen, from the top:
 - The team is a room: a box with a 2px `--ink` wall, square corners and `--sheet` inside, with the team's name on the top wall.
 - One 2px line runs left to right. SOURCE sits on the left wall and REPLY on the right wall, and HEED, WORK and CHECK are inside. A stage the team does not have, or that did not run, is not drawn.
 - SOURCE, WORK and REPLY are 12px circles. HEED and CHECK are 12px diamonds.
-- Under each node is its word in 11px mono capitals, then one mono line: who asked and where; the decider that answered and its word; the lead and the time it took; sent or not.
+- Under each node is its word in 11px mono capitals, then one mono line: who asked and where; the decider that answered and its word; the lead and the time it took; sent or not, with the error to the team's people.
 - A node not reached has a `--paper` fill and a `--line` border. A node passed has a `--plan` border, with the line behind it `--plan`.
 - A working node is filled `--plan` and breathes. A waiting node is filled `--wait` and rings.
 - A heed's no is dashed `--ink3`, and the line ends there. A check's no is hollow `--bad`, with a dashed `--bad` line to REPLY. A failed node is a `--bad` square.
 - Forks drop from the bottom of WORK through a gap in the bottom wall. Each is a plain 1.5px `--ink3` line ending in a row: a chip (TEAM, PERSON or DECISION), the party, the question and the answer, and a status dot.
-- To those outside the team, a fork's row shows who, when and how it ended. A waiting fork is `--wait`, and when it waits on the viewer, its answer card sits under the row. A TEAM row links to that team's request when the viewer may see it.
+- A DECISION row is a decision on held jobs: the jobs, who decided, the answer, and folded, what each decider said. One that said no has a hollow `--bad` dot.
+- To those outside the team, a fork's row shows who, when and how it ended, and a decision that came to no person is not shown. A waiting fork is `--wait`, and when it waits on the viewer, its answer card sits under the row. A TEAM row links to that team's request when the viewer may see it.
 - A team whose lead is a person shows the work's wait as a PERSON fork. A question that a heed or a check puts to people is no fork: it is a card on the Requests screen, and under the room on this one.
 - For the team's people, the tools and colleagues the lead used are a small tree under WORK, and a folded hatched panel, "what the team read", follows the run as it goes. Others see that area hatched and empty.
-- Below the room is the thread: the earlier requests in it as rows, each linking to its request, and a box to say more.
+- Below the room is the thread: every request in it as rows, this one marked, each linking to its request, and a box to say more.
 - Under 640px the line runs downward, and the forks indent under WORK.
 
 ## A team
@@ -69,13 +71,13 @@ A team's page draws the same room with no run. Each node shows what is written f
 |---|---|
 | SOURCE | the places that ask the team: the bridge, the place, and whether guests may ask |
 | HEED | the heed's deciders |
-| WORK | the lead, with its colleagues and the tools the office writes for it |
+| WORK | the lead, its colleagues each with what it uses, and the tools the office writes, those held for approval marked |
 | CHECK | the check's deciders |
 | a fork line from WORK | `decide`, with its deciders, or the team's people without one |
 
 Beside the room are the team's people; its workers, each with its definition as sent to Corbie; its routines, with their next time; its docs, which its people read and edit; its problems; and its request machine as sent to Corbie.
 
-The office's page draws the office's room with its teams inside as rooms. It shows each bridge with its in run running or failing, and Corbie's error when it fails.
+The office's page draws the office's room with its teams inside as rooms. It shows each bridge with its in run running, failing or stopped, and Corbie's error when it fails.
 
 A team's people read and edit its docs on its page. Bulldog does it through a run of `./.bulldog/docs/docs.yaml`, labelled `kind=docs` and started with the team's start list (Office), so Bulldog holds no key to kept values.
 
@@ -112,6 +114,7 @@ These need no key, and answer pages:
 | `POST /signout` | takes the key from the browser |
 
 - An answer of the API that is not a success is JSON, `{ error }`, with a sentence a person can read. Without a key, it is 401.
-- A request, a team, a doc or a file the one looking may not see is answered 404, with the same sentence as one that is not there.
+- A request, a doc or a file the one looking may not see is answered 404, with the same sentence as one that is not there.
+- A POST or a PUT that a page of another site sends is answered 403, so that no other site acts as the one signed in, or signs a browser in as someone else.
 - A file is served with its type told from what it holds, never from its name, and with a sandbox that lets it run nothing. Only a picture other than SVG, or a PDF, is shown; anything else is downloaded.
 - The screens load nothing from any other site, and every answer is served with the policy `default-src 'self'`.

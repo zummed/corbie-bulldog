@@ -28,7 +28,8 @@ const (
 // A slack stands in for Slack's Web API and its Socket Mode: it knows a
 // few channels, keeps what the app posted, answers as Slack does, and
 // sends a connection the envelopes a test gives it, telling the test each
-// one acknowledged.
+// one acknowledged. It gives every file but one under /files/gone/, and
+// names every channel but a private one, whose id begins G.
 type slack struct {
 	*httptest.Server
 	t      *testing.T
@@ -69,11 +70,15 @@ func (sl *slack) serve(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(v)
 	}
 	if strings.HasPrefix(r.URL.Path, "/files/") {
-		if r.Header.Get("Authorization") != "Bearer "+slackToken {
+		sl.asked["files"]++
+		switch {
+		case r.Header.Get("Authorization") != "Bearer "+slackToken:
 			w.WriteHeader(403)
-			return
+		case strings.HasPrefix(r.URL.Path, "/files/gone/"):
+			w.WriteHeader(404)
+		default:
+			w.Write([]byte("the file " + r.URL.Path))
 		}
-		w.Write([]byte("the file " + r.URL.Path))
 		return
 	}
 	method, _ := strings.CutPrefix(r.URL.Path, "/api/")
@@ -104,7 +109,11 @@ func (sl *slack) serve(w http.ResponseWriter, r *http.Request) {
 		answer(map[string]any{"ok": true, "user_id": slackApp, "bot_id": "B01", "user": "gromit"})
 	case "conversations.info":
 		channel := r.URL.Query().Get("channel")
-		answer(map[string]any{"ok": true, "channel": map[string]any{"id": channel, "name": map[string]string{"C0HELP00": "help", "C0REFUND": "refunds"}[channel], "is_im": strings.HasPrefix(channel, "D")}})
+		if strings.HasPrefix(channel, "G") {
+			answer(map[string]any{"ok": false, "error": "missing_scope"})
+			return
+		}
+		answer(map[string]any{"ok": true, "channel": map[string]any{"id": channel, "name": map[string]string{"C0HELP00": "help", "C0REFUND": "refunds", "C0GENERL": "general"}[channel], "is_im": strings.HasPrefix(channel, "D")}})
 	case "conversations.open":
 		users := fmt.Sprint(body["users"])
 		if users == "U0GONE00" {
@@ -116,10 +125,17 @@ func (sl *slack) serve(w http.ResponseWriter, r *http.Request) {
 		markdown, _ := body["markdown_text"].(string)
 		thread, _ := body["thread_ts"].(string)
 		blocks, _ := body["blocks"].([]any)
-		unfetched := false
+		unfetched, badButton := false, false
 		for _, b := range blocks {
-			if b := b.(map[string]any); b["type"] == "image" {
+			b := b.(map[string]any)
+			if b["type"] == "image" {
 				unfetched = unfetched || strings.Contains(b["image_url"].(string), "unreachable")
+			}
+			if b["type"] == "actions" {
+				for _, button := range b["elements"].([]any) {
+					text := button.(map[string]any)["text"].(map[string]any)["text"].(string)
+					badButton = badButton || text == "" || len([]rune(text)) > 75
+				}
 			}
 		}
 		switch {
@@ -129,7 +145,7 @@ func (sl *slack) serve(w http.ResponseWriter, r *http.Request) {
 		case len([]rune(markdown)) > 12000:
 			answer(map[string]any{"ok": false, "error": "msg_too_long"})
 			return
-		case unfetched:
+		case unfetched || badButton:
 			answer(map[string]any{"ok": false, "error": "invalid_blocks"})
 			return
 		case sl.gone[thread]:
@@ -301,6 +317,53 @@ func TestSlackHearsAMessageAndAPress(t *testing.T) {
 	}
 }
 
+// A file Slack gives no address for, one too large and one Slack will not
+// give are left out and named, and the message is heard. A file said at a
+// place the settings do not list is not read.
+func TestSlackLeavesOutAFile(t *testing.T) {
+	t.Parallel()
+	sl, s := newSlackBridge(t)
+	run := s.listen(nil)
+	files := message("D0LEE000", "U0LEE000", "1700000001.000100", "here they are")
+	files["subtype"], files["files"] = "file_share", []any{
+		map[string]any{"name": "connect.pdf", "file_access": "check_file_info"},
+		map[string]any{"name": "gone.png", "url_private": sl.URL + "/files/gone/gone.png"},
+		map[string]any{"name": "video.mp4", "size": 200 << 20, "url_private": sl.URL + "/files/T01/video.mp4"},
+		map[string]any{"name": "receipt.png", "url_private": sl.URL + "/files/T01/receipt.png"},
+	}
+	general := message("C0GENERL", "U0LEE000", "1700000002.000100", "the team photo")
+	general["subtype"], general["files"] = "file_share", []any{map[string]any{"name": "team.png", "url_private": sl.URL + "/files/T01/team.png"}}
+	sl.send(event("Ev1", files))
+	sl.send(event("Ev2", general))
+	things, _ := s.hears(run, 2)
+	want := "here they are\n[a file left out: connect.pdf, as Slack gives no address for it]\n[a file left out: gone.png, as Slack answered status 404]\n[a file left out: video.mp4, as too large]"
+	if got := things[0]["files"].([]any); things[0]["text"] != want || len(got) != 1 || got[0].(map[string]any)["name"] != "receipt.png" {
+		t.Errorf("the message is heard saying %q, with the files %v", things[0]["text"], got)
+	}
+	sl.mu.Lock()
+	defer sl.mu.Unlock()
+	if got := things[1]["files"].([]any); things[1]["place"] != "#general" || len(got) != 0 || sl.asked["files"] != 2 {
+		t.Errorf("at #general the files %v are heard, and Slack was asked for %d files", got, sl.asked["files"])
+	}
+}
+
+// What is said in a channel Slack will not name is left out, and what
+// comes after it is heard. Slack is asked about each channel once a job.
+func TestSlackLeavesOutWhatItCannotPlace(t *testing.T) {
+	t.Parallel()
+	sl, s := newSlackBridge(t)
+	run := s.listen(nil)
+	sl.send(event("Ev1", message("G0PRIVAT", "U0DANA00", "1700000001.000100", "in a private channel")))
+	sl.send(event("Ev2", message("C0HELP00", "U0DANA00", "1700000002.000100", "one")))
+	sl.send(event("Ev3", message("C0HELP00", "U0DANA00", "1700000003.000100", "two")))
+	things, _ := s.hears(run, 2)
+	sl.mu.Lock()
+	defer sl.mu.Unlock()
+	if len(things) != 2 || things[0]["text"] != "one" || fmt.Sprint(s.logged(run)) != "[left out Ev1 in G0PRIVAT: Slack refused conversations.info: missing_scope]" || sl.asked["conversations.info"] != 2 {
+		t.Errorf("Slack hands over %v, logs %q, and was asked about %d channels", things, s.logged(run), sl.asked["conversations.info"])
+	}
+}
+
 func TestSlackListensAgainWhenSlackCloses(t *testing.T) {
 	t.Parallel()
 	sl, s := newSlackBridge(t)
@@ -366,6 +429,14 @@ func TestSlackSaysOneMessage(t *testing.T) {
 	}
 	if fmt.Sprint(kinds) != "[markdown data_visualization]" {
 		t.Errorf("a chart is posted as %v", kinds)
+	}
+	// A choice longer than a button shows is cut on its button, and its
+	// press gives it back whole.
+	policy := "Full refund within 30 days of purchase, including shipping costs and any fees"
+	sent(t, s.say(map[string]any{"to": "U0LEE000", "direct": true, "text": "Which refund policy applies?", "choices": []any{policy, "Store credit"}, "ref": "r13"}))
+	button := last()["blocks"].([]any)[1].(map[string]any)["elements"].([]any)[0].(map[string]any)
+	if shown := button["text"].(map[string]any)["text"].(string); shown != policy[:75] || button["value"] != "r13:"+policy {
+		t.Errorf("the long choice is a button showing %q, giving %q", shown, button["value"])
 	}
 	// What Slack refuses fails the out with Slack's word.
 	if r := s.say(map[string]any{"to": "U0GONE00", "direct": true, "text": "hello"}); r.Status != "failed" || !strings.Contains(r.Error, "user_not_found") {

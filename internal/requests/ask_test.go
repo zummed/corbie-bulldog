@@ -258,8 +258,8 @@ func TestRequestsSubRequestGivenOwnThreadOnly(t *testing.T) {
 }
 
 // TestRequestsAskInALoopRefused: a team asking itself, a team of its
-// chain, or no team is refused, naming the teams it may ask, and starts
-// nothing.
+// chain, no team, or a team that takes no requests is refused, naming the
+// teams it may ask, and starts nothing.
 func TestRequestsAskInALoopRefused(t *testing.T) {
 	t.Parallel()
 	o := newOffice(t, func(turn testkit.Turn) testkit.Reply {
@@ -270,21 +270,33 @@ func TestRequestsAskInALoopRefused(t *testing.T) {
 		return testkit.Say("Told: " + turn.Last())
 	}, nil)
 	e, _ := o.run()
+	// Platform's worker cannot be read, so platform takes no requests.
+	e.Swap(o.read(func(files map[string]string) {
+		files["platform/team.yaml"] = "name: Platform\nabout: The servers.\nlead: ops\n"
+		files["platform/ops.yaml"] = "flow: ops\n  stages: [\n"
+	}))
 	for prompt, want := range map[string]string{
 		"office: hello?":   "Work cannot ask itself. It may ask payments.",
 		"nowhere: hello?":  "There is no team nowhere. It may ask payments.",
-		"payments: office": "The team office asked this request, so it is not asked again. It may ask no other team.",
+		": hello?":         "A question names the team or the people it asks.",
+		"platform: hello?": "Platform takes no requests now: its files have problems. It may ask payments.",
+		"payments: office": "Work asked this request, so it is not asked again.",
 	} {
 		answer := o.answered(o.chat(e, "office", prompt))
-		if !strings.Contains(answer, want) || !strings.Contains(answer, "refused") {
+		// Payments, asked by the office, may ask no other team, and its
+		// refusal names none.
+		if !strings.Contains(answer, want) || !strings.Contains(answer, "refused") || prompt == "payments: office" && strings.Contains(answer, "It may ask") {
 			t.Errorf("asked %q, the bot is told %s", prompt, answer)
 		}
 	}
-	if n := len(o.requests("office")); n != 3 {
+	if n := len(o.requests("office")); n != 5 {
 		t.Errorf("the office has %d requests", n)
 	}
 	if n := len(o.requests("payments")); n != 1 {
 		t.Errorf("payments has %d requests", n)
+	}
+	if n := len(o.requests("platform")); n != 0 {
+		t.Errorf("platform has %d requests", n)
 	}
 }
 
@@ -312,7 +324,7 @@ output: { answer: "${stages.back.output.refused + ' ' + stages.up.output.answer}
 	})
 	e, _ := o.run()
 	answer := o.answered(o.chat(e, "office", "Is the charge service up?"))
-	if !strings.Contains(answer, "The team office asked this request, so it is not asked again. It may ask platform. It is up.") {
+	if !strings.Contains(answer, "Work asked this request, so it is not asked again. It may ask platform. It is up.") {
 		t.Errorf("the bot is told %s", answer)
 	}
 	asked := o.requests("platform")

@@ -10,7 +10,7 @@ ask_team:
     input: { to: { team: "${args.team}" }, said: "${args.question}" }
     approve: true
 ask_person:
-  does: Ask a person, by their name, and wait for the answer. You may ask a person of your team, or one your team file names. Only for what a person alone can answer or choose. Where the likely answers are few and short, give them as choices, up to 8 of up to 75 characters each, which the person picks with a press; they may still answer anything else
+  does: Ask a person by their id, as sam for Sam (sam), and wait for the answer. You may ask a person of your team, or one your team file names. Only for what a person alone can answer or choose. Where the likely answers are few and short, give them as choices, up to 8 of up to 75 characters each, which the person picks with a press; they may still answer anything else
   args: { who: string, question: string, choices: "list?" }
   job:
     machine: ../../wait/wait.yaml

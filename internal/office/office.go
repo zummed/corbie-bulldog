@@ -53,9 +53,11 @@ type Team struct {
 	// People are the team's people: those its file names, or the
 	// office's when it names none. They are asked its decisions and see
 	// its requests.
-	People   []string
-	Lead     Lead
-	Heed     []Decider // each decision is empty when the file does not write it
+	People []string
+	Lead   Lead
+	// Heed and Check are empty when the file writes none. Decide is the
+	// team's people when the file writes none.
+	Heed     []Decider
 	Check    []Decider
 	Decide   []Decider
 	Routines []Routine
@@ -75,8 +77,8 @@ type Lead struct {
 
 // A Decider is one entry of a decision's list. One field is set.
 type Decider struct {
-	// Rule is a script, or a definition Bulldog ships, by its path from
-	// the office's top: ./payments/no-account-numbers.js,
+	// Rule is a script or a definition, by its path from the office's
+	// top: ./payments/no-account-numbers.js,
 	// ./.bulldog/rules/for-us/for-us.yaml.
 	Rule   string
 	Worker string
@@ -158,6 +160,19 @@ func (o *Office) Worker(name string) *Worker {
 	for _, t := range o.Teams {
 		for i := range t.Workers {
 			if t.Workers[i].Name == name {
+				return &t.Workers[i]
+			}
+		}
+	}
+	return nil
+}
+
+// WorkerAt gives the worker whose file is at a path from the office's top,
+// such as garden/gardener.yaml, or nil.
+func (o *Office) WorkerAt(file string) *Worker {
+	for _, t := range o.Teams {
+		for i := range t.Workers {
+			if t.Workers[i].File == file {
 				return &t.Workers[i]
 			}
 		}

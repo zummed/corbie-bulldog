@@ -1,5 +1,0 @@
-# Slack's entry under bridges in office.yaml. direct is a person's
-# conversation with the app; a channel is listed by its name, as "#help".
-from: ./.bulldog/bridges/slack
-places:
-  direct: {}

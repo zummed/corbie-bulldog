@@ -11,9 +11,9 @@ import (
 	"strings"
 )
 
-// SecretFile is where an office's secret is kept: in Bulldog's own
+// secretFile is where an office's secret is kept: in Bulldog's own
 // directory in the user's config directory, under the office's id.
-func SecretFile(id string) (string, error) {
+func secretFile(id string) (string, error) {
 	config, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
@@ -23,10 +23,10 @@ func SecretFile(id string) (string, error) {
 
 // Secret gives the office's secret, which signs keys and keys the hashes
 // Bulldog writes in labels, run names and refs. It is made the first time,
-// and kept in SecretFile, never in the office's directory, which is
+// and kept in secretFile, never in the office's directory, which is
 // edited, copied and put in git.
 func Secret(id string) ([]byte, error) {
-	file, err := SecretFile(id)
+	file, err := secretFile(id)
 	if err != nil {
 		return nil, err
 	}

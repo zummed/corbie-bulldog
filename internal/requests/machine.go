@@ -21,7 +21,6 @@ import (
 // team, with the stages heed, work and check and its decisions written in
 // place, as if it stood at the office's top directory.
 type Machine struct {
-	Team string // the team's ID
 	// YAML is the machine as it is sent to Corbie, for the team's page.
 	YAML string
 	// Draft is the machine filled out and checked by Corbie's parser, to
@@ -42,7 +41,7 @@ type Machine struct {
 func Make(o *office.Office) map[string]*Machine {
 	made := map[string]*Machine{}
 	for _, t := range o.Teams {
-		m := &Machine{Team: t.ID, Allow: &permission.Layer{Allow: o.Allow(t.ID)}}
+		m := &Machine{Allow: &permission.Layer{Allow: o.Allow(t.ID)}}
 		made[t.ID] = m
 		src, err := encode(write(o, t))
 		if err != nil {

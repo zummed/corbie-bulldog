@@ -37,6 +37,18 @@ if (input.do === "hear") {
   const things = []
   // mentions says whether a text has an @mention of the bridge's account.
   const mentions = text => (text.match(/@[\w.-]+/g) || []).map(m => m.replace(/\.+$/, "")).includes("@" + me.username)
+  // bot says whether a user is a bot, as a project's or a group's token
+  // is, asked of GitLab once a job. A user GitLab does not show is not.
+  const bots = {}
+  const bot = user => {
+    if (!(user in bots)) {
+      const path = "/users/" + user
+      const shown = call("GET", path)
+      if (shown.status !== 200 && shown.status !== 404) throw refused("GET", path, shown)
+      bots[user] = shown.status === 200 && shown.body.bot === true
+    }
+    return bots[user]
+  }
   for (const project of Object.keys(input.settings.places || {})) {
     const id = "/projects/" + encodeURIComponent(project)
     // A project first asked about gives its latest event as the cursor,
@@ -57,9 +69,9 @@ if (input.do === "hear") {
     }
     events.reverse()
     // The opening of an issue or a merge request is heard, and each
-    // comment on one. Left out is what the bridge's own account did,
-    // GitLab's system notes, and anything else, each logged with its id,
-    // its project and why, never its words.
+    // comment on one. Left out is what the bridge's own account or another
+    // bot did, GitLab's system notes, an internal note, and anything else,
+    // each logged with its id, its project and why, never its words.
     const leave = (e, why) => log("left out event:" + e.id + " in " + project + ": " + why)
     for (const e of events) {
       if (things.length >= mostHeard) break
@@ -67,8 +79,10 @@ if (input.do === "hear") {
       const target = e.note ? e.note.noteable_type : e.target_type
       if (e.author_id === me.id) leave(e, "own")
       else if (e.note && e.note.system) leave(e, "a system note")
+      else if (e.note && (e.note.internal || e.note.confidential)) leave(e, "an internal note")
       else if (target !== "Issue" && target !== "MergeRequest") leave(e, target || e.action_name)
       else if (!e.note && e.action_name !== "opened") leave(e, e.action_name)
+      else if (bot(e.author_id)) leave(e, "a bot did it")
       else {
         const merge = target === "MergeRequest"
         const iid = e.note ? e.note.noteable_iid : e.target_iid

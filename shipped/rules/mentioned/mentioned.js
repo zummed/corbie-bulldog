@@ -3,7 +3,8 @@
 // by the same sender and has been answered; otherwise no.
 const request = input.request
 if (request.mentioned) return { says: "yes", note: "The message names the bot." }
-const latest = (request.thread || []).reduce((a, b) => (a && Date.parse(a.at) > Date.parse(b.at) ? a : b), null)
+const thread = request.thread || []
+const latest = thread[thread.length - 1]
 if (latest && latest.answer && JSON.stringify(latest.by) === JSON.stringify(request.by)) {
   return { says: "yes", note: "The message follows the answer to its sender." }
 }

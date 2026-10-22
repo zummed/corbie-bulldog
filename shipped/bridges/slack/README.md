@@ -2,9 +2,9 @@ Slack: a bridge that hears messages and presses of buttons over Socket Mode, and
 
 The in run opens a connection to Slack with the app-level token, so the office needs no address Slack can reach. Slack sends each message and each press over it, and the bridge hands each over, then tells Slack it was received. Each job listens 4 minutes, and the next connects again.
 
-A message at the top of a channel, or of a person's conversation with the app, begins a thread of its own, and the answer goes in that thread. A message that names the app is heard with `mentioned`, and the app's mention reads as its name, as `@gromit`. A file said in Slack is read.
+A message at the top of a channel, or of a person's conversation with the app, begins a thread of its own, and the answer goes in that thread. A message that names the app is heard with `mentioned`, and the app's mention reads as its name, as `@gromit`. A file said at a listed place is read.
 
-The out sends Markdown, which Slack shows. A question or a decision has a button for each choice. A message to a person directly goes to their conversation with the app.
+The out sends Markdown, which Slack shows. A question or a decision has a button for each choice, showing its first 75 characters. A message to a person directly goes to their conversation with the app.
 
 | Thing | Slack's |
 |---|---|
@@ -41,9 +41,18 @@ A worker writes a chart as a fenced block that opens with ` ```chart `, holding 
 
 ## Needs
 
-- `SLACK_TOKEN`, the app's bot token, for `slack.com` and `files.slack.com`. The app needs `chat:write`; `im:write`, to message a person directly; `im:history`, to hear what a person types in their conversation with it; `channels:read` and `im:read`, to read a conversation's name; and `files:read`, to read a file said.
+- `SLACK_TOKEN`, the app's bot token, for `slack.com` and `files.slack.com`. The app needs these scopes:
+
+  | Scope | For |
+  |---|---|
+  | `chat:write` | sending |
+  | `im:write` | messaging a person directly |
+  | `channels:history`, `groups:history`, `im:history` | hearing what is said in a public channel, a private channel and a conversation with the app |
+  | `channels:read`, `groups:read`, `im:read` | reading a conversation's name |
+  | `files:read` | reading a file said |
+
 - `SLACK_APP_TOKEN`, the app-level token, with the scope `connections:write`, for `slack.com`. Slack gives it the connection's address on `wss-primary.slack.com` or `wss-backup.slack.com`.
-- Socket Mode turned on in the app's settings, with Event Subscriptions for message events and Interactivity.
+- Socket Mode turned on in the app's settings, with Interactivity, and Event Subscriptions for the bot events `message.channels`, `message.groups` and `message.im`.
 
 ## Settings
 
@@ -55,6 +64,8 @@ A worker writes a chart as a fenced block that opens with ` ```chart `, holding 
 
 - What a bot said, the app among them.
 - Edits, deletions, joins, and every event that is not a message.
+- What is said in a conversation Slack will not name to the app.
+- A file with no address, as one shared from another workspace, a file over 16 MiB, and one Slack will not give; the message is heard with a line naming the file.
 
 Each is logged in the in run's record, with its id, its channel and why, never its words, and Slack is told it was received.
 

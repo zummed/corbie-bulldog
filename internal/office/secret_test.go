@@ -26,7 +26,7 @@ func TestOfficeSecretNeverInOffice(t *testing.T) {
 	if len(secret) != 32 {
 		t.Errorf("the secret is %d bytes", len(secret))
 	}
-	file, err := SecretFile(o.ID)
+	file, err := secretFile(o.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

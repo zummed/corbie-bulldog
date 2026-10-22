@@ -108,6 +108,13 @@ func TestCheckSkippedForTheTeamsOwn(t *testing.T) {
 			t.Errorf("a request by %v gave %v", asker["by"], out)
 		}
 	}
+	// At a channel, people outside the team read the answer, and it is
+	// checked whoever asked.
+	lee := guest(true)
+	lee["by"] = map[string]any{"person": "lee"}
+	if out := w.output(w.ask("payments", "@bot what is the account of order 4411?", lee)); out["outcome"] != "withheld" {
+		t.Errorf("Lee's request at a channel gave %v", out)
+	}
 	// An empty answer is not checked, and says nothing.
 	out := w.output(w.ask("payments", "Say nothing.", nil))
 	if out["outcome"] != "answered" || out["answer"] != "" {
@@ -165,12 +172,12 @@ func TestTheLeadsAnswer(t *testing.T) {
 		files["platform/ops.yaml"] = "flow: ops\nstages:\n  count: { job: { script: ./count.js } }\noutput: ${stages.count.output}\n"
 		files["platform/count.js"] = `return { answer: "Done.", rows: 3 }`
 	})
-	// A person who leads is asked by wait.yaml, and their answer is the
-	// team's.
+	// A person who leads is asked by wait.yaml what was said and the
+	// context, and their answer is the team's.
 	run := w.ask("garden", "When do we sow the beds?", map[string]any{"by": map[string]any{"person": "al"}})
 	asked := w.waiting()
 	input := asked.Input.(map[string]any)
-	if fmt.Sprint(input["to"]) != "map[people:[al]]" || input["said"] != "When do we sow the beds?" {
+	if fmt.Sprint(input["to"]) != "map[people:[al]]" || input["said"] != "When do we sow the beds?\n\nDana asks garden in the chat." {
 		t.Errorf("the garden's lead is asked %v", input)
 	}
 	w.answer(asked, "In May.", "al")

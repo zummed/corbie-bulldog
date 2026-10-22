@@ -8,7 +8,7 @@ The rules behind the [Office overview](../office.md). Area code: `office`. The h
 *Accept:* the house reads two teams, `office` and `garden`. With `garden/beds/team.yaml` added, it reads three, `beds` within `garden`. A directory with no `office.yaml` is refused, and the refusal says so.
 
 **R-office-43** A worker is a Corbie definition, an agent, a flow or a statechart, directly in a team's directory, named by its file's name; its definition's name is the same, and a definition anywhere else is not a worker.
-*Accept:* the house reads `steward`, `fixer` and `clerk` as the office's workers and `gardener` as the garden's. `small-orders.js` and a flow at `tools/tidy.yaml` are not workers. A `fixer.yaml` whose definition says `agent: mender` is a problem that names the file and both names.
+*Accept:* the house reads `clerk`, `fixer`, `sparks` and `steward` as the office's workers and `gardener` as the garden's. `small-orders.js`, `tools/order.js` and a flow at `tools/tidy.yaml` are not workers. A `fixer.yaml` whose definition says `agent: mender` is a problem that names the file and both names.
 
 **R-office-44** `./.bulldog/<path>`, written from any directory of the office, names what Bulldog ships, and Bulldog serves it from its binary.
 *Accept:* payments' `heed: [./.bulldog/rules/mentioned/mentioned.js]` and the ledger's `tools_file: [./.bulldog/tools/talk/talk.yaml]` read the shipped files. `./.bulldog/rules/nothing.js` is a problem that names the path.
@@ -33,8 +33,8 @@ The rules behind the [Office overview](../office.md). Area code: `office`. The h
 
 ## Deciders
 
-**R-office-49** A decider is a rule, named by its path to a script or to a definition Bulldog ships; a worker of any team, named by its name; or a person, named by their name. People may only end a list.
-*Accept:* payments' `check: [./no-account-numbers.js, lee, priya]` and the house's `decide: [./small-orders.js, clerk, sam]` read. `[lee, ./no-account-numbers.js]` is a problem, and so is `[./missing.js]`.
+**R-office-49** A decider is a rule, named by its path to a script or a definition but not a worker's file; a worker of any team, named by its name; or a person, named by their id. People may only end a list.
+*Accept:* payments' `check: [./no-account-numbers.js, lee, priya]` and the house's `decide: [./small-orders.js, clerk, sam]` read, and so does a flow of the garden's own at `./rules/weeds.yaml`. `[lee, ./no-account-numbers.js]` is a problem, and so are `[./missing.js]` and `[./steward.yaml]`.
 
 **R-office-50** A worker named as a decider declares `reply: { says: string, note: "string?" }`.
 *Accept:* the clerk, which declares it, reads as a decider. The steward named in `decide` is a problem that names the steward.
@@ -43,7 +43,7 @@ The rules behind the [Office overview](../office.md). Area code: `office`. The h
 
 ## People
 
-**R-office-51** A person is written once in `everyone`, with `name` and, under each bridge's name, their lasting id on it; a team's `people`, its deciders and its `lead` name people by their key.
+**R-office-51** A person is written once in `everyone`, with `name` and, under each bridge's name, their lasting id on it; a team's `people`, its deciders and its `lead` name people by their id, the key of their entry.
 *Accept:* the house reads Sam with `telegram: "4471"`. `people: [sam, jo]`, with no `jo` in `everyone`, is a problem that names `jo`.
 
 **C-office-33** One identity on one bridge names one person, compared exactly as written. An answer is taken from the person an identity names, so a shared identity would let either person answer as the other. *Test:* `office_identity_names_one_person`
@@ -53,12 +53,12 @@ The rules behind the [Office overview](../office.md). Area code: `office`. The h
 
 ## Names
 
-**R-office-53** Names of people, workers and teams start with a small letter and hold small letters, figures and dashes; each is used once in the office, and `office`, `team`, `bulldog`, `chat`, `guest`, `wait`, `ask` and `clock` are reserved.
-*Accept:* a team directory `2nd-floor` is a problem. So is a worker `sam.yaml` in an office with a person `sam`, and a person named `chat`.
+**R-office-53** Names of people, workers, teams and bridges start with a small letter and hold small letters, figures and dashes, and a bridge is not called `name`. A name of a person, a worker or a team is used once in the office, and `office`, `team`, `bulldog`, `wait` and `clock` are reserved.
+*Accept:* a team directory `2nd-floor` is a problem. So is a worker `sam.yaml` in an office with a person `sam`, a person named `clock`, and bridges named `Pager` and `name`.
 
 ## Reading the office
 
-**R-office-54** Bulldog reads the office again when any file in it changes. A problem in `office.yaml` or a team file keeps the last good reading in force, a broken worker, rule or bridge stops only itself and the teams that use it, and every problem is shown.
+**R-office-54** Bulldog reads the office again when any file in it changes. A problem in how `office.yaml` or a team file is written keeps the last good reading in force; a worker, a rule or a bridge that cannot be read stops only itself and the teams that use it, a broken worker its own team among them; and every problem is shown.
 *Accept:* with the house served, `budget: 40` written into `garden/team.yaml` leaves both teams as they were and shows the problem. A `fixer.yaml` that is not YAML stops the office's requests and shows the problem, and the garden still takes requests.
 
 **R-office-55** `corbie bulldog check <directory>` reads the office as serving does, prints every problem with its file, starts nothing, and exits with a failure status when there is any problem.
@@ -85,10 +85,10 @@ The rules behind the [Office overview](../office.md). Area code: `office`. The h
 
 ## The office's id and secret
 
-**R-office-59** Bulldog writes `.bulldog/id`, a random id of 16 hex digits, once, at the first start; it is the one file Bulldog writes in the office.
-*Accept:* serving the house writes `.bulldog/id`. Serving it again keeps the same id, and no other file of the office changes.
+**R-office-59** Bulldog writes `.bulldog/id`, a random id of 16 hex digits, when the office has none, at any reading of it; it is the one file Bulldog writes in the office. While Bulldog serves, a changed or removed id is refused.
+*Accept:* reading the house writes `.bulldog/id`. Reading it again keeps the same id, and no other file of the office changes. With the house served, `.bulldog/id` removed and `garden/team.yaml` changed, the new reading is refused, and the house keeps its id.
 
-**C-office-37** The office's secret is made at the first start and kept in Bulldog's own directory in the user's config directory, never in the office directory. The office directory is edited, copied and put in git, and the secret signs every key. *Test:* `office_secret_never_in_office`
+**C-office-37** The office's secret is made the first time Bulldog serves the office or prints a key, as this user on this computer, and kept in Bulldog's own directory in the user's config directory, never in the office directory. The office directory is edited, copied and put in git, and the secret signs every key. *Test:* `office_secret_never_in_office`
 
 ## Interfaces
 

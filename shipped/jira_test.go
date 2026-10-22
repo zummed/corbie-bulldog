@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -22,7 +23,8 @@ const (
 )
 
 // A jira stands in for Jira Cloud's REST API: it keeps issues as a search
-// gives them, and the comments the bridge made.
+// gives them, sorted by when each was updated as the search asks, a page
+// at a time, and the comments the bridge made.
 type jira struct {
 	*httptest.Server
 	mu       sync.Mutex
@@ -60,7 +62,22 @@ func (j *jira) serve(w http.ResponseWriter, r *http.Request) {
 			answer(400, map[string]any{"errorMessages": []string{"bad jql"}})
 			return
 		}
-		answer(200, map[string]any{"issues": append([]map[string]any{}, j.issues...), "isLast": true})
+		jql, query := r.URL.Query().Get("jql"), r.URL.Query()
+		issues := slices.Clone(j.issues)
+		slices.SortStableFunc(issues, func(a, b map[string]any) int {
+			return strings.Compare(a["fields"].(map[string]any)["updated"].(string), b["fields"].(map[string]any)["updated"].(string))
+		})
+		if strings.HasSuffix(jql, " DESC") {
+			slices.Reverse(issues)
+		}
+		from, per := 0, 50
+		fmt.Sscan(query.Get("nextPageToken"), &from)
+		fmt.Sscan(query.Get("maxResults"), &per)
+		page := map[string]any{"issues": issues[min(from, len(issues)):min(from+per, len(issues))], "isLast": from+per >= len(issues)}
+		if from+per < len(issues) {
+			page["nextPageToken"] = fmt.Sprint(from + per)
+		}
+		answer(200, page)
 	case path == "/issue/OPS-12/comment" && r.Method == "POST":
 		var body map[string]any
 		data, _ := io.ReadAll(r.Body)
@@ -73,15 +90,23 @@ func (j *jira) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// opened has Raj open OPS-12 at a time, with its comments.
+// opened has Raj open OPS-12 at a time, with its comments, and give Al as
+// its reporter.
 func (j *jira) opened(at time.Time, comments ...any) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	j.issues = []map[string]any{{"id": "10012", "key": "OPS-12", "fields": map[string]any{
-		"summary": "Deploys hang", "description": "Since Tuesday.", "created": stamp(at),
-		"reporter": map[string]any{"accountId": jiraRaj, "accountType": "atlassian"},
+	j.issues = []map[string]any{issue("10012", "OPS-12", at, at, comments...)}
+}
+
+// issue is an issue Raj created at a time, with Al as its reporter,
+// updated at a time, with its comments.
+func issue(id, key string, created, updated time.Time, comments ...any) map[string]any {
+	return map[string]any{"id": id, "key": key, "fields": map[string]any{
+		"summary": "Deploys hang", "description": "Since Tuesday.", "created": stamp(created), "updated": stamp(updated),
+		"creator":  map[string]any{"accountId": jiraRaj, "accountType": "atlassian"},
+		"reporter": map[string]any{"accountId": jiraAl, "accountType": "atlassian"},
 		"comment":  map[string]any{"comments": comments},
-	}}}
+	}}
 }
 
 // comment is a comment on OPS-12 by an account, made at a time.
@@ -165,6 +190,49 @@ func TestJiraSaysOneMessage(t *testing.T) {
 	}
 }
 
+// A new comment is heard however many issues were updated with nothing
+// new since the bridge last heard something.
+func TestJiraHearsPastManyIssuesUpdated(t *testing.T) {
+	t.Parallel()
+	j, s := newJiraBridge(t)
+	run := s.listen(nil)
+	s.hears(run, 0)
+	now := time.Now()
+	s.asksAgain(run, func() {
+		j.mu.Lock()
+		defer j.mu.Unlock()
+		for i := range 600 {
+			j.issues = append(j.issues, issue(fmt.Sprint(20000+i), fmt.Sprintf("OPS-%d", 1000+i), now.Add(-48*time.Hour), now.Add(time.Duration(i)*time.Millisecond)))
+		}
+		later := now.Add(time.Second)
+		j.issues = append(j.issues, issue("10999", "OPS-999", now.Add(-48*time.Hour), later, comment("2001", jiraAl, "atlassian", "is the runner down?", later)))
+	})
+	if things, _ := s.hears(run, 1); len(things) != 1 || things[0]["id"] != "comment:2001" {
+		t.Errorf("Jira hands over %v", things)
+	}
+}
+
+func jiraRestrictedNotHeard(t *testing.T) {
+	j, s := newJiraBridge(t)
+	run := s.listen(nil)
+	s.hears(run, 0)
+	opened := time.Now().Add(time.Second)
+	restricted := comment("2001", jiraAl, "atlassian", "the token is in vault/x", opened.Add(time.Millisecond))
+	restricted["visibility"] = map[string]any{"type": "role", "value": "Administrators"}
+	internal := comment("2002", jiraAl, "atlassian", "the customer is on the old plan", opened.Add(2*time.Millisecond))
+	internal["jsdPublic"] = false
+	s.asksAgain(run, func() {
+		j.opened(opened, restricted, internal, comment("2003", jiraAl, "atlassian", "is the runner down?", opened.Add(3*time.Millisecond)))
+	})
+	things, _ := s.hears(run, 2)
+	want := "[left out comment:2001 in OPS-12: not everyone may read it left out comment:2002 in OPS-12: not everyone may read it]"
+	if len(things) != 2 || things[1]["id"] != "comment:2003" || fmt.Sprint(s.logged(run)) != want {
+		t.Errorf("Jira hands over %v, and logs %q", things, s.logged(run))
+	}
+}
+
+// A new issue is heard from the account that created it, which nobody
+// can change, never from its reporter, which some can.
 func jiraFromIsLasting(t *testing.T) {
 	j, s := newJiraBridge(t)
 	run := s.listen(nil)

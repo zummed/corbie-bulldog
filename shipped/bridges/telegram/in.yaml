@@ -4,7 +4,7 @@
 # ended. When a job fails, the chart rests 30 seconds. The bot's token is
 # the Corbie secret TELEGRAM_TOKEN.
 statechart: telegram-in
-keep: 12h
+keep: 1d
 input:
   type: object
   required: [settings, cursor]

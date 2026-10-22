@@ -89,8 +89,8 @@ func TestBridgesTakeWhatIsSaid(t *testing.T) {
 
 // TestBridgesIdentityIsTheSender: a press answers the wait its ref names
 // only for a person the wait waits on, known by the sender's identity, in
-// a channel as in a direct message. What a person says is theirs, wherever
-// it is said.
+// a channel as in a direct message. A press that gives no choice answers
+// nothing. What a person says is theirs, wherever it is said.
 func TestBridgesIdentityIsTheSender(t *testing.T) {
 	t.Parallel()
 	w := newWorld(t, nil)
@@ -99,7 +99,10 @@ func TestBridgesIdentityIsTheSender(t *testing.T) {
 	r, _ := ref(w.question("Is the boiler on?"))
 	inHelp := press("press:3", "u-sam", r, "It is on.")
 	inHelp["place"], inHelp["where"] = "#help", "C-help/1"
+	none := press("press:0", "u-sam", r, "")
+	none["choice"] = nil
 	w.say("pager",
+		none,
 		press("press:1", "u-kit", r, "It is off."),
 		press("press:2", "u-guest", r, "It is off."),
 		said("u-sam:2", "u-kit", "direct", "u-sam", "It is off, says Kit."),
@@ -122,34 +125,57 @@ func TestBridgesIdentityIsTheSender(t *testing.T) {
 
 // TestBridgesTypedAnswerTakenOnce: something said at direct that replies
 // to nothing answers the latest question carried to its sender before it
-// was heard; one that replies to a carried question answers that one.
-// Read again after a restart, an answer answers no newer question, and
-// starts no request.
+// was heard; one that replies to a carried question answers that one,
+// while it waits, and is a request after. Read again after a restart, an
+// answer answers no newer question, and starts no request.
 func TestBridgesTypedAnswerTakenOnce(t *testing.T) {
 	t.Parallel()
 	w := newWorld(t, nil)
 	w.say("pager", said("C-help/1", "u-guest", "#help", "C-help/1", "Question A?"))
 	a := w.request("Question A?")
-	w.question("Question A?")
+	_, sentA := ref(w.question("Question A?"))
 	w.say("pager", said("u-sam:1", "u-sam", "direct", "u-sam", "Answer A."))
 	if answer := w.answered(a.ID); answer != "Answer A." {
 		t.Errorf("A is answered %q", answer)
 	}
 	w.say("pager", said("C-help/2", "u-guest", "#help", "C-help/2", "Question B?"))
 	b := w.request("Question B?")
-	_, sent := ref(w.question("Question B?"))
+	_, sentB := ref(w.question("Question B?"))
 
 	w.restart()
 	reply := said("u-sam:2", "u-sam", "direct", "u-sam", "Answer B.")
-	reply["answers"] = sent
-	w.say("pager", reply)
+	reply["answers"] = sentB
+	late := said("u-sam:3", "u-sam", "direct", "u-sam", "Also, check the shed.")
+	late["answers"] = sentA
+	w.say("pager", reply, late)
 	if answer := w.answered(b.ID); answer != "Answer B." {
 		t.Errorf("B is answered %q", answer)
 	}
+	w.request("Also, check the shed.")
 	for _, run := range w.requests() {
-		if said := w.input(run.ID)["said"]; said != "Question A?" && said != "Question B?" {
+		if said := w.input(run.ID)["said"]; said != "Question A?" && said != "Question B?" && said != "Also, check the shed." {
 			t.Errorf("a request is asked %q", said)
 		}
+	}
+}
+
+// TestBridgesTypedAnswerToADecision: a decision takes a typed answer only
+// when it is one of its choices, trimmed and in any case, and is answered
+// with that choice. Anything else a person says while it waits is a
+// request.
+func TestBridgesTypedAnswerToADecision(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t, func(files map[string]string) { files["office.yaml"] = theOffice + "heed: [sam]\n" })
+	w.say("pager", said("C-help/1", "u-guest", "#help", "C-help/1", "Is the boiler on?"))
+	w.request("Is the boiler on?")
+	decision := w.question("Is this for")
+	w.say("pager",
+		said("u-sam:1", "u-sam", "direct", "u-sam", "Please order more oil."),
+		said("u-sam:2", "u-sam", "direct", "u-sam", " Yes "))
+	w.request("Please order more oil.")
+	output, _ := w.corbie.Ended(t, decision.Labels["wait"]).Output.(map[string]any)
+	if output["answer"] != "yes" || output["thing"] != "u-sam:2" {
+		t.Errorf("the decision is answered %v", output)
 	}
 }
 

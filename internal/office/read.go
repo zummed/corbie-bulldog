@@ -24,7 +24,7 @@ import (
 var (
 	teamKeys = []string{"name", "about", "people", "lead", "heed", "check", "decide", "routines", "models"}
 	topKeys  = []string{"zone", "everyone", "bridges"}
-	reserved = []string{"office", "team", "bulldog", "chat", "guest", "wait", "ask", "clock"}
+	reserved = []string{"office", "team", "bulldog", "wait", "clock"}
 	types    = []string{"agent", "flow", "statechart"}
 	weekdays = []string{"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
 	nameForm = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
@@ -33,7 +33,7 @@ var (
 const idFile = ".bulldog/id"
 
 // Read reads the office in a directory, with what Bulldog ships served
-// at ./.bulldog/. It makes the office's id the first time.
+// at ./.bulldog/. It writes the office's id when the office has none.
 //
 // A problem of office.yaml, of a team file or of the office's id refuses
 // the reading: Read gives no office, and every problem found, as Problems.
@@ -74,6 +74,11 @@ func Read(dir string, shipped fs.FS) (*Office, error) {
 		}
 		if len(t.People) == 0 {
 			t.People = slices.Clone(top.People)
+		}
+		if len(t.Decide) == 0 {
+			for _, p := range t.People {
+				t.Decide = append(t.Decide, Decider{Person: p})
+			}
 		}
 	}
 	o.Name = top.Name
@@ -289,6 +294,9 @@ func (r *reader) name(name, what string, s stops, file string, n *yaml.Node) {
 func (r *reader) bridge(b *Bridge, entry pair) {
 	s := stops{bridge: b.Name}
 	at := entry.k
+	if !nameForm.MatchString(b.Name) || b.Name == "name" {
+		r.problem(s, "office.yaml", at, "%s is not a name a bridge can have: a name starts with a small letter, and holds small letters, figures and dashes, and a bridge is not called name", b.Name)
+	}
 	b.Settings = map[string]any{}
 	var places *yaml.Node
 	for _, e := range r.pairs(s, "office.yaml", entry.v, b.Name) {
@@ -430,8 +438,8 @@ func (r *reader) deciders(t *Team, n *yaml.Node, what string) []Decider {
 }
 
 // rule finds a rule by its path from its team file's directory, and gives
-// its path from the office's top. A rule that cannot be read is a problem
-// of the rule, and stops the team.
+// its path from the office's top. A rule that cannot be read, and a
+// worker's file, are problems of the rule, and stop the team.
 func (r *reader) rule(t *Team, n *yaml.Node) string {
 	s := stops{team: t.ID}
 	file, shipped, err := served(path.Join(t.Path, n.Value))
@@ -441,8 +449,8 @@ func (r *reader) rule(t *Team, n *yaml.Node) string {
 		return n.Value
 	case shipped:
 		file = ".bulldog/" + file
-	case strings.HasSuffix(file, ".yaml"):
-		r.problem(s, t.File, n, "%s is a definition of the office's own: a rule is a script, or a definition Bulldog ships, and a worker is named by its name", n.Value)
+	case r.o.WorkerAt(file) != nil:
+		r.problem(s, t.File, n, "%s is the file of the worker %s, and a worker is named by its name", n.Value, r.o.WorkerAt(file).Name)
 		return "./" + file
 	}
 	if _, err := r.o.Load(file); err != nil {

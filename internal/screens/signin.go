@@ -82,18 +82,24 @@ func (s *Screens) keyOf(person, given string) bool {
 	return p != nil && hmac.Equal([]byte(given), []byte(key(s.secret, p)))
 }
 
+// cookie gives a cookie of the screens: HttpOnly, SameSite=Strict, and
+// Secure when the screens are reached at an https:// address. An age of 0
+// lasts while the browser is open, and a negative one takes it away.
+func (s *Screens) cookie(name, value string, age int) *http.Cookie {
+	return &http.Cookie{Name: name, Value: value, Path: "/", MaxAge: age,
+		HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: strings.HasPrefix(s.address, "https://")}
+}
+
 // signIn gives the browser a person's key to keep, and goes on to the
 // screens.
-func signIn(w http.ResponseWriter, r *http.Request, person, given string) {
-	http.SetCookie(w, &http.Cookie{Name: keyCookie, Value: person + "." + given, Path: "/", MaxAge: 400 * 24 * 60 * 60,
-		HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil})
+func (s *Screens) signIn(w http.ResponseWriter, r *http.Request, person, given string) {
+	http.SetCookie(w, s.cookie(keyCookie, person+"."+given, 400*24*60*60))
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 // signOut takes the key from the browser.
-func signOut(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{Name: keyCookie, Value: "", Path: "/", MaxAge: -1,
-		HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil})
+func (s *Screens) signOut(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, s.cookie(keyCookie, "", -1))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("{}"))
 }
@@ -148,8 +154,7 @@ func (s *Screens) askLink(w http.ResponseWriter, r *http.Request) {
 		random := make([]byte, 16)
 		rand.Read(random)
 		browser = hex.EncodeToString(random)
-		http.SetCookie(w, &http.Cookie{Name: browserCookie, Value: browser, Path: "/",
-			HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil})
+		http.SetCookie(w, s.cookie(browserCookie, browser, 0))
 	}
 	o := s.engine.Reading().Office
 	if p := named(o, name); p != nil {
@@ -224,12 +229,18 @@ func (s *Screens) pressLink(w http.ResponseWriter, r *http.Request) {
 		s.show(w, http.StatusForbidden, "This link signs nobody in: it is more than 15 minutes old, or it was asked for in another browser. Ask for another.", "", true)
 		return
 	}
-	signIn(w, r, p.ID, key(s.secret, p))
+	s.signIn(w, r, p.ID, key(s.secret, p))
 }
 
-// keyPage is the page a key link opens. Opening it signs nobody in.
+// keyPage is the page a key link opens, which names the person while the
+// key is theirs. Opening it signs nobody in.
 func (s *Screens) keyPage(w http.ResponseWriter, r *http.Request) {
-	s.show(w, http.StatusOK, "Sign in, in this browser, with the key in this link.", "Sign in", false)
+	q := r.URL.Query()
+	said := "Sign in, in this browser, with the key in this link."
+	if s.keyOf(q.Get("p"), q.Get("k")) {
+		said = "Sign in as " + s.engine.Reading().Office.Person(q.Get("p")).Name + ", in this browser."
+	}
+	s.show(w, http.StatusOK, said, "Sign in", false)
 }
 
 // pressKey signs in the person a key link is of, while the key is theirs.
@@ -239,5 +250,5 @@ func (s *Screens) pressKey(w http.ResponseWriter, r *http.Request) {
 		s.show(w, http.StatusForbidden, "This key signs nobody in: the person's entry has changed since it was made, or the office's secret has. Ask for a link instead.", "", true)
 		return
 	}
-	signIn(w, r, q.Get("p"), q.Get("k"))
+	s.signIn(w, r, q.Get("p"), q.Get("k"))
 }

@@ -34,7 +34,7 @@ var secret = []byte("the office's secret in the tests")
 // given, and refuses a message that says "refuse".
 var standIn = map[string]string{
 	"in.yaml": `statechart: stand-in
-keep: 12h
+keep: 1d
 input: { settings: map, cursor: any }
 initial: hearing
 states:

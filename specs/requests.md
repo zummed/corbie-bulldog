@@ -22,7 +22,9 @@ For each team, Bulldog fills out the team file into one Corbie flow, named after
 |---|---|---|
 | `heed` | the heed decision | the team has a `heed`, and `heard` is `channel` |
 | `work` | the lead: its worker, or `wait.yaml` to the person who leads | the heed said yes, or there is no heed stage |
-| `check` | the check decision, on the answer | the team has a `check`, the answer is not empty, and the asker is not one of the team's people and not the team's own routine |
+| `check` | the check decision, on the answer | the team has a `check`, the answer is not empty, and the request is not the team's own routine nor, other than at a channel, asked by one of the team's people |
+
+At a channel, people outside the team read the answer, so it is checked whoever asked.
 
 This is payments' request machine, from its team file in Office with `decide: [lee, priya]`, without its `ask:`, which Held jobs shows.
 
@@ -61,7 +63,7 @@ stages:
       machine: ./payments/ledger.yaml
       input: {said: "${input.said}", context: "${input.context}", request: "${input.request}", files: "${input.files ?? []}"}
   check:
-    when: "${(typeof stages.work.output?.reply == 'string' ? stages.work.output?.reply : typeof stages.work.output?.reply?.answer == 'string' ? stages.work.output?.reply.answer : '') != '' && input.request.heard != 'routine' && !['lee', 'priya'].includes(input.request.by?.person)}"
+    when: "${(typeof stages.work.output?.reply == 'string' ? stages.work.output?.reply : typeof stages.work.output?.reply?.answer == 'string' ? stages.work.output?.reply.answer : '') != '' && input.request.heard != 'routine' && (input.request.heard == 'channel' || !['lee', 'priya'].includes(input.request.by?.person))}"
     job:
       input: {request: "${input.request}", answer: "${(typeof stages.work.output?.reply == 'string' ? stages.work.output?.reply : typeof stages.work.output?.reply?.answer == 'string' ? stages.work.output?.reply.answer : '')}"}
       machine:
@@ -139,7 +141,7 @@ The lead's answer depends on what the lead is:
 - A lead's answer that is not text, and has no text `answer`, is the empty text.
 - The asker never sees an error. The team's people see it on the request.
 - A run that fails outside its stages, such as one Corbie refuses, answers as a failed request.
-- A request is kept 30 days after it ends.
+- A request is kept 30 days after it ends. What ran below it, its decisions, its waits and its lead, is kept as its own definition says, 7 days by default.
 
 ## What the lead is given
 
@@ -223,7 +225,7 @@ The heed rules Bulldog ships, `mentioned` and `for-us`, answer `yes` or `no`, ne
 
 The request machine's `ask:` is a flow written in place, given the jobs Corbie holds for approval in one step, and `asking`, the machine that holds them.
 
-- A held job that asks a team, the talk tool `ask_team`, goes to the `check` decision, on its question. Without a check, it is approved at once.
+- A held job whose input names a team, as `ask_team`'s does, goes to the `check` decision, on its question. Without a check, it is approved at once.
 - Every other held job goes to the `decide` decision. Without a `decide`, the team's people are asked.
 - The flow approves the held jobs of each part that said yes.
 - A question the check refused gives the tool "Payments did not let its question out.", and a `decide` that said no gives its note.
@@ -238,7 +240,7 @@ ask:
     input: {request: map, asking: map, jobs: list}
     stages:
       check:
-        each: "${input.jobs.filter(j => j.input?.to?.team)}"
+        each: "${input.jobs.filter(j => (j.input?.to?.team != null))}"
         job:
           input: {request: "${input.request}", asking: "${input.asking}", question: {team: "${item.input.to.team}", said: "${item.input.said}"}}
           machine:
@@ -273,9 +275,9 @@ ask:
               said_yes: {end: done, output: {says: "yes", note: "${event.data.reply?.note ?? event.data.note ?? null}"}}
               said_no: {end: done, output: {says: "no", note: "${event.data.reply?.note ?? event.data.note ?? null}"}}
       decide:
-        when: "${input.jobs.some(j => !j.input?.to?.team)}"
+        when: "${input.jobs.some(j => !(j.input?.to?.team != null))}"
         job:
-          input: {request: "${input.request}", asking: "${input.asking}", jobs: "${input.jobs.filter(j => !j.input?.to?.team)}"}
+          input: {request: "${input.request}", asking: "${input.asking}", jobs: "${input.jobs.filter(j => !(j.input?.to?.team != null))}"}
           machine:
             statechart: payments-decide
             input: {request: map, asking: map, jobs: list}
@@ -296,7 +298,7 @@ ask:
               said_yes: {end: done, output: {says: "yes", note: "${event.data.reply?.note ?? event.data.note ?? null}"}}
               said_no: {end: done, output: {says: "no", note: "${event.data.reply?.note ?? event.data.note ?? null}"}}
     output:
-      approve: "${[...stages.check.output.filter(c => c.output?.says == 'yes').map(c => c.item.name), ...(stages.decide.output?.says == 'yes' ? input.jobs.filter(j => !j.input?.to?.team).map(j => j.name) : [])]}"
+      approve: "${[...stages.check.output.filter(c => c.output?.says == 'yes').map(c => c.item.name), ...(stages.decide.output?.says == 'yes' ? input.jobs.filter(j => !(j.input?.to?.team != null)).map(j => j.name) : [])]}"
       note: "${[stages.check.output.some(c => c.output?.says != 'yes') ? 'Payments did not let its question out.' : null, stages.decide.output?.says == 'no' ? stages.decide.output.note : null].filter(n => n).join(' ') || null}"
 ```
 
@@ -324,23 +326,25 @@ states:
 | Tool | What it does |
 |---|---|
 | `ask_team(team, question)` | asks another team and waits for its answer; marked for approval, so it passes the team's `check` first |
-| `ask_person(who, question, choices)` | asks a person and waits for the answer; `choices`, up to 8 short answers, are offered as buttons |
+| `ask_person(who, question, choices)` | asks a person and waits for the answer; `choices`, up to 8 answers of up to 75 characters each, are offered as buttons |
 
-The same `wait.yaml` asks the people at the end of a decision, and is the work of a team whose lead is a person.
+The same `wait.yaml` asks the people at the end of a decision, and is the work of a team whose lead is a person. A person who leads is asked what was said, a blank line, and the context, as a worker is given them.
 
 Bulldog follows every run labelled `bulldog=<office id>`, those that have ended among them, and acts on each run of `wait` as it changes:
 
 - The asking team is the run's `team=` label, which it carries from its request, and the chain is the request's `chain`, which Bulldog wrote. Bulldog never takes either from what a worker wrote.
-- **To a team**, Bulldog starts a request of that team, named from the wait run. When the sub-request ends, Bulldog answers the ticket with `{ answer }`, the sub-request's answer, or null when it gave none. When the wait run ends first, because its request was stopped, Bulldog cancels the sub-request.
-- An ask to the asking team itself, to a team in the chain, or to a team that takes no requests is refused: Bulldog answers `{ answer: null, refused }`, and starts nothing. `refused` says why, then the teams it may ask: "The team office asked this request, so it is not asked again. It may ask platform."
+- **To a team**, Bulldog starts a request of that team, named from the wait run. When the sub-request ends, Bulldog answers the ticket with `{ answer }`, the sub-request's answer, or null when it gave none. When the wait run ends first, because its request was stopped or 7 days passed, Bulldog cancels the sub-request.
+- A question to the asking team itself, to a team in the chain, or to a team that takes no requests is refused: Bulldog answers `{ answer: null, refused }`, and starts nothing. `refused` says why, then the teams it may ask, if any: "Platform support asked this request, so it is not asked again. It may ask platform, support."
+- A question that names no team and no people is refused the same way.
 - **To people**, Bulldog carries the question to each person, in their direct messages on each bridge whose out takes `direct`, with the choices as buttons, and shows it on the screens. The message is "Payments asks:", a blank line, and the question. A question or a decision is never carried to a channel.
-- A person may be asked only when they are of the asking team or named in its team file. Otherwise the ask is refused as above, naming the people it may ask, and nobody is asked.
+- A person may be asked only when they are of the asking team or named in its team file. Otherwise the question is refused as above, naming the people it may ask, and nobody is asked. Until Bulldog refuses it, no screen shows it and no answer to it is taken.
+- A question offers at most 8 choices, each of at most 75 characters. One that offers more is refused.
 
 Bulldog answers a ticket only when all of these hold:
 
 1. The answerer is a person the wait waits on: by their identity on the bridge it came by, or signed in on the screens.
 2. The ticket still waits.
-3. For a decision, the answer is one of the choices offered.
+3. For a decision, the answer is one of the choices offered, whatever its case and the spaces around it.
 
 The answer is `{ answer, by: <person>, thing: <the thing's id> }`, with no `thing` on the screens. A guest never answers.
 
@@ -384,9 +388,11 @@ When a request ends, Bulldog carries its answer to its source:
 
 A routine's answer is carried as "Payments, on "What is still open?":", a blank line, and the answer. An empty answer, a noted request and a stopped one say nothing.
 
+An answer is carried only within a day of its request's end. A request that ended while Bulldog was stopped for longer is not answered.
+
 ## Stopping a request
 
-A person who may see a request may stop it on the screens. Bulldog cancels its run, and Corbie cancels everything below it. A sub-request it asked is cancelled when its wait ends.
+The person who asked a request, and its team's people, may stop it on the screens. Bulldog cancels its run, and Corbie cancels everything below it. A sub-request it asked is cancelled when its wait ends.
 
 ## Labels and names
 
@@ -415,8 +421,15 @@ Bulldog names each run it starts in answer to something from that thing, and sta
 | a routine's request | the time of the step that took `came`, and a keyed hash of the clock and the step |
 | an out run carrying an answer | the request's end, and a keyed hash of the request, and for a routine of the person and the bridge |
 | an out run carrying a question | the wait run's time, and a keyed hash of the wait, the person and the bridge |
+| an out run carrying a sign-in link | the minute it was asked for, and a keyed hash of the person |
 | a request in the chat | a new name |
 
 ## After a restart
 
-Bulldog follows its runs by their labels: clocks waiting on `came`, waits on `answer`, requests that ended, and sub-requests whose wait ended. After a restart it finds all of them again in the store, and acts on each again. Doing a thing twice changes nothing: a start under a name that exists is dropped, a ticket is answered once, and an out run is named from what it carries.
+Bulldog follows its runs by their labels: clocks waiting on `came`, waits on `answer`, requests that ended, and sub-requests whose wait ended. After a restart it finds all of them again in the store, and acts on each again. Doing a thing twice changes nothing:
+
+- A start under a name that exists is dropped, and an out run is named from what it carries.
+- A ticket is answered once. A sub-request whose wait is past keeping has nothing to answer.
+- An answer is carried only within a day of its request's end, and the out run that carried it is kept longer than that: the shipped bridges' outs are kept 7 days.
+
+The names and labels are keyed with the office's secret, so Bulldog finds its runs again only with the same secret (Office).

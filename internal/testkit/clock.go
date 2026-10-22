@@ -28,23 +28,11 @@ func (c *Clock) Now() time.Time {
 	return c.now
 }
 
-// Move moves the clock on by a duration.
+// Move moves the clock on by a duration, and tells each watch.
 func (c *Clock) Move(d time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.set(c.now.Add(d))
-}
-
-// Set sets the clock at a time.
-func (c *Clock) Set(at time.Time) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.set(at)
-}
-
-// set sets the clock and tells each watch. The caller holds the lock.
-func (c *Clock) set(at time.Time) {
-	c.now = at
+	c.now = c.now.Add(d)
 	for ch := range c.watches {
 		select {
 		case ch <- struct{}{}:
@@ -53,7 +41,7 @@ func (c *Clock) set(at time.Time) {
 	}
 }
 
-// watch gives a channel that is sent to each time the clock is set, and a
+// watch gives a channel that is sent to each time the clock moves, and a
 // function that stops it.
 func (c *Clock) watch() (<-chan struct{}, func()) {
 	ch := make(chan struct{}, 1)

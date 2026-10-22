@@ -5,7 +5,7 @@ The in run asks Jira for the issues of each project that changed, then rests 30 
 | Thing | Jira's |
 |---|---|
 | `id` | `issue:<id>` for a new issue, or `comment:<id>` |
-| `from` | the author's account id, which never changes |
+| `from` | the author's account id, which never changes; for a new issue, the account that created it |
 | `place` | the project's key, as `OPS` |
 | `where` | the issue's key, as `OPS-12` |
 | `text` | the comment, or the summary and description of a new issue |
@@ -26,7 +26,9 @@ The in run asks Jira for the issues of each project that changed, then rests 30 
 ## Leaves out
 
 - What the bridge's own account wrote, and what an app wrote.
+- A comment only some may read: one restricted to a role or a group, and an internal comment of Jira Service Management.
 - A change of status, and every other change to an issue.
+- A new issue or comment, when more than 500 other issues changed after its issue and before the bridge asked again.
 
 Each one left out is logged in the in run's record, with its id, its issue and why, never its words.
 

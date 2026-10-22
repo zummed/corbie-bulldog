@@ -5,7 +5,7 @@
 # It speaks to the GitLab at the settings' site, as gitlab.com, with the
 # token that is the Corbie secret GITLAB_TOKEN.
 statechart: gitlab-in
-keep: 12h
+keep: 1d
 input:
   type: object
   required: [settings, cursor]

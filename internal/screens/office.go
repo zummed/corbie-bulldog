@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -14,7 +15,6 @@ import (
 	"github.com/zummed/corbie/agent"
 	"github.com/zummed/corbie/client"
 	"github.com/zummed/corbie/machine"
-	"go.yaml.in/yaml/v3"
 )
 
 // me gives who is looking, and the office.
@@ -118,11 +118,19 @@ func writtenOf(deciders []office.Decider) []written {
 	return out
 }
 
-// A tool the lead may use: a job of its own, or of a file of tools.
+// A colleague is a worker of the team that the lead, or another
+// colleague, uses as a tool, with what it uses in turn.
+type colleague struct {
+	Name       string      `json:"name"`
+	Colleagues []colleague `json:"colleagues"`
+	Tools      []tool      `json:"tools"`
+}
+
+// A tool a worker may use: a job of its own, or of a file of tools.
 type tool struct {
 	Name string `json:"name"`
 	Does string `json:"does"`
-	Held bool   `json:"held"` // marked for approval
+	Held bool   `json:"held"` // held for approval: by decide, or by the check for a question to a team
 }
 
 // team gives a team as its page shows it: its room with what is written
@@ -151,11 +159,14 @@ func (s *Screens) team(r *http.Request, me string) (any, error) {
 	if t.Decide == nil {
 		decide = writtenOf(peopleOf(t.People))
 	}
-	colleagues, tools := uses(o, t, rd.Machines[t.ID])
+	colleagues, tools := []colleague{}, []tool{}
+	if m := rd.Machines[t.ID]; m.Draft != nil && t.Lead.Worker != "" {
+		colleagues, tools = uses(o, t, m.Draft.Children["./"+o.Worker(t.Lead.Worker).File])
+	}
 	workers := []map[string]string{}
 	for _, w := range t.Workers {
 		definition, _ := o.Load(w.File)
-		workers = append(workers, map[string]string{"name": w.Name, "type": w.Type, "model": modelOf(definition), "definition": string(definition)})
+		workers = append(workers, map[string]string{"name": w.Name, "type": w.Type, "definition": string(definition)})
 	}
 	routines := []map[string]any{}
 	for _, routine := range t.Routines {
@@ -175,7 +186,7 @@ func (s *Screens) team(r *http.Request, me string) (any, error) {
 		}
 		docs = list(listed.Names)
 	}
-	return map[string]any{"id": t.ID, "name": t.Name, "about": t.About, "path": t.Path, "people": people,
+	return map[string]any{"id": t.ID, "name": t.Name, "about": t.About, "people": people,
 		"flow": map[string]any{"source": source, "heed": writtenOf(t.Heed), "check": writtenOf(t.Check), "decide": decide,
 			"work": map[string]any{"lead": leadOf(t), "colleagues": colleagues, "tools": tools}},
 		"workers": workers, "routines": routines, "problems": list(t.Problems),
@@ -191,54 +202,40 @@ func peopleOf(people []string) []office.Decider {
 	return deciders
 }
 
-// uses gives the colleagues and the other tools of a team's lead, as its
-// request machine sends it to Corbie, but those Corbie gives every agent:
-// a colleague is a tool whose job is a worker of the team.
-func uses(o *office.Office, t *office.Team, m *requests.Machine) ([]string, []tool) {
-	colleagues, tools := []string{}, []tool{}
-	if m.Draft == nil || t.Lead.Worker == "" {
-		return colleagues, tools
-	}
-	led := m.Draft.Children["./"+o.Worker(t.Lead.Worker).File]
+// uses gives the colleagues and the other tools of a worker of a team,
+// as the team's request machine sends it to Corbie, but those Corbie
+// gives every agent: a colleague is a tool whose job is a worker of the
+// team. A question to a team is held only for the team's check, so it is
+// held only when the team has one.
+func uses(o *office.Office, t *office.Team, worker *machine.Draft) ([]colleague, []tool) {
+	colleagues, tools := []colleague{}, []tool{}
 	var a agent.Agent
-	if led == nil || led.Definition.Type != "agent" || json.Unmarshal(led.Definition.Body, &a) != nil {
+	if worker == nil || worker.Definition.Type != "agent" || json.Unmarshal(worker.Definition.Body, &a) != nil {
 		return colleagues, tools
 	}
-	names := make([]string, 0, len(a.Tools))
-	for name := range a.Tools {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	for _, name := range names {
+	for _, name := range slices.Sorted(maps.Keys(a.Tools)) {
 		job := a.Tools[name].Job
 		if job == nil || strings.HasPrefix(job.Script, "corbie:") {
 			continue // the tools every agent has, which no file of the office writes
 		}
-		if child := led.Children[job.Machine]; child != nil {
+		if child := worker.Children[job.Machine]; child != nil {
 			if w := o.Worker(child.Definition.Name); w != nil && w.Team == t.ID {
-				colleagues = append(colleagues, w.Name)
+				c := colleague{Name: w.Name}
+				c.Colleagues, c.Tools = uses(o, t, child)
+				colleagues = append(colleagues, c)
 				continue
 			}
 		}
-		tools = append(tools, tool{Name: name, Does: a.Tools[name].Does, Held: job.Approve})
+		tools = append(tools, tool{Name: name, Does: a.Tools[name].Does, Held: job.Approve && (!asksTeam(job.Input) || t.Check != nil)})
 	}
 	return colleagues, tools
 }
 
-// modelOf gives the name of the model a definition names.
-func modelOf(definition []byte) string {
-	var d struct {
-		Model any `yaml:"model"`
-	}
-	yaml.Unmarshal(definition, &d)
-	switch m := d.Model.(type) {
-	case string:
-		return m
-	case map[string]any:
-		name, _ := m["name"].(string)
-		return name
-	}
-	return ""
+// asksTeam says whether a job's input names a team, as ask_team's does.
+func asksTeam(input any) bool {
+	in, _ := input.(map[string]any)
+	to, _ := in["to"].(map[string]any)
+	return to["team"] != nil
 }
 
 // next gives when a routine is next due: its time of day, after its

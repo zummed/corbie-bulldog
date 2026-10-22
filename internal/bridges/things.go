@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -87,7 +88,8 @@ func (b *Bridges) heard(ctx context.Context, id string, data any) error {
 //
 //  1. A press answers the wait its ref names.
 //  2. Something said at direct answers the question it replies to, or,
-//     replying to nothing, the latest question carried to its sender.
+//     replying to nothing, the latest question carried to its sender,
+//     while that question waits.
 //  3. Something said at a listed place starts a request of its team.
 //  4. Anything else is let go, and so is a thing more than a day old.
 func (b *Bridges) take(ctx context.Context, r *requests.Reading, br *office.Bridge, in string, th thing) error {
@@ -110,9 +112,10 @@ func (b *Bridges) take(ctx context.Context, r *requests.Reading, br *office.Brid
 }
 
 // press answers the wait a press's ref names with the choice pressed, for
-// the person whose identity pressed it.
+// the person whose identity pressed it. A press that gives no choice is
+// let go: the person may still type the answer.
 func (b *Bridges) press(ctx context.Context, sender *office.Person, th thing) error {
-	if sender == nil || th.Ref == "" {
+	if sender == nil || th.Ref == "" || th.Choice == "" {
 		return nil
 	}
 	w, err := b.Engine.WaitOf(ctx, th.Ref)
@@ -122,10 +125,12 @@ func (b *Bridges) press(ctx context.Context, sender *office.Person, th thing) er
 	return refused(b.Engine.Answer(ctx, w.ID, sender.ID, th.Choice, th.ID))
 }
 
-// typed answers a question with something said at direct: the question
-// whose message it replies to, or, when it replies to nothing, the latest
-// question carried to its sender on the bridge before it was heard, while
-// that question waits. It says whether the thing is an answer: one given
+// typed answers a question with something said at direct, while the
+// question waits: the question whose message it replies to, or, when it
+// replies to nothing, the latest question carried to its sender on the
+// bridge before it was heard. A text that is one of the question's
+// choices, trimmed and in any case, answers with that choice; a decision
+// takes nothing else. It says whether the thing is an answer: one given
 // now, or before, which the wait's answer holds.
 func (b *Bridges) typed(ctx context.Context, bridge, person string, th thing) (bool, error) {
 	var w *requests.Wait
@@ -138,10 +143,16 @@ func (b *Bridges) typed(ctx context.Context, bridge, person string, th thing) (b
 	switch {
 	case err != nil || w == nil:
 		return false, err
-	case th.Answers == "" && w.Status != "waiting":
+	case w.Status != "waiting":
 		return b.answeredBy(ctx, w.ID, th.ID)
 	}
-	return true, refused(b.Engine.Answer(ctx, w.ID, person, cut(th.Text), th.ID))
+	answer := cut(th.Text)
+	if i := slices.IndexFunc(w.Choices, func(c string) bool { return strings.EqualFold(strings.TrimSpace(th.Text), c) }); i >= 0 {
+		answer = w.Choices[i]
+	} else if w.Decision != "" {
+		return false, nil
+	}
+	return true, refused(b.Engine.Answer(ctx, w.ID, person, answer, th.ID))
 }
 
 // answeredBy says whether a wait was answered by a thing.

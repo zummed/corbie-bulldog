@@ -56,7 +56,7 @@ func TestScreensSight(t *testing.T) {
 	if status, _ := al.api("GET", "/api/requests/"+asked, nil); status != http.StatusNotFound {
 		t.Errorf("Al is answered %d", status)
 	}
-	if sealed["status"] != "answered" || sealed["answer"].(map[string]any)["text"] != "Refunded £40 on 3 May." || sealed["canSay"] != true {
+	if sealed["status"] != "answered" || sealed["answer"] != "Refunded £40 on 3 May." || sealed["canSay"] != true {
 		t.Errorf("Dana's request is %s", jsonOf(sealed))
 	}
 	if nodeOf(sealed, "source")["line"] != "Dana · on the screens" || nodeOf(sealed, "reply")["line"] != "shown on the screens" ||
@@ -77,7 +77,7 @@ func TestScreensSight(t *testing.T) {
 	// Platform has no people, so the office's people, Al, see its requests.
 	up := lee.ask("platform", "Is the API up?")
 	w.ended(up)
-	if v := al.get("/api/requests/" + up); v["read"].(map[string]any)["sealed"] != false || v["answer"].(map[string]any)["text"] != "The API is up." {
+	if v := al.get("/api/requests/" + up); v["read"].(map[string]any)["sealed"] != false || v["answer"] != "The API is up." {
 		t.Errorf("Al sees platform's request as %s", jsonOf(v))
 	}
 	if v := lee.get("/api/requests/" + up); v["read"].(map[string]any)["sealed"] != true {
@@ -145,6 +145,27 @@ func TestScreensOutsiderSeesNothingTheTeamRead(t *testing.T) {
 	if status, _ := dana.api("GET", "/api/requests/"+sub, nil); status != http.StatusNotFound {
 		t.Errorf("Dana is answered %d for payments' request", status)
 	}
+
+	// The ledger puts a card's number to Dana, whom payments may not ask.
+	// Bulldog refuses it, so it was put to nobody: Dana sees only whom it
+	// named and that it was refused, and Lee sees the question.
+	charged := dana.ask("payments", "Was my card charged twice?")
+	w.ended(charged)
+	_, body := dana.body("/api/requests/" + charged)
+	if strings.Contains(body, "4111") || strings.Contains(body, "may not ask") {
+		t.Errorf("Dana is shown the question payments was refused:\n%s", body)
+	}
+	f = dana.get("/api/requests/" + charged)["forks"].([]any)[0].(map[string]any)
+	if f["kind"] != "person" || f["status"] != "refused" || f["party"].(map[string]any)["id"] != "dana" || f["card"] != nil {
+		t.Errorf("Dana sees the refused question as %s", jsonOf(f))
+	}
+	f = lee.get("/api/requests/" + charged)["forks"].([]any)[0].(map[string]any)
+	if !strings.Contains(f["question"].(string), "4111") || !strings.HasPrefix(f["answer"].(string), "Payments may not ask dana") {
+		t.Errorf("Lee sees the refused question as %s", jsonOf(f))
+	}
+	if list := dana.get("/api/requests"); len(list["waiting"].([]any)) != 0 {
+		t.Errorf("Dana is put the refused question: %s", jsonOf(list["waiting"]))
+	}
 }
 
 func TestScreensUnseenIsNotThere(t *testing.T) {
@@ -174,7 +195,6 @@ func TestScreensUnseenIsNotThere(t *testing.T) {
 	same("a request", al, lee, "/api/requests/"+asked, "/api/requests/nothing")
 	same("a file", al, lee, "/api/requests/"+asked+"/files/0", "/api/requests/"+asked+"/files/1")
 	same("a doc", dana, lee, "/api/teams/payments/docs/refunds.md", "/api/teams/payments/docs/nothing.md")
-	same("a team", dana, lee, "/api/teams/nothing", "/api/teams/nobody")
 	for _, act := range []string{"say", "stop"} {
 		s1, a := al.api("POST", "/api/requests/"+asked+"/"+act, map[string]any{"said": "More."})
 		s2, b := lee.api("POST", "/api/requests/20261005T090000.000Z-0123456789abcdef/"+act, map[string]any{"said": "More."})
@@ -230,8 +250,19 @@ func TestScreensDecisionAnsweredFromTheScreens(t *testing.T) {
 		t.Errorf("Priya's answer after Lee's is answered %d", status)
 	}
 	f := lee.get("/api/requests/" + asked)["forks"].([]any)[0].(map[string]any)
-	if f["status"] != "answered" || f["answer"] != "yes (Lee)" || jsonOf(f["party"]) != `{"id":"lee","kind":"person","name":"Lee"}` || f["card"] != nil {
+	if f["status"] != "answered" || f["answer"] != "yes (Lee)" || jsonOf(f["party"]) != `{"id":"lee","kind":"person","name":"Lee"}` || f["card"] != nil ||
+		jsonOf(f["jobs"]) != `["refund"]` || jsonOf(f["deciders"]) != `[{"kind":"person","name":"Lee","says":"yes"}]` {
 		t.Errorf("the decision is %s", jsonOf(f))
+	}
+
+	// A decision that said no shows it.
+	again := lee.ask("payments", "Refund ch_3.")
+	if status, _ := priya.api("POST", "/api/waits/"+priya.card()["ref"].(string)+"/answer", map[string]any{"answer": "No"}); status != http.StatusOK {
+		t.Fatalf("Priya's no is answered %d", status)
+	}
+	w.ended(again)
+	if f := lee.get("/api/requests/" + again)["forks"].([]any)[0].(map[string]any); f["status"] != "no" || f["answer"] != "no (Priya)" {
+		t.Errorf("the decision Priya said no to is %s", jsonOf(f))
 	}
 }
 
@@ -292,6 +323,15 @@ func TestScreensAskWithFilesAndSayMore(t *testing.T) {
 	for _, bad := range []map[string]any{{"team": "payments", "said": " "}, {"team": "nothing", "said": "Hello."}} {
 		if status, out := dana.api("POST", "/api/requests", bad); status == http.StatusOK || out["error"] == nil {
 			t.Errorf("asking %v answered %d %v", bad, status, out)
+		}
+	}
+
+	// A team whose files have problems takes no requests: asking it, and
+	// saying more to it, are refused alike.
+	w.rewrite("payments/ledger.yaml", func(string) string { return "agent: ledger\n  tools: [\n" })
+	for path, body := range map[string]map[string]any{"/api/requests": {"team": "payments", "said": "Hello."}, "/api/requests/" + asked + "/say": {"said": "Hello."}} {
+		if status, out := dana.api("POST", path, body); status != http.StatusConflict || out["error"] != "Payments takes no requests while its files have problems. Its page shows them." {
+			t.Errorf("POST %s to a team with problems answered %d %v", path, status, out)
 		}
 	}
 }
@@ -407,8 +447,24 @@ func TestScreensDecisionShowsItsNotes(t *testing.T) {
 		t.Fatalf("Sam's yes is answered %d", status)
 	}
 	v := kit.until("the house answers", "/api/requests/"+asked, func(v map[string]any) bool { return v["status"] == "answered" })
-	if v["answer"].(map[string]any)["text"] != "The fixer has ordered a socket, and fits it on Thursday." {
+	if v["answer"] != "The fixer has ordered a socket, and fits it on Thursday." {
 		t.Errorf("Kit is answered %v", v["answer"])
+	}
+
+	// Kit, of the house, sees the decision: the held job, Sam's yes, and
+	// what each decider before him said; and under the steward's call of
+	// the fixer, the fixer's order.
+	forks := v["forks"].([]any)
+	f := forks[len(forks)-1].(map[string]any)
+	deciders := jsonOf(f["deciders"])
+	if f["kind"] != "decision" || jsonOf(f["jobs"]) != `["order_part"]` || f["answer"] != "yes (Sam)" ||
+		!strings.Contains(deciders, `{"kind":"rule","name":"./small-orders.js","note":"More than I order alone.","says":"pass"}`) ||
+		!strings.Contains(deciders, `{"kind":"worker","name":"clerk","note":"The house has the money for it.","says":"pass"}`) {
+		t.Errorf("Kit sees the decision as %s", jsonOf(f))
+	}
+	calls := v["read"].(map[string]any)["calls"].([]any)
+	if fixer := calls[0].(map[string]any); fixer["tool"] != "fixer" || !strings.Contains(jsonOf(fixer["calls"]), `"tool":"order_part"`) {
+		t.Errorf("the steward's calls are %s", jsonOf(calls))
 	}
 }
 
@@ -428,9 +484,8 @@ func TestScreensHeardOnABridge(t *testing.T) {
 	}
 	refunds := heard(requests.By{Person: "dana"}, "#refunds", "@bot was order 4411 refunded?")
 	v := dana.until("the answer is carried", "/api/requests/"+refunds, func(v map[string]any) bool { return nodeOf(v, "reply")["state"] == "passed" })
-	source := v["source"].(map[string]any)
-	if source["kind"] != "bridge" || source["bridge"] != "slack" || source["place"] != "#refunds" || nodeOf(v, "source")["line"] != "Dana · slack › #refunds" ||
-		nodeOf(v, "heed")["state"] != "passed" || nodeOf(v, "reply")["line"] != "sent" || v["answer"].(map[string]any)["sent"] != true {
+	if nodeOf(v, "source")["line"] != "Dana · slack › #refunds" || v["source"].(map[string]any)["said"] != "@bot was order 4411 refunded?" ||
+		nodeOf(v, "heed")["state"] != "passed" || nodeOf(v, "reply")["line"] != "sent" {
 		t.Errorf("Dana's request in #refunds is %s", jsonOf(v))
 	}
 	if sent := w.bridges.carried(); len(sent) != 1 || sent[0].To != "C01/@bot was order 4411 refunded?" || sent[0].Text != "Refunded £40 on 3 May." {
@@ -439,7 +494,22 @@ func TestScreensHeardOnABridge(t *testing.T) {
 
 	help := heard(requests.By{Guest: "U0GUEST"}, "#help", "@bot is the API up?")
 	v = al.until("the guest is answered", "/api/requests/"+help, func(v map[string]any) bool { return v["status"] == "answered" })
-	if by := v["source"].(map[string]any)["by"]; jsonOf(by) != `{"id":"slack:U0GUEST","kind":"guest","name":"slack U0GUEST"}` || nodeOf(v, "source")["line"] != "a guest · slack › #help" {
+	if nodeOf(v, "source")["line"] != "a guest · slack › #help" {
 		t.Errorf("the guest's request is %s", jsonOf(v))
+	}
+	row := al.get("/api/requests")["requests"].([]any)[0].(map[string]any)
+	if row["id"] != help || jsonOf(row["by"]) != `{"id":"slack:U0GUEST","kind":"guest","name":"slack U0GUEST"}` {
+		t.Errorf("the guest's row is %s", jsonOf(row))
+	}
+
+	// An answer the bridge refuses to carry shows REPLY not sent: with the
+	// error to the team's people, and without it to Dana.
+	refused := heard(requests.By{Person: "dana"}, "#refunds", "@bot the stand-in refuses this")
+	v = w.as("lee").until("the answer is not carried", "/api/requests/"+refused, func(v map[string]any) bool { return nodeOf(v, "reply")["state"] == "failed" })
+	if line := nodeOf(v, "reply")["line"].(string); !strings.HasPrefix(line, "not sent: ") || !strings.Contains(line, "The stand-in refuses the message.") {
+		t.Errorf("Lee sees the reply as %q", line)
+	}
+	if line := nodeOf(dana.get("/api/requests/"+refused), "reply")["line"]; line != "not sent" {
+		t.Errorf("Dana sees the reply as %q", line)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -16,7 +17,9 @@ import (
 	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie-bulldog/internal/requests"
 	"github.com/zummed/corbie-bulldog/internal/screens"
+	"github.com/zummed/corbie-bulldog/shipped"
 	"github.com/zummed/corbie/client/cli"
+	"github.com/zummed/corbie/manual"
 
 	// The machine types Corbie's parser checks an office's definitions
 	// against.
@@ -57,6 +60,24 @@ With --json it prints { link }. It uses no Corbie, and takes no --config or
 
 func main() {
 	os.Exit(cli.Program("bulldog", commands, os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
+}
+
+func init() { manual.Add(shippedPages) }
+
+// shippedPages gives the manual the page of each directory Bulldog ships,
+// its README.md, named by the directory's path under ./.bulldog/.
+func shippedPages() []manual.Page {
+	var pages []manual.Page
+	fs.WalkDir(shipped.Files, ".", func(file string, d fs.DirEntry, err error) error {
+		if err != nil || d.Name() != "README.md" {
+			return err
+		}
+		text, err := fs.ReadFile(shipped.Files, file)
+		title, _, _ := strings.Cut(string(text), "\n")
+		pages = append(pages, manual.Page{Name: path.Dir(file), Group: "What Bulldog ships at ./.bulldog/", Summary: title, Text: string(text)})
+		return err
+	})
+	return pages
 }
 
 // serveOffice serves an office until it is stopped.

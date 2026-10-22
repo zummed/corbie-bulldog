@@ -75,8 +75,9 @@ func TestScreensEventsFilteredBySight(t *testing.T) {
 	dana, lee := w.as("dana"), w.as("lee")
 	danas, lees := dana.stream(), lee.stream()
 
-	// Lee's request of payments is named to Lee, and never to Dana.
-	his := lee.ask("payments", "Was order 4411 refunded?")
+	// Lee's request of payments is named to Lee, and never to Dana, though
+	// the ledger names her in a question payments may not put to her.
+	his := lee.ask("payments", "Was the card of order 4411 refunded?")
 	w.ended(his)
 	until(t, lees, `{"request":"`+his+`"}`)
 	hers := dana.ask("payments", "Was order 4412 refunded?")

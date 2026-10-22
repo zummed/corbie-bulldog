@@ -6,7 +6,7 @@
 # as example.atlassian.net, and signs in as the settings' email with the
 # API token that is the Corbie secret JIRA_TOKEN.
 statechart: jira-in
-keep: 12h
+keep: 1d
 input:
   type: object
   required: [settings, cursor]

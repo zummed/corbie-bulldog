@@ -2,7 +2,6 @@ package bridges
 
 import (
 	"context"
-	"errors"
 	"maps"
 
 	"github.com/zummed/corbie-bulldog/internal/requests"
@@ -11,7 +10,7 @@ import (
 
 // Carry carries one message by a run of the bridge's out.yaml, under the
 // name the message gives and with its labels, and with the office's,
-// kind=out and bridge. It starts the run only when no run has the name. A
+// kind=out and bridge. The caller looks for a run of that name first. A
 // bridge the office does not have, or one with a problem, carries
 // nothing.
 func (b *Bridges) Carry(ctx context.Context, m requests.Message) error {
@@ -19,15 +18,6 @@ func (b *Bridges) Carry(ctx context.Context, m requests.Message) error {
 	br, d := r.Office.Bridge(m.Bridge), b.definitions(r)[m.Bridge]
 	if br == nil || !d.usable() {
 		return nil
-	}
-	if m.Run != "" {
-		_, err := b.corbie.Show(ctx, m.Run)
-		switch {
-		case err == nil:
-			return nil
-		case !errors.Is(err, client.ErrNoRun):
-			return err
-		}
 	}
 	labels := maps.Clone(m.Labels)
 	if labels == nil {

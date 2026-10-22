@@ -20,9 +20,9 @@ import (
 	"github.com/zummed/corbie/store"
 )
 
-// A party is who asked, or whom a fork waits on.
+// A party is who asked, or whom a fork went to.
 type party struct {
-	Kind string `json:"kind"` // person, guest, team or routine
+	Kind string `json:"kind"` // person, guest, team or routine; for a decision, rule or worker
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
@@ -55,7 +55,9 @@ type row struct {
 	Nodes    []node    `json:"nodes"`
 }
 
-// A card is a question or a decision put to the one looking.
+// A card is a question or a decision put to the one looking. A
+// decision's said holds its held jobs and what each decider before said,
+// as a bridge carries it.
 type card struct {
 	Ref      string    `json:"ref"`
 	Request  string    `json:"request"`
@@ -64,8 +66,6 @@ type card struct {
 	Kind     string    `json:"kind"` // question or decision
 	Said     string    `json:"said"`
 	Choices  []string  `json:"choices"`
-	Notes    []any     `json:"notes"`
-	Jobs     []any     `json:"jobs"`
 	At       time.Time `json:"at"`
 }
 
@@ -80,22 +80,16 @@ type view struct {
 	Source   source    `json:"source"`
 	Nodes    []node    `json:"nodes"`
 	Forks    []fork    `json:"forks"`
-	Answer   struct {
-		Text *string `json:"text"`
-		Sent bool    `json:"sent"`
-	} `json:"answer"`
-	Read    read      `json:"read"`
-	Thread  []earlier `json:"thread"`
-	CanSay  bool      `json:"canSay"`
-	CanStop bool      `json:"canStop"`
+	Answer   *string   `json:"answer"` // what left the team
+	Read     read      `json:"read"`
+	Thread   []earlier `json:"thread"`
+	CanSay   bool      `json:"canSay"`
+	CanStop  bool      `json:"canStop"`
 }
 
-// A source is where a request came from, and what was said there.
+// A source is what was said where a request came from; SOURCE's line
+// says who said it, and where.
 type source struct {
-	Kind    string     `json:"kind"` // bridge, chat, team or routine
-	Bridge  string     `json:"bridge,omitzero"`
-	Place   string     `json:"place,omitzero"`
-	By      party      `json:"by"`
 	Said    string     `json:"said"`
 	Files   []fileLink `json:"files"`
 	Request string     `json:"request,omitzero"` // the request that asked a sub-request, when the one looking may see it
@@ -109,15 +103,18 @@ type fileLink struct {
 	Href string `json:"href"`
 }
 
-// A fork is a wait of a request, drawn as a line off WORK.
+// A fork is a question of a request, or a decision on its held jobs,
+// drawn as a line off WORK.
 type fork struct {
-	Kind     string    `json:"kind"` // team, person or decision
-	Party    party     `json:"party"`
-	Status   string    `json:"status"`
+	Kind     string    `json:"kind"`   // team, person or decision
+	Party    party     `json:"party"`  // whom it went to; for a decision, who decided
+	Status   string    `json:"status"` // waiting, working, answered, no (a decision that said no), refused, timed-out, failed or stopped
 	At       time.Time `json:"at"`
 	Ended    time.Time `json:"ended,omitzero"`
 	Question string    `json:"question,omitzero"`
 	Answer   string    `json:"answer,omitzero"`
+	Jobs     []string  `json:"jobs,omitzero"`     // a decision's held jobs
+	Deciders []decider `json:"deciders,omitzero"` // what each decider of a decision said
 	Request  string    `json:"request,omitzero"`
 	Card     *card     `json:"card,omitzero"`
 }
@@ -130,11 +127,23 @@ type read struct {
 	Error  string `json:"error,omitzero"`
 }
 
+// A call is a tool the lead called, and what it gave back or why it
+// failed; for a colleague that is an agent, the tools it called.
 type call struct {
 	Tool   string    `json:"tool"`
 	Args   any       `json:"args"`
 	Result any       `json:"result"`
+	Error  string    `json:"error,omitzero"`
 	At     time.Time `json:"at"`
+	Calls  []call    `json:"calls,omitzero"`
+}
+
+func callsOf(calls []requests.Call) []call {
+	var out []call
+	for _, c := range calls {
+		out = append(out, call{Tool: c.Tool, Args: c.Args, Result: c.Result, Error: c.Error, At: c.At, Calls: callsOf(c.Calls)})
+	}
+	return out
 }
 
 type turn struct {
@@ -186,7 +195,7 @@ func (s *Screens) list(r *http.Request, me string) (any, error) {
 		cards = append(cards, *s.cardOf(o, w))
 		waitsOn[w.Request] = true
 	}
-	all, err := s.engine.Requests(ctx)
+	seen, err := s.engine.Newest(ctx, func(q *requests.Request) bool { return sightOf(o, me, q, waitsOn[q.ID]) != unseen }, 200)
 	if err != nil {
 		return nil, err
 	}
@@ -195,13 +204,7 @@ func (s *Screens) list(r *http.Request, me string) (any, error) {
 		return nil, err
 	}
 	rows := []row{}
-	for _, q := range all {
-		if len(rows) == 200 {
-			break
-		}
-		if sightOf(o, me, q, waitsOn[q.ID]) == unseen {
-			continue
-		}
+	for _, q := range seen {
 		nodes := nodesOf(q, carried[q.ID])
 		rows = append(rows, row{ID: s.id(q.ID), Team: q.Team, TeamName: teamName(o, q.Team), By: partyOf(o, q),
 			Said: strings.SplitN(q.Said, "\n", 2)[0], At: asked(q.ID), Status: q.Status, Nodes: nodes})
@@ -227,7 +230,26 @@ func (s *Screens) cardOf(o *office.Office, w *requests.Wait) *card {
 		kind = "decision"
 	}
 	return &card{Ref: w.Ref, Request: s.id(w.Request), Team: w.Team, TeamName: teamName(o, w.Team), Kind: kind,
-		Said: w.Said, Choices: w.Choices, Notes: []any{}, Jobs: []any{}, At: w.Started}
+		Said: w.Said, Choices: w.Choices, At: w.Started}
+}
+
+// putTo says whether a question or a decision is put to a person: it
+// waits on them, or they answered it. One Bulldog refused, since its team
+// may not ask a person it names, is put to nobody, and the engine gives
+// none that waits until it is refused.
+func putTo(w *requests.Wait, person string) bool {
+	return w.By == person || w.Status == "waiting" && slices.Contains(w.People, person)
+}
+
+// sight says how a person sees a request, looking at the waits on them
+// only when nothing else lets them see it.
+func (s *Screens) sight(ctx context.Context, me string, q *requests.Request) (sight, error) {
+	o := s.engine.Reading().Office
+	if how := sightOf(o, me, q, false); how != unseen {
+		return how, nil
+	}
+	waits, err := s.engine.Waiting(ctx, me)
+	return sightOf(o, me, q, slices.ContainsFunc(waits, func(w *requests.Wait) bool { return w.Request == q.ID })), err
 }
 
 // request gives one request as the one looking may see it.
@@ -250,11 +272,8 @@ func (s *Screens) request(r *http.Request, me string) (any, error) {
 	}
 
 	v := view{ID: s.id(q.ID), Team: q.Team, TeamName: teamName(o, q.Team), Status: q.Status, At: asked(q.ID), Ended: q.Ended,
-		Forks: []fork{}, Read: read{Sealed: how != whole}, Thread: []earlier{}}
-	v.Source = source{Kind: q.Heard, By: partyOf(o, q), Said: q.Said, Files: []fileLink{}}
-	if q.Place != nil && (q.Heard == "channel" || q.Heard == "direct") {
-		v.Source.Kind, v.Source.Bridge, v.Source.Place = "bridge", q.Place.Bridge, q.Place.Place
-	}
+		Answer: q.Answer, Forks: []fork{}, Read: read{Sealed: how != whole}, Thread: []earlier{}}
+	v.Source = source{Said: q.Said, Files: []fileLink{}}
 	for i, f := range q.Files {
 		v.Source.Files = append(v.Source.Files, fileLink{Name: f.Name, Type: f.Type, Size: f.Size, Href: fmt.Sprintf("/api/requests/%s/files/%d", v.ID, i)})
 	}
@@ -265,18 +284,22 @@ func (s *Screens) request(r *http.Request, me string) (any, error) {
 	}
 
 	var carried []string
+	failed := "" // why the first run that failed to carry the answer failed
 	for _, reply := range look.Replies {
 		carried = append(carried, reply.Status)
+		if reply.Status == "failed" && failed == "" {
+			failed = reply.Error
+		}
 	}
 	v.Nodes = nodesOf(q, carried)
 	v.Nodes[0].Line = sourceLine(o, q)
 	v.Nodes[4].Line = replyLine(o, q, carried)
-	v.Answer.Text, v.Answer.Sent = q.Answer, v.Nodes[4].State == "passed"
 	if how == whole {
-		lines(o, q, look.Forks, v.Nodes)
-		for _, c := range look.Calls {
-			v.Read.Calls = append(v.Read.Calls, call{Tool: c.Tool, Args: c.Args, Result: c.Result, At: c.At})
+		if v.Nodes[4].State == "failed" && failed != "" {
+			v.Nodes[4].Line += ": " + failed
 		}
+		lines(o, q, look.Forks, v.Nodes)
+		v.Read.Calls = callsOf(look.Calls)
 		for _, t := range look.Turns {
 			v.Read.Turns = append(v.Read.Turns, turn{Role: t.Role, Text: t.Text})
 		}
@@ -288,11 +311,17 @@ func (s *Screens) request(r *http.Request, me string) (any, error) {
 	}
 
 	for _, w := range look.Forks {
-		if w.Decision == "heed" || w.Decision == "check" {
-			continue // a decision of a stage, shown at its node, and as a card to whom it is put
+		if w.Decision != "" {
+			continue // a heed's or a check's is shown at its node, and as a card to whom it is put; decide's with its decision
 		}
 		v.Forks = append(v.Forks, s.forkOf(o, me, q, w, how))
 	}
+	for _, d := range look.Decisions {
+		if d.Wait != nil || how == whole {
+			v.Forks = append(v.Forks, s.decisionFork(o, me, d, how))
+		}
+	}
+	slices.SortStableFunc(v.Forks, func(a, b fork) int { return a.At.Compare(b.At) })
 	for _, t := range look.Thread {
 		if t.ID == q.ID || sightOf(o, me, t, false) != unseen {
 			v.Thread = append(v.Thread, earlier{ID: s.id(t.ID), Said: t.Said, Answer: t.Answer, At: asked(t.ID), Status: t.Status})
@@ -324,23 +353,57 @@ func (s *Screens) asking(ctx context.Context, o *office.Office, me, wait string)
 	return s.id(top), nil
 }
 
-// forkOf gives a wait of a request as a fork, as the one looking may see
-// it. Its question and answer are shown to the team's people and to those
-// it is put to; its card, to those it waits on.
+// forkOf gives a question of a request as a fork, as the one looking may
+// see it. Its question and answer are shown to the team's people and to
+// those it is put to; its card, to those it waits on.
 func (s *Screens) forkOf(o *office.Office, me string, q *requests.Request, w *requests.Wait, how sight) fork {
 	f := fork{Kind: "person", Party: waitedOn(o, w), Status: w.Status, At: w.Started, Ended: w.Ended}
-	switch {
-	case w.ToTeam != "":
+	if w.ToTeam != "" {
 		f.Kind = "team"
 		if w.Asked != "" && (of(o, q.Team, me) || of(o, w.ToTeam, me)) {
 			f.Request = s.id(w.Asked)
 		}
-	case w.Decision != "":
-		f.Kind = "decision"
 	}
-	put := slices.Contains(w.People, me)
+	put := putTo(w, me)
 	if how == whole || put {
-		f.Question, f.Answer = w.Said, answerOf(o, w)
+		f.Question, f.Answer = w.Said, answerOf(w)
+	}
+	if put && w.Status == "waiting" {
+		f.Card = s.cardOf(o, w)
+	}
+	return f
+}
+
+// decisionFork gives a decision on a request's held jobs as a fork. Its
+// jobs, its answer and what each decider said are shown to the team's
+// people and to those it is put to; its card, to those it waits on. To
+// anyone else, it shows who, when and how it ended.
+func (s *Screens) decisionFork(o *office.Office, me string, d *requests.Decision, how sight) fork {
+	w := d.Wait
+	f := fork{Kind: "decision", Status: d.Status, At: d.Started, Ended: d.Ended}
+	switch {
+	case w != nil:
+		f.Party = waitedOn(o, w)
+	case len(d.Words) > 0:
+		last := d.Words[len(d.Words)-1]
+		f.Party = party{Kind: last.Kind, ID: last.Name, Name: deciderName(o, last.Kind, last.Name)}
+	}
+	switch {
+	case d.Says == "no":
+		f.Status = "no"
+	case d.Status == "waiting" && (w == nil || w.Status != "waiting"):
+		f.Status = "working" // its rules and workers decide
+	}
+	put := w != nil && putTo(w, me)
+	if how == whole || put {
+		f.Jobs, f.Answer = d.Jobs, d.Says
+		if w != nil && w.By != "" && d.Says != "" {
+			f.Answer += " (" + personName(o, w.By) + ")"
+		}
+		for _, word := range d.Words {
+			says := word.Says
+			f.Deciders = append(f.Deciders, decider{Kind: word.Kind, Name: deciderName(o, word.Kind, word.Name), Says: &says, Note: word.Note})
+		}
 	}
 	if put && w.Status == "waiting" {
 		f.Card = s.cardOf(o, w)
@@ -366,8 +429,8 @@ func waitedOn(o *office.Office, w *requests.Wait) party {
 	return party{Kind: "person", ID: w.People[0], Name: strings.Join(names, " or ")}
 }
 
-// answerOf says how a wait was answered.
-func answerOf(o *office.Office, w *requests.Wait) string {
+// answerOf says how a question was answered.
+func answerOf(w *requests.Wait) string {
 	switch {
 	case w.Status == "refused":
 		return w.Refused
@@ -375,8 +438,6 @@ func answerOf(o *office.Office, w *requests.Wait) string {
 		return "No answer came within 7 days."
 	case w.Answer == nil:
 		return ""
-	case w.Decision != "" && w.By != "":
-		return *w.Answer + " (" + personName(o, w.By) + ")"
 	}
 	return *w.Answer
 }
@@ -604,13 +665,10 @@ func (s *Screens) ask(r *http.Request, me string) (any, error) {
 	if err := readJSON(r, 64<<20, &body); err != nil {
 		return nil, err
 	}
-	rd := s.engine.Reading()
-	t := rd.Office.Team(body.Team)
+	t, err := s.takes(body.Team)
 	switch {
-	case t == nil:
-		return nil, noTeam
-	case rd.Machines[t.ID].Draft == nil:
-		return nil, refusal{http.StatusConflict, t.Name + " takes no requests while its files have problems. Its page shows them."}
+	case err != nil:
+		return nil, err
 	case strings.TrimSpace(body.Said) == "":
 		return nil, refusal{http.StatusBadRequest, "Say something to the team."}
 	}
@@ -623,6 +681,19 @@ func (s *Screens) ask(r *http.Request, me string) (any, error) {
 		return nil, err
 	}
 	return map[string]string{"id": s.id(id)}, nil
+}
+
+// takes gives a team of the office that takes requests.
+func (s *Screens) takes(team string) (*office.Team, error) {
+	rd := s.engine.Reading()
+	t := rd.Office.Team(team)
+	switch {
+	case t == nil:
+		return nil, noTeam
+	case !rd.Takes(t.ID):
+		return nil, refusal{http.StatusConflict, t.Name + " takes no requests while its files have problems. Its page shows them."}
+	}
+	return t, nil
 }
 
 // acted gives a request the one looking may say more in, or stop: one
@@ -656,6 +727,9 @@ func (s *Screens) say(r *http.Request, me string) (any, error) {
 	}
 	q, err := s.acted(r, me)
 	if err != nil {
+		return nil, err
+	}
+	if _, err := s.takes(q.Team); err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(body.Said) == "" {
@@ -724,14 +798,12 @@ func (s *Screens) file(w http.ResponseWriter, r *http.Request, me string) {
 		s.refuse(w, err)
 		return
 	}
-	waits, err := s.engine.Waiting(ctx, me)
+	how, err := s.sight(ctx, me, q)
+	if err == nil && how == unseen {
+		err = noFile
+	}
 	if err != nil {
 		s.refuse(w, err)
-		return
-	}
-	waitsOn := slices.ContainsFunc(waits, func(w *requests.Wait) bool { return w.Request == id })
-	if sightOf(s.engine.Reading().Office, me, q, waitsOn) == unseen {
-		s.refuse(w, noFile)
 		return
 	}
 	contents, f, err := s.engine.File(ctx, id, n)

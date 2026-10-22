@@ -3,7 +3,7 @@ Talk: the tools a worker uses to ask another team or a person, and wait for the 
 | Tool | What it does |
 |---|---|
 | `ask_team(team, question)` | asks another team of the office, and waits for its answer |
-| `ask_person(who, question, choices)` | asks a person, by their name, and waits for the answer |
+| `ask_person(who, question, choices)` | asks a person, by their id in `everyone`, and waits for the answer |
 
 Each tool runs `./.bulldog/wait/wait.yaml`, and its result is the wait's output: `{ answer, by, thing }`, `{ answer: null, note }` after 7 days, or `{ answer: null, refused }`.
 

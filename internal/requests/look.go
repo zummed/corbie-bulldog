@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie/client"
 	"github.com/zummed/corbie/instance"
 )
@@ -18,32 +19,31 @@ var ErrNoRequest = errors.New("there is no such request")
 
 // A Request is a request as its run shows it.
 type Request struct {
-	ID     string // its run's name
-	Team   string
-	By     By
-	Heard  string // channel, direct, chat, team or routine
-	Place  *Place // where a bridge heard it; for a sub-request, where its chain began
-	Said   string
-	Files  []client.File
-	Chain  []string // the teams whose requests asked this one, top first
-	Thread string   // its thread's label, which every request of the thread carries
-	Wait   string   // for a sub-request, the wait that asked it
+	ID    string // its run's name
+	Team  string
+	By    By
+	Heard string // channel, direct, chat, team or routine
+	Place *Place // where a bridge heard it; for a sub-request, where its chain began
+	Said  string
+	Files []client.File
+	Chain []string // the teams whose requests asked this one, top first
+	Wait  string   // for a sub-request, the wait that asked it
 	// Status is working, waiting (on a person or a team), answered,
 	// noted, withheld, failed or stopped.
 	Status string
 	// Answer is what left the team: the request machine's answer, or for
 	// a run that failed, the line of a failed request. Nil for none.
-	Answer  *string
-	Stages  []Stage // heed, work and check, those its machine has
-	Started time.Time
-	Ended   time.Time
+	Answer *string
+	Stages []Stage // heed, work and check, those its machine has
+	Ended  time.Time
 }
 
 // A Stage is one stage of a request's machine as it stands.
 type Stage struct {
 	Name string // heed, work or check
 	// State is "" (not reached), working, waiting, passed, no (a heed or
-	// a check that said no), failed or skipped.
+	// a check that said no), failed, skipped, or stopped (running when its
+	// request was stopped).
 	State string
 	// What Look adds: when it started and ended, what each decider of a
 	// heed or a check said, in order, and the error of a stage that
@@ -57,21 +57,37 @@ type Stage struct {
 // A Word is what one decider said.
 type Word struct {
 	Kind string // rule, worker or person
-	Name string // a rule's path from the office's top, a worker's or a person's name
+	Name string // a rule's path from the office's top, a worker's name, or a person's id
 	Says string // yes, no or pass; failed for a decider that failed
 	Note string
 }
 
-// A Look is one request in full: what each stage did, the waits below it,
-// what its lead read and called, where its answer was carried, and its
-// thread.
+// A Look is one request in full: what each stage did, the waits and the
+// decisions below it, what its lead read and called, where its answer was
+// carried, and its thread.
 type Look struct {
 	*Request
-	Forks   []*Wait    // every wait below it, oldest first
-	Turns   []Turn     // the lead's conversation
-	Calls   []Call     // the tools the lead called
-	Replies []*Reply   // the runs that carried its answer out
-	Thread  []*Request // every request of its thread, itself among them, oldest first
+	Forks     []*Wait     // every wait below it, oldest first
+	Decisions []*Decision // every decision on its held jobs, oldest first
+	Turns     []Turn      // the lead's conversation
+	Calls     []Call      // the tools the lead called
+	Replies   []*Reply    // the runs that carried its answer out
+	Thread    []*Request  // every request of its thread, itself among them, oldest first
+}
+
+// A Decision is one run of the team's decide chart below a request: the
+// held jobs it decides on, what each decider said, and the people's wait
+// when it came to them.
+type Decision struct {
+	ID      string
+	Jobs    []string // the names of the held jobs
+	Words   []Word   // what each decider said, in order
+	Status  string   // waiting, answered, failed or stopped
+	Says    string   // yes or no, once answered
+	Note    string
+	Wait    *Wait // the wait that put it to people; nil when it did not come to them
+	Started time.Time
+	Ended   time.Time
 }
 
 // A Turn is one part of the lead's conversation: what it was asked, or
@@ -81,12 +97,15 @@ type Turn struct {
 	Text string
 }
 
-// A Call is one tool the lead called, and what it gave back.
+// A Call is one tool an agent called, what it gave back, and the tools a
+// colleague called to answer it.
 type Call struct {
 	Tool   string
 	Args   any
 	Result any
+	Error  string // why the call failed or was denied
 	At     time.Time
+	Calls  []Call // for a colleague that is an agent, the tools it called
 }
 
 // A Reply is a run that carried a request's answer out.
@@ -118,7 +137,7 @@ func (e *Engine) requestOf(run *client.Run) *Request {
 	decode(run.Output, &out)
 	g := in.Request
 	q := &Request{ID: run.ID, Team: run.Labels["team"], By: g.By, Heard: g.Heard, Place: g.Place, Said: in.Said, Chain: g.Chain,
-		Thread: run.Labels["thread"], Wait: run.Labels["wait"], Started: run.Started, Ended: run.Ended}
+		Wait: run.Labels["wait"], Ended: run.Ended}
 	for _, f := range in.Files {
 		q.Files = append(q.Files, client.File{Name: f.Name, Type: f.Data.Type, Size: f.Data.Size})
 	}
@@ -128,16 +147,20 @@ func (e *Engine) requestOf(run *client.Run) *Request {
 	case "cancelled":
 		q.Status = "stopped"
 	case "failed":
-		name := q.Team
-		if t := e.Reading().Office.Team(q.Team); t != nil {
-			name = t.Name
-		}
-		failed := name + " could not answer: its work failed."
+		failed := teamName(e.Reading().Office, q.Team) + " could not answer: its work failed."
 		q.Status, q.Answer = "failed", &failed
 	default:
 		q.Status = "working"
 	}
 	return q
+}
+
+// teamName gives a team's name; its id when the office has no such team.
+func teamName(o *office.Office, team string) string {
+	if t := o.Team(team); t != nil {
+		return t.Name
+	}
+	return team
 }
 
 // request shows a run that is a request of the office.
@@ -163,8 +186,8 @@ func (e *Engine) shown(ctx context.Context, id string) (*Request, error) {
 	return e.requestOf(run), nil
 }
 
-// top gives the request a run is below, as shown.
-func (e *Engine) top(ctx context.Context, id string) (*client.Run, error) {
+// Top gives the request a run is below, as shown.
+func (e *Engine) Top(ctx context.Context, id string) (*client.Run, error) {
 	for {
 		run, err := e.corbie.Show(ctx, id)
 		if err != nil || run.Parent == "" {
@@ -174,20 +197,19 @@ func (e *Engine) top(ctx context.Context, id string) (*client.Run, error) {
 	}
 }
 
-// staged gives a request with the state of each stage, from its latest
+// staged adds to a request the state of each stage, from its run's latest
 // step. A request that waits on a person or a team has the stage that runs
 // waiting.
-func (e *Engine) staged(ctx context.Context, run *client.Run, waiting bool) (*Request, error) {
-	q := e.requestOf(run)
+func (e *Engine) staged(ctx context.Context, q *Request, run *client.Run, waiting bool) error {
 	if waiting && q.Status == "working" {
 		q.Status = "waiting"
 	}
 	if run.Step == 0 {
-		return q, nil // waiting to start
+		return nil // waiting to start
 	}
 	step, err := e.corbie.Step(ctx, run.ID, run.Step)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	var shown struct {
 		Stages map[string]string `json:"stages"`
@@ -200,7 +222,10 @@ func (e *Engine) staged(ctx context.Context, run *client.Run, waiting bool) (*Re
 		}
 		state := ""
 		switch {
+		case status == "running" && run.Status == "cancelled":
+			state = "stopped"
 		case status == "running" && run.HasEnded():
+			state = "failed"
 		case status == "running" && waiting:
 			state = "waiting"
 		case status == "running":
@@ -214,7 +239,7 @@ func (e *Engine) staged(ctx context.Context, run *client.Run, waiting bool) (*Re
 		}
 		q.Stages = append(q.Stages, Stage{Name: name, State: state})
 	}
-	return q, nil
+	return nil
 }
 
 // below gives the runs of a listing by the request each is below, itself
@@ -240,45 +265,54 @@ func waiting(runs []*client.Run) bool {
 	return slices.ContainsFunc(runs, func(r *client.Run) bool { return r.Machine == "wait" && waits(r, "answer") })
 }
 
-// Requests gives every request of the office, newest first, each with the
-// state of its stages.
-func (e *Engine) Requests(ctx context.Context) ([]*Request, error) {
+// Newest gives the newest requests of the office that keep keeps, newest
+// first, each with the state of its stages: at most limit of them, or
+// every one with a limit of 0. It shows each request's run until it has
+// the limit, and reads the latest step only of those it keeps.
+func (e *Engine) Newest(ctx context.Context, keep func(*Request) bool, limit int) ([]*Request, error) {
 	runs, err := e.corbie.List(ctx, client.Filter{Labels: map[string]string{"bulldog": e.Reading().Office.ID, "kind": "request"}, Finished: true})
 	if err != nil {
 		return nil, err
 	}
 	tree := below(runs)
+	roots := slices.DeleteFunc(runs, func(r *client.Run) bool { return r.Parent != "" })
+	slices.SortFunc(roots, func(a, b *client.Run) int { return strings.Compare(b.ID, a.ID) })
 	var requests []*Request
-	for _, run := range runs {
-		if run.Parent != "" {
-			continue
+	for _, run := range roots {
+		if limit > 0 && len(requests) == limit {
+			break
 		}
 		shown, err := e.corbie.Show(ctx, run.ID)
+		if errors.Is(err, client.ErrNoRun) {
+			continue // ended and gone since the listing
+		}
 		if err != nil {
 			return nil, err
 		}
-		q, err := e.staged(ctx, shown, waiting(tree[run.ID]))
-		if err != nil {
+		q := e.requestOf(shown)
+		if keep != nil && !keep(q) {
+			continue
+		}
+		if err := e.staged(ctx, q, shown, waiting(tree[run.ID])); err != nil {
 			return nil, err
 		}
 		requests = append(requests, q)
 	}
-	slices.SortStableFunc(requests, func(a, b *Request) int { return strings.Compare(b.ID, a.ID) })
 	return requests, nil
 }
 
-// Request gives one request of the office, with the state of its stages;
-// ErrNoRequest when there is none.
+// Requests gives every request of the office, newest first, each with the
+// state of its stages.
+func (e *Engine) Requests(ctx context.Context) ([]*Request, error) { return e.Newest(ctx, nil, 0) }
+
+// Request gives one request of the office as its run shows it, without
+// the state of its stages; ErrNoRequest when there is none.
 func (e *Engine) Request(ctx context.Context, id string) (*Request, error) {
 	run, err := e.request(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	all, err := e.corbie.List(ctx, client.Filter{Labels: map[string]string{"bulldog": e.Reading().Office.ID, "thread": run.Labels["thread"]}})
-	if err != nil {
-		return nil, err
-	}
-	return e.staged(ctx, run, waiting(below(all)[id]))
+	return e.requestOf(run), nil
 }
 
 // Stop stops a request: Corbie cancels its run and everything below it,
@@ -315,19 +349,38 @@ func (e *Engine) File(ctx context.Context, id string, n int) (io.Reader, client.
 	return reader, file, err
 }
 
+// threadOf gives the requests of a thread, by its label, oldest first.
+func (e *Engine) threadOf(ctx context.Context, label string) ([]*Request, error) {
+	runs, err := e.roots(ctx, client.Filter{Labels: map[string]string{"kind": "request", "thread": label}, Finished: true})
+	if err != nil {
+		return nil, err
+	}
+	var thread []*Request
+	for _, run := range runs {
+		q, err := e.shown(ctx, run.ID)
+		if err != nil {
+			return nil, err
+		}
+		thread = append(thread, q)
+	}
+	slices.SortFunc(thread, func(a, b *Request) int { return strings.Compare(a.ID, b.ID) })
+	return thread, nil
+}
+
 // Look gives one request in full; ErrNoRequest when there is none.
 func (e *Engine) Look(ctx context.Context, id string) (*Look, error) {
+	r := e.Reading()
 	run, err := e.request(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	all, err := e.corbie.List(ctx, client.Filter{Labels: map[string]string{"bulldog": e.Reading().Office.ID, "thread": run.Labels["thread"]}, Finished: true})
+	all, err := e.corbie.List(ctx, client.Filter{Labels: map[string]string{"bulldog": r.Office.ID, "thread": run.Labels["thread"]}, Finished: true})
 	if err != nil {
 		return nil, err
 	}
-	tree := below(all)
-	q, err := e.staged(ctx, run, waiting(tree[id]))
-	if err != nil {
+	tree := below(all)[id]
+	q := e.requestOf(run)
+	if err := e.staged(ctx, q, run, waiting(tree)); err != nil {
 		return nil, err
 	}
 	look := &Look{Request: q}
@@ -352,50 +405,104 @@ func (e *Engine) Look(ctx context.Context, id string) (*Look, error) {
 			}
 		}
 		if s.Name != "work" {
-			s.Words = words(entries[children[id][s.Name]])
+			s.Words = words(r.Office, entries[children[id][s.Name]])
 		}
 	}
-	look.Turns, look.Calls = conversation(entries[children[id]["work"]])
+	look.Turns, look.Calls = conversation(entries, children[id]["work"])
 
-	for _, r := range tree[id] {
-		if r.Machine != "wait" {
+	// A wait that asks a person its team may not ask is refused, and puts
+	// nothing to anyone while it waits for that.
+	put := map[string]*Wait{} // each wait by the run it is below
+	for _, child := range tree {
+		if child.Machine != "wait" {
 			continue
 		}
-		shown, err := e.corbie.Show(ctx, r.ID)
+		shown, err := e.corbie.Show(ctx, child.ID)
 		if err != nil {
 			return nil, err
 		}
 		w := e.waitOf(shown)
 		w.Request = id
+		if w.Status == "waiting" && !mayAskAll(r, w) {
+			continue
+		}
 		look.Forks = append(look.Forks, w)
+		put[child.Parent] = w
 	}
-	slices.SortStableFunc(look.Forks, func(a, b *Wait) int { return strings.Compare(a.ID, b.ID) })
+	slices.SortFunc(look.Forks, func(a, b *Wait) int { return strings.Compare(a.ID, b.ID) })
+	for _, child := range tree {
+		if child.Machine != q.Team+"-decide" {
+			continue
+		}
+		shown, err := e.corbie.Show(ctx, child.ID)
+		if err != nil {
+			return nil, err
+		}
+		d := decisionOf(shown, words(r.Office, entries[child.ID]))
+		d.Wait = put[child.ID]
+		look.Decisions = append(look.Decisions, d)
+	}
+	slices.SortFunc(look.Decisions, func(a, b *Decision) int { return strings.Compare(a.ID, b.ID) })
 
 	replies, err := e.roots(ctx, client.Filter{Labels: map[string]string{"kind": "out", "request": id}, Finished: true})
 	if err != nil {
 		return nil, err
 	}
-	for _, r := range replies {
-		shown, err := e.corbie.Show(ctx, r.ID)
+	for _, out := range replies {
+		shown, err := e.corbie.Show(ctx, out.ID)
 		if err != nil {
 			return nil, err
 		}
-		look.Replies = append(look.Replies, &Reply{Run: r.ID, Bridge: r.Labels["bridge"], Status: shown.Status, Error: shown.Error})
+		look.Replies = append(look.Replies, &Reply{Run: out.ID, Bridge: out.Labels["bridge"], Status: shown.Status, Error: shown.Error})
 	}
 
-	for top := range tree {
-		if top == id {
-			look.Thread = append(look.Thread, q)
-			continue
-		}
-		other, err := e.corbie.Show(ctx, top)
-		if err != nil {
-			return nil, err
-		}
-		if other.Labels["kind"] == "request" && other.Parent == "" {
-			look.Thread = append(look.Thread, e.requestOf(other))
+	if look.Thread, err = e.threadOf(ctx, run.Labels["thread"]); err != nil {
+		return nil, err
+	}
+	for i, t := range look.Thread {
+		if t.ID == id {
+			look.Thread[i] = q
 		}
 	}
-	slices.SortStableFunc(look.Thread, func(a, b *Request) int { return strings.Compare(a.ID, b.ID) })
 	return look, nil
+}
+
+// decisionOf reads a decision from its chart's run as shown, with what
+// its deciders said. A worker's word on a job its own machine holds is a
+// pass, whatever it said.
+func decisionOf(run *client.Run, words []Word) *Decision {
+	var in struct {
+		Asking struct {
+			Machine string `json:"machine"`
+		} `json:"asking"`
+		Jobs []struct {
+			Name string `json:"name"`
+		} `json:"jobs"`
+	}
+	decode(run.Input, &in)
+	var out struct {
+		Says string `json:"says"`
+		Note string `json:"note"`
+	}
+	decode(run.Output, &out)
+	d := &Decision{ID: run.ID, Words: words, Started: run.Started, Ended: run.Ended}
+	for _, j := range in.Jobs {
+		d.Jobs = append(d.Jobs, j.Name)
+	}
+	for i, w := range d.Words {
+		if w.Kind == "worker" && w.Name == in.Asking.Machine && w.Says != "failed" {
+			d.Words[i].Says, d.Words[i].Note = "pass", "The held job is its own."
+		}
+	}
+	switch run.Status {
+	case "done":
+		d.Status, d.Says, d.Note = "answered", out.Says, out.Note
+	case "failed":
+		d.Status = "failed"
+	case "cancelled":
+		d.Status = "stopped"
+	default:
+		d.Status = "waiting"
+	}
+	return d
 }

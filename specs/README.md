@@ -61,7 +61,7 @@ routines:
 
 ## A day at work
 
-The work office is one Slack bot over three teams: the office, whose lead is the bot; payments, which holds customer data; and platform, one worker with no people.
+The work office is one Slack bot over four teams: the office, whose lead is the bot; payments, which holds customer data; platform, one worker with no people; and support, which Dana leads.
 
 ```yaml
 # payments/team.yaml
@@ -88,7 +88,7 @@ Later, the ledger asks platform about account 12345678. Payments' check says no,
 - Bulldog keeps nothing of its own but the office's id and secret. Every request, question, routine and bridge is a Corbie run, found again by its labels.
 - Every run Bulldog starts carries labels, `bulldog=<office id>` and `kind` among them. Labels and run names hold no words of a request and no plain id of a person.
 - Bulldog starts runs and answers their tickets. Nothing in Corbie calls Bulldog.
-- What a request machine gives is the only thing that leaves a team. Everything a team sends to another team passes its `check`.
+- Bulldog carries only a team's answers and its questions out of it. Its answers, and what it asks with `ask_team`, pass its `check`.
 - Bulldog talks to no outside service itself. Every way in and out but its own screens is a bridge.
 - A run Bulldog starts in answer to something is named from that thing, so a second start of it is dropped.
 - Every run Bulldog starts for a team may read and write kept values only under that team's own path.
@@ -98,7 +98,8 @@ Later, the ledger asks platform about account 12345678. Payments' check says no,
 A team is sealed: what it read is shown only to its people. These are the limits of that.
 
 - Whoever holds Bulldog's client identity, usually the computer's owner, reads every team's records.
-- The check covers what Bulldog carries. A worker's own permissions let it send anything wherever they allow.
+- The check covers questions asked with `ask_team`, and answers. A team's own definition that runs `wait.yaml` itself asks another team without the check.
+- A worker's own permissions let it send anything wherever they allow.
 - A check that asks a model is a filter, not a guarantee.
 - A worker allowed to write the office directory can change the deciders, and how people are messaged.
 - Whoever runs the store sees the names of every team's docs.
@@ -107,12 +108,18 @@ A team is sealed: what it read is shown only to its people. These are the limits
 
 | Command | What it does |
 |---|---|
-| `corbie bulldog <directory>` | serves the office: its requests, bridges, routines and screens |
+| `corbie bulldog <directory> [--listen <address>] [--url <url>]` | serves the office: its requests, bridges, routines and screens |
 | `corbie bulldog check <directory>` | prints every problem of the office, and starts nothing |
-| `corbie bulldog key <directory> <person>` | prints a person's key link, which signs them in |
-| `mise run demo` | serves the house on a stand-in model and a Corbie in the same process, with nothing to set up |
+| `corbie bulldog key <directory> <person> [--url <url>]` | prints a person's key link, which signs them in |
+| `corbie bulldog manual [page]` | prints a page of the manual: Corbie's, or the `README.md` of a directory Bulldog ships, named by its path under `./.bulldog/`, as `bridges/slack` |
+| `mise run demo` | serves the house at `127.0.0.1:8485` on a stand-in model and a Corbie in the same process, with nothing to set up |
 
-Bulldog is a Corbie client on the Corbie its config names. After a restart it finds everything again in the store, and doing a thing twice changes nothing.
+| Flag | What it gives |
+|---|---|
+| `--listen <address>` | where the screens listen; default `127.0.0.1:8484` |
+| `--url <url>` | where people reach the screens, which every link starts with; default `http://` and the `--listen` address |
+
+`corbie bulldog` runs the program `corbie-bulldog` on PATH, a client of the Corbie its config names. After a restart it finds everything again in the store, and doing a thing twice changes nothing.
 
 ## Areas
 
@@ -132,8 +139,10 @@ Beside them, with no area of their own:
 |---|---|
 | `internal/testkit` | a whole Corbie in the test's process, a stand-in model and a clock the test moves |
 | `shipped` | what Bulldog ships, served at `./.bulldog/` |
-| `cmd/corbie-bulldog` | the program: serve, `check` and `key` |
+| `cmd/corbie-bulldog` | the program: serve, `check`, `key` and the manual |
 | `cmd/demo` | the house on a stand-in model |
+| `cmd/internal/serve` | serves an office for both programs, and reads it again when a file changes |
+| `examples` | the house and the work office, embedded for the tests and the demo |
 
 ## Words
 
@@ -161,12 +170,14 @@ One word for one thing, the same in the specs, the code and the screens.
 | chat | asking a team on the screens |
 | sub-request | a request a worker makes of another team with `ask_team` |
 | wait | a run of the shipped `wait.yaml`, waiting on a person or a team |
-| fork | a wait or a decision of a request, drawn as a line off WORK |
+| fork | a line off WORK: a question the work asks a team or a person, or a `decide` on a held job |
 | thread | the requests asked at one `where` on a bridge, in one chat, or by one request of one team |
 | routine | something said to a team's lead at a time of day |
 | doc | a text a team keeps in Corbie's store under its name |
-| outcome | how a request ended: `answered`, `noted`, `withheld` or `failed` |
+| outcome | how a request ended: `answered`, `noted`, `withheld` or `failed`; a stopped request has none, and is shown `stopped` |
 
 ## What Corbie should gain
 
 - **A start keyed by the caller's own id.** Bulldog names a request from the thing's own time and a keyed hash of its id, looks for that name before it starts, and lets go of a thing more than a day old. Corbie reads the time in a run's name as when the start was sent: a start not yet taken and named more than 15 minutes ago is reported as never taken up, and one named more than a day ago loses its uploads to housekeeping. A start keyed by the caller's id, with no time in the run's name, would need none of this.
+- **A record's emits in the order they were written.** A record gives a state's emits by time, then by name, so `hearing#2` comes before `hearing` when their times are equal. Bulldog orders an in run's emits by job number to find its last cursor.
+- **Corbie's time of day, exported.** The screens compute a routine's next time themselves, and show a time other than Corbie's on a day the zone's clock skips it.

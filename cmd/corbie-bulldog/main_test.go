@@ -17,6 +17,7 @@ import (
 
 	"github.com/zummed/corbie-bulldog/examples"
 	"github.com/zummed/corbie-bulldog/internal/testkit"
+	"github.com/zummed/corbie-bulldog/shipped"
 	"github.com/zummed/corbie/client/cli"
 )
 
@@ -142,6 +143,27 @@ func TestKeyNamesAPersonOfTheOffice(t *testing.T) {
 	}
 	if status, _, _ := bulldog("key", dir, "sam", "--store", t.TempDir()); status != 2 {
 		t.Fatalf("key with --store ended %d", status)
+	}
+}
+
+func TestManualHasEachShippedPage(t *testing.T) {
+	t.Parallel()
+	status, list, _ := bulldog("manual")
+	if status != 0 || !strings.Contains(list, "What Bulldog ships at ./.bulldog/\n") {
+		t.Fatalf("manual ended %d, and printed %q", status, list)
+	}
+	readmes, _ := fs.Glob(shipped.Files, "*/README.md")
+	deeper, _ := fs.Glob(shipped.Files, "*/*/README.md")
+	for _, readme := range append(readmes, deeper...) {
+		page := strings.TrimSuffix(readme, "/README.md")
+		text, _ := fs.ReadFile(shipped.Files, readme)
+		title, _, _ := strings.Cut(string(text), "\n")
+		if !strings.Contains(list, page+" ") || !strings.Contains(list, title+"\n") {
+			t.Errorf("the manual does not list %s, %q", page, title)
+		}
+		if status, out, _ := bulldog("manual", page); status != 0 || out != strings.TrimRight(string(text), "\n")+"\n" {
+			t.Errorf("manual %s ended %d, and printed %q", page, status, out)
+		}
 	}
 }
 

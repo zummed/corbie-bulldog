@@ -24,7 +24,7 @@ bridges:
 
 ## In
 
-`in.yaml` is a statechart that runs for as long as the bridge is on, with `keep: 12h` and the input `{ settings, cursor }`.
+`in.yaml` is a statechart that runs for as long as the bridge is on, with the input `{ settings, cursor }`. It has `keep: 1d`, so its record holds every thing Bulldog may still take.
 
 1. A job hears for up to 5 minutes, and emits `heard`, `{ things: [...], cursor }`, for what it hears.
 2. When the job ends, the chart hears again, from the cursor the job returned. A bridge whose service cannot be asked to wait, such as GitLab, rests 30 seconds first.
@@ -33,7 +33,7 @@ bridges:
 ```yaml
 # ./.bulldog/bridges/telegram/in.yaml
 statechart: telegram-in
-keep: 12h
+keep: 1d
 input:
   type: object
   required: [settings, cursor]
@@ -91,25 +91,30 @@ A thing is `{ id, at, kind, from, place, where, text, files, mentioned, answers,
 | `answers` | the id of the message it replies to, if any |
 | `ref`, `choice` | for a press: the out message's `ref`, and the choice pressed |
 
-An in hands over nothing its own bot or another bot sent. Bulldog cannot tell a bot from a person, so the in is the one place where this is done.
+An in hands over nothing its own bot or another bot sent. Bulldog cannot tell a bot from a person, so the in is the one place where this is done. An in hands over nothing that only some at the place may read, such as an internal note, since the answer goes where everyone reads it.
 
 ## What Bulldog does with a thing
 
 Bulldog reads what each in run emits, in the order it was emitted, one thing at a time. It acts on each thing by the first of these that fits:
 
-1. A press answers the wait whose `ref` it carries, for the person whose identity pressed it.
-2. Something a person says at `direct` that replies to a carried question, its `answers` the question's `sent`, answers that question. One that replies to nothing answers the latest question carried to them on that bridge before it was heard, while that question waits.
+1. A press answers the wait whose `ref` it carries with the choice pressed, for the person whose identity pressed it.
+2. Something a person says at `direct` answers a question carried to them, while it waits: the one it replies to, its `answers` the question's `sent`, or, replying to nothing, the latest carried to them on that bridge before it was heard.
 3. Something said at a listed place, `direct` among them, starts a request of the place's team. Its asker is the person whose entry gives that identity on that bridge, or a guest where the place lets guests ask.
 4. Anything else is let go.
 
-Requests answers a wait only when its rules for who may answer hold. An answer it refuses is let go.
+- A text that is one of the question's choices, trimmed and in any case, answers with that choice.
+- A decision takes only one of its choices. Anything else said to it goes on to 3.
+- A press that gives no choice is let go.
+- Requests answers a wait only when the person may answer it. An answer it refuses is let go.
 
-```
-Sam is asked "May the fixer order a part for £35?" on Telegram, and the message is sent as 4471:120.
-Sam replies to 4471:120 with "yes"          the reply answers that question
-Sam says "yes", replying to nothing         it answers the latest question carried to Sam, while it waits
-Sam says "Is the boiler on?" after that     the latest question no longer waits: a request of the house
-```
+For example, on Telegram:
+
+1. Sam is asked "Is the boiler on?" in the message `4471:120`.
+2. Sam replies to `4471:120` with "It is on.", which answers the question.
+3. Sam is asked to decide "May the fixer order a part for £35?".
+4. Sam says "Please order more oil.", replying to nothing. It is no choice of the decision, so it starts a request.
+5. Sam says "Yes", replying to nothing, which answers the decision with `yes`.
+6. Sam replies to `4471:120` with "Also, check the shed.". That question no longer waits, so it starts a request.
 
 Each thing is taken once:
 
@@ -121,7 +126,7 @@ A text longer than 32 KiB is cut at 32 KiB, with a line that says so, since a jo
 
 ## Out
 
-`out.yaml` carries one message. Its input is `{ settings, to, direct, text, choices, ref, answers }`, and it gives `{ sent }`, the id of the message it sent, or throws.
+`out.yaml` carries one message. Its input is `{ settings, to, direct, text, choices, ref, answers }`, and it gives `{ sent }`, the id of the message it sent, or throws. For a text sent as several messages, `sent` is the last one's, so a reply to an earlier one starts a request.
 
 | Input | What it is |
 |---|---|

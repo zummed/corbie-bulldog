@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -149,18 +150,21 @@ func TestDemoPlaysKitsRequest(t *testing.T) {
 	var view struct {
 		Status string
 		Source struct{ Said string }
-		Answer struct{ Text string }
+		Answer string
 		Forks  []struct{ Kind, Status, Answer string }
 	}
 	sam.do(http.MethodGet, "/api/requests/"+kits.ID, nil, &view)
-	if view.Status != "answered" || view.Source.Said != socket || !strings.Contains(view.Answer.Text, "ordered a new socket for £12") || len(list.Waiting) > 0 {
+	if view.Status != "answered" || view.Source.Said != socket || !strings.Contains(view.Answer, "ordered a new socket for £12") || len(list.Waiting) > 0 {
 		t.Fatalf("Kit's request: %+v, and Sam is asked %+v", view, list.Waiting)
 	}
-	forks := map[string]string{}
+	// Sam, of the house, sees the garden's answer and both decisions: his
+	// yes to cut_power, and small-orders.js's to the order.
+	var forks []string
 	for _, f := range view.Forks {
-		forks[f.Kind] = f.Status + " " + f.Answer
+		forks = append(forks, f.Kind+" "+f.Status+" "+f.Answer)
 	}
-	if len(view.Forks) != 2 || !strings.HasPrefix(forks["team"], "answered") || forks["decision"] != "answered yes (Sam)" {
+	slices.Sort(forks)
+	if len(forks) != 3 || forks[0] != "decision answered yes" || forks[1] != "decision answered yes (Sam)" || !strings.HasPrefix(forks[2], "team answered") {
 		t.Fatalf("Kit's request forks: %+v", view.Forks)
 	}
 	if said := out.String(); !strings.HasSuffix(said, "what the house asks him.\n\n") {

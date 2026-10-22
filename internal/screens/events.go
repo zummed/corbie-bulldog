@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"slices"
 	"time"
 
 	"github.com/zummed/corbie/client"
@@ -122,21 +121,14 @@ func (s *Screens) changed(ctx context.Context, me string, run *client.Run, heads
 	if err != nil {
 		return nil, err
 	}
-	waitsOn := false
-	if run.Machine == "wait" {
-		shown, err := s.corbie.Show(ctx, run.ID)
-		if err != nil {
+	// A question or a decision put to the person shows them its request.
+	how := sightOf(s.engine.Reading().Office, me, q, false)
+	if how == unseen && run.Machine == "wait" {
+		if how, err = s.sight(ctx, me, q); err != nil {
 			return nil, err
 		}
-		var in struct {
-			To struct {
-				People []string `json:"people"`
-			} `json:"to"`
-		}
-		decode(shown.Input, &in)
-		waitsOn = slices.Contains(in.To.People, me)
 	}
-	if sightOf(s.engine.Reading().Office, me, q, waitsOn) == unseen {
+	if how == unseen {
 		return nil, nil
 	}
 	return map[string]string{"request": s.id(id)}, nil

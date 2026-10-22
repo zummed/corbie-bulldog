@@ -1,8 +1,11 @@
 package screens
 
 import (
+	"context"
+	"fmt"
 	"io/fs"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -64,11 +67,11 @@ func TestScreensTeam(t *testing.T) {
 	}
 	workers := p["workers"].([]any)
 	ledger := workers[0].(map[string]any)
-	if len(workers) != 1 || ledger["name"] != "ledger" || ledger["type"] != "agent" || ledger["model"] != "claude-test" ||
+	if len(workers) != 1 || ledger["name"] != "ledger" || ledger["type"] != "agent" ||
 		!strings.Contains(ledger["definition"].(string), "name: claude-test, secret: TEST_KEY") {
 		t.Errorf("payments' workers are %s", jsonOf(workers))
 	}
-	if p["path"] != "payments" || jsonOf(p["people"]) != `[{"id":"lee","name":"Lee"},{"id":"priya","name":"Priya"}]` ||
+	if jsonOf(p["people"]) != `[{"id":"lee","name":"Lee"},{"id":"priya","name":"Priya"}]` ||
 		jsonOf(p["routines"]) != "[]" || jsonOf(p["problems"]) != "[]" || !strings.HasPrefix(p["machine"].(string), "flow: payments\n") ||
 		jsonOf(p["docs"]) != "[]" {
 		t.Errorf("payments' page is %s", jsonOf(p))
@@ -82,15 +85,19 @@ func TestScreensTeam(t *testing.T) {
 	}
 }
 
-// The house's lead uses the fixer as its colleague, and each routine shows
-// when it is next due.
+// The house's lead uses the fixer as its colleague, which uses sparks and
+// its own held jobs; a question to a team is held only with a check; and
+// each routine shows when it is next due.
 func TestScreensTeamColleaguesAndRoutines(t *testing.T) {
 	t.Parallel()
 	w := newWorld(t, examples.House, says, nil)
 	sam := w.as("sam")
 	house := sam.get("/api/teams/office")
 	work := house["flow"].(map[string]any)["work"].(map[string]any)
-	if jsonOf(work["colleagues"]) != `["fixer"]` || !strings.Contains(jsonOf(work["tools"]), `"held":true,"name":"write_doc"`) || strings.Contains(jsonOf(work["tools"]), "blob_") {
+	tools := jsonOf(work["tools"])
+	if jsonOf(work["colleagues"]) != `[{"colleagues":[{"colleagues":[],"name":"sparks","tools":[]}],"name":"fixer","tools":[`+
+		`{"does":"Turn one circuit off at the fuse box","held":true,"name":"cut_power"},{"does":"Order a part for a repair, at its price in pounds","held":true,"name":"order_part"}]}]` ||
+		!strings.Contains(tools, `"held":true,"name":"write_doc"`) || !strings.Contains(tools, `"held":false,"name":"ask_team"`) || strings.Contains(tools, "blob_") {
 		t.Errorf("the house's work is %s", jsonOf(work))
 	}
 	if jsonOf(house["routines"]) != `[{"at":"mon 09:00","next":"2026-10-12T08:00:00Z","say":"What is still open?"}]` {
@@ -133,7 +140,7 @@ func TestScreensDocs(t *testing.T) {
 	}
 
 	asked := dana.ask("payments", "What is the refund rule?")
-	if v := dana.until("payments answers", "/api/requests/"+asked, func(v map[string]any) bool { return v["status"] == "answered" }); !strings.Contains(v["answer"].(map[string]any)["text"].(string), "Refund within 30 days.") {
+	if v := dana.until("payments answers", "/api/requests/"+asked, func(v map[string]any) bool { return v["status"] == "answered" }); !strings.Contains(v["answer"].(string), "Refund within 30 days.") {
 		t.Errorf("the ledger answers %v", v["answer"])
 	}
 }
@@ -170,6 +177,10 @@ func TestScreensAPI(t *testing.T) {
 	if res := nobody.do("GET", "/static/nothing.js", nil); res.StatusCode != http.StatusNotFound {
 		t.Errorf("a file the screens do not have is served %s", res.Status)
 	}
+
+	// A request the browser gave up on is no failure to report.
+	quiet := &Screens{Report: func(err error) { t.Errorf("the screens report %v", err) }}
+	quiet.refuse(httptest.NewRecorder(), fmt.Errorf("listing the runs: %w", context.Canceled))
 }
 
 func TestScreensLoadNothingFromElsewhere(t *testing.T) {

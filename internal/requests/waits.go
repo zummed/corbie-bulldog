@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/zummed/corbie-bulldog/internal/office"
 	"github.com/zummed/corbie/client"
@@ -14,6 +15,11 @@ import (
 
 // timedOut is the note wait.yaml ends with when nobody answers it.
 const timedOut = "No answer came within 7 days."
+
+// letGo is how long after a request ended its answer is still carried: a
+// run that carried it may be past keeping after that, and a run of its
+// name would start again.
+const letGo = 24 * time.Hour
 
 // A Wait is a run of wait.yaml below a request: a question to a team or to
 // people, or a decision put to people.
@@ -30,7 +36,7 @@ type Wait struct {
 	Status   string    // waiting, answered, refused, timed-out or stopped
 	Answer   *string   // the answer given, if any
 	By       string    // the person who answered
-	Refused  string    // why Bulldog refused the ask
+	Refused  string    // why Bulldog refused the question
 	Asked    string    // for a question to a team, not refused: the run of the request it asks
 	Started  time.Time //
 	Ended    time.Time //
@@ -95,6 +101,19 @@ func (e *Engine) wait(ctx context.Context, id string) (*Wait, error) {
 	return e.waitOf(run), nil
 }
 
+// mayAskPerson says whether a team may ask a person: one of the office,
+// of the team or named in its team file.
+func mayAskPerson(o *office.Office, t *office.Team, person string) bool {
+	return slices.Contains(t.MayAsk(), person) && o.Person(person) != nil
+}
+
+// mayAskAll says whether the asking team may ask every person a wait asks.
+// A wait that asks another is refused, and is no question to anyone.
+func mayAskAll(r *Reading, w *Wait) bool {
+	t := r.Office.Team(w.Team)
+	return t != nil && !slices.ContainsFunc(w.People, func(p string) bool { return !mayAskPerson(r.Office, t, p) })
+}
+
 // asked acts on a wait that waits on its answer: a question to a team, or
 // to people. The asking team is the run's team label, which it carries
 // from its request.
@@ -104,17 +123,25 @@ func (e *Engine) asked(ctx context.Context, r *Reading, run *client.Run) error {
 		return err
 	}
 	asking := r.Office.Team(w.Team)
-	if w.ToTeam != "" {
+	switch {
+	case w.ToTeam != "":
 		return e.askTeam(ctx, r, w, asking)
+	case len(w.People) > 0:
+		return e.askPeople(ctx, r, w, asking)
 	}
-	return e.askPeople(ctx, r, w, asking)
+	return e.refuse(ctx, w, "A question names the team or the people it asks.")
+}
+
+// refuse answers a wait as refused, saying why.
+func (e *Engine) refuse(ctx context.Context, w *Wait, why string) error {
+	return e.reply(ctx, w.ID, map[string]any{"answer": nil, "refused": why})
 }
 
 // askTeam starts a request of the team a wait asks, named from the wait,
-// or refuses the ask: to the asking team itself, to a team of its chain,
-// and to a team that takes no requests.
+// or refuses the question: to the asking team itself, to a team of its
+// chain, and to a team that takes no requests.
 func (e *Engine) askTeam(ctx context.Context, r *Reading, w *Wait, asking *office.Team) error {
-	top, err := e.top(ctx, w.ID)
+	top, err := e.Top(ctx, w.ID)
 	if err != nil {
 		return err
 	}
@@ -122,22 +149,22 @@ func (e *Engine) askTeam(ctx context.Context, r *Reading, w *Wait, asking *offic
 	why := ""
 	switch {
 	case asking == nil:
-		why = fmt.Sprintf("the team %s is no team of the office now", w.Team)
+		why = fmt.Sprintf("The team %s is no team of the office now.", w.Team)
 	case w.ToTeam == asking.ID:
-		why = fmt.Sprintf("%s cannot ask itself", asking.Name)
+		why = fmt.Sprintf("%s cannot ask itself.", asking.Name)
 	case slices.Contains(q.Chain, w.ToTeam):
-		why = fmt.Sprintf("the team %s asked this request, so it is not asked again", w.ToTeam)
+		why = fmt.Sprintf("%s asked this request, so it is not asked again.", teamName(r.Office, w.ToTeam))
 	case r.Office.Team(w.ToTeam) == nil:
-		why = fmt.Sprintf("there is no team %s", w.ToTeam)
-	case !r.takes(w.ToTeam):
-		why = fmt.Sprintf("the team %s takes no requests now: its files have problems", w.ToTeam)
+		why = fmt.Sprintf("There is no team %s.", w.ToTeam)
+	case !r.Takes(w.ToTeam):
+		why = fmt.Sprintf("%s takes no requests now: its files have problems.", teamName(r.Office, w.ToTeam))
 	}
 	if why != "" {
 		var may []string
 		for _, n := range mayAsk(r, w.Team, q.Chain) {
 			may = append(may, n.Name)
 		}
-		return e.reply(ctx, w.ID, map[string]any{"answer": nil, "refused": capital(why) + ". " + mayAskOf(may, "other team")})
+		return e.refuse(ctx, w, why+mayAskOf(may))
 	}
 	var place *Place
 	if q.Place != nil {
@@ -152,28 +179,43 @@ func (e *Engine) askTeam(ctx context.Context, r *Reading, w *Wait, asking *offic
 // askPeople carries a wait's question to each person it asks, in their
 // direct messages on each bridge that reaches people directly, each once.
 // A person may be asked only when they are of the asking team or named in
-// its team file; otherwise the ask is refused and nobody is asked.
+// its team file; otherwise the question is refused and nobody is asked.
+// A question offers at most 8 choices, each of at most 75 characters, as
+// a bridge's buttons take them.
 func (e *Engine) askPeople(ctx context.Context, r *Reading, w *Wait, asking *office.Team) error {
 	if asking == nil {
-		return e.reply(ctx, w.ID, map[string]any{"answer": nil, "refused": "The team " + w.Team + " is no team of the office now."})
+		return e.refuse(ctx, w, "The team "+w.Team+" is no team of the office now.")
 	}
-	may := asking.MayAsk()
 	for _, p := range w.People {
-		if !slices.Contains(may, p) || r.Office.Person(p) == nil {
-			return e.reply(ctx, w.ID, map[string]any{"answer": nil, "refused": fmt.Sprintf(
-				"%s may not ask %s: a team asks its own people, and those its team file names. %s", asking.Name, p, mayAskOf(may, "person"))})
+		if !mayAskPerson(r.Office, asking, p) {
+			return e.refuse(ctx, w, fmt.Sprintf("%s may not ask %s: a team asks its own people, and those its team file names.%s",
+				asking.Name, p, mayAskOf(asking.MayAsk())))
 		}
 	}
+	if len(w.Choices) > 8 || slices.ContainsFunc(w.Choices, func(c string) bool { return utf8.RuneCountInString(c) > 75 }) {
+		return e.refuse(ctx, w, "A question offers at most 8 choices, each of at most 75 characters.")
+	}
+	m := Message{Text: asking.Name + " asks:\n\n" + w.Said, Choices: w.Choices, Ref: w.Ref}
+	return e.direct(ctx, r, w.People, m, func(person, bridge string) (string, map[string]string) {
+		return e.name(named(w.ID), "ask", w.ID, person, bridge), e.labels("out", "bridge", bridge, "wait", w.ID, "to", e.hash("person", person))
+	})
+}
+
+// direct carries a message to people in their direct messages, on each
+// bridge whose out reaches people directly, each once, by a run named and
+// labelled for the person and the bridge.
+func (e *Engine) direct(ctx context.Context, r *Reading, people []string, m Message, run func(person, bridge string) (string, map[string]string)) error {
 	var errs []error
-	for _, p := range w.People {
+	for _, p := range people {
 		person := r.Office.Person(p)
 		for _, b := range r.Office.Bridges {
 			to := person.Identities[b.Name]
 			if to == "" || !e.carrier.Direct(b.Name) {
 				continue
 			}
-			m := Message{Bridge: b.Name, To: to, Direct: true, Text: asking.Name + " asks:\n\n" + w.Said, Choices: w.Choices, Ref: w.Ref,
-				Run: e.name(named(w.ID), "ask", w.ID, p, b.Name), Labels: e.labels("out", "bridge", b.Name, "wait", w.ID, "to", e.hash("person", p))}
+			m := m
+			m.Bridge, m.To, m.Direct = b.Name, to, true
+			m.Run, m.Labels = run(p, b.Name)
 			errs = append(errs, e.once(ctx, m.Run, func() error { return e.carrier.Carry(ctx, m) }))
 		}
 	}
@@ -181,7 +223,7 @@ func (e *Engine) askPeople(ctx context.Context, r *Reading, w *Wait, asking *off
 }
 
 // waitEnded cancels the request a question to a team started, when the
-// wait has ended before it: its request was stopped.
+// wait has ended before it: its request was stopped, or 7 days passed.
 func (e *Engine) waitEnded(ctx context.Context, run *client.Run) error {
 	w, err := e.wait(ctx, run.ID)
 	if err != nil || w.Asked == "" {
@@ -198,9 +240,13 @@ func (e *Engine) waitEnded(ctx context.Context, run *client.Run) error {
 	return err
 }
 
-// reply answers a wait's ticket, while it waits.
+// reply answers a wait's ticket, while it waits. A wait that is gone has
+// nothing to answer.
 func (e *Engine) reply(ctx context.Context, wait string, value any) error {
 	tickets, err := e.corbie.Tickets(ctx, wait)
+	if errors.Is(err, client.ErrNoRun) {
+		return nil
+	}
 	if err != nil || tickets["answer"] == "" {
 		return err
 	}
@@ -209,8 +255,9 @@ func (e *Engine) reply(ctx context.Context, wait string, value any) error {
 }
 
 // Answer answers a wait for a person: only one the wait waits on, while
-// it waits, and for a decision with one of its choices. thing is the id
-// of the thing a bridge heard the answer as; none on the screens.
+// it waits, and for a decision with one of its choices, whatever its case
+// and the spaces around it. thing is the id of the thing a bridge heard
+// the answer as; none on the screens.
 func (e *Engine) Answer(ctx context.Context, wait, person, answer, thing string) error {
 	w, err := e.wait(ctx, wait)
 	switch {
@@ -218,10 +265,15 @@ func (e *Engine) Answer(ctx context.Context, wait, person, answer, thing string)
 		return ErrNoQuestion
 	case err != nil:
 		return err
-	case w.Status != "waiting" || !slices.Contains(w.People, person):
+	case w.Status != "waiting" || !slices.Contains(w.People, person) || !mayAskAll(e.Reading(), w):
 		return ErrNoQuestion
-	case w.Decision != "" && !slices.Contains(w.Choices, answer):
-		return ErrNotAChoice
+	}
+	if w.Decision != "" {
+		i := slices.IndexFunc(w.Choices, func(c string) bool { return strings.EqualFold(c, strings.TrimSpace(answer)) })
+		if i < 0 {
+			return ErrNotAChoice
+		}
+		answer = w.Choices[i]
 	}
 	value := map[string]any{"answer": answer, "by": person}
 	if thing != "" {
@@ -233,7 +285,8 @@ func (e *Engine) Answer(ctx context.Context, wait, person, answer, thing string)
 // ended carries a request's answer back to where it was asked: to the
 // place on a bridge it was heard at, or for a routine to the team's people
 // directly; a sub-request's answers the wait that asked it. The chat's is
-// on the screens. An empty answer, and a noted request, say nothing.
+// on the screens. An empty answer, and a noted request, say nothing, and
+// neither does a request that ended more than a day ago.
 func (e *Engine) ended(ctx context.Context, r *Reading, run *client.Run) error {
 	shown, err := e.corbie.Show(ctx, run.ID)
 	if err != nil {
@@ -243,7 +296,7 @@ func (e *Engine) ended(ctx context.Context, r *Reading, run *client.Run) error {
 	if q.Heard == "team" && q.Wait != "" {
 		return e.reply(ctx, q.Wait, map[string]any{"answer": q.Answer})
 	}
-	if q.Answer == nil || *q.Answer == "" || (q.Heard == "channel" || q.Heard == "direct") && q.Place == nil {
+	if e.corbie.Now().Sub(shown.Ended) > letGo || q.Answer == nil || *q.Answer == "" || (q.Heard == "channel" || q.Heard == "direct") && q.Place == nil {
 		return nil
 	}
 	switch q.Heard {
@@ -256,28 +309,20 @@ func (e *Engine) ended(ctx context.Context, r *Reading, run *client.Run) error {
 		if t == nil {
 			return nil
 		}
-		var errs []error
-		for _, p := range t.People {
-			person := r.Office.Person(p)
-			for _, b := range r.Office.Bridges {
-				to := person.Identities[b.Name]
-				if to == "" || !e.carrier.Direct(b.Name) {
-					continue
-				}
-				m := Message{Bridge: b.Name, To: to, Direct: true, Text: fmt.Sprintf("%s, on %q:\n\n%s", t.Name, q.Said, *q.Answer),
-					Run: e.name(shown.Ended, "answer", run.ID, p, b.Name), Labels: e.labels("out", "bridge", b.Name, "request", run.ID)}
-				errs = append(errs, e.once(ctx, m.Run, func() error { return e.carrier.Carry(ctx, m) }))
-			}
-		}
-		return errors.Join(errs...)
+		m := Message{Text: fmt.Sprintf("%s, on %q:\n\n%s", t.Name, q.Said, *q.Answer)}
+		return e.direct(ctx, r, t.People, m, func(person, bridge string) (string, map[string]string) {
+			return e.name(shown.Ended, "answer", run.ID, person, bridge), e.labels("out", "bridge", bridge, "request", run.ID)
+		})
 	}
 	return nil
 }
 
-// Waits gives every wait of the office that waits on its answer, oldest
-// first, each with the request it is below.
-func (e *Engine) Waits(ctx context.Context) ([]*Wait, error) {
-	runs, err := e.corbie.List(ctx, client.Filter{Labels: map[string]string{"bulldog": e.Reading().Office.ID}})
+// waits gives every wait of the office that waits on its answer and may
+// be put to the people it names, oldest first, each with the request it is
+// below.
+func (e *Engine) waits(ctx context.Context) ([]*Wait, error) {
+	r := e.Reading()
+	runs, err := e.corbie.List(ctx, client.Filter{Labels: map[string]string{"bulldog": r.Office.ID}})
 	if err != nil {
 		return nil, err
 	}
@@ -297,6 +342,9 @@ func (e *Engine) Waits(ctx context.Context) ([]*Wait, error) {
 		if err != nil {
 			return nil, err
 		}
+		if !mayAskAll(r, w) {
+			continue
+		}
 		for w.Request = run.ID; parent[w.Request] != ""; {
 			w.Request = parent[w.Request]
 		}
@@ -307,14 +355,14 @@ func (e *Engine) Waits(ctx context.Context) ([]*Wait, error) {
 
 // Waiting gives the waits that wait on a person, oldest first.
 func (e *Engine) Waiting(ctx context.Context, person string) ([]*Wait, error) {
-	waits, err := e.Waits(ctx)
+	waits, err := e.waits(ctx)
 	return slices.DeleteFunc(waits, func(w *Wait) bool { return !slices.Contains(w.People, person) }), err
 }
 
 // WaitOf gives the wait a ref names, among those that wait; nil when none
 // does.
 func (e *Engine) WaitOf(ctx context.Context, ref string) (*Wait, error) {
-	waits, err := e.Waits(ctx)
+	waits, err := e.waits(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -329,15 +377,22 @@ func (e *Engine) WaitOf(ctx context.Context, ref string) (*Wait, error) {
 // Replied gives the wait whose question was carried to a person on a
 // bridge as the message sent; nil when none was.
 func (e *Engine) Replied(ctx context.Context, bridge, person, sent string) (*Wait, error) {
-	carried, err := e.carried(ctx, bridge, person)
+	carried, err := e.questions(ctx, bridge, person)
 	if err != nil {
 		return nil, err
 	}
 	for _, run := range carried {
+		if run.Status != "done" {
+			continue
+		}
+		shown, err := e.corbie.Show(ctx, run.ID)
+		if err != nil {
+			return nil, err
+		}
 		var out struct {
 			Sent string `json:"sent"`
 		}
-		decode(run.Output, &out)
+		decode(shown.Output, &out)
 		if out.Sent == sent {
 			return e.below(ctx, run.Labels["wait"])
 		}
@@ -347,15 +402,15 @@ func (e *Engine) Replied(ctx context.Context, bridge, person, sent string) (*Wai
 
 // Latest gives the wait whose question was the latest carried to a person
 // on a bridge before a time, whether or not it still waits; nil when none
-// was.
+// was. A run that carries a question starts before it sends it.
 func (e *Engine) Latest(ctx context.Context, bridge, person string, before time.Time) (*Wait, error) {
-	carried, err := e.carried(ctx, bridge, person)
+	carried, err := e.questions(ctx, bridge, person)
 	if err != nil {
 		return nil, err
 	}
 	var latest *client.Run
 	for _, run := range carried {
-		if !run.Ended.After(before) && (latest == nil || run.Ended.After(latest.Ended)) {
+		if (run.Status == "running" || run.Status == "done") && !run.Started.After(before) && (latest == nil || run.Started.After(latest.Started)) {
 			latest = run
 		}
 	}
@@ -371,7 +426,7 @@ func (e *Engine) below(ctx context.Context, id string) (*Wait, error) {
 	if err != nil {
 		return nil, err
 	}
-	top, err := e.top(ctx, id)
+	top, err := e.Top(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -379,36 +434,17 @@ func (e *Engine) below(ctx context.Context, id string) (*Wait, error) {
 	return w, nil
 }
 
-// carried gives the runs that carried a question to a person on a bridge
-// and sent it, as shown.
-func (e *Engine) carried(ctx context.Context, bridge, person string) ([]*client.Run, error) {
-	runs, err := e.roots(ctx, client.Filter{Labels: map[string]string{"kind": "out", "bridge": bridge, "to": e.hash("person", person)}, Status: "done", Finished: true})
-	if err != nil {
-		return nil, err
-	}
-	var shown []*client.Run
-	for _, run := range runs {
-		s, err := e.corbie.Show(ctx, run.ID)
-		if err != nil {
-			return nil, err
-		}
-		shown = append(shown, s)
-	}
-	return shown, nil
+// questions lists the runs that carried a question to a person on a
+// bridge.
+func (e *Engine) questions(ctx context.Context, bridge, person string) ([]*client.Run, error) {
+	return e.roots(ctx, client.Filter{Labels: map[string]string{"kind": "out", "bridge": bridge, "to": e.hash("person", person)}, Finished: true})
 }
 
-// mayAskOf says whom a refused ask may ask instead.
-func mayAskOf(may []string, what string) string {
+// mayAskOf says whom a refused question may ask instead, after a space;
+// nothing when it may ask no one.
+func mayAskOf(may []string) string {
 	if len(may) == 0 {
-		return "It may ask no " + what + "."
+		return ""
 	}
-	return "It may ask " + strings.Join(may, ", ") + "."
-}
-
-// capital gives a sentence with its first letter a capital.
-func capital(s string) string {
-	if s == "" {
-		return s
-	}
-	return strings.ToUpper(s[:1]) + s[1:]
+	return " It may ask " + strings.Join(may, ", ") + "."
 }

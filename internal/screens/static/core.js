@@ -8,6 +8,7 @@ const B = {
   me: null,                                  // /api/me
   routes: [],                                // { pattern, view, nav }
   narrow: matchMedia("(max-width: 640px)"),  // the line of a room runs downward
+  starting: new Set(),                       // the requests asked here, which may not have started yet
 };
 
 // el makes an element: attrs set attributes, or listen when named on…, or
@@ -159,7 +160,7 @@ B.chain = function (deciders, names) {
 };
 
 // status gives a dot and a word.
-const WORDS = {"timed-out": "timed out", "waiting-to-start": "not started"};
+const WORDS = {"timed-out": "timed out", "waiting-to-start": "not started", no: "said no"};
 B.status = function (word) { return el("span", {class: "status " + word}, WORDS[word] || word); };
 
 // Bits of a page
@@ -180,6 +181,12 @@ B.notThere = function () {
 // The screens
 
 B.route = function (pattern, view, nav) { B.routes.push({pattern, view, nav}); };
+
+// current gives the address of the page shown, and its route.
+function current() {
+  const hash = location.hash.replace(/^#/, "") || "/";
+  return [hash, B.routes.find((r) => r.pattern.test(hash))];
+}
 
 // header draws the office's name, the screen one is on, how much waits on
 // the one looking, and who they are.
@@ -234,8 +241,7 @@ B.show = async function (again) {
   const n = ++showing;
   const main = document.getElementById("main");
   const kept = again ? keep(main) : null;
-  const hash = location.hash.replace(/^#/, "") || "/";
-  const route = B.routes.find((r) => r.pattern.test(hash));
+  const [hash, route] = current();
   try {
     if (!B.me) B.me = await B.api("/api/me");
     const args = hash.match(route.pattern).slice(1).map(decodeURIComponent);
@@ -256,15 +262,31 @@ B.show = async function (again) {
   }
 };
 
+// count counts again the cards waiting on the one looking.
+async function count() {
+  try {
+    waiting = (await B.api("/api/requests")).waiting.length;
+    header(current()[1].nav, waiting);
+  } catch (err) {
+    B.trouble(err);
+  }
+}
+
 // The stream of changes: each change fetches again what is shown, once
 // for a burst of them, unless something is being written on the page,
-// when the one looking is told and shows it when they choose.
+// when the one looking is told and shows it when they choose. The office,
+// its teams and their docs change only with the office: a request's
+// change counts again only what waits on the one looking.
 let later = 0;
+let office = false;
 B.changed = function (what) {
-  if (what.office) B.me = null;
+  if (what.office) { B.me = null; office = true; }
   clearTimeout(later);
   later = setTimeout(() => {
-    if (writing()) document.getElementById("stale").hidden = false;
+    const all = office || current()[1].nav !== "office";
+    office = false;
+    if (!all) count();
+    else if (writing()) document.getElementById("stale").hidden = false;
     else B.show(true);
   }, 250);
 };
@@ -286,7 +308,7 @@ B.start = function () {
   // for what changed meanwhile.
   const changes = new EventSource("/api/events");
   let opened = false;
-  changes.addEventListener("open", () => { if (opened) B.changed({}); opened = true; });
+  changes.addEventListener("open", () => { if (opened) B.changed({office: true}); opened = true; });
   changes.addEventListener("changed", (e) => {
     let what = {};
     try { what = JSON.parse(e.data); } catch { what = {}; }

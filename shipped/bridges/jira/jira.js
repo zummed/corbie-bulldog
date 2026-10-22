@@ -35,8 +35,9 @@ function must(method, path, options) {
 // when reads one of Jira's times, as 2026-10-05T09:00:00.000+0000.
 const when = text => Date.parse(String(text).replace(/([+-]\d\d)(\d\d)$/, "$1:$2"))
 
-// The most issues one search gives, and the most searches one job makes;
-// what is past them is heard by the next job, from where this one ended.
+// The most issues one search gives, and the most searches one job makes.
+// The issues updated last come first: a new issue or comment updates its
+// issue, so it is among them.
 const perSearch = 50
 const mostSearches = 10
 
@@ -53,28 +54,28 @@ if (input.do === "hear") {
   if (!projects.length) return { cursor: input.cursor }
   const me = must("GET", "/myself")
   const minutes = Math.ceil((Date.now() - since) / 60000) + 2
-  const jql = "project in (" + projects.map(p => JSON.stringify(p)).join(", ") + ") AND updated >= -" + minutes + "m ORDER BY updated ASC"
+  const jql = "project in (" + projects.map(p => JSON.stringify(p)).join(", ") + ") AND updated >= -" + minutes + "m ORDER BY updated DESC"
   // Each new issue and comment, in the order it came: what came at the
   // cursor's own moment is heard unless the job before heard it. Left out
-  // is what the bridge's own account or an app wrote, which the cursor
-  // passes as it passes what is heard.
+  // is what the bridge's own account or an app wrote, and a comment not
+  // everyone may read, which the cursor passes as it passes what is heard.
   const found = []
-  const add = (at, author, thing) => {
+  const add = (at, author, thing, hidden) => {
     if (!author || !(at > since || (at === since && !seen.includes(thing.id)))) return
-    const left = author.accountId === me.accountId ? "own" : author.accountType === "app" ? "an app wrote it" : ""
+    const left = author.accountId === me.accountId ? "own" : author.accountType === "app" ? "an app wrote it" : hidden ? "not everyone may read it" : ""
     found.push(Object.assign({ at: at, left: left, from: author.accountId }, thing))
   }
   let token
   for (let page = 0; page < mostSearches; page++) {
-    const query = { jql: jql, fields: "summary,description,reporter,created,comment", maxResults: String(perSearch) }
+    const query = { jql: jql, fields: "summary,description,creator,created,comment", maxResults: String(perSearch) }
     if (token) query.nextPageToken = token
     const result = must("GET", "/search/jql", { query: query })
     for (const issue of result.issues || []) {
       const f = issue.fields || {}
       const at = { place: issue.key.slice(0, issue.key.lastIndexOf("-")), where: issue.key }
-      add(when(f.created), f.reporter, Object.assign({ id: "issue:" + issue.id, text: (f.summary || "") + (f.description ? "\n\n" + f.description : "") }, at))
+      add(when(f.created), f.creator, Object.assign({ id: "issue:" + issue.id, text: (f.summary || "") + (f.description ? "\n\n" + f.description : "") }, at))
       for (const c of (f.comment && f.comment.comments) || []) {
-        add(when(c.created), c.author, Object.assign({ id: "comment:" + c.id, text: c.body || "" }, at))
+        add(when(c.created), c.author, Object.assign({ id: "comment:" + c.id, text: c.body || "" }, at), c.visibility || c.jsdPublic === false)
       }
     }
     token = result.nextPageToken

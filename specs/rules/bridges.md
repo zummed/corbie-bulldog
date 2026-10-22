@@ -12,7 +12,7 @@ The rules behind the [Bridges overview](../bridges.md). Area code: `bridges`. A 
 
 ## In
 
-**R-bridges-46** `in.yaml` is a statechart with `keep: 12h`, given `{ settings, cursor }`, that runs for as long as the bridge is on: it emits `heard`, `{ things, cursor }`, for what it hears, hears again when its job ends, and rests 30 seconds when its job fails.
+**R-bridges-46** `in.yaml` is a statechart with `keep: 1d`, given `{ settings, cursor }`, that runs for as long as the bridge is on: it emits `heard`, `{ things, cursor }`, for what it hears, hears again when its job ends, and rests 30 seconds when its job fails.
 *Accept:* the shipped Telegram in, against a stand-in Telegram, emits a thing for each update with a cursor past it. When the stand-in answers 429 once, the in rests 30 seconds of the test clock, then hears again from the cursor it had.
 
 **R-bridges-47** Bulldog keeps one in run for each bridge with no problem, labelled `made=<fingerprint>` of the bridge's definitions and settings. It keeps the bridge's newest run while its fingerprint is the bridge's and cancels every other, and once none is going it starts a new one, given the last cursor the old one emitted. A run that ends of itself is started again after a pause of 1 second, doubling up to a minute.
@@ -25,10 +25,12 @@ The rules behind the [Bridges overview](../bridges.md). Area code: `bridges`. A 
 
 **C-bridges-50** A shipped in hands over nothing its own bot or another bot sent. A bot that hears its own answer at a place that takes guests answers it without end, and two offices' bots in one channel answer each other. *Test:* `bridges_bots_not_heard`
 
+**C-bridges-55** A shipped in hands over nothing that only some at the place may read, such as a GitLab internal note or a Jira comment restricted to a role. Its answer goes where everyone at the place reads it. *Test:* `bridges_restricted_not_heard`
+
 ## What Bulldog does with a thing
 
-**R-bridges-49** Bulldog takes the things an in run hands over one at a time, in order, each by the first of these that fits: a press answers the wait whose `ref` it carries; something a person says at `direct` whose `answers` is the `sent` of a carried question answers that question, and one that replies to nothing answers the latest question carried to them on that bridge before it was heard, while that question waits; something said at a listed place starts a request of the place's team; anything else is let go.
-*Accept:* Sam's press of `yes` answers the decision on the fixer's order. Sam's typed "yes", replying to nothing, answers the latest question carried to Sam. Kit's message in a group the settings do not list starts nothing.
+**R-bridges-49** Bulldog takes the things an in run hands over one at a time, in order, each by the first of these that fits: a press that gives a choice answers the wait whose `ref` it carries; something a person says at `direct` answers a question carried to them while it waits, the one whose `sent` its `answers` gives, or, replying to nothing, the latest carried to them on that bridge before it was heard; something said at a listed place starts a request of the place's team; anything else is let go. A text that is one of the question's choices, trimmed and in any case, answers with that choice, and a decision takes nothing else.
+*Accept:* Sam's press of `yes` answers the decision on the fixer's order, and a press that gives no choice answers nothing. Sam's typed "Yes", replying to nothing, answers the decision carried to Sam with `yes`, and "Please order more oil.", said while it waits, starts a request. Sam's reply to a question answered already starts a request. Kit's message in a group the settings do not list starts nothing.
 
 **C-bridges-51** A person is known by the sender's identity, never by the place: a request's asker, a typed answer and a press are each matched on the thing's `from`, in a channel as in a direct message. Matching on the chat would let whoever shares it answer for another. *Test:* `bridges_identity_is_the_sender`
 
@@ -39,7 +41,7 @@ The rules behind the [Bridges overview](../bridges.md). Area code: `bridges`. A 
 
 ## Out
 
-**R-bridges-51** `out.yaml` is given `{ settings, to, direct, text, choices, ref, answers }` and gives `{ sent }`, the id of the message it sent, or throws; an out whose input does not take `direct` sends to no person directly.
+**R-bridges-51** `out.yaml` is given `{ settings, to, direct, text, choices, ref, answers }` and gives `{ sent }`, the id of the message it sent, the last for a text sent as several, or throws; an out whose input does not take `direct` sends to no person directly.
 *Accept:* the shipped Slack out sends an answer to a thread, and with `direct: true` to Lee's direct messages, against a stand-in Slack. The GitLab and Jira outs take no `direct`, and a question to Al is never sent by GitLab.
 
 **C-bridges-53** The ticket's value never leaves Bulldog: a message carries `ref`, a short keyed hash of the wait run, which names the wait and gives nothing. A message in an outside service is read by more than the one it is for. *Test:* `bridges_ticket_never_sent_out`

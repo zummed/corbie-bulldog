@@ -53,13 +53,57 @@ function must(method, body, query, token) {
 // stamp gives the time a Slack ts names, as 1700000001.000100.
 const stamp = ts => new Date(Math.round(Number(ts) * 1000)).toISOString()
 
+// The largest file the bridge reads of what was said.
+const largestFile = 16 << 20
+
 if (input.do === "hear") {
   // placeOf gives the place a channel is: direct for a person's
   // conversation with the app, or the channel's name as the settings write
-  // it, as #help.
+  // it, as #help; or, as left, why Slack will not say. Slack is asked about
+  // each channel once a job.
+  const places = {}
   const placeOf = channel => {
-    const info = must("conversations.info", null, { channel: channel }).channel
-    return info.is_im ? "direct" : "#" + info.name
+    if (!places[channel]) {
+      const answer = call("conversations.info", null, { channel: channel })
+      places[channel] = !answer.ok ? { left: "Slack refused conversations.info: " + answer.error }
+        : { place: answer.channel.is_im ? "direct" : "#" + answer.channel.name }
+    }
+    return places[channel]
+  }
+
+  // filesOf gives the files a message holds, each read whole. A file
+  // with no address, as one shared from another workspace, one too large,
+  // and one Slack will not give is left out and named, so one file never
+  // stops the bridge hearing what comes after it.
+  const filesOf = e => {
+    const files = []
+    const left = []
+    for (const f of e.files || []) {
+      const name = f.name || "a file"
+      if (!f.url_private) {
+        left.push(name + ", as Slack gives no address for it")
+        continue
+      }
+      if (f.size > largestFile) {
+        left.push(name + ", as too large")
+        continue
+      }
+      const got = http.get(f.url_private, { headers: { Authorization: bearer("SLACK_TOKEN") }, as: "bytes", timeout: 60 })
+      if (got.status >= 400 && got.status < 500) {
+        left.push(name + ", as Slack answered status " + got.status)
+        continue
+      }
+      if (got.status !== 200) throw new Error("Slack answered status " + got.status + " for the file " + name)
+      files.push({ name: name, data: got.body })
+    }
+    return { files: files, left: left }
+  }
+
+  // leave logs a thing left out, with its id, its channel and why, never
+  // its words.
+  const leave = (id, channel, why) => {
+    log("left out " + id + " in " + (channel || "no channel") + ": " + why)
+    return null
   }
 
   // pressed gives a press of a button: its value is the out's ref and the
@@ -70,9 +114,12 @@ if (input.do === "hear") {
     const cut = value.indexOf(":")
     const container = body.container || {}
     const channel = body.channel ? body.channel.id : container.channel_id
+    const id = "press:" + body.user.id + ":" + action.action_ts
+    const at = placeOf(channel)
+    if (at.left) return leave(id, channel, at.left)
     return {
-      id: "press:" + body.user.id + ":" + action.action_ts, at: stamp(action.action_ts), kind: "press", from: body.user.id,
-      place: placeOf(channel), where: channel + "/" + (container.thread_ts || container.message_ts),
+      id: id, at: stamp(action.action_ts), kind: "press", from: body.user.id,
+      place: at.place, where: channel + "/" + (container.thread_ts || container.message_ts),
       text: "", files: [], mentioned: false, answers: null,
       ref: cut < 0 ? value : value.slice(0, cut), choice: cut < 0 ? null : value.slice(cut + 1),
     }
@@ -81,44 +128,39 @@ if (input.do === "hear") {
   // named gives a text with the app's own mention, <@its id>, written as
   // its name, @gromit, and whether it names the app; a text naming nobody
   // asks Slack nothing. Anyone else's mention stays as Slack gives it.
+  let me
   const named = text => {
     if (!text.includes("<@")) return { text: text, mentioned: false }
-    const me = must("auth.test")
+    me = me || must("auth.test")
     const written = text.replace(new RegExp("<@" + me.user_id + "(\\|[^>]*)?>", "g"), "@" + me.user)
     return { text: written, mentioned: written !== text }
   }
 
   // heard gives the thing an envelope holds: a press of a button, or a
-  // message said. Left out is any other event, and what a bot said, the
-  // app among them, each logged with its id, its channel and why, never
-  // its words.
+  // message said. Left out is any other event, what a bot said, the app
+  // among them, and what is said in a channel Slack will not name. The
+  // files of a message are read only at a place the settings list.
   const heard = envelope => {
     const body = envelope.payload || {}
     if (envelope.type === "interactive" && body.type === "block_actions") return pressed(body)
     const e = body.event || {}
+    const id = body.event_id || envelope.envelope_id
     const said = !e.subtype || e.subtype === "file_share" || e.subtype === "thread_broadcast" || e.subtype === "me_message"
-    let left = ""
-    if (envelope.type !== "events_api" || body.type !== "event_callback" || e.type !== "message") left = e.type || body.type || envelope.type
-    else if (!said) left = e.subtype
-    else if (e.bot_id || !e.user) left = "a bot said it"
-    if (left) {
-      log("left out " + (body.event_id || envelope.envelope_id) + " in " + (e.channel || "no channel") + ": " + left)
-      return null
-    }
-    const files = []
-    for (const f of e.files || []) {
-      const got = http.get(f.url_private, { headers: { Authorization: bearer("SLACK_TOKEN") }, as: "bytes", timeout: 60 })
-      if (got.status !== 200) throw new Error("Slack answered status " + got.status + " for the file " + f.name)
-      files.push({ name: f.name, data: got.body })
-    }
+    if (envelope.type !== "events_api" || body.type !== "event_callback" || e.type !== "message") return leave(id, e.channel, e.type || body.type || envelope.type)
+    if (!said) return leave(id, e.channel, e.subtype)
+    if (e.bot_id || !e.user) return leave(id, e.channel, "a bot said it")
+    const at = placeOf(e.channel)
+    if (at.left) return leave(id, e.channel, at.left)
+    const got = (input.settings.places || {})[at.place] !== undefined ? filesOf(e) : { files: [], left: [] }
     const text = named(e.text || "")
+    for (const left of got.left) text.text += (text.text ? "\n" : "") + "[a file left out: " + left + "]"
     // A message is said at its thread; one at the top of a channel, or of
     // a person's conversation with the app, begins its own.
     const reply = e.thread_ts && e.thread_ts !== e.ts
     return {
       id: e.channel + "/" + e.ts, at: stamp(e.ts), kind: "said", from: e.user,
-      place: placeOf(e.channel), where: e.channel + "/" + (e.thread_ts || e.ts),
-      text: text.text, files: files, mentioned: text.mentioned,
+      place: at.place, where: e.channel + "/" + (e.thread_ts || e.ts),
+      text: text.text, files: got.files, mentioned: text.mentioned,
       answers: reply ? e.channel + "/" + e.thread_ts : null, ref: null, choice: null,
     }
   }
@@ -169,8 +211,9 @@ function split(text, most) {
 }
 
 // actionsOf gives the block of a button for each choice, each handing
-// back the reference with the choice.
-const actionsOf = choices => ({ type: "actions", elements: choices.map((c, n) => ({ type: "button", action_id: "choice-" + n, text: { type: "plain_text", text: c }, value: input.ref + ":" + c })) })
+// back the reference with the whole choice. Slack shows up to 75
+// characters on a button, and none empty.
+const actionsOf = choices => ({ type: "actions", elements: choices.map((c, n) => ({ type: "button", action_id: "choice-" + n, text: { type: "plain_text", text: cut(c, 75) || "…" }, value: input.ref + ":" + c })) })
 
 // fallbackOf gives what a message of blocks says in plain words, for
 // where Slack shows no blocks, as a notification: the first line of its

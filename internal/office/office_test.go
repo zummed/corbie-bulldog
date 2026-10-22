@@ -2,6 +2,7 @@ package office
 
 import (
 	"errors"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -12,6 +13,8 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/zummed/corbie-bulldog/examples"
+	bulldog "github.com/zummed/corbie-bulldog/shipped"
 	"github.com/zummed/corbie/machine"
 	"github.com/zummed/corbie/permission"
 
@@ -213,6 +216,24 @@ func read(t *testing.T, files map[string]string) *Office {
 	return o
 }
 
+// example reads a copy of an example office, with what Bulldog ships, and
+// fails the test if it has any problem.
+func example(t *testing.T, files fs.FS) *Office {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.CopyFS(dir, files); err != nil {
+		t.Fatal(err)
+	}
+	o, err := Read(dir, bulldog.Files)
+	if err != nil {
+		t.Fatalf("the office is refused:\n%v", err)
+	}
+	if len(o.Problems) > 0 {
+		t.Fatalf("the office has problems:\n%v", Problems(o.Problems))
+	}
+	return o
+}
+
 // refused writes an office and reads it, and gives the problems it is
 // refused with.
 func refused(t *testing.T, files map[string]string) Problems {
@@ -239,10 +260,7 @@ func has(t *testing.T, problems []Problem, file string, line int, words ...strin
 
 func TestOfficeHouse(t *testing.T) {
 	t.Parallel()
-	o := read(t, house())
-	if len(o.Problems) > 0 {
-		t.Fatalf("the house has problems:\n%v", Problems(o.Problems))
-	}
+	o := example(t, examples.House)
 	if o.Name != "The house" || o.Zone.String() != "Europe/London" {
 		t.Errorf("the office is %q in %v", o.Name, o.Zone)
 	}
@@ -275,6 +293,7 @@ func TestOfficeHouse(t *testing.T) {
 		Workers: []Worker{
 			{Name: "clerk", Type: "agent", File: "clerk.yaml", Team: "office"},
 			{Name: "fixer", Type: "agent", File: "fixer.yaml", Team: "office"},
+			{Name: "sparks", Type: "agent", File: "sparks.yaml", Team: "office"},
 			{Name: "steward", Type: "agent", File: "steward.yaml", Team: "office"},
 		}}
 	if !reflect.DeepEqual(office, wantOffice) {
@@ -282,6 +301,7 @@ func TestOfficeHouse(t *testing.T) {
 	}
 	wantGarden := &Team{ID: "garden", Path: "garden", File: "garden/team.yaml", Within: "office", Name: "The garden",
 		About: "The beds, the lawn and the shed.", People: []string{"sam"}, Lead: Lead{Worker: "gardener"},
+		Decide:   []Decider{{Person: "sam"}},
 		Routines: []Routine{{At: "fri 16:00", Say: "What needs doing before the weekend?"}},
 		Models:   map[string]map[string]any{"usual": {"name": "claude-opus-5-5", "secret": "ANTHROPIC_KEY"}},
 		Workers:  []Worker{{Name: "gardener", Type: "agent", File: "garden/gardener.yaml", Team: "garden"}}}
@@ -289,8 +309,13 @@ func TestOfficeHouse(t *testing.T) {
 		t.Errorf("the garden is\n%+v, not\n%+v", garden, wantGarden)
 	}
 
-	if w := o.Worker("gardener"); w == nil || w.Team != "garden" {
+	if w := o.Worker("gardener"); w == nil || w.Team != "garden" || o.WorkerAt("garden/gardener.yaml") != w {
 		t.Errorf("the gardener is %+v", w)
+	}
+	for _, name := range []string{"small-orders", "order", "cut-power"} {
+		if w := o.Worker(name); w != nil {
+			t.Errorf("%s is read as a worker: %+v", name, w)
+		}
 	}
 	if p := o.PersonOn("telegram", "4472"); p == nil || p.ID != "kit" {
 		t.Errorf("telegram 4472 names %+v", p)
@@ -311,15 +336,12 @@ func TestOfficeHouse(t *testing.T) {
 
 func TestOfficeWork(t *testing.T) {
 	t.Parallel()
-	o := read(t, work())
-	if len(o.Problems) > 0 {
-		t.Fatalf("the work office has problems:\n%v", Problems(o.Problems))
-	}
+	o := example(t, examples.Work)
 	if names := slices.Collect(func(yield func(string) bool) {
 		for _, team := range o.Teams {
 			yield(team.ID)
 		}
-	}); !reflect.DeepEqual(names, []string{"office", "payments", "platform"}) {
+	}); !reflect.DeepEqual(names, []string{"office", "payments", "platform", "support"}) {
 		t.Errorf("the teams are %v", names)
 	}
 	slack := o.Bridge("slack")
@@ -340,8 +362,15 @@ func TestOfficeWork(t *testing.T) {
 	if !reflect.DeepEqual(payments.Check, []Decider{{Rule: "./payments/no-account-numbers.js"}, {Person: "lee"}, {Person: "priya"}}) {
 		t.Errorf("payments' check is %+v", payments.Check)
 	}
-	if platform := o.Team("platform"); !reflect.DeepEqual(platform.People, []string{"al"}) || platform.Lead.Worker != "ops" {
+	if !reflect.DeepEqual(payments.Decide, []Decider{{Person: "lee"}, {Person: "priya"}}) {
+		t.Errorf("payments' decide is %+v", payments.Decide)
+	}
+	if platform := o.Team("platform"); !reflect.DeepEqual(platform.People, []string{"al"}) || platform.Lead.Worker != "ops" ||
+		!reflect.DeepEqual(platform.Decide, []Decider{{Person: "al"}}) {
 		t.Errorf("platform is %+v", platform)
+	}
+	if support := o.Team("support"); !reflect.DeepEqual(support.People, []string{"dana"}) || support.Lead.Person != "dana" {
+		t.Errorf("support is %+v", support)
 	}
 	if p := o.PersonOn("slack", "U0DANA00"); p == nil || p.ID != "dana" {
 		t.Errorf("slack U0DANA00 names %+v", p)
@@ -647,18 +676,28 @@ func TestOfficeDeciders(t *testing.T) {
 	problems = refused(t, decide("./small-orders.js"))
 	has(t, problems, "office.yaml", 16, "decide is written as a list")
 
+	// An empty list is the same as none, and without a decide the team's
+	// people decide.
+	if got := read(t, decide("[]")).Team("office").Decide; !reflect.DeepEqual(got, []Decider{{Person: "sam"}, {Person: "kit"}}) {
+		t.Errorf("an empty decide is %+v", got)
+	}
+
 	// A rule that cannot be read stops its team, and nothing else.
 	o := read(t, decide("[./missing.js, ./.bulldog/rules/nothing.js, ./steward.yaml]"))
 	has(t, o.Team("office").Problems, "office.yaml", 16, "./missing.js cannot be read")
 	has(t, o.Team("office").Problems, "office.yaml", 16, "./.bulldog/rules/nothing.js cannot be read", "Bulldog ships nothing")
-	has(t, o.Team("office").Problems, "office.yaml", 16, "./steward.yaml is a definition of the office's own")
+	has(t, o.Team("office").Problems, "office.yaml", 16, "./steward.yaml is the file of the worker steward", "named by its name")
 	if len(o.Team("garden").Problems) > 0 {
 		t.Errorf("the garden is stopped: %v", Problems(o.Team("garden").Problems))
 	}
 
-	// A rule's path is from its team file's directory.
-	o = read(t, with(house(), map[string]string{"garden/team.yaml": house()["garden/team.yaml"] + "check: [../small-orders.js, ./.bulldog/rules/mentioned/mentioned.js, steward, kit]\n"}))
-	want := []Decider{{Rule: "./small-orders.js"}, {Rule: "./.bulldog/rules/mentioned/mentioned.js"}, {Worker: "steward"}, {Person: "kit"}}
+	// A rule's path is from its team file's directory, and a rule is a
+	// script or a definition, the office's own or one Bulldog ships.
+	o = read(t, with(house(), map[string]string{
+		"garden/team.yaml":        house()["garden/team.yaml"] + "check: [../small-orders.js, ./.bulldog/rules/mentioned/mentioned.js, ./rules/weeds.yaml, steward, kit]\n",
+		"garden/rules/weeds.yaml": "flow: weeds\nstages: {}\n",
+	}))
+	want := []Decider{{Rule: "./small-orders.js"}, {Rule: "./.bulldog/rules/mentioned/mentioned.js"}, {Rule: "./garden/rules/weeds.yaml"}, {Worker: "steward"}, {Person: "kit"}}
 	if got := o.Team("garden").Check; !reflect.DeepEqual(got, want) {
 		t.Errorf("the garden's check is %+v", got)
 	}
@@ -678,11 +717,11 @@ func TestOfficeNames(t *testing.T) {
 	problems := refused(t, with(house(), map[string]string{
 		"2nd-floor/team.yaml": "lead: sam\n",
 		"wait/team.yaml":      "lead: sam\n",
-		"office.yaml":         strings.Replace(house()["office.yaml"], "  kit: {", "  chat: {", 1),
+		"office.yaml":         strings.Replace(house()["office.yaml"], "  kit: {", "  clock: {", 1),
 	}))
 	has(t, problems, "2nd-floor/team.yaml", 0, "2nd-floor is not a name a team can have")
 	has(t, problems, "wait/team.yaml", 0, "wait is reserved")
-	has(t, problems, "office.yaml", 6, "chat is reserved")
+	has(t, problems, "office.yaml", 6, "clock is reserved")
 
 	o := read(t, with(house(), map[string]string{"sam.yaml": "agent: sam\nmodel: usual\nprompt: hi\n"}))
 	has(t, o.Team("office").Problems, "sam.yaml", 0, "sam is the name of a person already")
@@ -696,6 +735,8 @@ func TestOfficeBridges(t *testing.T) {
     places:
       "#on-call": { team: nowhere, guests: "yes" }
   slak: { from: ./.bulldog/bridges/slak }
+  name: { from: ./.bulldog/bridges/telegram }
+  Pager: { from: ./.bulldog/bridges/telegram }
 `, 1),
 		"bridges/pager/in.yaml": "statechart: pager-in\n",
 	}))
@@ -707,10 +748,12 @@ func TestOfficeBridges(t *testing.T) {
 	has(t, pager.Problems, "office.yaml", 10, "guests is true or false")
 	has(t, pager.Problems, "office.yaml", 8, "./bridges/pager/out.yaml cannot be read")
 	has(t, o.Bridge("slak").Problems, "office.yaml", 11, "./.bulldog/bridges/slak/in.yaml cannot be read", "Bulldog ships nothing")
+	has(t, o.Bridge("name").Problems, "office.yaml", 12, "name is not a name a bridge can have", "is not called name")
+	has(t, o.Bridge("Pager").Problems, "office.yaml", 13, "Pager is not a name a bridge can have")
 	if len(o.Bridge("telegram").Problems) > 0 || len(o.Team("office").Problems) > 0 {
 		t.Errorf("more is stopped than the bridges:\n%v", Problems(o.Problems))
 	}
-	if got := []string{o.Bridges[0].Name, o.Bridges[1].Name, o.Bridges[2].Name}; !reflect.DeepEqual(got, []string{"pager", "slak", "telegram"}) {
+	if got := []string{o.Bridges[0].Name, o.Bridges[1].Name, o.Bridges[4].Name}; !reflect.DeepEqual(got, []string{"pager", "slak", "telegram"}) {
 		t.Errorf("the bridges are in the order %v", got)
 	}
 }

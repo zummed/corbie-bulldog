@@ -127,6 +127,17 @@ func TestRoutineFallsDueOnce(t *testing.T) {
 	if clocks := o.clocks(); len(clocks) != 1 || clocks[0].ID != clock.ID {
 		t.Errorf("the clocks are %v", clocks)
 	}
+	// The first routine ended more than a day before, and its answer is
+	// not carried again.
+	carried := 0
+	for _, m := range o.carrier.carried() {
+		if m.Labels["request"] == runs[0] {
+			carried++
+		}
+	}
+	if carried != 2 {
+		t.Errorf("the first routine's answer was carried %d times", carried)
+	}
 }
 
 // A changed routine has its clock cancelled and a new one started; a
@@ -212,5 +223,25 @@ func TestAfterARestart(t *testing.T) {
 	}
 	if n := len(o.requests("payments")); n != 1 {
 		t.Errorf("payments has %d requests", n)
+	}
+}
+
+// A clock Bulldog started is counted until a listing shows it, so acting
+// on the routines again while Corbie takes up its start starts no second
+// clock.
+func TestRoutineOneClock(t *testing.T) {
+	t.Parallel()
+	o := newOffice(t, routinely, func(files map[string]string) {
+		files["office.yaml"] += "routines:\n  - { at: \"mon 09:30\", say: \"What is still open?\" }\n"
+	})
+	e := o.engine()
+	o.corbie.Until(t, "one clock is listed", func() bool {
+		if err := e.keepClocks(ctx); err != nil {
+			t.Fatal(err)
+		}
+		return len(o.clocks()) == 1 && len(e.starting) == 0
+	})
+	if n := len(o.runs("clock")); n != 1 {
+		t.Errorf("%d clocks were started", n)
 	}
 }

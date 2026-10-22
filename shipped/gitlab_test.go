@@ -17,7 +17,8 @@ import (
 const gitlabToken = "glpat-the-bridges-own-token"
 
 // A gitlab stands in for GitLab's REST API on one project: it keeps the
-// project's events, newest first, and the comments the bridge made.
+// project's events, newest first, and the comments the bridge made. User
+// 77 is a bot, a project's token.
 type gitlab struct {
 	*httptest.Server
 	mu     sync.Mutex
@@ -66,6 +67,8 @@ func (gl *gitlab) serve(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case path == "/user":
 		answer(200, map[string]any{"id": 9, "username": "bulldog"})
+	case strings.HasPrefix(path, "/users/"):
+		answer(200, map[string]any{"id": strings.TrimPrefix(path, "/users/"), "bot": path == "/users/77"})
 	case path == "/projects/platform%2Fapi/events":
 		per, page := 20, 1
 		fmt.Sscan(r.URL.Query().Get("per_page"), &per)
@@ -161,6 +164,25 @@ func TestGitLabSaysOneComment(t *testing.T) {
 	}
 }
 
+func gitlabRestrictedNotHeard(t *testing.T) {
+	gl, s := newGitLabBridge(t)
+	run := s.listen(nil)
+	s.hears(run, 0)
+	var internal, confidential int
+	s.asksAgain(run, func() {
+		internal = gl.happens(map[string]any{"action_name": "commented on", "target_type": "Note", "author_id": 1041,
+			"note": map[string]any{"id": 9001, "body": "@bulldog the token is in vault/x", "noteable_type": "Issue", "noteable_iid": 7, "internal": true}})
+		confidential = gl.happens(map[string]any{"action_name": "commented on", "target_type": "Note", "author_id": 1041,
+			"note": map[string]any{"id": 9002, "body": "@bulldog the customer is on the old plan", "noteable_type": "Issue", "noteable_iid": 7, "confidential": true}})
+		gl.comments(1041, 9003, "@bulldog why did deploy 52 fail?")
+	})
+	things, _ := s.hears(run, 1)
+	want := fmt.Sprintf("[left out event:%d in platform/api: an internal note left out event:%d in platform/api: an internal note]", internal, confidential)
+	if len(things) != 1 || things[0]["id"] != "note:9003" || fmt.Sprint(s.logged(run)) != want {
+		t.Errorf("GitLab hands over %v, and logs %q", things, s.logged(run))
+	}
+}
+
 func gitlabFromIsLasting(t *testing.T) {
 	gl, s := newGitLabBridge(t)
 	run := s.listen(nil)
@@ -178,16 +200,17 @@ func gitlabBotsNotHeard(t *testing.T) {
 	gl, s := newGitLabBridge(t)
 	run := s.listen(nil)
 	s.hears(run, 0)
-	var own, system, closed int
+	var own, system, closed, bot int
 	s.asksAgain(run, func() {
 		own = gl.comments(9, 9001, "the bridge's own answer")
 		system = gl.happens(map[string]any{"action_name": "commented on", "target_type": "Note", "author_id": 1041,
 			"note": map[string]any{"id": 9002, "body": "changed the description", "noteable_type": "Issue", "noteable_iid": 7, "system": true}})
 		closed = gl.happens(map[string]any{"action_name": "closed", "target_type": "Issue", "target_iid": 7, "author_id": 1041})
+		bot = gl.comments(77, 9004, "the words of another office's bot")
 		gl.comments(1041, 9003, "and the lawn")
 	})
 	things, _ := s.hears(run, 1)
-	want := fmt.Sprintf("[left out event:%d in platform/api: own left out event:%d in platform/api: a system note left out event:%d in platform/api: closed]", own, system, closed)
+	want := fmt.Sprintf("[left out event:%d in platform/api: own left out event:%d in platform/api: a system note left out event:%d in platform/api: closed left out event:%d in platform/api: a bot did it]", own, system, closed, bot)
 	if len(things) != 1 || things[0]["text"] != "and the lawn" || fmt.Sprint(s.logged(run)) != want {
 		t.Errorf("GitLab hands over %v, and logs %q", things, s.logged(run))
 	}

@@ -3,8 +3,22 @@
 // it; and a team's doc.
 "use strict";
 
-const docHref = (team, name) => "#/teams/" + enc(team) + "/docs/" + name.split("/").map(enc).join("/");
-const docPath = (team, name) => "/api/teams/" + enc(team) + "/docs/" + name.split("/").map(enc).join("/");
+const docHref = (team, name) => "#/teams/" + enc(team) + "/docs/" + enc(name);
+const docPath = (team, name) => "/api/teams/" + enc(team) + "/docs/" + enc(name);
+
+// sentence gives the first sentence of a text.
+const sentence = (text) => text.split(/(?<=\.) /)[0];
+
+// usesOf gives what a worker uses: its colleagues, each with what it uses
+// in turn, and its tools, each with the first sentence of what it does.
+function usesOf(colleagues, tools) {
+  return [
+    ...colleagues.map((c) => el("li", {}, B.party({kind: "worker", name: c.name}), el("span", {class: "does"}, "colleague"),
+      c.colleagues.length || c.tools.length ? el("ul", {class: "calls"}, usesOf(c.colleagues, c.tools)) : null)),
+    ...tools.map((x) => el("li", {}, el("span", {class: "tool"}, x.name),
+      x.does ? el("span", {class: "does", title: x.does}, sentence(x.does)) : null,
+      x.held ? el("span", {class: "tag held"}, "held for approval") : null))];
+}
 
 // roomOf gives a team as a room: its name on the wall, what it looks after,
 // its lead and people, its problems, and the teams inside it.
@@ -73,9 +87,7 @@ function teamDrawing(t) {
   const lead = f.work.lead.kind === "person"
     ? B.party({kind: "person", id: f.work.lead.name, name: names[f.work.lead.name] || f.work.lead.name})
     : B.party({kind: "worker", name: f.work.lead.name});
-  const uses = [...f.work.colleagues.map((c) => el("li", {}, B.party({kind: "worker", name: c}), el("span", {class: "does"}, "colleague"))),
-    ...f.work.tools.map((x) => el("li", {}, el("span", {class: "tool"}, x.name), x.does ? el("span", {class: "does"}, x.does) : null,
-      x.held ? el("span", {class: "tag held"}, "held for approval") : null))];
+  const uses = usesOf(f.work.colleagues, f.work.tools);
   const decide = f.decide.length ? [el("li", {class: "fork"},
     el("div", {class: "fork-head"}, el("span", {class: "chip"}, "decision"), B.chain(f.decide, names)),
     el("p", {class: "muted small"}, "Says yes or no to each job Corbie holds for approval."))] : [];
@@ -107,7 +119,7 @@ B.teamView = async function ([id]) {
       el("div", {class: "main"},
         B.sect("Workers", t.workers.length, t.workers.length ? el("div", {class: "defs"}, t.workers.map((w) =>
           el("details", {"data-key": "worker-" + w.name},
-            el("summary", {}, B.party({kind: "worker", name: w.name}), el("span", {class: "tag"}, w.type), w.model ? el("span", {class: "mono faint"}, w.model) : null),
+            el("summary", {}, B.party({kind: "worker", name: w.name}), el("span", {class: "tag"}, w.type)),
             el("pre", {}, w.definition)))) : B.empty("No workers.")),
         B.sect("Docs", t.docs ? t.docs.length : undefined, t.docs === null
           ? el("div", {class: "sealed sealed-note"}, el("span", {}, "Seen only by the team's people."))

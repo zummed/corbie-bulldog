@@ -136,7 +136,7 @@ func (e *Engine) Ask(ctx context.Context, a Ask) (string, error) {
 // place, and for a routine the team's running requests.
 func (e *Engine) start(ctx context.Context, r *Reading, name string, g given, said string, files []File, labels map[string]string) error {
 	t := r.Office.Team(g.Team)
-	if !r.takes(g.Team) {
+	if !r.Takes(g.Team) {
 		return fmt.Errorf("%s takes no requests: it is no team of the office, or its files have problems", g.Team)
 	}
 	thread, left, err := e.thread(ctx, labels["thread"])
@@ -165,19 +165,14 @@ func (e *Engine) start(ctx context.Context, r *Reading, name string, g given, sa
 // thread gives the requests of a thread, oldest first, the newest within
 // threadLimit characters, and how many are left out.
 func (e *Engine) thread(ctx context.Context, label string) ([]earlier, int, error) {
-	runs, err := e.roots(ctx, client.Filter{Labels: map[string]string{"kind": "request", "thread": label}, Finished: true})
+	requests, err := e.threadOf(ctx, label)
 	if err != nil {
 		return nil, 0, err
 	}
 	all := []earlier{}
-	for _, run := range runs {
-		q, err := e.shown(ctx, run.ID)
-		if err != nil {
-			return nil, 0, err
-		}
-		all = append(all, earlier{By: q.By, Said: q.Said, Answer: q.Answer, At: named(run.ID)})
+	for _, q := range requests {
+		all = append(all, earlier{By: q.By, Said: q.Said, Answer: q.Answer, At: named(q.ID)})
 	}
-	slices.SortStableFunc(all, func(a, b earlier) int { return a.At.Compare(b.At) })
 	from, size := len(all), 0
 	for ; from > 0; from-- {
 		size += utf8.RuneCountInString(all[from-1].Said)
@@ -214,7 +209,7 @@ func (e *Engine) open(ctx context.Context, team string) ([]earlier, error) {
 func mayAsk(r *Reading, team string, chain []string) []askable {
 	may := []askable{}
 	for _, t := range r.Office.Teams {
-		if t.ID != team && !slices.Contains(chain, t.ID) && r.takes(t.ID) {
+		if t.ID != team && !slices.Contains(chain, t.ID) && r.Takes(t.ID) {
 			may = append(may, askable{Name: t.ID, About: t.About})
 		}
 	}
@@ -310,7 +305,7 @@ func byName(o *office.Office, by By) string {
 	return fmt.Sprintf("The routine at %s", by.Routine)
 }
 
-// personName names a person by their name and their key.
+// personName names a person by their name and their id.
 func personName(o *office.Office, id string) string {
 	if p := o.Person(id); p != nil && p.Name != id {
 		return fmt.Sprintf("%s (%s)", p.Name, id)
@@ -335,7 +330,7 @@ func listed(names []string) string {
 // cancel.
 func (e *Engine) came(ctx context.Context, r *Reading, clock *client.Run) error {
 	t, routine := e.routine(r, clock.Labels["made"])
-	if routine == nil || !r.takes(t.ID) {
+	if routine == nil || !r.Takes(t.ID) {
 		return nil
 	}
 	var last *client.Entry
@@ -397,7 +392,7 @@ func (e *Engine) keepClocks(ctx context.Context) error {
 	var order []string
 	for _, t := range r.Office.Teams {
 		for _, routine := range t.Routines {
-			if made := e.made(r, t, routine); r.takes(t.ID) && wanted[made] == nil {
+			if made := e.made(r, t, routine); r.Takes(t.ID) && wanted[made] == nil {
 				wanted[made] = t
 				order = append(order, made)
 			}
@@ -408,14 +403,15 @@ func (e *Engine) keepClocks(ctx context.Context) error {
 		return err
 	}
 	kept := map[string]bool{}
-	// A clock started and not yet taken up by Corbie is in no listing.
+	// A clock started is in no listing until Corbie has taken it up and
+	// written its head, which comes after its first step.
 	for _, clock := range running {
 		delete(e.starting, clock.ID)
 	}
 	for name, made := range e.starting {
 		shown, err := e.corbie.Show(ctx, name)
 		switch {
-		case err == nil && shown.Status == "waiting":
+		case err == nil && !shown.HasEnded():
 			kept[made] = true
 		case err == nil || errors.Is(err, client.ErrNoRun):
 			delete(e.starting, name)

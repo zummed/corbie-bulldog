@@ -36,7 +36,7 @@ func write(o *office.Office, t *office.Team) mapping {
 	failed = append(failed, "stages.work.failed")
 	if t.Check != nil {
 		stages = append(stages, entry{"check", mapping{
-			{"when", fmt.Sprintf("${%s != '' && input.request.heard != 'routine' && !%s.includes(input.request.by?.person)}", reply, literals(t.People))},
+			{"when", fmt.Sprintf("${%s != '' && input.request.heard != 'routine' && (input.request.heard == 'channel' || !%s.includes(input.request.by?.person))}", reply, literals(t.People))},
 			{"job", mapping{
 				{"input", inline{{"request", "${input.request}"}, {"answer", "${" + reply + "}"}}},
 				{"machine", check(t).chart(o)},
@@ -66,13 +66,14 @@ func write(o *office.Office, t *office.Team) mapping {
 // lead gives the work stage's job, the team's lead, and an expression of
 // its answer as text: an agent's reply, a person's answer to wait.yaml, or
 // a flow's or a statechart's output, each the text or its text answer.
-// Anything else is the empty text.
+// Anything else is the empty text. A person who leads is asked what was
+// said, then the context, as a worker is given them.
 func lead(o *office.Office, t *office.Team) (job mapping, reply string) {
 	given := "stages.work.output"
 	if t.Lead.Person != "" {
 		job = mapping{
 			{"machine", wait},
-			{"input", inline{{"to", inline{{"people", []any{t.Lead.Person}}}}, {"said", "${input.said}"}}},
+			{"input", inline{{"to", inline{{"people", []any{t.Lead.Person}}}}, {"said", "${input.said}\n\n${input.context}"}}},
 		}
 	} else {
 		w := o.Worker(t.Lead.Worker)
@@ -90,7 +91,7 @@ func lead(o *office.Office, t *office.Team) (job mapping, reply string) {
 
 // asksTeam is an expression of whether a held job j asks another team: its
 // input names the team, as ask_team's does.
-const asksTeam = "j.input?.to?.team"
+const asksTeam = "(j.input?.to?.team != null)"
 
 // approval writes the request machine's ask: a flow given the jobs Corbie
 // holds in one step. A held job that asks a team goes to the check
@@ -176,17 +177,11 @@ func question(t *office.Team) decision {
 	}
 }
 
-// decide is the decide decision: the team file's, or its people's without
-// one.
+// decide is the decide decision. Without one in the team file, it is
+// the team's people.
 func decide(t *office.Team) decision {
-	deciders := t.Decide
-	if deciders == nil {
-		for _, person := range t.People {
-			deciders = append(deciders, office.Decider{Person: person})
-		}
-	}
 	return decision{
-		name: "decide", named: t.ID + "-decide", deciders: deciders, own: true,
+		name: "decide", named: t.ID + "-decide", deciders: t.Decide, own: true,
 		input: inline{{"request", "map"}, {"asking", "map"}, {"jobs", "list"}},
 		given: inline{{"request", "${input.request}"}, {"jobs", "${input.jobs}"}},
 		asked: "May these run?\n\n${input.jobs.map(j => j.name + ': ' + JSON.stringify(j.asked?.args ?? j.input)).join(`\n`)}",
@@ -220,8 +215,8 @@ func (d decision) chart(o *office.Office) mapping {
 	}
 	states := mapping{}
 	for i, decider := range before {
-		// A rule is a script, or a definition Bulldog ships; a worker is a
-		// machine, whose reply holds what it says.
+		// A rule is a script or a definition; a worker is a machine, whose
+		// reply holds what it says.
 		says, job, path := "event.data?.says", "script", decider.Rule
 		switch {
 		case decider.Worker != "":

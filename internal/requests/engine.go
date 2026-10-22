@@ -22,6 +22,10 @@ import (
 // before it acts on every run of the office again.
 const relook = 30 * time.Second
 
+// interval is how often the store is looked at when nothing written in
+// this process wakes the look.
+const interval = 5 * time.Second
+
 // A Reading is one reading of the office, with the request machine of each
 // of its teams.
 type Reading struct {
@@ -36,9 +40,9 @@ func NewReading(o *office.Office) *Reading {
 	return &Reading{Office: o, Machines: Make(o)}
 }
 
-// takes says whether a team takes requests: it is a team of the office,
+// Takes says whether a team takes requests: it is a team of the office,
 // and nothing stops it.
-func (r *Reading) takes(team string) bool {
+func (r *Reading) Takes(team string) bool {
 	m := r.Machines[team]
 	return m != nil && m.Draft != nil
 }
@@ -87,16 +91,13 @@ type Engine struct {
 	// Report is told what went wrong while the engine follows the runs,
 	// for a person to read. By default it is written to the standard log.
 	Report func(error)
-	// Interval is how often the store is looked at when nothing written
-	// in this process wakes the look.
-	Interval time.Duration
 }
 
 // New makes an engine for the office of a reading, a client of its Corbie,
 // with the office's secret.
 func New(corbie *client.Client, carrier Carrier, secret []byte, r *Reading) *Engine {
 	e := &Engine{corbie: corbie, carrier: carrier, secret: secret, swapped: make(chan struct{}, 1), starting: map[string]string{},
-		Report: func(err error) { log.Print(err) }, Interval: 5 * time.Second}
+		Report: func(err error) { log.Print(err) }}
 	e.reading.Store(r)
 	return e
 }
@@ -124,7 +125,7 @@ func (e *Engine) Run(ctx context.Context) error {
 	watched := make(chan error, 1)
 	filter := client.Filter{Labels: map[string]string{"bulldog": e.Reading().Office.ID}, Finished: true}
 	go func() {
-		watched <- e.corbie.Watch(ctx, filter, e.Interval, func(u client.Update) {
+		watched <- e.corbie.Watch(ctx, filter, interval, func(u client.Update) {
 			select {
 			case updates <- u:
 			case <-ctx.Done():

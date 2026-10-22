@@ -3,6 +3,7 @@
 package screens
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -20,7 +21,8 @@ import (
 )
 
 // Bridges is what the screens use of the bridges: carrying a message out,
-// as a sign-in link is, and how each bridge's in run stands.
+// as a sign-in link is, and how each bridge's in run stands. The program
+// gives the screens the office's bridges as they are.
 type Bridges interface {
 	requests.Carrier
 	State(bridge string) bridges.State
@@ -41,7 +43,7 @@ type Screens struct {
 	bridges Bridges
 	secret  []byte
 	address string
-	mux     *http.ServeMux
+	handler http.Handler
 	sending sync.WaitGroup // the sign-in links being carried
 
 	// Report is told what went wrong that no answer says, for a person to
@@ -60,34 +62,44 @@ type Screens struct {
 // reached at, such as https://bulldog.example.
 func New(corbie *client.Client, engine *requests.Engine, bridges Bridges, secret []byte, address string) *Screens {
 	s := &Screens{corbie: corbie, engine: engine, bridges: bridges, secret: secret, address: strings.TrimSuffix(address, "/"),
-		mux: http.NewServeMux(), Report: func(err error) { log.Print(err) }, Interval: 5 * time.Second}
-	s.mux.HandleFunc("GET /{$}", page("index.html"))
-	s.mux.HandleFunc("GET /static/{name}", file)
+		Report: func(err error) { log.Print(err) }, Interval: 5 * time.Second}
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /{$}", page("index.html"))
+	mux.HandleFunc("GET /static/{name}", file)
 
-	s.mux.HandleFunc("GET /signin", s.signInPage)
-	s.mux.HandleFunc("POST /signin", s.askLink)
-	s.mux.HandleFunc("GET /signin/link", s.linkPage)
-	s.mux.HandleFunc("POST /signin/link", s.pressLink)
-	s.mux.HandleFunc("GET /key", s.keyPage)
-	s.mux.HandleFunc("POST /key", s.pressKey)
-	s.mux.HandleFunc("POST /signout", signOut)
+	mux.HandleFunc("GET /signin", s.signInPage)
+	mux.HandleFunc("POST /signin", s.askLink)
+	mux.HandleFunc("GET /signin/link", s.linkPage)
+	mux.HandleFunc("POST /signin/link", s.pressLink)
+	mux.HandleFunc("GET /key", s.keyPage)
+	mux.HandleFunc("POST /key", s.pressKey)
+	mux.HandleFunc("POST /signout", s.signOut)
 
-	s.mux.HandleFunc("GET /api/me", s.api(s.me))
-	s.mux.HandleFunc("GET /api/requests", s.api(s.list))
-	s.mux.HandleFunc("POST /api/requests", s.api(s.ask))
-	s.mux.HandleFunc("GET /api/requests/{id}", s.api(s.request))
-	s.mux.HandleFunc("GET /api/requests/{id}/files/{n}", s.keyed(s.file))
-	s.mux.HandleFunc("POST /api/requests/{id}/say", s.api(s.say))
-	s.mux.HandleFunc("POST /api/requests/{id}/stop", s.api(s.stop))
-	s.mux.HandleFunc("POST /api/waits/{ref}/answer", s.api(s.answer))
-	s.mux.HandleFunc("GET /api/office", s.api(s.office))
-	s.mux.HandleFunc("GET /api/teams/{team}", s.api(s.team))
-	s.mux.HandleFunc("GET /api/teams/{team}/docs/{name...}", s.api(s.readDoc))
-	s.mux.HandleFunc("PUT /api/teams/{team}/docs/{name...}", s.api(s.writeDoc))
-	s.mux.HandleFunc("GET /api/events", s.keyed(s.events))
-	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/me", s.api(s.me))
+	mux.HandleFunc("GET /api/requests", s.api(s.list))
+	mux.HandleFunc("POST /api/requests", s.api(s.ask))
+	mux.HandleFunc("GET /api/requests/{id}", s.api(s.request))
+	mux.HandleFunc("GET /api/requests/{id}/files/{n}", s.keyed(s.file))
+	mux.HandleFunc("POST /api/requests/{id}/say", s.api(s.say))
+	mux.HandleFunc("POST /api/requests/{id}/stop", s.api(s.stop))
+	mux.HandleFunc("POST /api/waits/{ref}/answer", s.api(s.answer))
+	mux.HandleFunc("GET /api/office", s.api(s.office))
+	mux.HandleFunc("GET /api/teams/{team}", s.api(s.team))
+	mux.HandleFunc("GET /api/teams/{team}/docs/{name}", s.api(s.readDoc))
+	mux.HandleFunc("PUT /api/teams/{team}/docs/{name}", s.api(s.writeDoc))
+	mux.HandleFunc("GET /api/events", s.keyed(s.events))
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		answer(w, http.StatusNotFound, "There is nothing here.")
 	})
+
+	// A POST or a PUT that a page of another site sends is refused, so
+	// that no other site acts as the one signed in, or signs a browser in
+	// as someone else.
+	guard := http.NewCrossOriginProtection()
+	guard.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		answer(w, http.StatusForbidden, "The screens refuse what a page of another site sends.")
+	}))
+	s.handler = guard.Handler(mux)
 	return s
 }
 
@@ -97,7 +109,7 @@ func New(corbie *client.Client, engine *requests.Engine, bridges Bridges, secret
 func (s *Screens) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Security-Policy", policy)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	s.mux.ServeHTTP(w, r)
+	s.handler.ServeHTTP(w, r)
 }
 
 // types are the types of the screens' own files, by their ending.
@@ -184,7 +196,7 @@ func (s *Screens) keyed(h func(w http.ResponseWriter, r *http.Request, me string
 
 // refuse answers with why something was not done. What is not there, or
 // may not be seen, is answered alike; anything else is a failure, which
-// is also reported.
+// is also reported, but for a request the browser gave up on.
 func (s *Screens) refuse(w http.ResponseWriter, err error) {
 	var r refusal
 	switch {
@@ -195,7 +207,9 @@ func (s *Screens) refuse(w http.ResponseWriter, err error) {
 	case errors.Is(err, requests.ErrNoQuestion):
 		answer(w, noQuestion.status, noQuestion.text)
 	default:
-		s.Report(err)
+		if !errors.Is(err, context.Canceled) {
+			s.Report(err)
+		}
 		answer(w, http.StatusInternalServerError, "Bulldog failed: "+err.Error())
 	}
 }

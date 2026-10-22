@@ -9,8 +9,10 @@ house/
   office.yaml             the top team, `office`
   steward.yaml            a worker: the office's lead
   fixer.yaml              a worker: the steward's colleague
+  sparks.yaml             a worker: the fixer's colleague
   clerk.yaml              a worker: a decider in the office's `decide`
   small-orders.js         a rule
+  tools/                  the scripts the fixer's tools run
   garden/
     team.yaml             a team within the office, `garden`
     gardener.yaml         a worker: the garden's lead
@@ -21,6 +23,7 @@ house/
 - A worker is a Corbie definition, an agent, a flow or a statechart, directly in a team's directory. Its name is its file's name, and its definition's name is the same.
 - A definition anywhere else, such as `tools/`, is not a worker. Workers use it.
 - `./.bulldog/<path>` names what Bulldog ships, written from any directory of the office. Bulldog serves it from its binary, and nothing of it is on disk.
+- A path is read from the directory of the file that names it.
 - Every other path a team file or a definition names is inside the office directory. A path that leaves it is a problem.
 
 ## A team file
@@ -76,7 +79,10 @@ routines:
 | `everyone` | `office.yaml` only: every person of the office |
 | `bridges` | `office.yaml` only: the bridges, in the order written (Bridges) |
 
-A team with no people has the office's people as its people, for being asked and for seeing its requests. A decision is a list of deciders, and Requests says how one is asked.
+- A key written as an empty list, such as `heed: []`, is the same as none.
+- A team with no people has the office's people as its people, for being asked and for seeing its requests.
+- With no `decide` and no people in the team or the office, nothing held is approved.
+- A decision is a list of deciders, and Requests says how one is asked.
 
 ```yaml
 # payments/team.yaml, in the work office
@@ -91,9 +97,9 @@ decide: [lee, priya]                              # may this held job run?
 
 | Decider | Written as |
 |---|---|
-| a rule | its path: a script (`./no-account-numbers.js`), or a definition Bulldog ships (`./.bulldog/rules/for-us/for-us.yaml`) |
+| a rule | its path: a script (`./no-account-numbers.js`) or a definition (`./.bulldog/rules/for-us/for-us.yaml`), but not a worker's file |
 | a worker | its name, of any team; it declares `reply: { says: string, note: "string?" }` |
-| a person | their name; people may only end a list |
+| a person | their id; people may only end a list |
 
 A decider never asks for approval itself. A worker or a rule that holds a job for approval, or lists `ask_about`, is a problem of the team file that names it.
 
@@ -107,7 +113,7 @@ everyone:
 
 - A person is written once, in `everyone`, with `name` and, under each bridge's name, their lasting id on that bridge: never a handle they can change.
 - One identity on one bridge names one person. Identities are compared exactly as written.
-- A team's `people`, its decisions and its `lead` name people by their key in `everyone`.
+- A team's `people`, its decisions and its `lead` name people by their id, the key of their entry in `everyone`, such as `sam`.
 
 ## Workers and models
 
@@ -167,20 +173,27 @@ So a team's runs read and write only its own kept values, whatever its definitio
 
 ## Names
 
-- Names of people, workers and teams start with a small letter, and hold small letters, figures and dashes.
-- Each name is used once in the office.
-- `office`, `team`, `bulldog`, `chat`, `guest`, `wait`, `ask` and `clock` are reserved.
+- Names of people, workers, teams and bridges start with a small letter, and hold small letters, figures and dashes. A bridge is not called `name`.
+- Each name of a person, a worker or a team is used once in the office.
+- `office`, `team`, `bulldog`, `wait` and `clock` are reserved.
 
 ## Reading the office
 
 - Bulldog reads the office again when any file in it changes.
 - A key a team file does not take, or one only `office.yaml` takes written in another team file, is a problem.
-- A problem in `office.yaml` or a team file keeps the last good reading in force, and every problem is shown.
-- A broken worker, rule or bridge stops only itself and the teams that use it, and is shown as a problem.
+- A problem in how `office.yaml` or a team file is written, such as an unknown key, a name, a person, a lead or a routine, refuses the reading, and the last good reading stays in force.
+- A worker, a rule or a bridge that cannot be read, or that Corbie's parser refuses, stops only itself and the teams that use it, even where `office.yaml` or a team file names it. A broken worker stops its own team, and each team that names it as a decider.
+- Every problem is shown.
 - `corbie bulldog check <directory>` reads the office as serving does, prints every problem, each with its file, and starts nothing. It exits with a failure status when there is any problem.
 
 ## The office's id and secret
 
-Bulldog writes `.bulldog/id` once, at the first start: a random id of 16 hex digits, which names the office in labels and kept paths. It is the one file Bulldog writes in the office.
+Bulldog writes `.bulldog/id` when the office has none, at any reading of it: a random id of 16 hex digits, which names the office in labels and kept paths. It is the one file Bulldog writes in the office.
 
-The office's secret is made at the first start and kept in Bulldog's own directory in the user's config directory, under the office's id, never in the office directory. It signs sign-in keys, and keys the hashes in labels, run names and `ref`s. Replacing it signs everyone out.
+- While Bulldog serves, a changed or removed id is refused, and the office keeps its id until Bulldog starts again.
+- Started with a new id, the office is a new office, with none of the old one's requests, docs or sign-ins. Keep `.bulldog/id` with the office, in git.
+
+The office's secret is made the first time Bulldog serves the office, or prints a key, as this user on this computer. It is kept in Bulldog's own directory in the user's config directory, under the office's id, never in the office directory. It signs sign-in keys, and keys the hashes in labels, run names and `ref`s.
+
+- Replacing the secret signs everyone out.
+- Served as another user or on another computer, the office has a new secret: everyone is signed out, key links printed before sign nobody in, and what was heard in the last day is asked again.

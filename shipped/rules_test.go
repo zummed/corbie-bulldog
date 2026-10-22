@@ -63,7 +63,6 @@ func TestMentionedSaysYesToWhatIsAddressed(t *testing.T) {
 	}{
 		{"named", asked(dana, true), "yes", "The message names the bot."},
 		{"after its answer to her", asked(dana, false, refunded), "yes", "The message follows the answer to its sender."},
-		{"after its answer, the thread out of order", asked(dana, false, refunded, earlier(raj, "08:00", "lunch?", nil)), "yes", "The message follows the answer to its sender."},
 		{"after its answer to someone else", asked(raj, false, refunded), "no", ""},
 		{"after a request not yet answered", asked(dana, false, earlier(dana, "09:00", "and 4412?", nil)), "no", ""},
 		{"after someone else came between", asked(dana, false, refunded, earlier(raj, "09:05", "lunch?", nil)), "no", ""},
@@ -99,12 +98,13 @@ func newSystemOne(t *testing.T, sure float64) *systemOne {
 		}
 		s.mu.Lock()
 		s.asked, s.keys = append(s.asked, asked), append(s.keys, r.Header.Get("Authorization"))
+		sure := s.sure
 		s.mu.Unlock()
 		select {
 		case s.called <- struct{}{}:
 		default:
 		}
-		if s.sure < 0 {
+		if sure < 0 {
 			select {
 			case <-r.Context().Done():
 			case <-stop:
@@ -112,7 +112,7 @@ func newSystemOne(t *testing.T, sure float64) *systemOne {
 			return
 		}
 		json.NewEncoder(w).Encode(map[string]any{"model": "jev-1.13.0", "usage": map[string]any{"input_tokens": 10, "output_tokens": 1},
-			"answers": map[string]any{"for_us": map[string]any{"type": "noul", "noul": s.sure}}})
+			"answers": map[string]any{"for_us": map[string]any{"type": "noul", "noul": sure}}})
 	}))
 	t.Cleanup(func() {
 		close(stop)
@@ -172,13 +172,15 @@ func TestForUsAsksItsModel(t *testing.T) {
 	if string(question) != `{"for_us":{"instructions":"The newest message asks this team for something, or answers what it last said.","type":"noul"}}` {
 		t.Errorf("the model was asked %s", question)
 	}
-	// Its settings, below how sure the model is.
-	settings := map[string]any{"threshold": 0.6, "model": "jev-1.12", "question": "It is for the payments team."}
-	if out := heedSays(t, corbie, d, map[string]any{"request": asked(raj, false), "said": "lovely weather", "settings": settings}); out["says"] != "no" || out["note"] != "Not for payments (0.55)." {
+	// Below 0.5, it says no.
+	sure.mu.Lock()
+	sure.sure = 0.45
+	sure.mu.Unlock()
+	if out := heedSays(t, corbie, d, map[string]any{"request": asked(raj, false), "said": "lovely weather", "notes": []any{}}); out["says"] != "no" || out["note"] != "Not for payments (0.45)." {
 		t.Errorf("the heed says %v", out)
 	}
 	asked1, _ := sure.calls()
-	if len(asked1) != 2 || asked1[1]["model"] != "jev-1.12" || !strings.Contains(asked1[1]["state"].(string), "lovely weather") {
+	if len(asked1) != 2 || !strings.Contains(asked1[1]["state"].(string), "lovely weather") {
 		t.Errorf("the model was asked %v", asked1)
 	}
 	// What names the bot, and what follows its answer to the sender, come
@@ -199,24 +201,19 @@ func TestForUsSaysYesWhenItsTimeRunsOut(t *testing.T) {
 	corbie := testkit.NewCorbie(t)
 	silent := newSystemOne(t, -1)
 	d := forUs(t, silent)
-	for _, c := range []struct {
-		settings map[string]any
-		limit    time.Duration
-	}{{map[string]any{}, 10 * time.Second}, {map[string]any{"timeout": "5s"}, 5 * time.Second}} {
-		run := start(t, corbie, d, client.Start{Input: map[string]any{"request": asked(raj, false), "said": "lovely weather", "settings": c.settings}, Secrets: map[string]string{"TYPESAFE_KEY": "ts-key"}})
-		select {
-		case <-silent.called:
-		case <-time.After(testkit.Patience):
-			t.Fatalf("waited %v, and the model was not asked", testkit.Patience)
-		}
-		corbie.Clock.Move(c.limit - time.Second)
-		if shown, err := corbie.Show(ctx, run); err != nil || shown.HasEnded() {
-			t.Fatalf("the heed ended a second before its time: %v %v", shown, err)
-		}
-		corbie.Clock.Move(time.Second)
-		ended := corbie.Ended(t, run)
-		if out, _ := ended.Output.(map[string]any); ended.Status != "done" || out["says"] != "yes" || out["note"] != "The model did not answer in time, so the message comes in." {
-			t.Errorf("with %v, the heed ended %s with %#v", c.settings, ended.Status, ended.Output)
-		}
+	run := start(t, corbie, d, client.Start{Input: map[string]any{"request": asked(raj, false), "said": "lovely weather", "notes": []any{}}, Secrets: map[string]string{"TYPESAFE_KEY": "ts-key"}})
+	select {
+	case <-silent.called:
+	case <-time.After(testkit.Patience):
+		t.Fatalf("waited %v, and the model was not asked", testkit.Patience)
+	}
+	corbie.Clock.Move(9 * time.Second)
+	if shown, err := corbie.Show(ctx, run); err != nil || shown.HasEnded() {
+		t.Fatalf("the heed ended a second before its time: %v %v", shown, err)
+	}
+	corbie.Clock.Move(time.Second)
+	ended := corbie.Ended(t, run)
+	if out, _ := ended.Output.(map[string]any); ended.Status != "done" || out["says"] != "yes" || out["note"] != "The model did not answer in time, so the message comes in." {
+		t.Errorf("the heed ended %s with %#v", ended.Status, ended.Output)
 	}
 }

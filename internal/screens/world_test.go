@@ -37,8 +37,9 @@ var secret = []byte("the office's secret in the tests")
 var _ Bridges = (*bridges.Bridges)(nil)
 
 // standIn stands in for the bridges. A message is carried by a run that
-// gives { sent }, and each is kept. Slack and Telegram reach people
-// directly; GitLab does not. Every in run runs, but GitLab's, which fails.
+// gives { sent }, and each is kept; the run fails for a message to a place
+// whose name says "refuses". Slack and Telegram reach people directly;
+// GitLab does not. Every in run runs, but GitLab's, which fails.
 type standIn struct {
 	corbie *testkit.Corbie
 	draft  *machine.Draft
@@ -49,7 +50,7 @@ type standIn struct {
 func newStandIn(t *testing.T, corbie *testkit.Corbie) *standIn {
 	files := map[string]string{
 		"out.yaml": "flow: out\ninput: { sent: string }\nstages:\n  send: { job: { script: ./send.js, input: { sent: \"${input.sent}\" } } }\noutput: ${stages.send.output}\n",
-		"send.js":  "return { sent: input.sent }",
+		"send.js":  "if (input.sent.includes('refuses')) throw new Error('The stand-in refuses the message.'); return { sent: input.sent }",
 	}
 	draft, err := machine.Parse([]byte(files["out.yaml"]), func(name string) ([]byte, error) { return []byte(files[name]), nil })
 	if err != nil {
@@ -282,11 +283,14 @@ func jsonOf(v any) string {
 func form(values url.Values) io.Reader { return strings.NewReader(values.Encode()) }
 
 // says gives the work office's ledger and ops their words: the ledger
-// reads its doc when asked about the rule, refunds ch_1 when asked to, and
-// otherwise reads the refunds doc, then answers.
+// reads its doc when asked about the rule, refunds ch_1 when asked to,
+// asks Dana, whom payments may not ask, about a card, and otherwise reads
+// the refunds doc, then answers.
 func says(turn testkit.Turn) testkit.Reply {
 	prompt := turn.Prompt()
 	switch {
+	case strings.Contains(prompt, "card") && turn.Number == 1:
+		return testkit.Use("ask_person", map[string]any{"who": "dana", "question": "Card 4111 1111 1111 1111: is it yours?"})
 	case strings.Contains(prompt, "Refund ch_") && turn.Number == 1:
 		return testkit.Use("refund", map[string]any{"charge": strings.TrimSuffix(prompt[strings.Index(prompt, "ch_"):], ".")})
 	case strings.Contains(prompt, "Refund ch_"):

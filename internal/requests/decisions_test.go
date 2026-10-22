@@ -121,7 +121,7 @@ func TestFailedDecideApprovesNothing(t *testing.T) {
 // Lee decides.
 func TestRequestsWorkerNeverDecidesOwnJob(t *testing.T) {
 	t.Parallel()
-	w := newWorld(t, func(turn testkit.Turn) testkit.Reply {
+	o := newOffice(t, func(turn testkit.Turn) testkit.Reply {
 		switch {
 		case strings.HasPrefix(turn.Prompt(), "Decide"):
 			return testkit.Say(`{"says": "yes", "note": "My own fetch is fine."}`)
@@ -150,15 +150,21 @@ tools:
 `
 		files["payments/fetch.js"] = `return "rates"`
 	})
-	run := w.ask("payments", "Fetch the rates.", nil)
-	asked := w.waiting()
-	input := asked.Input.(map[string]any)
-	if !strings.HasSuffix(fmt.Sprint(input["said"]), "\n\nmate passed: The held job is its own.") {
-		t.Errorf("Lee is asked %q", input["said"])
+	e, _ := o.run()
+	run := o.chat(e, "payments", "Fetch the rates.")
+	asked := o.waitFor("May these run?")
+	if said := fmt.Sprint(asked.Input.(map[string]any)["said"]); !strings.HasSuffix(said, "\n\nmate passed: The held job is its own.") {
+		t.Errorf("Lee is asked %q", said)
 	}
-	w.answer(asked, "yes", "lee")
-	if out := w.output(run); out["answer"] != "Fetched." {
-		t.Errorf("the request gave %v", out)
+	if err := e.Answer(ctx, asked.ID, "lee", "yes", ""); err != nil {
+		t.Fatal(err)
+	}
+	if answer := o.answered(run); answer != "Fetched." {
+		t.Errorf("the request answered %q", answer)
+	}
+	look, err := e.Look(ctx, run)
+	if err != nil || len(look.Decisions) != 1 || fmt.Sprint(look.Decisions[0].Words) != "[{worker mate pass The held job is its own.} {person lee yes }]" {
+		t.Errorf("the decisions are %+v (%v)", look, err)
 	}
 }
 

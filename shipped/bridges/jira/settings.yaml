@@ -1,7 +1,0 @@
-# Jira's entry under bridges in office.yaml. site is the host of your Jira
-# Cloud, which JIRA_TOKEN is for; email is the account the token is of;
-# each place is a project, by its key, as OPS: { team: ops }.
-from: ./.bulldog/bridges/jira
-site: example.atlassian.net
-email: you@example.com
-places: {}

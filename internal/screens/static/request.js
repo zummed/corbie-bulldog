@@ -9,18 +9,22 @@ function argLine(args) {
   return Object.values(args).map((v) => typeof v === "string" ? v : JSON.stringify(v)).join(", ");
 }
 
-// used gives the tools and colleagues the lead used, as a small tree: each
-// call, what it was given, and how it ended.
+// calledList gives calls as a small tree: each call, what it was given,
+// how it ended, and under a colleague the tools it called.
+function calledList(calls) {
+  return el("ul", {class: "calls"}, calls.map((c) => el("li", {},
+    el("span", {class: "tool"}, c.tool),
+    el("span", {class: "arg"}, argLine(c.args)),
+    c.error ? el("span", {class: "bad", title: c.error}, "✗ failed")
+      : c.result !== undefined && c.result !== null ? el("span", {class: "ok"}, "✓")
+        : el("span", {class: "on"}, "…"),
+    c.calls ? calledList(c.calls) : null)));
+}
+
+// used gives the tools and colleagues the lead used.
 function used(calls, live) {
   if (!calls.length) return B.empty(live ? "Nothing used yet." : "No tools used.");
-  return el("div", {},
-    el("div", {class: "k"}, "Used"),
-    el("ul", {class: "calls"}, calls.map((c) => el("li", {},
-      el("span", {class: "tool"}, c.tool),
-      el("span", {class: "arg"}, argLine(c.args)),
-      c.error ? el("span", {class: "bad"}, "✗ failed")
-        : c.result !== undefined && c.result !== null ? el("span", {class: "ok"}, "✓")
-          : el("span", {class: "on"}, "…")))));
+  return el("div", {}, el("div", {class: "k"}, "Used"), calledList(calls));
 }
 
 // readPanel gives what the team read, folded: each decider's word and
@@ -30,9 +34,7 @@ function readPanel(v) {
   const decided = v.nodes.filter((n) => (n.stage === "heed" || n.stage === "check") && n.deciders && n.deciders.length);
   const show = (x) => typeof x === "string" ? x : JSON.stringify(x, null, 2);
   const parts = [
-    ...decided.map((n) => el("section", {},
-      el("div", {class: "k"}, STAGE[n.stage]),
-      B.notes(n.deciders.map((d) => ({by: {kind: d.kind, id: d.name, name: d.name}, says: d.says, note: d.note}))))),
+    ...decided.map((n) => el("section", {}, el("div", {class: "k"}, STAGE[n.stage]), B.decided(n.deciders))),
     r.turns && r.turns.length ? el("section", {}, el("div", {class: "k"}, "The lead's conversation"),
       el("ol", {class: "turns"}, r.turns.map((t) => el("li", {class: t.role}, el("span", {class: "role"}, t.role), el("p", {}, t.text))))) : null,
     r.calls && r.calls.length ? el("section", {}, el("div", {class: "k"}, "Calls"),
@@ -46,9 +48,9 @@ function readPanel(v) {
     el("div", {class: "read-body"}, parts.length ? parts : B.empty("Nothing read yet.")));
 }
 
-function answerOf(a) {
-  if (!a || a.text === null || a.text === undefined || a.text === "") return null;
-  return el("div", {class: "answer"}, el("span", {class: "k"}, "Answer"), el("p", {class: "answer-text"}, a.text));
+function answerOf(text) {
+  if (!text) return null;
+  return el("div", {class: "answer"}, el("span", {class: "k"}, "Answer"), el("p", {class: "answer-text"}, text));
 }
 
 function saidOf(src) {
@@ -67,7 +69,7 @@ function threadOf(v) {
   const form = v.canSay ? el("form", {class: "say-more", onsubmit: async (e) => {
     e.preventDefault();
     const out = await B.act(B.send("POST", "/api/requests/" + enc(v.id) + "/say", {said: say.value.trim()}), form);
-    if (out) location.hash = "#/requests/" + enc(out.id);
+    if (out) { B.starting.add(out.id); location.hash = "#/requests/" + enc(out.id); }
   }}, B.field("Say more", say), el("button", {class: "btn go", type: "submit"}, "Say")) : null;
   if (!others.length) return el("section", {class: "sect"}, form);
   return B.sect("Thread", thread.length,
@@ -82,8 +84,17 @@ function threadOf(v) {
     form);
 }
 
+// A request asked here is not there until Corbie has started its run, and
+// shows when its first change comes.
+const starting = () => el("div", {class: "page"}, el("div", {class: "head"},
+  el("h1", {}, "Starting the request"), el("p", {class: "muted"}, "It shows here once Corbie has started it.")));
+
 B.requestView = async function ([id], listed) {
-  const [v, list] = await Promise.all([B.api("/api/requests/" + enc(id)), listed]);
+  const [v, list] = await Promise.all([B.api("/api/requests/" + enc(id)).catch((err) => {
+    if (err.status === 404 && B.starting.has(id)) return null;
+    throw err;
+  }), listed]);
+  if (!v) return starting();
   const src = v.source;
   const sealed = v.read.sealed;
   const first = B.firstLine(src.said) || "(nothing said)";

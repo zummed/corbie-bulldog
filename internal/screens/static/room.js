@@ -100,27 +100,24 @@ B.drawing = function (d) {
 };
 
 // forkEl gives one fork of a request: its kind, the party, when, how it
-// stands, and, to those who may read it, the question and the answer; a
-// card under it when it waits on the one looking.
+// stands, and, to those who may read it, the question, or the held jobs
+// a decision is on, the answer, and what each decider said; a card under
+// it when it waits on the one looking, which says the same.
 B.forkEl = function (f, i) {
   const party = f.kind === "team" && f.request
     ? el("a", {class: "who", href: "#/requests/" + enc(f.request), title: "Open its request"},
       el("span", {class: "ic team", "aria-hidden": "true"}), el("span", {}, f.party.name + " ›"))
     : B.party(f.party, false);
-  const notes = f.notes && f.notes.length ? B.notes(f.notes) : null;
-  const jobs = f.jobs && f.jobs.length ? B.jobs(f.jobs) : null;
   return el("li", {class: "fork " + f.status},
     el("div", {class: "fork-head"},
       el("span", {class: "chip" + (f.status === "waiting" ? " wait" : "")}, f.kind),
       party,
       el("span", {class: "faint"}, B.span(f.at, f.ended)),
       B.status(f.status)),
-    f.question && !f.card ? el("p", {class: "fork-q"}, f.question) : null,
-    f.answer ? el("p", {class: "fork-a"}, f.answer) : null,
-    !f.card && (notes || jobs)
-      ? el("details", {class: "fork-more", "data-key": "fork-" + i},
-        el("summary", {}, [notes ? "notes" : "", jobs ? "held jobs" : ""].filter(Boolean).join(" and ")),
-        el("div", {class: "stack"}, notes, jobs))
-      : null,
-    f.card ? B.card(f.card, true) : null);
+    f.card ? B.card(f.card, true) : [
+      f.jobs ? el("p", {class: "fork-q mono"}, f.jobs.join(", ")) : null,
+      f.question ? el("p", {class: "fork-q"}, f.question) : null,
+      f.answer ? el("p", {class: "fork-a"}, f.answer) : null,
+      f.deciders ? el("details", {class: "fork-more", "data-key": "fork-" + i},
+        el("summary", {}, "notes"), B.decided(f.deciders)) : null]);
 };
